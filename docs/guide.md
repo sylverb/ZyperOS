@@ -623,7 +623,7 @@ Covers go over USB or Wi-Fi File Transfer too: drag a console's `.media` folder 
 
 Sign in under **MENU > Downloads > Settings > RetroAchievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
 
-While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, Dreamcast, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
+While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
 
 **MENU > Downloads > Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
 
@@ -651,7 +651,7 @@ for a Scraper run.
 
 In a game, **MENU** has an **Achievements** tab, one **L1** from Game: the game's list with your count and points on top, each achievement with its badge, its points (or its count while it moves) and, once you have it, the earned color. **A** opens one, and the list goes round. A game with no list says why there: not signed in, never played with Wi-Fi, on their way, none on RetroAchievements, or a system or kind of file ZyperOS cannot identify. The Game tab's Achievements row keeps the count, and **A** on it turns to the tab.
 
-**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
+**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. A Dreamcast game is identified by its `IP.BIN` and the boot program it names, from a `.gdi`, a `.cue`, a `.chd` or a `.cdi` alike. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
 
 <img src="../res/readme/cheevos-waiting.png" width="400" alt="A game's achievements list, its heading saying '3 / 36 · 2 waiting to send': two achievements earned offline, not sent yet">
 
@@ -1735,9 +1735,11 @@ playing.
 **Shuffle All** plays every song on the card in a random order.
 
 **Player Look** changes how Now Playing shows a song: **Cover**, the album's
-cover large, as it always was; **Classic**, a big clock over bars that move
-with the music, and the album's tracks beside it; **Spectrum**, the music as
-32 bars across the screen under the cover. A on it opens the list, with the
+cover large, as it always was; **Cassette**, a tape whose reels turn with the
+song through its window, the next song rewinding it, the label in the
+cover's color; **Classic**, a big clock over bars that move with the music,
+and the album's tracks beside it; **Spectrum**, the music as 32 bars across
+the screen under the cover. A on it opens the list, with the
 look under the cursor playing in a small screen beside it; Left and Right
 change it straight away. Paused, the bars come to rest. Books and videos
 keep their own screen.

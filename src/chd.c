@@ -27,6 +27,8 @@
 #define META_CHT2 FOURCC('C', 'H', 'T', '2')
 #define META_CHTR FOURCC('C', 'H', 'T', 'R')
 #define META_CHCD FOURCC('C', 'H', 'C', 'D')
+#define META_CHGD FOURCC('C', 'H', 'G', 'D')   /* a GD-ROM's track */
+#define META_CHGT FOURCC('C', 'H', 'G', 'T')   /* the same, older */
 
 #define CD_FRAME  2448          /* a CD frame in a CHD: the sector, then subcode */
 #define CD_SECTOR 2352
@@ -712,6 +714,75 @@ bool chd_cd_track1(chd *c, uint32_t *start, uint32_t *frames, uint32_t *datasize
 	*start = pgtype[0] == 'V' && pregap > 0 ? (uint32_t)pregap : 0;
 	*frames = (uint32_t)nframes;
 	return true;
+}
+
+/* The idx'th track's line, by each form chdstream_get_meta tries at that
+ * index, in its order: CHT2, CHTR, CHGD (and Flycast's CHGT) */
+static bool track_meta(chd *c, int idx, int *track, char *type, int *frames,
+                       int *pregap, char *pgtype)
+{
+	char *m, sub[32], pgsub[32];
+	int pad = 0, postgap = 0, got = 0;
+
+	*track = 0; *frames = 0; *pregap = 0;
+	type[0] = pgtype[0] = '\0';
+	if ((m = meta(c, META_CHT2, idx, NULL))) {
+		got = sscanf(m, "TRACK:%d TYPE:%31s SUBTYPE:%31s FRAMES:%d PREGAP:%d PGTYPE:%31s "
+		                "PGSUB:%31s POSTGAP:%d", track, type, sub, frames, pregap,
+		             pgtype, pgsub, &postgap);
+	} else if ((m = meta(c, META_CHTR, idx, NULL))) {
+		got = sscanf(m, "TRACK:%d TYPE:%31s SUBTYPE:%31s FRAMES:%d", track, type, sub, frames);
+	} else if ((m = meta(c, META_CHGD, idx, NULL)) || (m = meta(c, META_CHGT, idx, NULL))) {
+		got = sscanf(m, "TRACK:%d TYPE:%31s SUBTYPE:%31s FRAMES:%d PAD:%d PREGAP:%d "
+		                "PGTYPE:%31s PGSUB:%31s POSTGAP:%d", track, type, sub, frames, &pad,
+		             pregap, pgtype, pgsub, &postgap);
+	} else {
+		return false;
+	}
+	free(m);
+	return got >= 4 && *frames > 0;
+}
+
+bool chd_cd_track(chd *c, int want, chd_track *t)
+{
+	char type[32], pgtype[32];
+	uint64_t at = 0, lba = 0;
+	int idx, number, frames, pregap;
+	chd_track last = { 0 };
+	bool have_last = false;
+
+	if (!c || !t) return false;
+	/* 99 is a CD's most; a GD-ROM has fewer */
+	for (idx = 0; idx < 99 && track_meta(c, idx, &number, type, &frames, &pregap, pgtype); idx++) {
+		chd_track here;
+		/* a pregap whose sectors are in the image comes first, and the
+		 * track's own sectors start after it, as chdstream_open starts the
+		 * track there */
+		uint32_t pg = pgtype[0] == 'V' && pregap > 0 && pregap < frames ? (uint32_t)pregap : 0;
+
+		here.number = number;
+		here.audio = !strcmp(type, "AUDIO");
+		here.datasize = track_datasize(type);
+		here.start = (uint32_t)(at + pg);
+		here.frames = (uint32_t)frames - pg;
+		here.lba = (uint32_t)lba;
+		if (here.datasize && (want == number ||
+		                      (want == CHD_TRACK_FIRST_DATA && !here.audio))) {
+			*t = here;
+			return true;
+		}
+		last = here;
+		have_last = here.datasize != 0;
+		/* chdman stores each track padded to a multiple of 4 frames */
+		at += ((uint64_t)frames + 3) / 4 * 4;
+		lba += (uint64_t)frames;
+		if (at > UINT32_MAX || lba > UINT32_MAX) return false;
+	}
+	if (want == CHD_TRACK_LAST && have_last) {
+		*t = last;
+		return true;
+	}
+	return false;
 }
 
 /* -------------------------------------------------------------- open ----- */

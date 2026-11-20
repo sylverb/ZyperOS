@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "chd.h"
+
 /* A disc image read as the plain bytes it stands for, whatever holds them:
  * so src/rahash.c's ISO 9660 walk, written for a .bin or an .iso, reads a
  * .chd, a .cso or a PlayStation .pbp the same way, a few sectors at a time
@@ -16,6 +18,10 @@
  *                        sector's bytes (2352 raw, 2048 cooked) one after
  *                        another. That is what libretro's CHD reader hands
  *                        rcheevos in RetroArch, so the hash is the .bin's.
+ *   disc_open_chd_track  any track of a CD or GD-ROM CHD the same way, where
+ *                        chd_cd_track finds it (the first data track, the
+ *                        last, or one by number); *info says which it was
+ *                        and the disc sector it starts at
  *   disc_open_chd_2048   any CHD as 2048-byte blocks, the first 2048 bytes of
  *                        each unit: PPSSPP's own rule for a PSP CHD
  *                        (CHDFileBlockDevice), so a DVD image and a cooked CD
@@ -36,6 +42,7 @@ typedef struct disc disc;
 
 disc *disc_open_file(const char *path);
 disc *disc_open_chd_cd(const char *path);
+disc *disc_open_chd_track(const char *path, int want, chd_track *info);
 disc *disc_open_chd_2048(const char *path);
 disc *disc_open_cso(const char *path);
 disc *disc_open_pbp_psx(const char *path);

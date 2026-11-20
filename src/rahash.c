@@ -378,6 +378,8 @@ typedef struct {
 	long  hdr;       /* bytes before the 2048 of data: 24, 16, 8 or 0 */
 	long  first;     /* the disc sector the file's first sector is */
 	long  offset;    /* where track 1 starts in the file */
+	long  count;     /* the track's sectors, where it ends before the file
+	                  * does (a Dreamcast .cdi's); 0 reads to the end */
 } psx_track;
 
 static uint32_t rd24(const unsigned char *p)
@@ -390,6 +392,7 @@ static int bcd(unsigned char b) { return (b >> 4) * 10 + (b & 15); }
 static size_t psx_read(psx_track *t, long sector, void *buf, size_t n)
 {
 	if (sector < t->first) return 0;
+	if (t->count && sector - t->first >= t->count) return 0;
 	if (n > 2048) n = 2048;
 	return disc_read(t->f, (uint64_t)(sector - t->first) * (uint64_t)t->ss +
 	                 (uint64_t)t->hdr + (uint64_t)t->offset, buf, n);
@@ -671,14 +674,16 @@ static bool ra_hash_psx(const char *path, char *out)
  * That is the one hash here that reads a file to its end; up to 1.8 GB, it
  * goes through 64 KB at a time and, on Linux, tells the kernel to drop what
  * it has read, so the game's own reads keep the page cache. */
-static bool psp_add_file(psx_track *t, md5_ctx *m, const char *name)
+
+/* rcheevos's rc_hash_cd_file: `size` bytes of the file at `sector`, capped
+ * at 64 MB, its first sector whole or not at all */
+static bool cd_add_file(psx_track *t, md5_ctx *m, uint32_t sector, uint32_t size)
 {
 	unsigned char buf[2048];
-	uint32_t size = 0, sector = psx_find(t, name, &size);
 	size_t got;
 
 	if (!sector) return false;
-	/* rc_hash_cd_file: the file's first sector must read whole */
+	/* the file's first sector must read whole */
 	if (psx_read(t, (long)sector, buf, sizeof buf) < sizeof buf) return false;
 	if (size > 64u * 1024 * 1024) size = 64u * 1024 * 1024;
 	got = sizeof buf;
@@ -692,6 +697,13 @@ static bool psp_add_file(psx_track *t, md5_ctx *m, const char *name)
 		if (!got) break;
 	}
 	return true;
+}
+
+static bool psp_add_file(psx_track *t, md5_ctx *m, const char *name)
+{
+	uint32_t size = 0, sector = psx_find(t, name, &size);
+
+	return sector && cd_add_file(t, m, sector, size);
 }
 
 static bool hash_whole_file(const char *path, char *out)
@@ -739,6 +751,456 @@ static bool ra_hash_psp(const char *path, char *out)
 	return ok;
 }
 
+/* ------------------------------------------------------- Dreamcast ---- */
+
+/* A Dreamcast disc is hashed by its IP.BIN and its boot file: rcheevos's
+ * rc_hash_dreamcast (hash_disc.c, f1417fb). The md5 of the first 256 bytes
+ * of track 3 - the GD-ROM's high-density area, which starts with IP.BIN's
+ * "SEGA SEGAKATANA " - or, where track 3 is not that (a MIL-CD, as a .cdi
+ * usually is), of the first data track's; then of the file IP.BIN names at
+ * byte 96 (1ST_READ.BIN on most games), as long as its directory says and
+ * capped at 64 MB, read from that track, or from the disc's last track when
+ * the file's first sector is past that track's end.
+ *
+ * The file system counts the disc's own sectors - a GD-ROM's track 3 is
+ * sector 45000 - so what matters in each container is where it puts a track:
+ *
+ *   .gdi  the line's LBA: rcheevos's own reader, cdreader_open_gdi_track
+ *   .cue  rcheevos's own reader too, cdreader_open_cue_track: the sheet's
+ *         positions, then a raw sector's own header for where it is
+ *   .chd  RetroArch's CHD reader (libretro-common's chdstream and cdfs):
+ *         the frames of every track before it (chd_cd_track)
+ *   .cdi  DiscJuggler's track list as Flycast reads it (imgread/cdi.cpp):
+ *         the standalone Flycast's own RetroAchievements client hashes
+ *         through that reader, and RetroArch reads no .cdi
+ *
+ * All four come to the disc's sectors, so a game hashes the same from any
+ * of them. Until 2026-11-19 every Dreamcast disc was refused here unread
+ * (refused_by_name), so no Dreamcast game ever had a set, on a first play or
+ * from MENU > Achievements' Download: found on the 1.1.0 test card, whose
+ * two .chd games and one .cdi all said "not for this system". */
+#define DC_FIRST_DATA CHD_TRACK_FIRST_DATA
+#define DC_LAST       CHD_TRACK_LAST
+
+static const unsigned char cd_sync[12] = {
+	0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00
+};
+
+/* 32 bytes of sector `sector`, `size` bytes a sector from `off` */
+static bool dc_peek(disc *f, long off, long sector, long size, unsigned char *h)
+{
+	return disc_read(f, (uint64_t)off + (uint64_t)sector * (uint64_t)size, h, 32) == 32;
+}
+
+static long dc_msf(const unsigned char *h)
+{
+	return (bcd(h[12]) * 60 + bcd(h[13])) * 75 + bcd(h[14]) - 150;
+}
+
+/* Track `want` of a .gdi, rcheevos's cdreader_open_gdi_track: the first line
+ * is the count, each one after it "<track> <lba> <type> <sector size>
+ * <file> <offset>", the file in quotes when it has spaces; type 4 is data.
+ * The sector size is the file's own (psx_sense, rcheevos's
+ * cdreader_determine_sector_size), else the line's, as "MODE1/<size>". */
+static bool dc_gdi_track(const char *path, int want, psx_track *t)
+{
+	FILE *f = fopen(path, "r");
+	char line[1024], file[512] = "", bin[1024];
+	long lba = 0, size = 0;
+	bool found = false;
+
+	if (!f) return false;
+	if (!fgets(line, sizeof line, f)) { fclose(f); return false; }
+	if (want == DC_LAST) want = atoi(line);
+	while (!found && fgets(line, sizeof line, f)) {
+		char *p = line, *q;
+		long num, l, type, ss;
+
+		num = strtol(p, &q, 10);
+		if (q == p) continue;
+		l = strtol(q, &p, 10);
+		type = strtol(p, &q, 10);
+		ss = strtol(q, &p, 10);
+		while (isspace((unsigned char)*p)) p++;
+		if (*p == '"') {
+			q = strchr(++p, '"');
+			if (!q) continue;
+		} else {
+			for (q = p; *q && !isspace((unsigned char)*q); q++) ;
+		}
+		if (want == DC_FIRST_DATA ? type != 4 : num != want) continue;
+		snprintf(file, sizeof file, "%.*s", (int)(q - p), p);
+		lba = l;
+		size = ss;
+		found = true;
+	}
+	fclose(f);
+	if (!found || !file[0]) return false;
+	sibling(path, file, bin, sizeof bin);
+	if (!(t->f = disc_open_file(bin))) return false;
+	if (!psx_sense(t)) {
+		if (size == 2352) { t->ss = 2352; t->hdr = 16; }
+		else if (size == 2048) { t->ss = 2048; t->hdr = 0; }
+		else { disc_close(t->f); t->f = NULL; return false; }
+	}
+	t->first = lba;
+	return true;
+}
+
+/* A track as a .cue sheet places it, in rcheevos's terms */
+typedef struct {
+	int id, first, pregap, count;
+	long ss, file_off, file_first;
+	bool data;
+	char mode[16], file[512];
+} dc_cue;
+
+static long file_bytes(const char *path)
+{
+	FILE *f = fopen(path, "rb");
+	long n = 0;
+
+	if (f && fseek(f, 0, SEEK_END) == 0) n = ftell(f);
+	if (f) fclose(f);
+	return n > 0 ? n : 0;
+}
+
+/* Track `want` of a .cue, rcheevos's cdreader_open_cue_track: the FILE that
+ * holds it, where in that file it starts (the file's tracks before it), its
+ * pregap (INDEX 00 to 01) and the disc sector the sheet puts it at (the
+ * files before it, each as long as it is). A raw track's own sector header
+ * then says where it is, as rcheevos lets it. */
+static bool dc_cue_track(const char *path, int want, psx_track *t)
+{
+	FILE *f = fopen(path, "r");
+	char line[1024], bin[1024];
+	unsigned char h[32];
+	dc_cue cur, prev;
+	bool done = false;
+	long pregap, first, off;
+
+	if (!f) return false;
+	memset(&cur, 0, sizeof cur);
+	memset(&prev, 0, sizeof prev);
+	while (!done && fgets(line, sizeof line, f)) {
+		char *p = line;
+
+		while (*p == ' ' || *p == '\t') p++;
+		if (!strncasecmp(p, "INDEX ", 6)) {
+			int idx = atoi(p + 6), m = 0, sec = 0, fr = 0, at;
+
+			for (p += 6; *p == ' '; p++) ;
+			while (*p && *p != ' ' && *p != '\n') p++;
+			while (*p == ' ') p++;
+			sscanf(p, "%d:%d:%d", &m, &sec, &fr);
+			at = (m * 60 + sec) * 75 + fr;
+			if (cur.first == -1) {
+				cur.first = at;
+				if (!strcmp(cur.file, prev.file)) {
+					prev.count = cur.first - prev.first;
+					cur.file_off += (long)prev.count * prev.ss;
+				}
+			}
+			if (idx == 1) {
+				cur.pregap = at - cur.first;
+				if (cur.id == want || (want == DC_FIRST_DATA && cur.data)) {
+					want = cur.id;
+					done = true;
+				}
+			}
+		} else if (!strncasecmp(p, "TRACK ", 6)) {
+			if (cur.ss) prev = cur;
+			p += 6;
+			cur.id = atoi(p);
+			cur.pregap = -1;
+			cur.first = -1;
+			while (*p && *p != ' ') p++;
+			while (*p == ' ') p++;
+			memset(cur.mode, 0, sizeof cur.mode);
+			snprintf(cur.mode, sizeof cur.mode, "%.*s", (int)strcspn(p, " \t\r\n"), p);
+			cur.data = !strncmp(cur.mode, "MODE", 4);
+			cur.ss = cur.data ? atol(cur.mode + 6) : 2352;
+		} else if (!strncasecmp(p, "FILE ", 5)) {
+			char *q;
+
+			if (cur.ss) {
+				prev = cur;
+				if (prev.count == 0 && prev.ss > 0) {
+					char pb[1024];
+
+					sibling(path, prev.file, pb, sizeof pb);
+					prev.count = (int)(file_bytes(pb) / prev.ss) - prev.first;
+				}
+			}
+			memset(&cur, 0, sizeof cur);
+			cur.file_first = prev.file_first + prev.first + prev.count;
+			for (p += 5; *p == ' '; p++) ;
+			if (*p == '"') {
+				q = strchr(++p, '"');
+				if (!q) q = p + strcspn(p, "\r\n");
+			} else {
+				q = p + strcspn(p, " \t\r\n");
+			}
+			snprintf(cur.file, sizeof cur.file, "%.*s", (int)(q - p), p);
+		}
+	}
+	fclose(f);
+	if (want == DC_LAST && !done) want = cur.id;
+	if (!cur.id || cur.id != want || !cur.file[0]) return false;
+
+	sibling(path, cur.file, bin, sizeof bin);
+	if (!(t->f = disc_open_file(bin))) return false;
+	pregap = cur.pregap > 0 ? cur.pregap : 0;
+	first = cur.file_first + cur.first;
+	off = cur.file_off;
+	/* cdreader_determine_sector_size, at sector 16 past the pregap */
+	if (!dc_peek(t->f, off, 16 + pregap, 2352, h)) {
+		t->ss = 0;
+	} else if (!memcmp(h, cd_sync, 12)) {
+		t->ss = 2352;
+		t->hdr = memcmp(h + 25, "CD001", 5) ? 16 : 24;
+		first = dc_msf(h) - 16 - pregap;
+	} else if (dc_peek(t->f, off, 16 + pregap, 2336, h) && !memcmp(h, cd_sync, 12)) {
+		t->ss = 2336;
+		t->hdr = memcmp(h + 25, "CD001", 5) ? 16 : 24;
+		first = dc_msf(h) - 16 - pregap;
+	} else if (dc_peek(t->f, off, 16 + pregap, 2048, h) && !memcmp(h + 1, "CD001", 5)) {
+		t->ss = 2048;
+		t->hdr = 0;
+	} else {
+		t->ss = 0;
+	}
+	if (!t->ss) {
+		/* the sheet's own word for it, cdreader_open_bin */
+		if (!strncmp(cur.mode, "MODE2/2352", 10))      { t->ss = 2352; t->hdr = 24; }
+		else if (!strncmp(cur.mode, "MODE1/2048", 10)) { t->ss = 2048; t->hdr = 0; }
+		else if (!strncmp(cur.mode, "MODE2/2336", 10)) { t->ss = 2336; t->hdr = 8; }
+		else if (!strncmp(cur.mode, "MODE1/2352", 10)) { t->ss = 2352; t->hdr = 16; }
+		else if (!strncmp(cur.mode, "AUDIO", 5))       { t->ss = 2352; t->hdr = 0; }
+		else { disc_close(t->f); t->f = NULL; return false; }
+	}
+	/* From the end of the pregap, so the walk's sector 16 is the track's */
+	t->first = first + pregap;
+	t->offset = off + pregap * t->ss;
+	return true;
+}
+
+/* Track `want` of a .chd, where RetroArch's CHD reader puts it
+ * (chd_cd_track). Its header is libretro-common's cdfs_determine_sector_size:
+ * "CD001" 25 bytes into sector 16 is Mode 2, anything else on a raw track
+ * Mode 1. */
+static bool dc_chd_track(const char *path, int want, psx_track *t)
+{
+	unsigned char h[32];
+	chd_track ti;
+
+	if (!(t->f = disc_open_chd_track(path, want, &ti))) return false;
+	t->ss = (long)ti.datasize;
+	t->first = (long)ti.lba;
+	t->count = (long)ti.frames;
+	if (ti.datasize == 2352)
+		t->hdr = disc_read(t->f, 16 * 2352, h, sizeof h) == sizeof h &&
+		         !memcmp(h + 25, "CD001", 5) ? 24 : 16;
+	else
+		t->hdr = ti.datasize == 2336 ? 8 : 0;
+	return true;
+}
+
+/* A DiscJuggler .cdi, as Flycast reads one (imgread/cdi.cpp and its
+ * deps/chdpsr): the file's last 8 bytes are the version and where the
+ * descriptor starts (counted back from the end for version 3.5), which lists
+ * each session's tracks - mode (0 audio, 1 Mode 1, 2 Mode 2), sector size,
+ * pregap, length, first sector and length in the file - and the file holds
+ * the tracks one after another, pregaps and all. Flycast's track starts at
+ * its sector plus its pregap, counted from -150, as a disc's are. */
+#define CDI_V2  0x80000004u
+#define CDI_V3  0x80000005u
+#define CDI_V35 0x80000006u
+#define CDI_DESC_MAX (1u << 20)
+
+typedef struct {
+	const unsigned char *p;
+	size_t n, at;
+	bool bad;
+} cdi_cur;
+
+static void cdi_skip(cdi_cur *c, size_t k)
+{
+	if (c->bad || k > c->n - c->at) { c->bad = true; c->at = c->n; return; }
+	c->at += k;
+}
+
+static uint32_t cdi_get(cdi_cur *c, size_t k)
+{
+	uint32_t v = 0;
+	size_t i;
+
+	if (c->bad || k > c->n - c->at) { c->bad = true; c->at = c->n; return 0; }
+	for (i = 0; i < k; i++) v |= (uint32_t)c->p[c->at + i] << (8 * i);
+	c->at += k;
+	return v;
+}
+
+typedef struct {
+	uint32_t mode, ss, pregap, length, lba, total;
+	uint64_t pos;
+} cdi_trk;
+
+/* One track's entry, cdipsr's CDI_read_track */
+static bool cdi_entry(cdi_cur *c, uint32_t version, cdi_trk *tr)
+{
+	static const unsigned char mark[10] = { 0, 0, 1, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF };
+	uint32_t size_code;
+
+	if (cdi_get(c, 4)) cdi_skip(c, 8);
+	if (c->bad || c->n - c->at < 20 || memcmp(c->p + c->at, mark, 10) ||
+	    memcmp(c->p + c->at + 10, mark, 10))
+		return false;
+	cdi_skip(c, 20 + 4);
+	cdi_skip(c, cdi_get(c, 1));               /* the file name */
+	cdi_skip(c, 11 + 4 + 4);
+	if (cdi_get(c, 4) == 0x80000000u) cdi_skip(c, 8);
+	cdi_skip(c, 2);
+	tr->pregap = cdi_get(c, 4);
+	tr->length = cdi_get(c, 4);
+	cdi_skip(c, 6);
+	tr->mode = cdi_get(c, 4);
+	cdi_skip(c, 12);
+	tr->lba = cdi_get(c, 4);
+	tr->total = cdi_get(c, 4);
+	cdi_skip(c, 16);
+	size_code = cdi_get(c, 4);
+	tr->ss = size_code == 0 ? 2048 : size_code == 1 ? 2336 : size_code == 2 ? 2352 :
+	         size_code == 4 ? 2448 : 0;
+	cdi_skip(c, 29);
+	if (version != CDI_V2) {
+		cdi_skip(c, 5);
+		if (cdi_get(c, 4) == 0xFFFFFFFFu) cdi_skip(c, 78);
+	}
+	return !c->bad;
+}
+
+static bool dc_cdi_track(const char *path, int want, psx_track *t)
+{
+	disc *f = disc_open_file(path);
+	unsigned char tail[8], *desc = NULL, h[32];
+	uint64_t size, start, pos = 0;
+	uint32_t version, hoff, sessions, s, k, n = 0;
+	cdi_trk tr, pick;
+	cdi_cur c;
+	bool found = false;
+
+	if (!f) return false;
+	size = disc_size(f);
+	if (size < 8 || disc_read(f, size - 8, tail, 8) != 8) goto fail;
+	version = rd32(tail);
+	hoff = rd32(tail + 4);
+	if ((version != CDI_V2 && version != CDI_V3 && version != CDI_V35) || !hoff) goto fail;
+	start = version == CDI_V35 ? size - hoff : hoff;
+	if (hoff > size || start >= size || size - start > CDI_DESC_MAX) goto fail;
+	if (!(desc = malloc((size_t)(size - start)))) goto fail;
+	if (disc_read(f, start, desc, (size_t)(size - start)) != size - start) goto fail;
+	c.p = desc;
+	c.n = (size_t)(size - start);
+	c.at = 0;
+	c.bad = false;
+
+	sessions = cdi_get(&c, 2);
+	for (s = 0; s < sessions && !c.bad; s++) {
+		uint32_t tracks = cdi_get(&c, 2);
+
+		for (k = 0; k < tracks; k++) {
+			if (!cdi_entry(&c, version, &tr) || !tr.ss) goto fail;
+			tr.pos = pos;
+			n++;
+			if (!found && ((want > 0 && (uint32_t)want == n) ||
+			               (want == DC_FIRST_DATA && tr.mode != 0))) {
+				pick = tr;
+				found = true;
+			}
+			if (want == DC_LAST) { pick = tr; found = true; }
+			/* where the next track is; a cut-short one's total is bytes
+			 * there, as Flycast takes it */
+			if ((uint64_t)tr.total < (uint64_t)tr.length + tr.pregap)
+				pos += tr.total;
+			else
+				pos += (uint64_t)tr.total * tr.ss;
+		}
+		cdi_skip(&c, 4 + 8 + (version != CDI_V2 ? 1 : 0));
+	}
+	free(desc);
+	desc = NULL;
+	if (!found || c.bad) goto fail;
+
+	t->f = f;
+	t->ss = (long)pick.ss;
+	t->offset = (long)(pick.pos + (uint64_t)pick.pregap * pick.ss);
+	t->first = (long)pick.lba + (long)pick.pregap - 150;
+	t->count = (long)pick.length;
+	/* Flycast's ConvertSector: a raw sector's mode byte says where its 2048
+	 * are; 2336 bytes are Mode 2's, past their 8-byte subheader */
+	if (pick.ss == 2352 || pick.ss == 2448)
+		t->hdr = disc_read(f, (uint64_t)t->offset + 16u * pick.ss, h, 16) == 16 &&
+		         h[15] == 1 ? 16 : 24;
+	else
+		t->hdr = pick.ss == 2336 ? 8 : 0;
+	return true;
+
+fail:
+	free(desc);
+	disc_close(f);
+	return false;
+}
+
+static bool dc_open(const char *path, int want, psx_track *t)
+{
+	memset(t, 0, sizeof *t);
+	if (has_ext(path, "gdi")) return dc_gdi_track(path, want, t);
+	if (has_ext(path, "cue")) return dc_cue_track(path, want, t);
+	if (has_ext(path, "chd")) return dc_chd_track(path, want, t);
+	if (has_ext(path, "cdi")) return dc_cdi_track(path, want, t);
+	return false;
+}
+
+static bool ra_hash_dc(const char *path, char *out)
+{
+	static const char katana[] = "SEGA SEGAKATANA ";
+	unsigned char ip[256], probe[1];
+	char exe[17];
+	psx_track t;
+	uint32_t sector, size = 0;
+	md5_ctx m;
+	int n;
+	bool ok;
+
+	memset(ip, 0, sizeof ip);
+	if (dc_open(path, 3, &t)) psx_read(&t, t.first, ip, sizeof ip);
+	if (memcmp(ip, katana, 16)) {
+		disc_close(t.f);
+		if (!dc_open(path, DC_FIRST_DATA, &t)) return false;
+		psx_read(&t, t.first, ip, sizeof ip);
+		if (memcmp(ip, katana, 16)) { disc_close(t.f); return false; }
+	}
+	md5_init(&m);
+	md5_update(&m, ip, sizeof ip);
+
+	/* The boot file's name, up to a space, 16 bytes at most */
+	for (n = 0; n < 16 && !isspace(ip[96 + n]); n++) ;
+	if (!n) { disc_close(t.f); return false; }
+	memcpy(exe, ip + 96, (size_t)n);
+	exe[n] = '\0';
+	sector = psx_find(&t, exe, &size);
+	if (!sector) { disc_close(t.f); return false; }
+	if (!psx_read(&t, (long)sector, probe, sizeof probe)) {
+		disc_close(t.f);
+		if (!dc_open(path, DC_LAST, &t)) return false;
+	}
+	ok = cd_add_file(&t, &m, sector, size);
+	disc_close(t.f);
+	if (ok) md5_hex(&m, out);
+	return ok;
+}
+
 void ra_md5_hex(const void *data, size_t len, char *out)
 {
 	md5_ctx m;
@@ -751,10 +1213,11 @@ void ra_md5_hex(const void *data, size_t len, char *out)
 /* What ra_hash_rom refuses by the file's name, before it opens it: a disc it
  * has no walk for. The PlayStation's walk reads a .cue (and an .m3u's first
  * disc), a bare .bin, .iso or .img, a .chd and a .pbp (ra_hash_psx); the
- * PSP's an .iso, .cso, .chd or .pbp (ra_hash_psp); an arcade set is hashed by
- * its name, whatever the file is.
+ * PSP's an .iso, .cso, .chd or .pbp (ra_hash_psp); the Dreamcast's a .gdi,
+ * .cue, .chd or .cdi (ra_hash_dc); an arcade set is hashed by its name,
+ * whatever the file is.
  *
- * Any other system's disc is refused UNREAD. Only those two have a walk
+ * Any other system's disc is refused UNREAD. Only those three have a walk
  * here, and the cartridge path reads a file whole: a Sega CD or Neo Geo CD
  * .chd is 100 to 430 MB, which on the Pixel 2's 1 GB, beside the game that
  * is running, is the whole problem, for a hash of the container that no game
@@ -770,6 +1233,9 @@ static bool refused_by_name(const char *tag, const char *path)
 	if (!strcmp(tag, "PSP"))
 		return !has_ext(path, "iso") && !has_ext(path, "cso") &&
 		       !has_ext(path, "chd") && !has_ext(path, "pbp");
+	if (!strcmp(tag, "DC"))
+		return !has_ext(path, "gdi") && !has_ext(path, "cue") &&
+		       !has_ext(path, "chd") && !has_ext(path, "cdi");
 	if (!strcmp(tag, "ARCADE") || !strcmp(tag, "NEOGEO") || !strcmp(tag, "MAME"))
 		return false;
 	return is_disc_image(path);
@@ -888,6 +1354,7 @@ bool ra_hash_rom(const char *path, const char *tag, char *out)
 	/* Before anything reads the file: a disc is hashed by what is on it. */
 	if (!strcmp(tag, "PS1")) return ra_hash_psx(path, out);
 	if (!strcmp(tag, "PSP")) return ra_hash_psp(path, out);
+	if (!strcmp(tag, "DC"))  return ra_hash_dc(path, out);
 
 	/* An arcade set is hashed by its NAME, rcheevos's rc_hash_arcade: md5 of
 	 * "mslug" for mslug.zip. The chips inside are FinalBurn Neo's to check,

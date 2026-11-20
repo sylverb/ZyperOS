@@ -1,5 +1,17 @@
 {
  "chd": {
+  "dc-gd.chd": {
+   "codecs": "cdlz (CD LZMA), cdzl (CD Deflate), cdfl (CD FLAC)",
+   "hash": "699c679762ec90c4e8a9b4138a670351",
+   "md5": "de5f727719776379cc3e5e27e9bcc015",
+   "system": "DC"
+  },
+  "dc-split.chd": {
+   "codecs": "cdlz (CD LZMA), cdzl (CD Deflate), cdfl (CD FLAC)",
+   "hash": "699c679762ec90c4e8a9b4138a670351",
+   "md5": "358bd0dc2ad8fbf5268ed2d159c88c68",
+   "system": "DC"
+  },
   "ps1-cd.chd": {
    "codecs": "cdlz (CD LZMA), cdzl (CD Deflate), cdfl (CD FLAC)",
    "hash": "50d0eb3f638681bc112b1be5dc1c50d1",
@@ -44,6 +56,9 @@
   }
  },
  "hashes": {
+  "dc": "699c679762ec90c4e8a9b4138a670351",
+  "dccdi": "bf68abc1d622eb4349bfb8be52dbf3cd",
+  "dcsplit": "699c679762ec90c4e8a9b4138a670351",
   "ps1": "50d0eb3f638681bc112b1be5dc1c50d1",
   "ps1sub": "d45afc23a37ad4f82b01e51ca8aa2143",
   "psn": "8a36415c56c375f890b837a4402b854b",
@@ -51,7 +66,25 @@
  },
  "made_with": "chdman - MAME Compressed Hunks of Data (CHD) manager 0.289 (unknown)",
  "reference": "upstream rcheevos rc_hash_generate_from_file, default cdreader",
+ "reference_cdi": "the same through Flycast's cdipsr.cpp and its achievements.cpp reader hooks",
  "sources": {
+  "dc.cdi": "fb9878292e4eb9b5354887aa65f826ba",
+  "dc/Disc (Track 1).bin": "0480826a6098bb67f7ef14ef584a28fd",
+  "dc/Disc (Track 2).bin": "9a6c70bd7f00e4519df52be3c2226273",
+  "dc/Disc (Track 3).bin": "c6e720664065389f7180483a3c69bbc4",
+  "dc/track01.bin": "0480826a6098bb67f7ef14ef584a28fd",
+  "dc/track02.raw": "de7a6fc971424e081cf65958a6c9050a",
+  "dc/track03.bin": "c6e720664065389f7180483a3c69bbc4",
+  "dcsplit/Disc (Track 1).bin": "0480826a6098bb67f7ef14ef584a28fd",
+  "dcsplit/Disc (Track 2).bin": "9a6c70bd7f00e4519df52be3c2226273",
+  "dcsplit/Disc (Track 3).bin": "40ba8520e84d22a3b220b8143ccf21c8",
+  "dcsplit/Disc (Track 4).bin": "f5464031aa1a1048932525df272cd354",
+  "dcsplit/Disc (Track 5).bin": "305f9d84bd8718ab222b7a99954a01a7",
+  "dcsplit/track01.bin": "0480826a6098bb67f7ef14ef584a28fd",
+  "dcsplit/track02.raw": "de7a6fc971424e081cf65958a6c9050a",
+  "dcsplit/track03.bin": "40ba8520e84d22a3b220b8143ccf21c8",
+  "dcsplit/track04.raw": "9025416f537e6c538d104908fa6458d4",
+  "dcsplit/track05.bin": "305f9d84bd8718ab222b7a99954a01a7",
   "ps1.bin": "26eb225519d9f1359a4dff8cbe2febab",
   "ps1sub.bin": "4f02f67a382af40e31d105925f94d78b",
   "psn.pbp": "8a36415c56c375f890b837a4402b854b",
