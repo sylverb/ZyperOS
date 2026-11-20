@@ -6189,6 +6189,17 @@ screen, MP4 playing on; Cancel, B or the mode on change nothing. The **Next
 Display** hotkey over it asks the same for the next mode, with no menu
 (`--display`). launch.sh does the start again (`port_quit`, src/portmenu.h).
 
+**Over the picture**, as over a Diatom game: the **low-battery disc**
+(11.24's red disc, 34 px in from the top right, blinking at critical) at
+each battery reading, and **On-Screen Stats** (11.52) while the player has it
+on, the line in their corner and style: FPS the frames PICO-8 puts on the
+panel, counted at each vertical blank as `px2-shot --fps` counts them, and
+Speed left out, as PICO-8 says nothing of it. portkeys draws both on the
+panel's cursor window with the volume bar and "Getting hot", in one frame
+(tools/pkover.h), and keeps PICO-8's display borrowed while they show (only
+over your PICO-8, whose script opens its display once). On-Screen Stats is
+turned on in a Diatom game's menu; the menu over PICO-8 has no row for it.
+
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
 and its favourites stay in `Saves/PICO-8`. *(Favourites stay in Splore.)*

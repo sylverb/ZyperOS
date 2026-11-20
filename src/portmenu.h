@@ -83,6 +83,16 @@ static inline bool port_menu_display(const char *tag)
 {
 	return tag && !strcmp(tag, "PICO8");
 }
+/* Of those, the programs portkeys draws the low-battery disc and On-Screen
+ * Stats over, as Diatom draws them over a game: your PICO-8. Both stay up,
+ * so portkeys keeps a copy of the program's display for as long as they
+ * show, and its master with it; PICO-8.sh execs pico8_64, which opens its
+ * display once, where a port's script can start one program after another,
+ * each wanting the master (tools/portkeys.c, "the disc and the stats line") */
+static inline bool port_menu_overlays(const char *tag)
+{
+	return tag && !strcmp(tag, "PICO8");
+}
 /* One line, the display.<TAG> word to start again in, written whole */
 #define PORT_RESTART_FILE  "/tmp/zyperos_port_restart"
 /* After the tag and the game: the Next Display hotkey over your PICO-8
