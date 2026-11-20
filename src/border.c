@@ -49,6 +49,32 @@ void border_key(const char *tag, char *out, size_t n)
 	snprintf(out, n, "%s%s", BORDER_SETTING_PREFIX, tag ? tag : "");
 }
 
+border_offer border_offer_make(bool room, bool blur_here, bool own, bool frame, bool whole)
+{
+	border_offer o;
+
+	o.blur = room && blur_here;
+	o.own = room && own;
+	o.handheld = frame;
+	o.whole = frame && whole;
+	return o;
+}
+
+bool border_row_shows(border_offer o, bool room)
+{
+	return room || o.handheld;
+}
+
+bool border_is_frame(border_kind k)
+{
+	return k == BORDER_HANDHELD || k == BORDER_WHOLE;
+}
+
+border_kind border_in_mode(border_kind k, const char *mode)
+{
+	return border_is_frame(k) && (!mode || strcmp(mode, "integer") != 0) ? BORDER_OFF : k;
+}
+
 int border_offered(border_offer o, border_kind *out)
 {
 	int n = 0;

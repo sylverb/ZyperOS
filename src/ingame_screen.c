@@ -506,36 +506,53 @@ static void gm_source(int *sw, int *sh, double *aspect)
 	}
 }
 
+/* Whether the game's display mode leaves room around it, by Diatom's own
+ * size for it (gm_source) */
+static bool gm_border_room(app *a)
+{
+	int sw, sh, fw, fh;
+	double aspect;
+
+	gm_source(&sw, &sh, &aspect);
+	dmode_surface(&fw, &fh);
+	return border_room(DMODES[owner_view(a)->dmode].name, sw, sh, aspect, fw, fh);
+}
+
 /* Border's row (src/border.h): its value while the display mode leaves room
- * around the game, and no Super Game Boy border fills that room (its 256x224
- * on a Game Boy shelf that turns it on); NULL, no row, else */
+ * around the game, or in any mode where a handheld's frame is drawn for its
+ * system (choosing one turns Display to Sharp Pixels), and no Super Game Boy
+ * border fills that room (its 256x224 on a Game Boy shelf that turns it on);
+ * NULL, no row, else */
 static const char *gm_border_value(app *a)
 {
 	sysview *v = owner_view(a);
-	int sys = (int)(v - a->view), sw, sh, fw, fh;
+	int sys = (int)(v - a->view), sw, sh;
 	const system_cfg *s = &a->sys.systems[sys];
 	double aspect;
+	bool room;
 
 	if (g_port_menu || g_game_dual) return NULL;
 	gm_source(&sw, &sh, &aspect);
-	dmode_surface(&fw, &fh);
-	if (!border_room(DMODES[v->dmode].name, sw, sh, aspect, fw, fh)) return NULL;
+	room = gm_border_room(a);
+	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
 	if (sgbm_shelf(s->tag, s->core) && sgbm_load(s) == SGBM_GAMES && sw == 256 && sh == 224) return NULL;
-	return T(border_label_id(border_load(a, sys)));
+	return T(border_label_id(border_load_room(a, sys, room)));
 }
 
 /* Border stepped on left, right and A among what the row offers, kept for
  * the owner's system and sent to the game at once: Diatom takes SETBORDER
- * while paused, and the picture is around the game when it comes back */
+ * while paused, and the picture is around the game when it comes back. A
+ * frame chosen at another mode turns Display to Sharp Pixels first, told to
+ * the game before its frame, as the Display row tells it. */
 static void gm_step_border(app *a, int d)
 {
 	sysview *v = owner_view(a);
 	int sys = (int)(v - a->view);
-	const system_cfg *s = &a->sys.systems[sys];
-	char key[CFG_STR + 16];
 
-	border_key(s->tag, key, sizeof key);
-	db_set_str(db_dev(), key, border_id(border_step(border_load(a, sys), d, border_offer_for(a, sys))));
+	if (border_choose(a, sys, d, gm_border_room(a))) {
+		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
+		plat_resident_sync_rect(150);
+	}
 	border_send(a, sys);
 }
 
@@ -1620,9 +1637,10 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 	{
 		/* Border's offered kinds, each with its note and picture */
 		static const char *labels[BORDER_KINDS], *notes[BORDER_KINDS];
-		border_kind kept = border_load(a, (int)(v - a->view));
+		const bool room = gm_border_room(a);
+		border_kind kept = border_load_room(a, (int)(v - a->view), room);
 
-		n = border_offered(border_offer_for(a, (int)(v - a->view)), g_gm_border_kinds);
+		n = border_offered(border_offer_room(a, (int)(v - a->view), room), g_gm_border_kinds);
 		for (i = 0, cur = 0; i < n; i++) {
 			labels[i] = T(border_label_id(g_gm_border_kinds[i]));
 			notes[i] = T(border_note_id(g_gm_border_kinds[i]));

@@ -13,6 +13,7 @@
 #include "i18n.h"
 #include "dmodepreview.h"
 #include "handframe.h"
+#include "panel.h"
 #include "platform.h"
 
 /* The first PNG by name in `dir`, or false */
@@ -62,32 +63,68 @@ bool border_blur_here(void)
 	return plat_gpu_shaders();
 }
 
-border_offer border_offer_for(const app *a, int sys)
+bool border_room_kept(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
-	char own[CFG_STR * 3];
-	border_offer o;
+	int sw, sh, fw, fh;
+	bool known;
+	double aspect;
 
-	const hf_model *m = hf_model_for(s->tag);
-	int w, h, sc, gx, gy, gw, gh;
-
-	dmode_surface(&w, &h);
-	o.blur = border_blur_here();
-	o.handheld = m && !strcmp(DMODES[a->view[sys].dmode].name, "integer") &&
-	             hf_place(m, HF_CUT, w, h, &sc, &gx, &gy, &gw, &gh);
-	o.whole = o.handheld && hf_place(m, HF_WHOLE, w, h, &sc, &gx, &gy, &gw, &gh);
-	o.own = border_own_path(s, own, sizeof own);
-	return o;
+	dmode_source_of(s->tag, &sw, &sh);
+	aspect = dmode_shape_of(s->tag, &known);
+	dmode_surface(&fw, &fh);
+	return border_room(DMODES[a->view[sys].dmode].name, sw, sh, known ? aspect : 0.0, fw, fh);
 }
 
-border_kind border_load(const app *a, int sys)
+border_offer border_offer_room(const app *a, int sys, bool room)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	const hf_model *m = hf_model_for(s->tag);
+	char own[CFG_STR * 3];
+	int w, h, sc, gx, gy, gw, gh;
+	bool frame, whole;
+
+	dmode_surface(&w, &h);
+	frame = m && hf_place(m, HF_CUT, w, h, &sc, &gx, &gy, &gw, &gh);
+	whole = frame && hf_place(m, HF_WHOLE, w, h, &sc, &gx, &gy, &gw, &gh);
+	return border_offer_make(room, border_blur_here(), room && border_own_path(s, own, sizeof own), frame, whole);
+}
+
+border_offer border_offer_for(const app *a, int sys)
+{
+	return border_offer_room(a, sys, border_room_kept(a, sys));
+}
+
+border_kind border_load_room(const app *a, int sys, bool room)
 {
 	const system_cfg *s = &a->sys.systems[sys];
 	char key[CFG_STR + 16], v[16];
 
 	border_key(s->tag, key, sizeof key);
 	db_get_str(db_dev(), key, v, sizeof v, border_id(BORDER_OFF));
-	return border_shown(border_parse(v), border_offer_for(a, sys));
+	return border_in_mode(border_shown(border_parse(v), border_offer_room(a, sys, room)),
+	                      DMODES[a->view[sys].dmode].name);
+}
+
+border_kind border_load(const app *a, int sys)
+{
+	return border_load_room(a, sys, border_room_kept(a, sys));
+}
+
+bool border_choose(app *a, int sys, int d, bool room)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	const border_kind k = border_step(border_load_room(a, sys, room), d, border_offer_room(a, sys, room));
+	char key[CFG_STR + 16];
+	int i;
+
+	border_key(s->tag, key, sizeof key);
+	db_set_str(db_dev(), key, border_id(k));
+	if (!border_is_frame(k) || !strcmp(DMODES[a->view[sys].dmode].name, "integer")) return false;
+	for (i = 0; i < DMODE_COUNT; i++)
+		if (!strcmp(DMODES[i].name, "integer")) a->view[sys].dmode = i;
+	display_save(a);
+	return true;
 }
 
 SDL_Surface *border_own_surface(const char *png, int w, int h)

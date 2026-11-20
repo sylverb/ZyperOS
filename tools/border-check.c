@@ -76,6 +76,35 @@ int main(void)
 	   "Sharp Pixels, Zoomed covers a known picture too");
 	ck(!border_room(NULL, 160, 144, 0, 640, 480) && !border_room("integer", 160, 144, 0, 0, 0), "no mode, no surface");
 
+	/* The frames in every display mode (Tarik's 1.1.0 test run: a card left
+	 * at Full Screen, the mode a system starts in, showed no Border row and
+	 * so no frame): Blur and Your Own only with room, the frames without */
+	{
+		const border_offer full = border_offer_make(false, true, true, true, true);
+		const border_offer sharp = border_offer_make(true, true, true, true, true);
+		const border_offer plain = border_offer_make(false, true, true, false, false);
+
+		ck(!full.blur && !full.own && full.handheld && full.whole,
+		   "Full Screen on a Game Boy: the frames, not Blur or Your Own");
+		ck(border_offered(full, list) == 3 && list[1] == BORDER_HANDHELD && list[2] == BORDER_WHOLE,
+		   "its list: Off, Handheld, Handheld Whole");
+		ck(border_row_shows(full, false), "so the row shows at Full Screen where a frame is drawn");
+		ck(!border_row_shows(plain, false) && border_row_shows(plain, true),
+		   "and with no frame, only where the mode leaves room, as before");
+		ck(sharp.blur && sharp.own && sharp.handheld && border_offered(sharp, list) == 5,
+		   "at Sharp Pixels, everything");
+		ck(!border_offer_make(true, true, true, true, false).whole, "Whole only where it has a placement");
+		ck(border_in_mode(BORDER_HANDHELD, "stretch") == BORDER_OFF &&
+		   border_in_mode(BORDER_WHOLE, "aspect") == BORDER_OFF &&
+		   border_in_mode(BORDER_HANDHELD, "integer") == BORDER_HANDHELD &&
+		   border_in_mode(BORDER_WHOLE, "integer") == BORDER_WHOLE,
+		   "a kept frame reads Off at any mode but Sharp Pixels, and comes back with it");
+		ck(border_in_mode(BORDER_BLUR, "stretch") == BORDER_BLUR && border_in_mode(BORDER_OWN, NULL) == BORDER_OWN,
+		   "the other kinds as they are");
+		ck(border_is_frame(BORDER_HANDHELD) && border_is_frame(BORDER_WHOLE) && !border_is_frame(BORDER_BLUR) &&
+		   !border_is_frame(BORDER_OFF) && !border_is_frame(BORDER_OWN), "the two frames are the frames");
+	}
+
 	ck(!strcmp(border_nextui_tag("NES"), "FC") && !strcmp(border_nextui_tag("PS1"), "PS") &&
 	   !border_nextui_tag("GB") && !border_nextui_tag("SFC") && !border_nextui_tag(NULL),
 	   "NextUI's tags where they differ from ours");

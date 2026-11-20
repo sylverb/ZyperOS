@@ -28,13 +28,32 @@ bool border_own_path(const system_cfg *s, char *out, size_t n);
  * path), not where the CPU paints the pages (the Brick for now) */
 bool border_blur_here(void);
 
-/* What system `sys`'s row offers now: Blur where the device draws it, the
- * Handheld frames where one is drawn for it (src/handframe.h) and its
- * display mode is Sharp Pixels, Your Own where the card has a picture */
+/* Whether system `sys`'s display mode leaves room around its games, by the
+ * size they last said (dmode_source_of; a system never played, by the mode
+ * alone): the system menu's question. A game's Display tab asks it of
+ * Diatom's own size instead. */
+bool border_room_kept(const app *a, int sys);
+
+/* What system `sys`'s row offers (border_offer_make), `room` whether its
+ * display mode leaves room around the game: Blur and Your Own only then, the
+ * Handheld frames where one is drawn for it (src/handframe.h) in any mode */
+border_offer border_offer_room(const app *a, int sys, bool room);
+
+/* The same, the room by border_room_kept */
 border_offer border_offer_for(const app *a, int sys);
 
-/* System `sys`'s kept kind, as its row shows it (border_shown) */
+/* System `sys`'s kept kind, as its row shows it with `room` (border_shown,
+ * and a frame Off at any mode but Sharp Pixels: border_in_mode) */
+border_kind border_load_room(const app *a, int sys, bool room);
+
+/* The same, the room by border_room_kept */
 border_kind border_load(const app *a, int sys);
+
+/* Border stepped by `d` among what system `sys`'s row offers with `room`,
+ * and kept; a frame chosen turns the system's Display to Sharp Pixels (kept
+ * too), the size it is drawn for. True when that turned Display, so a game
+ * running is told its new mode before its border. */
+bool border_choose(app *a, int sys, int d, bool room);
 
 /* Tell the game running what to draw around it: SETBORDER for system
  * `sys`'s kept kind, the player's picture made the surface's size and

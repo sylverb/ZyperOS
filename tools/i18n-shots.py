@@ -1064,6 +1064,21 @@ for _tag, _src, _shape, _files in (("GBC", "160x144", "1.11111", _FRAME_GBC), ("
                                              "--gm-source", _src + "@" + _shape]))
         SHOT_SETTINGS[_n] = dict(_set)
         SHOT_FILES[_n] = _files
+# A Game Boy at the mode a system starts in, Full Screen, with no size kept
+# (a system never played): Border shows all the same and offers the frames
+# (not Blur or Your Own, which would change nothing there), its list, the
+# list in a game's Display tab, and Right on the row: Handheld chosen and
+# Display turned to Sharp Pixels. Before 1.1.0 the row hid in that mode, so
+# on a card left at Full Screen no frame could be found; the first of these
+# fails then (--menu: no row called Border).
+EXTRA.setdefault("system-menu-border-fullscreen", ("demo", "GB", ["--screen", "games", "--menu", "Border"]))
+EXTRA.setdefault("system-menu-border-fullscreen-list", ("demo", "GB", ["--screen", "games", "--menu", "Border",
+                                                                     "--press", "a", "--pick-en", "Handheld"]))
+EXTRA.setdefault("system-menu-border-fullscreen-chosen", ("demo", "GB", ["--screen", "games", "--menu", "Border",
+                                                                       "--press", "right"]))
+EXTRA.setdefault("gamemenu-border-fullscreen-list", ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose",
+                                                                  "--pick-en", "Handheld", "--gm-source",
+                                                                  "160x144@1.11111"]))
 _GBC_FRAME = {"display.GBC": "integer", "display_source.GBC": "160x144", "display_shape.GBC": "1.11111",
               "border.GBC": "handheld"}
 EXTRA.setdefault("system-menu-border-color", ("demo", "GBC", ["--screen", "games", "--menu", "Handheld Color"]))

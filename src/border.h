@@ -66,11 +66,31 @@ void border_key(const char *tag, char *out, size_t n);
 
 /* What a system's row can offer besides Off */
 typedef struct {
-	bool blur;      /* the device draws Blur (border_blur_here) */
-	bool handheld;  /* a frame is drawn for the system and the mode is Sharp Pixels */
+	bool blur;      /* the device draws Blur (border_blur_here) and the mode leaves room */
+	bool handheld;  /* a frame is drawn for the system and fits the panel, in any mode */
 	bool whole;     /* ...and Handheld, Whole has a placement here (2x or more) */
-	bool own;       /* the card has a picture for it */
+	bool own;       /* the card has a picture for it and the mode leaves room */
 } border_offer;
+
+/* What Border offers: Blur and Your Own only where the system's display mode
+ * leaves room around its games (`room`), since in a mode that covers the
+ * screen they would change nothing; a handheld's frames (`frame`, `whole`:
+ * the system has a frame that fits the panel, and its Whole placement) in
+ * every mode, Full Screen, the one a system starts in, too, since choosing
+ * a frame turns Display to Sharp Pixels, the size the frame is drawn for */
+border_offer border_offer_make(bool room, bool blur_here, bool own, bool frame, bool whole);
+
+/* Whether the Border row shows: where the mode leaves room, or a frame is
+ * offered */
+bool border_row_shows(border_offer o, bool room);
+
+/* Whether `k` is one of the handheld frames */
+bool border_is_frame(border_kind k);
+
+/* The kind a kept `k` reads as at display mode `mode` (a DMODES name): a
+ * frame only at Sharp Pixels, Off at any other, and back with Sharp Pixels;
+ * the rest as they are */
+border_kind border_in_mode(border_kind k, const char *mode);
 
 /* The kinds this system's row offers, in the row's order, into `out` (up to
  * BORDER_KINDS): Off, Blur, Handheld, Handheld Whole, Your Own, each where

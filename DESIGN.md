@@ -6011,7 +6011,9 @@ Pixels picture smaller than the panel. In a game Diatom's own size says so;
 on a system's menu the size its games last said (`display_source.TAG`), and
 for a system never played the mode alone (Full Screen, Fill and Sharp
 Pixels, Zoomed always cover). Not over a Super Game Boy game, whose own border fills the room
-(11.58), nor a DS game's two screens.
+(11.58), nor a DS game's two screens. A system with a handheld frame (the
+Game Boys, below) has the row in every mode, though, since its frames are
+offered in every mode.
 
 - **Off**, the default: black, as before.
 - **Blur**: the game's own picture, small, blurred and darker, made again ten
@@ -6051,9 +6053,20 @@ Handheld, Whole; the three Game Boys first; Handheld Color for the Game Boy
 Color in its six.)*
 
 Two more kinds in Border's list, for a system with a frame (the Game Boy,
-the Game Boy Color, the Game Boy Advance) at Sharp Pixels: ZyperOS's own
-drawing of the real handheld's face around its game, at the game's own
-scale. One game pixel is one dot of the handheld's LCD, so a millimetre of
+the Game Boy Color, the Game Boy Advance): ZyperOS's own drawing of the real
+handheld's face around its game, at the game's own scale.
+
+*(1.1.0's test run, 2026-11-20: Tarik saw no Border row and no frame. A
+system starts at Full Screen, which covers the screen, and the row hid with
+the mode, so on a card that never chose Sharp Pixels the frames could not be
+found.)* So the frames are offered in every display mode, and choosing one
+turns the system's Display to Sharp Pixels (kept, and told to a game
+running before its frame), the size a frame is drawn for; its note says so
+("Turns on Sharp Pixels"). At another mode a kept frame reads Off and is not
+drawn, and it comes back with Sharp Pixels. Blur and Your Own still need a
+mode that leaves room, where they show at all. `check-border` holds those
+rules, and the shot `system-menu-border-fullscreen` (a Game Boy at Full
+Screen, never played) fails if the row is gone. One game pixel is one dot of the handheld's LCD, so a millimetre of
 the face is (panel pixels a game pixel) / (the LCD's dot pitch), across and
 down each by its own pitch, never stretched. Nothing in them is a photo, a
 logo, a maker's name or printed text: where the real face has a logo or
@@ -6111,7 +6124,8 @@ Host shots: `system-menu-border`, `system-menu-border-list-off|blur|handheld|who
 `system-menu-border-gbc|gba`, `system-menu-border-gbc|gba-list-handheld|whole`,
 `gamemenu-border-gbc|gba-list-handheld|whole`, `system-menu-border-color`,
 `system-menu-border-color-list-yellow|red|purple|green|teal|clear-purple`,
-`gamemenu-border-color-list`.
+`gamemenu-border-color-list`, and at Full Screen `system-menu-border-fullscreen`
+(and `-list`, `-chosen`: Right on it, Handheld and Sharp Pixels), `gamemenu-border-fullscreen-list`.
 
 ### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide

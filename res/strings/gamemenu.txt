@@ -832,26 +832,26 @@ ja = 本体（全体）
 it = Console, intera
 
 [gamemenu.border_handheld_note]
-note = What Handheld does, under the picture beside Border's list: the real handheld's face drawn around the game at the game's own size, cut where the screen ends. Six short lines at most in a narrow column, about 70 letters
-en = The handheld's own face around the game, at its scale, cut at the edge.
-zh-Hans = 掌机原本的外观围绕游戏，按原比例，超出屏幕处截断。
-es = La cara de la portátil alrededor del juego, a su escala, cortada al borde.
-pt-BR = A face do portátil em volta do jogo, na escala dele, cortada na borda.
-fr = La façade de la console autour du jeu, à son échelle, coupée au bord.
-de = Die Front des Handhelds um das Spiel, im Maßstab, am Rand abgeschnitten.
-ja = 本体の表面をゲームの周りに原寸どおり表示し、画面の端で切れます。
-it = Il frontale della console intorno al gioco, in scala, tagliato al bordo.
+note = What Handheld does, under the picture beside Border's list: the real handheld's face drawn around the game at the game's own size, cut where the screen ends; and that choosing it turns the system's Display to Sharp Pixels (gamemenu.dmode_integer's words), the size it is drawn for. Six short lines at most in a narrow column, about 90 letters
+en = The handheld's face around the game at its scale, cut at the edge. Turns on Sharp Pixels.
+zh-Hans = 掌机原本的外观围绕游戏，按原比例，超出屏幕处截断。会开启清晰像素。
+es = La portátil alrededor del juego, a escala, cortada al borde. Activa Píxeles nítidos.
+pt-BR = A face do portátil em volta do jogo, em escala, cortada na borda. Ativa Pixels nítidos.
+fr = La façade de la console autour du jeu, à l'échelle, coupée au bord. Active Pixels nets.
+de = Das Handheld ums Spiel, im Maßstab, am Rand gekappt. Stellt Scharfe Pixel ein.
+ja = 本体の表面をゲームの周りに原寸どおり表示し、画面の端で切れます。くっきりピクセルになります。
+it = Il frontale della console intorno al gioco, in scala, tagliato al bordo. Attiva Pixel nitidi.
 
 [gamemenu.border_whole_note]
-note = What Handheld, Whole does, under the picture beside Border's list: the whole face of the handheld, the whole screen glass and some body, with the game smaller (by as many steps as that takes). Six short lines at most in a narrow column, about 70 letters
-en = The handheld's whole face; the game smaller to fit it.
-zh-Hans = 显示掌机的完整外观；游戏缩小以容纳。
-es = La cara entera de la portátil; el juego más pequeño para que quepa.
-pt-BR = A face inteira do portátil; o jogo menor para caber.
-fr = Toute la façade de la console ; le jeu réduit pour qu'elle tienne.
-de = Die ganze Front des Handhelds; das Spiel kleiner, damit sie passt.
-ja = 本体の表面全体を表示し、収まるようにゲームを小さくします。
-it = L'intero frontale della console; il gioco più piccolo perché ci stia.
+note = What Handheld, Whole does, under the picture beside Border's list: the whole face of the handheld, the whole screen glass and some body, with the game smaller (by as many steps as that takes); and that choosing it turns the system's Display to Sharp Pixels (gamemenu.dmode_integer's words). Six short lines at most in a narrow column, about 90 letters
+en = The handheld's whole face; the game smaller to fit it. Turns on Sharp Pixels.
+zh-Hans = 显示掌机的完整外观；游戏缩小以容纳。会开启清晰像素。
+es = La portátil entera; el juego más pequeño para que quepa. Activa Píxeles nítidos.
+pt-BR = A face inteira do portátil; o jogo menor para caber. Ativa Pixels nítidos.
+fr = Toute la façade de la console ; le jeu réduit pour qu'elle tienne. Active Pixels nets.
+de = Die ganze Front des Handhelds; das Spiel kleiner, damit sie passt. Schaltet Scharfe Pixel ein.
+ja = 本体の表面全体を表示し、収まるようにゲームを小さくします。くっきりピクセルになります。
+it = L'intero frontale della console; il gioco più piccolo perché ci stia. Attiva Pixel nitidi.
 
 [gamemenu.border_color]
 note = A row under Border on the Game Boy Color, while Border is a Handheld frame: the color of the handheld's body drawn around the game; its value is a color's plain name (gamemenu.color_*)

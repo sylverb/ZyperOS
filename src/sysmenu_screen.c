@@ -2256,12 +2256,8 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * at once: its next game has it (src/border.h). A opens its list,
 		 * which comes back as steps. */
 		if (d && sel == SM_BORDER) {
-			const system_cfg *sc = &a->sys.systems[a->sys_cursor];
-			char key[CFG_STR + 16];
-
-			border_key(sc->tag, key, sizeof key);
-			db_set_str(db_dev(), key, border_id(border_step(border_load(a, a->sys_cursor), d,
-			                                                border_offer_for(a, a->sys_cursor))));
+			/* A frame chosen turns Display to Sharp Pixels, its size */
+			border_choose(a, a->sys_cursor, d, border_room_kept(a, a->sys_cursor));
 			return MENU_STAY;
 		}
 		/* Sort order, on the same left/right idiom.

@@ -743,21 +743,18 @@ sgbm_choice sgbm_load(const system_cfg *s)
 
 /* Border's row on a system's menu (src/border.h): its value while the
  * system's display mode leaves room around its games, by the size they
- * last said (dmode_source_of; a system never played, by the mode alone);
+ * last said (border_room_kept), or in any mode where a handheld's frame is
+ * drawn for it (the Game Boys: choosing one turns Display to Sharp Pixels);
  * NULL, no row, else, and on a shelf of no console (Favorites, MP4, ports) */
 const char *border_row_value(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
-	int sw, sh, fw, fh;
-	bool known;
-	double aspect;
+	bool room;
 
 	if (!s->core[0] || is_muse(s) || is_port(s) || a->view[sys].owner) return NULL;
-	dmode_source_of(s->tag, &sw, &sh);
-	aspect = dmode_shape_of(s->tag, &known);
-	dmode_surface(&fw, &fh);
-	if (!border_room(DMODES[a->view[sys].dmode].name, sw, sh, known ? aspect : 0.0, fw, fh)) return NULL;
-	return T(border_label_id(border_load(a, sys)));
+	room = border_room_kept(a, sys);
+	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
+	return T(border_label_id(border_load_room(a, sys, room)));
 }
 
 /* The Game Boy's and the Game Boy Color's shelves, while mGBA runs them */
