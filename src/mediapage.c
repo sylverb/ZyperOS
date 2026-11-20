@@ -210,7 +210,7 @@ static void message_draw(SDL_Renderer *r, const mpg_page *p, unsigned now)
 	if (p->zyper) {
 		float bob = 2.0f * sinf((float)(now % DS_MS_ZYPER_BREATHE) * 6.2831853f / DS_MS_ZYPER_BREATHE);
 
-		p->zyper(r, 904.0f, 412.0f + bob, 96.0f, 0.0f, true);
+		p->zyper(r, (float)(X1 - 56), 412.0f + bob, 96.0f, 0.0f, true);   /* 904 on a 4:3 canvas */
 	}
 }
 

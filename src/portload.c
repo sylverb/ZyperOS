@@ -53,10 +53,10 @@ static SDL_Rect g_load_out;
 static int g_load_out_mid;
 
 #define LOAD_COVER_AREA (368 * 512)  /* the cover's area, any shape (equal area) */
-#define LOAD_COVER_CX   272          /* ...centered here */
+#define LOAD_COVER_CX   (272 + canvas_col_x())   /* ...centered here (the 4:3 column's) */
 #define LOAD_COVER_CY   376
 #define LOAD_MARGIN     40           /* the cover from the screen's edges and the column */
-#define LOAD_COL_X      536          /* the column of words, left aligned */
+#define LOAD_COL_X      (536 + canvas_col_x())   /* the column of words, left aligned */
 #define LOAD_COL_W      456
 #define LOAD_MID        312          /* the block of words is centered on this */
 #define LOAD_BAND_W     48           /* the system's band, DS_BAR high */
@@ -85,7 +85,7 @@ static int g_load_out_mid;
  * most. So splash must copy the still back under his frame before it draws
  * each one, and not fill it with the ground, which would show as a box on the
  * backdrop: that is plastron's, and comes with loading.txt's new corner. */
-#define LOAD_ZYPER_X    504
+#define LOAD_ZYPER_X    (504 + canvas_col_x())
 #define LOAD_ZYPER_Y    528
 #define LOAD_ZYPER_W    192
 #define LOAD_ZYPER_H    186

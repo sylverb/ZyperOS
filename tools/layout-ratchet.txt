@@ -32,14 +32,14 @@
 1 p2panel.c
 2 p2share.h
 2 panel.h
-12 portload.c
+9 portload.c
 14 powerscreens.c
 2 radl_screen.c
 7 scraper_screen.c
 13 shelf_draw.c
 2 shots.c
 4 status.h
-20 storage_page.c
+18 storage_page.c
 1 strength.h
 1 sys_menu.h
 1 theme.h

@@ -53,4 +53,15 @@ static inline int canvas_panel_room(void) { return canvas_w < 1024 ? canvas_w : 
  * dialog's stage) goes there whole on a wider canvas; 0 on a 4:3 one. */
 static inline int canvas_col_x(void) { return (canvas_w - 1024) / 2; }
 
+/* How many cells `cell` wide a row `w` wide holds, `min_gap` at least
+ * between them, from 1 to `max`. A wider canvas fills its room with more
+ * cells, not with wider gaps: the Scraper's and the Downloads' runs show
+ * three covers a row on a 4:3 canvas, five on the Smart Pro's. */
+static inline int canvas_fit_cols(int w, int cell, int min_gap, int max)
+{
+	const int n = (w + min_gap) / (cell + min_gap);
+
+	return n < 1 ? 1 : n > max ? max : n;
+}
+
 #endif
