@@ -6684,6 +6684,16 @@ game stopped last time with cheats on. Start it without them?",
 **Without Cheats** (the cursor's) and **With Cheats**; without, the game
 starts with none and they stay set for later. B leaves it unstarted.
 
+**On the shelf** *(the Library lab's start demo, my pick)*: a game with
+cheats on says so in the line under its name, after its play time and
+achievements: "2 cheats on", and "2 cheats on · the last session ended in a
+crash" while the crash question waits. On the covers, the grid and the Video
+view it is one part of the line, which takes the low slot when it is long,
+as every long line does; in the List view, whose panel is narrow, the crash
+is a line of its own, "Crashed last time". Read with the shelf's other facts
+once the cursor rests: one database read, and the game's .cht files only for
+a game that has some on.
+
 **What it costs.** Nothing a frame. The launcher hands Diatom the codes that
 are on, a file of one a line (RUN `cheats=`, and `SETCHEATS path=` at each
 switch); Diatom hands them to the core as RetroArch does, a reset and then
@@ -6705,7 +6715,8 @@ by a stem another game of the shelf has (a .cue beside a .chd) stays for
 that game, and a rename takes a copy. Host shots: `cheats-row`, `cheats-page`,
 `cheats-page-end`, `cheats-ask`, `cheats-note`, `cheats-note-end`, `cheats-on-first`,
 `cheats-search`, `cheats-search-none`, `cheats-achtab`,
-`cheats-none-libretro`, `cheats-not-checked`, `cheats-crash` and
+`cheats-none-libretro`, `cheats-not-checked`, `cheats-crash`,
+`cheats-shelf`, `cheats-shelf-crashed`, `cheats-shelf-list` and
 `popup-cheats` (tools/i18n-shots.py; `--cheats` and `--cheats-page` stand in
 for a running game).
 
