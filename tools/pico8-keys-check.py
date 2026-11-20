@@ -33,6 +33,10 @@ CTRL-R, Auto Off) is check-pkkeys's and check-portkeys-flow's.
      again with the screenshot's folder kept; Start Again is
      PORT_MENU_RESTART (14) with the Display on in the restart file;
    - over OpenBOR there is no Reset row.
+Every wait in the walks is for an event, never a time or a count of frames
+(tools/deskwalk.py): the panel a key lands on, as desk's `state` says it, a
+setting, a file, the launcher's end. On a runner busy with other checks the
+walk is slower, and says the same (GitHub's macOS runner, #406).
 """
 import importlib.machinery
 import importlib.util
@@ -145,15 +149,6 @@ def ask(sock, line, timeout=10):
     return json.loads(out.decode() or '{}')
 
 
-def wait_for(cond, seconds=5):
-    until = time.time() + seconds
-    while time.time() < until:
-        if cond():
-            return True
-        time.sleep(0.05)
-    return cond()
-
-
 def settings(path, put=None, key=None):
     c = sqlite3.connect(str(path))
     if put:
@@ -214,60 +209,39 @@ def launcher(tmp):
                ZYPEROS_DESK_SOCK=str(dsock), ZYPEROS_FLAG_DIR=str(flags), ZYPEROS_CTL_DIR=str(cdir))
     env.pop('ZYPEROS_HEADLESS', None)
     procs = []
+    dw = module('deskwalk', ROOT / 'tools/deskwalk.py')
 
     def start(name, args):
+        """The launcher on the desk's socket: its walk (tools/deskwalk.py)"""
         if dsock.exists():
             dsock.unlink()
         log = open(tmp / f'{name}.log', 'w')
         p = subprocess.Popen([str(BINARY)] + args, env=env, stdout=log, stderr=subprocess.STDOUT)
         procs.append(p)
-        ok = wait_for(lambda: dsock.exists() or p.poll() is not None, 10) and dsock.exists()
-        if ok:
-            ask(dsock, 'wait-frames 3')
-        return p, ok
-
-    def drawn(name):
-        text = (tmp / f'{name}.log').read_text(errors='replace')
-        return [l[len('fit: drawn: '):] for l in text.splitlines() if l.startswith('fit: drawn: ')]
-
-    def keys(*names):
-        """each a tap and some frames; the last can end the menu, and with
-        it the desk's socket, before its frames are counted (Linux says so
-        at once: ECONNRESET); the exit status the walk checks next says
-        whether it ended where it should"""
-        for k in names:
-            try:
-                ask(dsock, f'tap {k}')
-                ask(dsock, 'wait-frames 6')
-            except (OSError, ValueError):
-                return
-
-    def ended(p, seconds=8):
-        try:
-            p.wait(timeout=seconds)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            p.wait()
-            return None
-        return p.returncode
+        return dw.Walk(dsock, p, tmp / f'{name}.log')
 
     def lines(path):
         return dict(l.split('\t', 1) for l in path.read_text().splitlines() if '\t' in l) if path.exists() else {}
 
+    def menu_rows(w):
+        """The menu over PICO-8's rows, as drawn, in order"""
+        return [x for x in w.drawn() if x in MENU_ROWS]
+
     cart = f'{card}/Roms/PICO-8/celeste.p8'
+    RESET_Q, RESTART_Q = 'Reset the game?', 'Start the cart again?'
     try:
         print('a PICO-8 cart opened, the hand-over:')
-        p, ok = start('shelf', ['--device', 'pixel2'])
-        check(ok, 'the launcher started')
+        w = start('shelf', ['--device', 'pixel2'])
+        check(dw.until(lambda: w.sock.exists() and w.state().get('ok')), 'the launcher started')
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(10)
+        s.settimeout(dw.CEILING)
         s.connect(str(cdir / 'ctl.sock'))
         s.sendall(f'open\tpath={cart}\n'.encode())
         said = s.makefile().readline().strip()
         s.close()
         check(said.startswith('ok') and 'core=run:ZyperOS/pico8/PICO-8.sh' in said,
               f'it opens on your PICO-8 ({said[:60]!r})')
-        check(ended(p) == 0, 'the launcher ends for it')
+        check(w.ends() == 0, 'the launcher ends for it')
         k = lines(keys_file)
         check(k.get('hotkeys') == 'save:r1,load:l1,faster:r2,slower:l2,shot:y,shader:a,reset:b,quit:x',
               f'portkeys gets the hotkeys in force, in Diatom\'s RUN form ({k.get("hotkeys")})')
@@ -281,14 +255,14 @@ def launcher(tmp):
             sl = dtov_slot(flags / f'zyperos-port-shot-{theme}.dtov')
             ok = sl is not None and sl[2] is not None
             if ok:
-                w, h, (x, y, side, corner) = sl
-                ok = side > 0 and x + side <= w and y + side <= h and 0 < corner <= side // 2
+                wd, ht, (x, y, side, corner) = sl
+                ok = side > 0 and x + side <= wd and y + side <= ht and 0 < corner <= side // 2
                 # the square is the slab's own, no picture laid in it
                 if ok:
-                    b = (flags / f'zyperos-port-shot-{theme}.dtov').read_bytes()
-                    mid = 8 + ((y + side // 2) * w + x + side // 2) * 4
-                    edge = 8 + ((y + side // 2) * w + x + side + 4) * 4
-                    ok = b[mid:mid + 4] == b[edge:edge + 4]
+                    b_ = (flags / f'zyperos-port-shot-{theme}.dtov').read_bytes()
+                    mid = 8 + ((y + side // 2) * wd + x + side // 2) * 4
+                    edge = 8 + ((y + side // 2) * wd + x + side + 4) * 4
+                    ok = b_[mid:mid + 4] == b_[edge:edge + 4]
             check(ok, f'"Screenshot saved" in {theme}, with an empty square and its place ({sl})')
 
         names = ('nearest', 'shimmerless', 'crt', 'crt-curved', 'scanlines', 'lcd')
@@ -297,82 +271,80 @@ def launcher(tmp):
               'Next Shader has a key: "Shader / <name>" for each of PICO-8\'s shaders, in both themes')
 
         print('the in-game menu over it, Reset:')
-        m, ok = start('menu', ['--port-menu', 'PICO8', cart])
-        seen = drawn('menu')
-        check(ok and all(w in seen for w in ('Continue', 'Controls', 'Reset', 'Quit')) and
-              seen.index('Controls') < seen.index('Reset') < seen.index('Quit'),
-              'Reset, between Controls and Quit')
-        rows = [w for w in seen if w in MENU_ROWS]
-        down = rows.index('Reset') if 'Reset' in rows else 3
-        n = len(drawn('menu'))
-        keys(*(['down'] * down), 'a')
-        check(wait_for(lambda: 'Reset the game?' in drawn('menu')[n:] and
-                       'Play since the last save is lost.' in drawn('menu')[n:], 3),
-              'A asks first, as Reset Game\'s hotkey asks over a game')
-        keys('a')
-        check(m.poll() is None, 'A on the question\'s first stop is Cancel: the menu again')
-        keys('a', 'up', 'a')
-        rc = ended(m)
+        w = start('menu', ['--port-menu', 'PICO8', cart])
+        up = w.up('', 'Continue') and dw.until(lambda: 'Quit' in w.drawn())
+        rows = menu_rows(w)
+        check(up and all(x in rows for x in ('Continue', 'Controls', 'Reset', 'Quit')) and
+              rows.index('Controls') < rows.index('Reset') < rows.index('Quit'),
+              f'Reset, between Controls and Quit ({rows})')
+        check(w.to('down', 'Reset', '') and w.step('a', RESET_Q, 'Cancel') and
+              dw.until(lambda: 'Play since the last save is lost.' in w.drawn()),
+              'A asks first, as Reset Game\'s hotkey asks over a game, the cursor on Cancel')
+        check(w.step('a', '', 'Reset') and w.proc.poll() is None,
+              'A on the question\'s first stop is Cancel: the menu again')
+        w.step('a', RESET_Q, 'Cancel')
+        w.step('up', RESET_Q, 'Reset')
+        rc = w.ends('a')
         check(rc == RESET, f'Reset ends the menu with PORT_MENU_RESET ({rc})')
 
         print('--reset, the hotkey\'s question alone:')
-        m, ok = start('hot', ['--port-menu', 'PICO8', cart, '--reset'])
-        seen = drawn('hot')
-        check(ok and 'Reset the game?' in seen and 'Continue' not in seen, 'the question, and no menu')
-        keys('a')
-        rc = ended(m)
+        w = start('hot', ['--port-menu', 'PICO8', cart, '--reset'])
+        check(w.up(RESET_Q, 'Cancel') and dw.until(lambda: 'Cancel' in w.drawn()) and 'Continue' not in w.drawn(),
+              'the question, and no menu')
+        rc = w.ends('a')
         check(rc == 10, f'Cancel: the game goes on ({rc})')
-        m, ok = start('hot-yes', ['--port-menu', 'PICO8', cart, '--reset'])
-        keys('up', 'a')
-        rc = ended(m)
+        w = start('hot-yes', ['--port-menu', 'PICO8', cart, '--reset'])
+        w.up(RESET_Q, 'Cancel')
+        w.step('up', RESET_Q, 'Reset')
+        rc = w.ends('a')
         check(rc == RESET, f'Reset: PORT_MENU_RESET ({rc})')
 
         print('Controls over it, a button changed:')
         keys_file.write_text(f'hotkeys\tnone\nshots\t{shots}\n')
-        m, ok = start('ctl', ['--port-menu', 'PICO8', cart])
-        seen = drawn('ctl')
-        rows = [w for w in seen if w in MENU_ROWS]
-        n = len(seen)
-        keys(*(['down'] * rows.index('Controls')), 'a')
+        w = start('ctl', ['--port-menu', 'PICO8', cart])
+        w.up('', 'Continue')
+        w.to('down', 'Controls', '')
         # O on the B cap, as map.PICO8 swaps them (the A cap's row says it)
-        check(wait_for(lambda: 'Applies To' in drawn('ctl')[n:] and 'This Game' in drawn('ctl')[n:] and
-                       'Button O' in drawn('ctl')[n:], 3),
+        check(w.step('a', 'Controls', 'Applies To') and
+              dw.until(lambda: 'This Game' in w.drawn() and 'Button O' in w.drawn()),
               'A opens the buttons themselves: Applies To, This Game, the A cap giving O')
-        # The first button's row, a step to the right
-        keys('down', 'right')
-        check(wait_for(lambda: settings(lib, key='map.PICO8.celeste.p8') is not None, 3),
+        w.to('down', 'A', 'Controls')
+        w.press('right')
+        check(dw.until(lambda: settings(lib, key='map.PICO8.celeste.p8') is not None),
               f'a button stepped is kept for the cart ({settings(lib, key="map.PICO8.celeste.p8")})')
-        n = len(drawn('ctl'))
-        keys('b')
-        check(wait_for(lambda: 'Start the cart again?' in drawn('ctl')[n:] and
-                       any('new buttons' in l for l in drawn('ctl')[n:]), 3),
+        check(w.step('b', RESTART_Q, 'Cancel') and dw.until(lambda: any('new buttons' in x for x in w.drawn())),
               'B back asks to start PICO-8 again for the new buttons')
         pad = pad_file.read_text().rstrip('\n') if pad_file.exists() else ''
         check(pad.startswith(GUID) and pad.split('\n')[0] != SWAPPED and len(pad.split('\n')) == 2 and
               pad.split('\n')[1].startswith(VGUID), f'and the pads\' new lines are written ({pad})')
-        keys('a')
-        check(m.poll() is None and not restart.exists(), 'Cancel: the menu again, no start again')
-        keys('b')
-        rc = ended(m)
+        check(w.step('a', '', 'Controls') and w.proc.poll() is None and not restart.exists(),
+              'Cancel: the menu again, no start again')
+        rc = w.ends('b')
         k = lines(keys_file)
         check(rc == 10 and k.get('hotkeys') == 'save:r1,load:l1,faster:r2,slower:l2,shot:y,shader:a,reset:b,quit:x'
               and k.get('shots') == shots,
               f'as the menu ends the hotkeys are written again, the folder kept ({rc}, {k})')
 
-        m, ok = start('ctl-yes', ['--port-menu', 'PICO8', cart])
-        rows = [w for w in drawn('ctl-yes') if w in MENU_ROWS]
-        keys(*(['down'] * rows.index('Controls')), 'a', 'down', 'right', 'b', 'up', 'a')
-        rc = ended(m)
-        mode = settings(card / 'userdata/zyperos.db', key='display.PICO8') or 'stretch'
+        was = settings(lib, key='map.PICO8.celeste.p8')
+        w = start('ctl-yes', ['--port-menu', 'PICO8', cart])
+        w.up('', 'Continue')
+        w.to('down', 'Controls', '')
+        w.step('a', 'Controls', 'Applies To')
+        w.to('down', 'A', 'Controls')
+        w.press('right')
+        dw.until(lambda: settings(lib, key='map.PICO8.celeste.p8') != was)
+        w.step('b', RESTART_Q, 'Cancel')
+        w.step('up', RESTART_Q, 'Start Again')
+        rc = w.ends('a')
+        mode = settings(card / 'userdata/zyperos.db', key='display.PICO8') or 'aspect'
         check(rc == RESTART and restart.exists() and restart.read_text() == mode + '\n',
               f'Start Again: PORT_MENU_RESTART, the Display on in the restart file ({rc})')
 
         print('over OpenBOR:')
-        m, ok = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
-        seen = drawn('openbor')
-        check(ok and 'Continue' in seen and 'Reset' not in seen, 'no Reset row')
-        keys('b')
-        ended(m)
+        w = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
+        up = w.up('', 'Continue') and dw.until(lambda: 'Quit' in w.drawn())
+        check(up and 'Continue' in w.drawn() and 'Reset' not in w.drawn(), 'no Reset row')
+        w.ends('b')
     finally:
         for p in procs:
             if p.poll() is None:

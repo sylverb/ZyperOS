@@ -33,6 +33,10 @@ it asks for, since PICO-8 draws its picture where it was told as it started.
    the next mode with no menu, Cancel 10 and nothing kept, Start Again 14;
    and On-Screen Stats after Display, Off, Right turning it On in the
    device's database (portkeys reads it as the menu closes).
+Every wait in the walks is for an event, never a time or a count of frames
+(tools/deskwalk.py): the panel a key lands on, as desk's `state` says it, a
+setting, a file, the launcher's end. On a runner busy with other checks the
+walk is slower, and says the same (GitHub's macOS runner, #406).
 """
 import importlib.machinery
 import importlib.util
@@ -66,6 +70,10 @@ def module(name, path):
     mod = importlib.util.module_from_spec(spec)
     loader.exec_module(mod)
     return mod
+
+
+# Every wait in a walk a wait for an event (tools/deskwalk.py)
+dw = module('deskwalk', ROOT / 'tools/deskwalk.py')
 
 
 # ---- 1. launch.sh ---------------------------------------------------------
@@ -266,16 +274,18 @@ def defaults(tmp):
         log = open(tmp / 'open.log', 'w')
         p = subprocess.Popen([str(BINARY), '--device', 'pixel2'], env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
-            if not (wait_for(lambda: dsock.exists() or p.poll() is not None, 10) and dsock.exists()):
+            # up on its socket and its control channel: events, not times
+            # (tools/deskwalk.py)
+            if not (dw.until(lambda: dsock.exists() or p.poll() is not None) and dsock.exists() and
+                    dw.until(lambda: (cdir / 'ctl.sock').exists() or p.poll() is not None)):
                 return None
-            ask(dsock, 'wait-frames 3')
             sk = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sk.settimeout(10)
+            sk.settimeout(dw.CEILING)
             sk.connect(str(cdir / 'ctl.sock'))
             sk.sendall(f'open\tpath={card}/Roms/PICO-8/celeste.p8\n'.encode())
             sk.makefile().readline()
             sk.close()
-            p.wait(timeout=10)
+            p.wait(timeout=dw.CEILING)
         finally:
             if p.poll() is None:
                 p.kill()
@@ -332,15 +342,6 @@ def ask(sock, line, timeout=10):
     return json.loads(out.decode() or '{}')
 
 
-def wait_for(cond, seconds=5):
-    until = time.time() + seconds
-    while time.time() < until:
-        if cond():
-            return True
-        time.sleep(0.05)
-    return cond()
-
-
 def launcher(tmp):
     desk = module('desk', ROOT / 'tools/desk')
     rs = module('readme_shots', ROOT / 'tools/readme-shots.py')
@@ -384,116 +385,97 @@ def launcher(tmp):
             return f'<{e}>'
 
     def start(name, args):
+        """The launcher on the desk's socket: its walk (tools/deskwalk.py)"""
         if dsock.exists():
             dsock.unlink()
         log = open(tmp / f'{name}.log', 'w')
         p = subprocess.Popen([str(BINARY)] + args, env=env, stdout=log, stderr=subprocess.STDOUT)
         procs.append(p)
-        ok = wait_for(lambda: dsock.exists() or p.poll() is not None, 10) and dsock.exists()
-        if ok:
-            ask(dsock, 'wait-frames 3')
-        return p, ok
-
-    def drawn(name):
-        text = (tmp / f'{name}.log').read_text(errors='replace')
-        return [l[len('fit: drawn: '):] for l in text.splitlines() if l.startswith('fit: drawn: ')]
-
-    def keys(*names):
-        """each a tap and some frames; the last can end the menu, and with
-        it the desk's socket, before its frames are counted"""
-        for k in names:
-            try:
-                ask(dsock, f'tap {k}')
-                ask(dsock, 'wait-frames 6')
-            except (OSError, ValueError):
-                return
-
-    def ended(p, seconds=8):
-        try:
-            p.wait(timeout=seconds)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            p.wait()
-            return None
-        return p.returncode
+        return dw.Walk(dsock, p, tmp / f'{name}.log')
 
     cart = f'{card}/Roms/PICO-8/celeste.p8'
+    ASK = 'Start the cart again?'
     try:
         print('the in-game menu over your PICO-8:')
-        m, ok = start('menu', ['--port-menu', 'PICO8', cart])
-        check(ok, 'it is up')
-        seen = drawn('menu')
+        m = start('menu', ['--port-menu', 'PICO8', cart])
+        check(m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn()), 'it is up')
+        seen = m.drawn()
         check('Display' in seen and 'Sharp Pixels' in seen, 'a Display row, its value the mode on (Sharp Pixels)')
         check(seen.index('Continue') < seen.index('Display') < seen.index('Controls') < seen.index('Quit')
               if all(w in seen for w in ('Continue', 'Display', 'Controls', 'Quit')) else False,
               'Continue, Display, Controls, Quit')
-        keys('down', 'right', 'left')
+        # Right and Left on Display, then Down and Up: the cursor's move says
+        # the two before it were read
+        m.to('down', 'Display', '')
+        m.press('right')
+        m.press('left')
+        m.step('down', '', 'On-Screen Stats')
+        m.step('up', '', 'Display')
         check(display() == 'integer' and not restart.exists(), 'Left and Right on Display step nothing')
-        n = len(drawn('menu'))
-        keys('a')
-        check(wait_for(lambda: 'Full Screen' in drawn('menu')[n:] and 'Original Shape' in drawn('menu')[n:], 3),
-              'A opens the Display list')
-        keys('down', 'down', 'down', 'down', 'a')          # Sharp Pixels -> Actual Size
-        check(wait_for(lambda: 'Start the cart again?' in drawn('menu')[n:] and
-                       any('starts again in Actual Size' in l for l in drawn('menu')[n:]), 3),
-              'a mode other than the one on asks, naming it')
-        keys('a')                                          # the cursor is on Cancel
-        check(m.poll() is None and display() == 'integer' and not restart.exists(),
+        check(m.step('a', 'Display', 'Sharp Pixels') and
+              dw.until(lambda: 'Full Screen' in m.drawn() and 'Original Shape' in m.drawn()),
+              'A opens the Display list, on the mode on')
+        m.to('down', 'Actual Size', 'Display')
+        check(m.step('a', ASK, 'Cancel') and dw.until(lambda: any('starts again in Actual Size' in l for l in m.drawn())),
+              'a mode other than the one on asks, naming it, the cursor on Cancel')
+        check(m.step('a', '', 'Display') and m.proc.poll() is None and display() == 'integer' and not restart.exists(),
               'A on the question\'s first stop is Cancel: the menu, nothing kept, no file')
-        n = len(drawn('menu'))
-        keys('a', 'a')                                     # the list again, the mode on picked
-        check(m.poll() is None and not restart.exists() and
-              'Start the cart again?' not in drawn('menu')[n:], 'picking the mode on asks nothing')
-        keys('a', 'down', 'down', 'down', 'down', 'a', 'up', 'a')
-        rc = ended(m)
+        m.step('a', 'Display', 'Sharp Pixels')
+        check(m.step('a', '', 'Display') and m.proc.poll() is None and not restart.exists(),
+              'picking the mode on asks nothing: the menu again')
+        m.step('a', 'Display', 'Sharp Pixels')
+        m.to('down', 'Actual Size', 'Display')
+        m.step('a', ASK, 'Cancel')
+        m.step('up', ASK, 'Start Again')
+        rc = m.ends('a')
         check(rc == RESTART, f'Start Again ends the menu with PORT_MENU_RESTART ({rc})')
         check(display() == 'native', f'display.PICO8 kept ({display()})')
         check(restart.exists() and restart.read_text() == 'native\n', 'the restart file says native')
 
         print('a menu that ends otherwise, a file left from before:')
         restart.write_text('fill\n')
-        m, ok = start('menu-b', ['--port-menu', 'PICO8', cart])
-        keys('b')
-        rc = ended(m)
+        m = start('menu-b', ['--port-menu', 'PICO8', cart])
+        m.up('', 'Continue')
+        rc = m.ends('b')
         check(rc == 10 and not restart.exists(), f'B is Continue, and no restart file is left ({rc})')
 
         print('On-Screen Stats over your PICO-8:')
         hud = lambda: (lambda c: (c.execute("SELECT value FROM settings WHERE key='hud'").fetchone() or [None])[0])(
             sqlite3.connect(str(db)))
-        m, ok = start('menu-hud', ['--port-menu', 'PICO8', cart])
-        seen = drawn('menu-hud')
+        m = start('menu-hud', ['--port-menu', 'PICO8', cart])
+        ok = m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
+        seen = m.drawn()
         check(ok and 'On-Screen Stats' in seen and seen.index('Display') < seen.index('On-Screen Stats') <
               seen.index('Controls') if all(w in seen for w in ('Display', 'On-Screen Stats', 'Controls')) else False,
               'a row after Display, before Controls')
         check(hud() in (None, '0'), 'Off')
-        keys('down', 'down', 'right')
-        check(wait_for(lambda: hud() == '1', 3), f'Right turns it On, kept for portkeys ({hud()!r})')
-        keys('left')
-        check(wait_for(lambda: hud() == '0', 3), 'Left turns it Off again')
-        keys('b')
-        rc = ended(m)
+        m.to('down', 'On-Screen Stats', '')
+        m.press('right')
+        check(dw.until(lambda: hud() == '1'), f'Right turns it On, kept for portkeys ({hud()!r})')
+        m.press('left')
+        check(dw.until(lambda: hud() == '0'), 'Left turns it Off again')
+        rc = m.ends('b')
         check(rc == 10, f'B is Continue ({rc})')
 
         print('over OpenBOR:')
-        m, ok = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
-        seen = drawn('openbor')
+        m = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
+        ok = m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
+        seen = m.drawn()
         check(ok and 'Continue' in seen and 'Display' not in seen and 'On-Screen Stats' not in seen,
               'no Display row and no On-Screen Stats')
-        keys('b')
-        ended(m)
+        m.ends('b')
 
         print('--display, the Next Display hotkey\'s question alone:')
-        m, ok = start('next', ['--port-menu', 'PICO8', cart, '--display'])
-        seen = drawn('next')
-        check(ok and 'Start the cart again?' in seen and any('starts again in Full Screen' in l for l in seen)
-              and 'Continue' not in seen, 'the next mode after Actual Size, round: Full Screen, and no menu')
-        keys('a')
-        rc = ended(m)
+        m = start('next', ['--port-menu', 'PICO8', cart, '--display'])
+        ok = m.up(ASK, 'Cancel') and dw.until(lambda: any('starts again in Full Screen' in l for l in m.drawn()))
+        check(ok and 'Continue' not in m.drawn(), 'the next mode after Actual Size, round: Full Screen, and no menu')
+        rc = m.ends('a')
         check(rc == 10 and display() == 'native' and not restart.exists(),
               f'Cancel: 10, nothing kept, no file ({rc})')
-        m, ok = start('next-yes', ['--port-menu', 'PICO8', cart, '--display'])
-        keys('up', 'a')
-        rc = ended(m)
+        m = start('next-yes', ['--port-menu', 'PICO8', cart, '--display'])
+        m.up(ASK, 'Cancel')
+        m.step('up', ASK, 'Start Again')
+        rc = m.ends('a')
         check(rc == RESTART and display() == 'stretch' and restart.exists() and restart.read_text() == 'stretch\n',
               f'Start Again: 14, Full Screen kept and in the file ({rc}, {display()})')
     finally:

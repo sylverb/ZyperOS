@@ -20,6 +20,10 @@
    screen; over OpenBOR none of them. And a cart opened on your PICO-8 from
    the shelf writes the look file from the shelf's rows as the launcher
    hands over.
+Every wait in the walks is for an event, never a time or a count of frames
+(tools/deskwalk.py): the panel a key lands on, as desk's `state` says it, a
+setting, a file, the launcher's end. On a runner busy with other checks the
+walk is slower, and says the same (GitHub's macOS runner, #406).
 """
 import json
 import os
@@ -54,6 +58,10 @@ def module(name, path):
     mod = importlib.util.module_from_spec(spec)
     loader.exec_module(mod)
     return mod
+
+
+# Every wait in a walk a wait for an event (tools/deskwalk.py)
+dw = module('deskwalk', ROOT / 'tools/deskwalk.py')
 
 
 # ---- 1. the plain part ----------------------------------------------------
@@ -138,15 +146,6 @@ def ask(sock, line, timeout=10):
     return json.loads(out.decode() or '{}')
 
 
-def wait_for(cond, seconds=5):
-    until = time.time() + seconds
-    while time.time() < until:
-        if cond():
-            return True
-        time.sleep(0.05)
-    return cond()
-
-
 def png(path, w, h):
     """A small PNG for Your Own, made with the standard library"""
     import zlib
@@ -215,97 +214,85 @@ def launcher(tmp):
     procs = []
 
     def start(name, args):
+        """The launcher on the desk's socket: its walk (tools/deskwalk.py)"""
         if dsock.exists():
             dsock.unlink()
         log = open(tmp / f'{name}.log', 'w')
         p = subprocess.Popen([str(BINARY)] + args, env=env, stdout=log, stderr=subprocess.STDOUT)
         procs.append(p)
-        ok = wait_for(lambda: dsock.exists() or p.poll() is not None, 10) and dsock.exists()
-        if ok:
-            ask(dsock, 'wait-frames 3')
-        return p, ok
-
-    def logged(name):
-        return (tmp / f'{name}.log').read_text(errors='replace')
-
-    def drawn(name):
-        return [l[len('fit: drawn: '):] for l in logged(name).splitlines() if l.startswith('fit: drawn: ')]
-
-    def keys(*names):
-        for k in names:
-            ask(dsock, f'tap {k}')
-            ask(dsock, 'wait-frames 6')
-
-    def ended(p, seconds=8):
-        try:
-            p.wait(timeout=seconds)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            p.wait()
-            return None
-        return p.returncode
+        return dw.Walk(dsock, p, tmp / f'{name}.log')
 
     def order(seen, words):
         return all(w in seen for w in words) and [seen.index(w) for w in words] == sorted(seen.index(w) for w in words)
 
+    def kept(key, word, line, lineword):
+        """`key` kept as `word` and the look file's `line` saying `lineword`"""
+        return dw.until(lambda: value(key) == word and look_lines().get(line) == lineword)
+
     cart = f'{card}/Roms/PICO-8/celeste.p8'
     try:
         print('the in-game menu over your PICO-8, at Sharp Pixels:')
-        m, ok = start('menu', ['--port-menu', 'PICO8', cart])
-        check(ok, 'it is up')
-        seen = drawn('menu')
+        m = start('menu', ['--port-menu', 'PICO8', cart])
+        check(m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn()), 'it is up')
+        seen = m.drawn()
         check(order(seen, ['Continue', 'Display', 'On-Screen Stats', 'Border', 'Shader', 'Controls', 'Quit']),
               'Continue, Display, On-Screen Stats, Border, Shader, Controls, Quit: the Display tab\'s order')
         check('Strength' not in seen, 'no Strength while the shader is Off')
-        keys('down', 'down', 'down', 'down', 'right')         # Shader: Off -> Sharp-Shimmerless
-        check(wait_for(lambda: value('shader.PICO8') == 'shimmerless', 3), f'Right on Shader: shader.PICO8 kept '
-              f'({value("shader.PICO8")})')
-        check(look_lines().get('shader') == 'shimmerless', f'...and the look file says it ({look_lines()})')
-        n = len(drawn('menu'))
-        keys('right')                                         # Sharp-Shimmerless -> CRT
-        check(look_lines().get('shader') == 'crt' and value('shader.PICO8') == 'crt', 'Right again: CRT')
-        check(wait_for(lambda: 'Strength' in drawn('menu')[n:], 3), '...and Strength under it')
-        keys('down', 'left')                                  # Strength 100 -> 90
-        check(value('shader_strength.PICO8') == '90' and look_lines().get('strength') == '90',
+        m.to('down', 'Shader', '')
+        m.press('right')                                      # Shader: Off -> Sharp-Shimmerless
+        check(kept('shader.PICO8', 'shimmerless', 'shader', 'shimmerless'),
+              f'Right on Shader: shader.PICO8 kept, and the look file says it ({value("shader.PICO8")}, {look_lines()})')
+        m.press('right')                                      # Sharp-Shimmerless -> CRT
+        check(kept('shader.PICO8', 'crt', 'shader', 'crt'), 'Right again: CRT')
+        check(dw.until(lambda: 'Strength' in m.drawn()), '...and Strength under it')
+        m.step('down', '', 'Strength')
+        m.press('left')                                       # Strength 100 -> 90
+        check(kept('shader_strength.PICO8', '90', 'strength', '90'),
               f'Left on Strength: 90%, kept and in the file ({value("shader_strength.PICO8")}, {look_lines()})')
-        keys('up', 'up', 'right')                             # Border: Off -> Blur
-        check(value('border.PICO8') == 'blur' and look_lines().get('border') == 'blur',
+        m.to('up', 'Border', '')
+        m.press('right')                                      # Border: Off -> Blur
+        check(kept('border.PICO8', 'blur', 'border', 'blur'),
               f'Right on Border: Blur, kept and in the file ({value("border.PICO8")}, {look_lines()})')
-        keys('b')
-        check(ended(m) == 10, 'B is Continue')
+        check(m.ends('b') == 10, 'B is Continue')
 
         print('Your Own, a picture in Borders/PICO-8:')
         (card / 'Borders/PICO-8').mkdir(parents=True, exist_ok=True)
         png(card / 'Borders/PICO-8/frame.png', 64, 48)
-        m, ok = start('own', ['--port-menu', 'PICO8', cart])
-        keys('down', 'down', 'down', 'right')                 # Border: Blur -> Your Own
+        m = start('own', ['--port-menu', 'PICO8', cart])
+        m.up('', 'Continue')
+        m.to('down', 'Border', '')
+        m.press('right')                                      # Border: Blur -> Your Own
+        kept('border.PICO8', 'own', 'border', 'picture')
         lines = look_lines()
         check(value('border.PICO8') == 'own' and lines.get('border') == 'picture' and
               lines.get('border_file') == str(picture), f'Your Own: the look file names its picture ({lines})')
-        head = picture.read_bytes()[:8] if picture.exists() else b''
-        size = struct.unpack('<HH', head[4:8]) if len(head) == 8 else None
-        # The panel's: the Pixel 2's 640x480 on the device, the desk's own
-        # 1024x768 here, where --port-menu takes no --device
-        check(head[:4] == b'DTOV' and size in ((640, 480), (1024, 768)) and
-              picture.stat().st_size == 8 + size[0] * size[1] * 4, f'...a DTOV file the panel\'s size ({size})')
-        keys('b')
-        ended(m)
+
+        def dtov():
+            head = picture.read_bytes()[:8] if picture.exists() else b''
+            size = struct.unpack('<HH', head[4:8]) if len(head) == 8 else None
+            # The panel's: the Pixel 2's 640x480 on the device, the desk's
+            # own 1024x768 here, where --port-menu takes no --device
+            return size if (head[:4] == b'DTOV' and size in ((640, 480), (1024, 768)) and
+                            picture.stat().st_size == 8 + size[0] * size[1] * 4) else None
+        dw.until(lambda: dtov() is not None)
+        check(dtov() is not None, f'...a DTOV file the panel\'s size ({dtov()})')
+        m.ends('b')
 
         print('at Full Screen, which covers the screen:')
         setting('display.PICO8', 'stretch')
-        m, ok = start('stretch', ['--port-menu', 'PICO8', cart])
-        seen = drawn('stretch')
+        m = start('stretch', ['--port-menu', 'PICO8', cart])
+        ok = m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
+        seen = m.drawn()
         check(ok and 'Shader' in seen and 'Border' not in seen, 'Shader, and no Border')
-        keys('b')
-        ended(m)
+        m.ends('b')
 
         print('over OpenBOR:')
-        m, ok = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
-        seen = drawn('openbor')
+        m = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
+        ok = m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
+        seen = m.drawn()
         check(ok and 'Continue' in seen and 'Shader' not in seen and 'Border' not in seen,
               'no Shader and no Border')
-        keys('b')
-        ended(m)
+        m.ends('b')
 
         print('a cart opened on your PICO-8 from the shelf:')
         setting('display.PICO8', 'integer')
@@ -313,21 +300,22 @@ def launcher(tmp):
         setting('shader_strength.PICO8', '40')
         setting('border.PICO8', 'blur')
         look.unlink(missing_ok=True)
-        p, ok = start('shelf', ['--device', 'pixel2'])
-        check(ok, 'the launcher started')
+        w = start('shelf', ['--device', 'pixel2'])
+        check(dw.until(lambda: w.sock.exists() and w.state().get('ok') and (cdir / 'ctl.sock').exists()),
+              'the launcher started')
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(10)
+        s.settimeout(dw.CEILING)
         s.connect(str(cdir / 'ctl.sock'))
         s.sendall(f'open\tpath={cart}\n'.encode())
         said = s.makefile().readline().strip()
         s.close()
         check(said.startswith('ok') and 'core=run:ZyperOS/pico8/PICO-8.sh' in said,
               f'it opens on your PICO-8 ({said[:60]!r})')
-        check(ended(p) == 0, 'the launcher ends for it')
+        check(w.ends() == 0, 'the launcher ends for it')
         lines = look_lines()
         check(lines.get('shader') == 'lcd' and lines.get('strength') == '40' and lines.get('border') == 'blur',
               f'the look file is the shelf\'s rows ({lines})')
-        check('p8fx: PICO-8: shader lcd at 40%, border blur' in logged('shelf'), 'and the log says it')
+        check('p8fx: PICO-8: shader lcd at 40%, border blur' in w.text(), 'and the log says it')
     finally:
         for p in procs:
             if p.poll() is None:

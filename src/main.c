@@ -205,6 +205,9 @@
 #include "zyperdraw.h"
 #include "zypermark.h"
 #include "levels.h"
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -5115,6 +5118,11 @@ static int confirm_rows_pick(app *a, const char *heading, menu_row *rows, int nq
 			ui_scrim_k(a->r, 0, k);
 		}
 		menu_draw(a, heading, rows, nq + 2, sel, fixed_w, MENU_ZYPEROS);
+#ifdef ZYPEROS_DESK
+		/* tools/desk's `state`: the question and the answer under the cursor,
+		 * as the menu runner says its panels (src/menu_runner.c) */
+		desk_note_focus(heading ? heading : "", sel, sel >= 0 && rows[sel].label ? rows[sel].label : "");
+#endif
 		plat_draw_osd(a->r);
 		plat_present();
 		ui_frame_rest(8);

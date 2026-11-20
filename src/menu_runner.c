@@ -20,6 +20,9 @@
 #include "zyperdraw.h"
 #include "zyperrig.h"
 #include "levels.h"
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -482,6 +485,12 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		g_menu_zyper_at = plat_now_ms();
 		menu_draw_styled(a, st, heading, rows, n, sel);
 		g_menu_zyper = NULL;
+#ifdef ZYPEROS_DESK
+		/* tools/desk's `state`: the panel as drawn, its heading ("" for none)
+		 * and the row under the cursor, for a check that waits for a key's
+		 * screen rather than for a time */
+		desk_note_focus(heading ? heading : "", sel, sel >= 0 && sel < n && rows[sel].label ? rows[sel].label : "");
+#endif
 		plat_draw_osd(a->r);
 		plat_present();
 		ui_frame_rest(8);
