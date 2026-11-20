@@ -7,6 +7,7 @@
 #include "i18n.h"
 #include "keyhints.h"
 #include "keyhints_draw.h"
+#include "mp4frame.h"    /* MPF_TOO_BIG, MPF_NO_PICTURE */
 #include "mp4video.h"
 #include "panel.h"
 #include "topbar.h"
@@ -17,6 +18,8 @@
 #include "uisound.h"
 #include "zyperdraw.h"
 
+#include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -778,14 +781,21 @@ typedef struct {
 	SDL_Rect band;     /* the controls' surface, from the bar's row to the screen's foot */
 	SDL_Rect bar;      /* the bar between the two times */
 	SDL_Rect t0, t1;   /* the time played, the time left */
+	SDL_Rect mark;     /* Repeat's mark, before the time left; w 0 for none */
 	int keys_cy;       /* the keys' last row's middle */
 } np_player;
 
-static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1)
+/* Repeat's mark in the bar's row (MP4's MENU > Repeat): music's marks at
+ * music's size, half again the times' line, so repeat one's 1 reads at arm's
+ * length as it does beside music's count */
+#define NPV_MARK (ui_font_line(UI_F_META) * 3 / 2)
+
+static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1,
+                             bool mark)
 {
 	static ds_flex F;
 	TTF_Font *fs = ui_font(UI_F_META);
-	int root, band, row, keys, bar, c0, c1 = -1, i;
+	int root, band, row, keys, bar, c0, c1 = -1, mk = -1, i;
 
 	/* The picture: the canvas's width at 16:9, under the header's band. It
 	 * stands apart: the band floats over its foot and never moves it. */
@@ -803,6 +813,7 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	                                       .align = DS_A_CENTER });
 	c0 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t0), .h = NPV_BAR_ROW });
 	bar = ds_flex_add(&F, row, &(ds_box){ .h = UI_BAR_H, .grow = 1 });
+	if (mark) mk = ds_flex_add(&F, row, &(ds_box){ .w = NPV_MARK, .h = NPV_BAR_ROW });
 	if (t1[0]) c1 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t1), .h = NPV_BAR_ROW });
 	keys = ds_flex_add(&F, band, &(ds_box){ .dir = DS_ROW, .wrap = true, .gap = KEYHINTS_GAP_SPREAD,
 	                                        .line_gap = KEYHINTS_ROW - DS_HINT_GLYPH });
@@ -815,6 +826,7 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	L->bar = ds_flex_rect(&F, bar);
 	L->t1 = c1 >= 0 ? ds_flex_rect(&F, c1)
 	                : (SDL_Rect){ ZYPEROS_SCREEN_W - NPV_X, L->t0.y, 0, NPV_BAR_ROW };
+	L->mark = mk >= 0 ? ds_flex_rect(&F, mk) : (SDL_Rect){ 0, 0, 0, 0 };
 	L->keys_cy = ds_flex_rect(&F, keys).y + ds_flex_rect(&F, keys).h - DS_HINT_GLYPH / 2;
 }
 
@@ -862,6 +874,82 @@ bool np_video_grows(void)
 	return !SDL_RectEquals(&a, &b);
 }
 
+/* A picture format's name as people know it, from FFmpeg's short one */
+static void np_format_name(const char *ff, char *out, size_t n)
+{
+	static const struct { const char *ff, *name; } NAMES[] = {
+		{ "h264", "H.264" }, { "hevc", "HEVC" }, { "av1", "AV1" }, { "vp8", "VP8" },
+		{ "vp9", "VP9" }, { "mpeg4", "MPEG-4" }, { "mpeg2video", "MPEG-2" },
+		{ "mpeg1video", "MPEG-1" }, { "prores", "ProRes" }, { "vc1", "VC-1" },
+		{ "wmv3", "WMV" }, { "theora", "Theora" }, { "mjpeg", "Motion JPEG" },
+	};
+	size_t i;
+
+	for (i = 0; i < sizeof NAMES / sizeof NAMES[0]; i++)
+		if (!strcmp(ff, NAMES[i].ff)) { snprintf(out, n, "%s", NAMES[i].name); return; }
+	for (i = 0; i + 1 < n && ff[i]; i++) out[i] = (char)toupper((unsigned char)ff[i]);
+	if (n) out[i] = 0;
+}
+
+/* What the daemon says of a picture this handheld cannot carry, in the
+ * notice's slab (11.7) over the picture's foot, just over the band: what
+ * the video is ("AV1 · 1920x1080 · 60 fps") in **meta** **text-dim** over
+ * what that means in **label** **text**, on one line or two balanced, the
+ * slab no wider than a menu panel. Too big (MPF_TOO_BIG) it comes and goes
+ * with the controls at `al`; with no picture at all (MPF_NO_PICTURE) it
+ * stands whole in the black, so the screen is never only black. */
+static void np_video_notice(SDL_Renderer *r, const SDL_Rect *band, const mu_now *mn, Uint8 al)
+{
+	const ds_theme *t = theme();
+	TTF_Font *fh = ui_font(UI_F_META), *fb = ui_font(UI_F_LABEL);
+	const int padx = ui_font_line(UI_F_MENU) / 3, pady = ui_font_line(UI_F_MENU) / 6;
+	const int l1 = ui_font_line(UI_F_META), l2 = ui_font_line(UI_F_LABEL);
+	const int room = DS_PANEL_W - 2 * padx;
+	char ff[16], name[24], head[96], lines[2][LB_LINE];
+	const char *body, *nl;
+	unsigned milli = 0;
+	int trouble = mp4v_trouble(ff, sizeof ff, &milli), n, i, tw, w, h, x, y;
+
+	if (trouble == MPF_FINE || !fh || !fb) return;
+	if (trouble == MPF_NO_PICTURE) al = 255;
+	if (al == 0) return;
+	np_format_name(ff[0] ? ff : "?", name, sizeof name);
+	n = snprintf(head, sizeof head, "%s", name);
+	if (mn->vw > 0 && mn->vh > 0 && n > 0 && (size_t)n < sizeof head)
+		n += snprintf(head + n, sizeof head - (size_t)n, " · %dx%d", mn->vw, mn->vh);
+	if (milli > 0 && milli < 1000000 && n > 0 && (size_t)n < sizeof head) {
+		double fps = milli / 1000.0;
+
+		snprintf(head + n, sizeof head - (size_t)n, fabs(fps - round(fps)) < 0.01 ? " · %.0f fps" : " · %.2f fps", fps);
+	}
+	body = trouble == MPF_TOO_BIG ? T(S_MP4_TOO_BIG) : T(S_MP4_NO_PICTURE);
+	ui_fit_drawn(body);
+	if ((nl = strchr(body, '\n'))) {
+		/* Chinese and Japanese say where their two lines part, which a
+		 * break between any two characters would not */
+		snprintf(lines[0], sizeof lines[0], "%.*s", (int)(nl - body), body);
+		snprintf(lines[1], sizeof lines[1], "%s", nl + 1);
+		n = 2;
+	} else {
+		n = ui_balance_lines(fb, body, room, 2, lines);
+	}
+	tw = ui_text_width(fh, head);
+	for (i = 0; i < n; i++)
+		if (ui_text_width(fb, lines[i]) > tw) tw = ui_text_width(fb, lines[i]);
+	if (tw > room) tw = room;
+	/* The notice's lines, and the quarter of the body's descender room taken
+	 * off the bottom, as the menu music's pop-up has them */
+	w = tw + 2 * padx;
+	h = pady * 2 + l1 + n * l2 - l2 / 12;
+	x = (ZYPEROS_SCREEN_W - w) / 2;
+	y = band->y - DS_INSET - h;
+	ui_round_rect(r, &(SDL_Rect){ x, y, w, h }, DS_RADIUS_PANEL, ui_col(t->surface, (Uint8)(217 * al / 255)));
+	ui_text(r, fh, head, ZYPEROS_SCREEN_W / 2, ui_line_y(UI_F_META, y + pady), 0, ui_col(t->text_dim, al));
+	for (i = 0; i < n; i++)
+		ui_text(r, fb, lines[i], ZYPEROS_SCREEN_W / 2, ui_line_y(UI_F_LABEL, y + pady + l1 + i * l2), 0,
+		        ui_col(t->text, al));
+}
+
 /* One frame of the video, the controls and the header at `k` (0 hidden, 1
  * shown), the ground around the picture the theme's at 1 and black at 0, and
  * the picture `grow` of the way to the whole screen (drawn only with the
@@ -882,7 +970,7 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 	np_player L;
 	SDL_Rect pic, box;
 	unsigned wait = (unsigned)-1;
-	int n;
+	int n, mg;
 	Uint8 al;
 
 	k = k < 0 ? 0 : k > 1 ? 1 : k;
@@ -897,7 +985,9 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 		mmss(left, sizeof left, mn->len > mn->at ? mn->len - mn->at : 0);
 		snprintf(t1, sizeof t1, "-%s", left);
 	}
-	np_player_layout(&L, h, n, t0, t1);
+	/* Repeat's mark (MP4's MENU > Repeat), music's own, when it is not Off */
+	mg = MUSE_MODES[musec_video_mode()].glyph;
+	np_player_layout(&L, h, n, t0, t1, mg >= 0);
 
 	/* The header stands over the box's band: the picture grows only once
 	 * it has gone (the run loop's order; held here too) */
@@ -928,12 +1018,16 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 
 		ds_play_disc(r, pic.x + (pic.w - d) / 2, pic.y + (pic.h - d) / 2, d, 255);
 	}
+	np_video_notice(r, &L.band, mn, al);
 	if (al == 0) return wait;
 	ui_round_rect(r, &L.band, 0, ui_col(theme()->surface, (Uint8)(al * 0.92f)));
 	soft.a = al;
 	np_video_bar(r, mn, L.bar.x, L.bar.y, L.bar.w, al);
 	ui_text_tabular(r, fs, t0, L.t0.x, ui_cap_y(fs, L.t0.y + L.t0.h / 2), -1, soft);
 	if (t1[0]) ui_text_tabular(r, fs, t1, L.t1.x + L.t1.w, ui_cap_y(fs, L.t1.y + L.t1.h / 2), 1, soft);
+	if (L.mark.w > 0)
+		ui_glyph_draw(r, (ui_glyph)mg, L.mark.x + L.mark.w / 2, L.mark.y + L.mark.h / 2, L.mark.w,
+		              ui_col(theme()->accent_ink, al));
 	keyhints_draw(r, h, n, NPV_X, ZYPEROS_SCREEN_W - NPV_X, L.keys_cy, KEYHINTS_SPREAD, true, al);
 	return wait;
 }
@@ -953,6 +1047,7 @@ static muse_exit muse_now_screen_run(app *a)
 	} shown, drawn;
 	unsigned due = 0, ctl_until = 0, ctl_at = 0;
 	float ctl = 1, ctl_drawn = -1, grow = 0, grow_drawn = -1;
+	int trouble_seen = MPF_FINE;
 	muse_exit how = MUSE_BACK;
 
 	mq_reset(MQ_NP);
@@ -1029,8 +1124,18 @@ static muse_exit muse_now_screen_run(app *a)
 			 * come again; a picture that does not grow waits for nothing. */
 			float dt;
 			bool want, grows;
+			int tr;
 
 			fresh = mp4v_update(a->r);
+			/* The daemon finding the file too big for this CPU: the
+			 * controls come up as on a key, so the notice with them is
+			 * read; it, or no picture at all, drawn as it changes */
+			tr = mp4v_trouble(NULL, 0, NULL);
+			if (tr != trouble_seen) {
+				if (tr == MPF_TOO_BIG) ctl_until = now + DS_MS_HOLD_CONTROLS;
+				trouble_seen = tr;
+				ctl_drawn = -1;
+			}
 			/* Y shows them, or hides them at once if they were up; any
 			 * other key shows them and does what it does */
 			up = (int)(ctl_until - now) > 0;

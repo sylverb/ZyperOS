@@ -2,6 +2,7 @@
 /* Actual main.c sort, refresh and scrape-exit hooks; only view resources and
  * scrape transport are stubbed. This needs no window, network or device. */
 #include "../src/library.h"
+#include "../src/pico8.h"
 #include "../src/sort.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,6 +53,11 @@ static void scp_page(app *a, const char *only)
 	strcpy(m.title, "Alpha");
 	CHECK(db_game_set(db_lib(), only, "same.zip", &m));
 }
+/* Splore's pin on the PICO-8 shelf (src/pico8.c), stubbed: which games it
+ * was handed, after the sort */
+static int pins;
+static const game_entry *pinned;
+void splore_pin(game_entry *items, int n) { pins++; pinned = n > 0 ? items : NULL; }
 #include "title-refresh-hooks.h"
 
 static void put(game_entry *e, const char *name, const char *file)
@@ -135,6 +141,12 @@ int main(void)
 	nes[0].added = nes[1].added = LIB_ADDED_UNKNOWN; a.view[1].sort = 0;
 	sort_shelf(&a, 1);
 	CHECK(!strcmp(nes[0].name, "A") && nes[0].added == LIB_ADDED_UNKNOWN && nes[1].added == LIB_ADDED_UNKNOWN);
+	/* Splore is pinned on the PICO-8 shelf alone, after its games' sort */
+	CHECK(pins == 0);
+	strcpy(a.sys.systems[1].tag, P8_TAG);
+	sort_shelf(&a, 1);
+	CHECK(pins == 1 && pinned == nes);
+	strcpy(a.sys.systems[1].tag, "NES");
 	{
 		const char *gone[] = { "NES/old.zip", "SNES/new.zip", "NES/Set/Set.m3u" };
 		char path[512];

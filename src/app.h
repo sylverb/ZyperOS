@@ -213,6 +213,9 @@ typedef struct {
 
 	home home;
 	home_layout home_layout;
+	/* When the focused system's shelf is asked for ahead of A: once the
+	 * home's cursor has rested on it (src/shelf_keys.c); 0 for none */
+	Uint32 home_prime_at;
 	sysview view[CFG_MAX_SYSTEMS];
 	/* The systems MENU > Display > Home Systems turned off (src/homesys.h),
 	 * kept after the home's shelves, at sys.systems[] and view[] from
@@ -384,6 +387,20 @@ bool file_nonempty(const char *p);
  * a shelf is Muse's, and the in-game menu's Quit (a disc system's BIOS is
  * src/biosfile.h's) */
 bool core_present(const char *core);
+/* What config/systems.cfg's brings line asks of the player for `core` on
+ * `s` is on the card (`missing` gets the first path that is not), and a
+ * core that can run: on the card and with those files (src/main.c) */
+bool core_brought(const system_cfg *s, const char *core, char *missing, size_t n);
+bool core_ready(const system_cfg *s, const char *core);
+/* A PICO-8 zip the player copied into Bios/PICO-8, taken (src/pico8.h,
+ * p8_take_zip), before the cores are chosen; what to say of it once the home
+ * is up in g_p8_said, "" for nothing */
+extern char g_p8_said[256];
+void p8_take_now(void);
+/* The cores the shelf's Core row offers: those that can run, and the one
+ * chosen */
+int  core_offered_count(const system_cfg *s);
+bool core_offered_at(const system_cfg *s, int i, char *out, int cap);
 bool is_muse(const system_cfg *s);
 void gm_quit(void);
 /* A Ports shelf's core, and a standalone emulator's: "run:<script>"

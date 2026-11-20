@@ -20,7 +20,7 @@ typedef struct { app *a; char warmth[4], from[24], until[24]; } night_view;
  * Folder Color, Corners, Zyper and Reset to Default. Left and Right step a
  * row round and apply it at once; A opens a row's list, and on Reset puts
  * them all back. */
-enum { LK_ACCENT, LK_LIGHT, LK_DARK, LK_FOLDERS, LK_CORNERS, LK_ZYPER, LK_RESET, LK_ROWS };
+enum { LK_ACCENT, LK_LIGHT, LK_DARK, LK_FOLDERS, LK_CORNERS, LK_HIGHLIGHT, LK_ZYPER, LK_RESET, LK_ROWS };
 
 /* What main.c uses of it; each is described where it is defined */
 int usb_auto_lines(app *a, char lines[4][LB_LINE], menu_row rows[4]);
@@ -46,6 +46,15 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading);
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading);
 void sc_side(app *a, const menu_side *at);
 void sc_look_choice(menu_choice *out);
+/* MENU > Sound > Equalizer (src/eq.h): the page, from MENU and MP4's menu;
+ * its rows, the presets' list with each one's picture, and that picture,
+ * for the shots (--look-page eq, eq-presets) */
+void eq_screen(app *a);
+int  eq_page_build(void *ctx, menu_row *rows, int max, const char **heading);
+void eq_preset_choice(menu_choice *out);
+void eq_curve_preview(void *app, int k, int x, int y, int w, int h);
+/* --eq-phones: the page and its list as with headphones in (a shot's) */
+extern bool g_shot_eq_phones;
 menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel);
 void zyperos_menu(app *a);
 

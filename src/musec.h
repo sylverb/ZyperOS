@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "musequeue.h"
 
@@ -142,6 +143,10 @@ void musec_sink(const char *device);
  * for where Muse's sound goes (src/audioout.h). Sent only when it changes,
  * and again to a daemon that has just said READY, since it starts in stereo. */
 void musec_channels(const char *mode);
+/* The equalizer's bands for where Muse plays (src/eq.h), dB each, and
+ * whether its page is open (`live`: Muse keeps only about 60 ms queued, so a
+ * step is heard in under a tenth of a second). Sent on a change only. */
+void musec_eq(const int8_t db[5], bool live);
 /* Make the next musec_sink send even if the device has not changed: for a
  * headset that dropped and came back under the same name, which Muse may
  * have fallen back from while it was gone. The daemon ignores a SINK for the
@@ -170,6 +175,12 @@ const char *musec_upcoming(void);
  * caller's. */
 void     musec_set_mode(muq_mode m);
 muq_mode musec_mode(void);
+/* Videos' own mode, MP4's MENU > Repeat (2026-11-19): in order (Off), repeat
+ * all or repeat one, never shuffle. Applied to a queue of videos playing now
+ * and kept for every one after it; music's mode is left as it is. Saving it
+ * is the caller's. */
+void     musec_set_video_mode(muq_mode m);
+muq_mode musec_video_mode(void);
 
 /* Ask for the picture `track` (relative to the music root) carries, written to
  * `base` plus the extension its format has. The daemon answers in a few
