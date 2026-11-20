@@ -1181,6 +1181,20 @@ UPDATE_STATES = {
 }
 EXTRA.update({name: ("demo", "PS1", ["--update"]) for name in UPDATE_STATES})
 
+# About's Details with a battery (src/about.c): the full charge never measured
+# (charge_full_learned 0, as the Pixel 2's kernel says until its first
+# measure: "Not measured yet") and measured worn ("81% estimate"). The
+# launcher reads these files for the gauge's folder (ZYPEROS_BATTERY_DIR,
+# plat_battery_info_path), made for the shot.
+BATTERY_DIRS = {
+    "about-1-unmeasured": {"charge_full": "1730000\n", "charge_full_design": "1730000\n",
+                           "charge_full_learned": "0\n"},
+    "about-1-measured": {"charge_full": "1400000\n", "charge_full_design": "1730000\n",
+                         "charge_full_learned": "3\n"},
+}
+for _name in BATTERY_DIRS:
+    EXTRA.setdefault(_name, ("demo", "PS1", ["--about", "1"]))
+
 # The Install PortMaster page (src/pminstall.c) in its states with the
 # longest words: its status as res/portmaster/pm-install.py writes it, and
 # --portmaster's view of the device. And the Ports shelf with PortMaster not
@@ -1434,6 +1448,12 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                 pm.mkdir(exist_ok=True)
                 (pm / "status").write_text(PM_STATES[name][0])
                 env["ZYPEROS_PM_STATUS"] = str(pm / "status")
+            if name in BATTERY_DIRS:
+                bat = Path(tmp) / ("battery-" + name)
+                bat.mkdir(exist_ok=True)
+                for _f, _text in BATTERY_DIRS[name].items():
+                    (bat / _f).write_text(_text)
+                env["ZYPEROS_BATTERY_DIR"] = str(bat)
 
             def shoot():
                 # A shot's own settings (readme-shots' SHOT_SETTINGS), only while

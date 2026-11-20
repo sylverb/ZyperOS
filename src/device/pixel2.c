@@ -2227,7 +2227,11 @@ void plat_charge_limit_set(int pct)
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
-	return "/sys/class/power_supply/battery";
+	/* ZYPEROS_BATTERY_DIR stands in for the gauge's folder: a host shot's
+	 * About with a battery in it (tools/i18n-shots.py's BATTERY_DIRS) */
+	const char *dir = getenv("ZYPEROS_BATTERY_DIR");
+
+	return dir && *dir ? dir : "/sys/class/power_supply/battery";
 }
 
 bool plat_battery(int *pct, bool *charging)
