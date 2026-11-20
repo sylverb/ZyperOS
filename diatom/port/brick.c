@@ -2341,10 +2341,14 @@ static void hud_cpu_update(void)
 	g_hudc_style = st;
 	g_hudc_colors = colors;
 	g_hudc_rect.w = 0;
-	hud_size(text, 1.0f, &st, &w, &h);
+	/* At the launcher's scale, the panel's height over its 768 units: 1 on
+	 * the Brick, 0.9375 on the Smart Pro's 1280x720 (ZyperOS's
+	 * src/canvas.h) */
+	const float k = g_vinfo.yres < 768 ? (float)g_vinfo.yres / 768.0f : 1.0f;
+	hud_size(text, k, &st, &w, &h);
 	if (!w || w > 1024 || h > 128 || w > (int)g_vinfo.xres || h > (int)g_vinfo.yres) return;
-	hud_render(g_hudc_px, w, h, w, 1.0f, text, &st, &colors, false);
-	hud_place(&st, 1.0f, w, h, (int)g_vinfo.xres, (int)g_vinfo.yres, &x, &y);
+	hud_render(g_hudc_px, w, h, w, k, text, &st, &colors, false);
+	hud_place(&st, k, w, h, (int)g_vinfo.xres, (int)g_vinfo.yres, &x, &y);
 	if (x < 0 || y < 0 || x + w > (int)g_vinfo.xres || y + h > (int)g_vinfo.yres) return;
 	g_hudc_rect = (diatom_rect){ x, y, w, h };
 }
