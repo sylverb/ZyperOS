@@ -5,8 +5,9 @@
 /* The launcher's volume and brightness keys, and the boost past the top of
  * each (src/boost.h, DESIGN.md 11.6): every screen's loop calls levels_keys
  * where it called the four nudges, saying where it is (BOOST_OPEN on MP4's
- * screens, BOOST_FILL on MP4's lock screen, BOOST_HIDE in the menus). The
- * level stays the device's (src/device/: its nudge applies it, keeps it,
+ * screens, BOOST_FILL on MP4's lock screen, BOOST_HIDE in the menus, which
+ * is BOOST_OPEN here while MP4 is heard behind them). The level stays the
+ * device's (src/device/: its nudge applies it, keeps it,
  * shows the bar and says it on the side lights, as before); the boost's
  * cells are kept here, in the database beside the level, and become MP4's
  * gain (MP4), a port's (the shared file portkeys and the plugin read) and
@@ -24,9 +25,11 @@ void levels_init(void);
 
 /* The level keys this frame: presses and held keys as in_repeat sees them,
  * let-goes and the clock. `where` is BOOST_OPEN, BOOST_FILL or BOOST_HIDE
- * for the volume; brightness opens anywhere, and on MP4's lock screen
- * (FILL), where only the volume keys get through, is left alone. True when
- * a level key did something this frame. */
+ * for the volume, a HIDE taken as OPEN while MP4 is heard (mp4c_heard): the
+ * boost on the sound that plays works the same on every screen, the home
+ * included. Brightness opens anywhere, and on MP4's lock screen (FILL),
+ * where only the volume keys get through, is left alone. True when a level
+ * key did something this frame. */
 bool levels_keys(in_state *in, int where);
 
 /* The bar's look for `kind` (OSDBAR_VOLUME, OSDBAR_BRIGHT) now, for

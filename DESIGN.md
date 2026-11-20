@@ -1465,8 +1465,16 @@ starts at the top without it.
   over a port (the zyperos-eq plugin, now in every port's chain, the gain in
   the shared file that portkeys writes during the port). MP4's lock screen
   fills and empties an open one but never opens one: a held key in a pocket
-  must not. The menus show the bar as it was, the menu music is never
-  boosted, and a press under the top there folds a kept boost.
+  must not. While MP4 is heard behind the home, a shelf or a menu (playing,
+  the menu music quiet for it, as for L2 and R2 in 11.14), the boost there is
+  MP4's as on its own screens: the bar shows the cells, the hold or three
+  presses open them, a press down empties one before the level moves, and
+  each cell reaches the sound that plays (src/levels.c, `check-levels`).
+  *(2026-11-20, on 1.1.0-rc.3: "if i'm playing something that has the
+  software audio boost, i should be able to still control that audio boost
+  from home".)* With nothing heard (MP4 paused or stopped), the menus show
+  the bar as it was, the menu music is never boosted, and a press under the
+  top there folds a kept boost.
 - **Brightness:** three cells, each a lift of the mid-tones on the display's
   gamma table after the player's Screen Colors, like Gamma +3: x^0.88,
   x^0.76, x^0.64 (mid grey 128 to 139, 151 and 164), black and white kept.

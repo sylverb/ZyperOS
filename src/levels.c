@@ -108,6 +108,21 @@ static void levels_act(int k, int dir, int did, unsigned now)
 		plat_rumble_buzz((float)rumble_level_pct(rumble_menu()) / 100.0f, 40);
 }
 
+/* Where the volume's keys are, as the boost takes it: a menu's place (the
+ * home, a shelf, a menu, the in-game menu: BOOST_HIDE) is MP4's while MP4 is
+ * heard behind it - playing, or asked to, the menu music quiet for it
+ * (src/bgm.h), as L2 and R2 are MP4's there then. The boost on what plays is
+ * the same wherever the keys are pressed: the bar shows its cells, a hold or
+ * three presses open it, a press down empties a cell before the level moves,
+ * and each cell reaches MP4. Paused or stopped, the menus' own again: the
+ * menu music is never boosted (2026-11-20, on 1.1.0-rc.3: "if i'm playing
+ * something that has the software audio boost, i should be able to still
+ * control that audio boost from home"). MP4's lock screen stays FILL. */
+static int levels_where(int where)
+{
+	return where == BOOST_HIDE && mp4c_heard() ? BOOST_OPEN : where;
+}
+
 bool levels_keys(in_state *in, int where)
 {
 	static const in_button UP[2] = { IN_VOLUP, IN_BRIGHTUP }, DN[2] = { IN_VOLDN, IN_BRIGHTDN };
@@ -116,6 +131,7 @@ bool levels_keys(in_state *in, int where)
 	int k;
 
 	levels_ensure();
+	where = levels_where(where);
 	L.where = where;
 	for (k = 0; k < 2; k++) {
 		boost_bar *b = &L.bar[k];

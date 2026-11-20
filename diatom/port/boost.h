@@ -51,7 +51,8 @@
  * FILL where an open one fills and empties but none opens (MP4's lock
  * screen: a held key in a pocket must not open it), HIDE where the bar is
  * the bar as it was, a press at the top does nothing more and a press under
- * the top folds a kept boost away (the menus). */
+ * the top folds a kept boost away (the menus, with nothing heard behind
+ * them: the launcher takes a menu over MP4 playing as OPEN, src/levels.c). */
 enum { BOOST_OPEN, BOOST_FILL, BOOST_HIDE };
 
 /* What a press or the clock did, for the host to act on */
