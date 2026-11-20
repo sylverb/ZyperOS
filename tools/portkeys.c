@@ -786,7 +786,7 @@ static void bar_fade(void)
  * 5 s, so it costs the port nothing it was not already paying. */
 
 static int read_level(const char *path);   /* with the battery, below */
-static bool batt_now(int *pct, bool *charging, int *mv);   /* the same */
+static bool batt_level(int *pct, bool *charging);   /* the same */
 
 static heat_state H;
 static struct {
@@ -1073,9 +1073,8 @@ static void hud_update(int lw, int lh)
 	if (items & (1u << HUD_CLOCK) && (khz = read_level(PK_CPUFREQ)) > 0) v.cpu_mhz = (khz + 500) / 1000;
 	if (items & (1u << HUD_BATTERY)) {
 		bool charging;
-		int mv;
 
-		if (!batt_now(&v.battery_pct, &charging, &mv)) v.battery_pct = -1;
+		if (!batt_level(&v.battery_pct, &charging)) v.battery_pct = -1;
 	}
 	if (items & (1u << HUD_TIME)) {
 		time_t t = time(NULL);
