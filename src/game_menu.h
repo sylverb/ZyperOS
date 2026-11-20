@@ -211,6 +211,11 @@ typedef enum {
 	/* Cheats (src/cheats.h, DESIGN.md 11.66), on the Game tab right over
 	 * Achievements: how many are on, and A opens the game's list */
 	GM_CHEATS,
+	/* Screen Colors (src/panelgamma.h, DESIGN.md 11.42), the whole
+	 * screen's, on the Display tab right over On-Screen Stats where the
+	 * display has a table: its value the look, and A opens MENU >
+	 * Display's own page over the paused game (1.1.0) */
+	GM_SCREEN_COLORS,
 	GM_MAX_ROWS
 } gm_row;
 
@@ -245,6 +250,9 @@ typedef struct {
 	const char *border_color;
 	/* On-Screen Stats, the player's (HUD_KEY), whatever the game */
 	bool        hud;
+	/* Screen Colors' look, as MENU > Display's row says it, where the
+	 * display has a table (plat_screen_colors_here); NULL: no row */
+	const char *screen_colors;
 	int         earned;
 	int         total;    /* 0: this game has no achievement set */
 	/* ...because it was never played with a network: not asked yet */

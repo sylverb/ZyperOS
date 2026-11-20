@@ -1408,6 +1408,15 @@ static void mp4_covers_settle(void)
 	}
 }
 
+/* --look-page screen or screen-looks with --gamemenu: Screen Colors' page or
+ * its Look's list over the paused game, as the in-game menu's Display tab
+ * opens them (1.1.0), on --gamemenu's made-up frame or --backdrop's picture */
+static bool shot_look_over_game(const app *a)
+{
+	return shot_look_page && shot_gamemenu && a->sys.count > 0 &&
+	       (!strcmp(shot_look_page, "screen") || !strcmp(shot_look_page, "screen-looks"));
+}
+
 /* --look-page: Theme's page, Night Mode's or Screen Colors', over the shelf,
  * as menu_run draws them, the cursor on --look-page's row */
 static void shot_draw_look(app *a)
@@ -1419,8 +1428,17 @@ static void shot_draw_look(app *a)
 	bool night = night_list || !strcmp(shot_look_page, "night"), screen = !strcmp(shot_look_page, "screen");
 	int n = night ? night_page_build(&nv, rows, NP_ROWS, &heading)
 	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
+	/* Over a game, in the in-game pages' accent, the game's (follow_tint) */
+	const bool over_game = shot_look_over_game(a);
+	const unsigned sc_accent = over_game ? a->tint : MENU_ZYPEROS;
+	SDL_Texture *bg = NULL;
 
-	ui_scrim(a->r, 0);
+	if (over_game) {
+		bg = shot_backdrop ? IMG_LoadTexture(a->r, shot_backdrop) : fake_frame(a->r, 4.0f / 3);
+		gm_backdrop(a, &(gm_ctx){ .a = a, .bg = bg }, 1.0f);
+	} else {
+		ui_scrim(a->r, 0);
+	}
 	/* --look-page theme-list ROW: Theme's row ROW's list, Accent's or a
 	 * ground's (--pick-at for the cursor, the whole screen showing it) */
 	if (!strcmp(shot_look_page, "theme-list")) {
@@ -1464,7 +1482,8 @@ static void shot_draw_look(app *a)
 		menu_choice ch;
 
 		sc_look_choice(&ch);
-		shot_list_draw(a, T(S_SCREEN_LOOK), &ch, menu_most_w(), MENU_ZYPEROS);
+		shot_list_draw(a, T(S_SCREEN_LOOK), &ch, menu_most_w(), sc_accent);
+		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
 	if (screen) {
@@ -1476,11 +1495,12 @@ static void shot_draw_look(app *a)
 		g_menu_header_h = 150;
 	}
 	menu_draw(a, heading, rows, n, shot_look_row < n ? shot_look_row : 0,
-	          screen ? menu_most_w() : menu_std_width(a), MENU_ZYPEROS);
+	          screen ? menu_most_w() : menu_std_width(a), screen ? sc_accent : MENU_ZYPEROS);
 	g_row_mark = NULL;
 	g_menu_header = NULL;
 	g_menu_side = NULL;
 	g_menu_side_w = 0;
+	if (bg) SDL_DestroyTexture(bg);
 }
 
 /* Everything a shot draws, in the theme that is on. */
@@ -1760,7 +1780,7 @@ static void shot_compose_once(app *a)
 	if (shot_lights >= 0) lights_shot_draw(a, shot_lights);
 	if (shot_slots) shot_draw_slots(a);
 	if (shot_cheats_crash) cheats_crash_shot(a);
-	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
+	if (shot_gamemenu && a->sys.count > 0 && !shot_look_over_game(a)) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
 	if (shot_controls_fit) controls_fit_report(a);
