@@ -39,12 +39,18 @@ static int     g_art_head, g_art_n;
 
 static int     g_show = -1;         /* VIDEO show= last sent, -1 none yet */
 static bool    g_show_want;         /* what it should be */
+static int     g_bands_sent = -1;   /* BANDS on= last sent, -1 none yet */
+static bool    g_bands_want;        /* what it should be */
+static unsigned g_bands_until;      /* ...until then, if no frame keeps it */
+static uint8_t g_bands[MUSEC_BANDS];  /* the last levels, and when they came */
+static unsigned g_bands_ms;
 static bool    g_names_each;        /* the queue names each track's own; see musec_names_by */
 static void  (*g_names_fn)(const char *, char *, size_t, char *, size_t);
 static char  **g_q;                 /* the queue, relative paths, ours */
 static int     g_qn;
 static muq     g_order;             /* which of them plays when: the mode */
 static muq_mode g_mode = MUQ_IN_ORDER;
+static muq_mode g_video_mode = MUQ_IN_ORDER;   /* videos' own: no shuffle */
 static int     g_pending;           /* a PLAY waiting for the connection */
 static bool    g_advanced;          /* the next track is asked for; see event() */
 static int     g_skips;             /* consecutive tracks that would not open */
@@ -65,6 +71,8 @@ static int     g_nch;
 static bool    g_seeking;
 static double  g_seek_to;
 static unsigned g_seek_ms;
+/* When g_now.at was last said, for musec_at_live */
+static unsigned g_at_ms;
 
 /* The output, which Muse holds for its whole life and has to be HANDED a
  * headset: see musec_sink in musec.h. */
@@ -73,6 +81,9 @@ static char     g_sink_said[128];   /* what it last reported, "" not yet */
 static unsigned g_sink_ms;          /* when the ask went */
 static bool     g_sink_waiting;     /* asked, and no answer yet */
 static char     g_chan_sent[8];     /* the channels last asked for, "" none yet */
+/* The equalizer last asked for, as EQ carries it ("5,2,0,0,1 live=1"); ""
+ * none yet */
+static char     g_eq_sent[40];
 static bool     g_asked;            /* PLAY or RESUME sent, not yet answered */
 static void   (*g_before_heard)(void);
 
@@ -113,14 +124,22 @@ static void drop(const char *why, int err)
 	/* And it starts in stereo, so whatever was asked of the old one has to
 	 * be asked again. */
 	g_chan_sent[0] = '\0';
-	/* And with nobody watching. */
+	/* And flat, so the equalizer is asked again too */
+	g_eq_sent[0] = '\0';
+	/* And with nobody watching, or looking at bars. */
 	g_show = -1;
+	g_bands_sent = -1;
+	g_bands_ms = 0;
 }
 
 static void sendf(const char *fmt, ...);
 
 static void show_send(void)
 {
+	if (g_fd >= 0 && g_bands_sent != (int)g_bands_want) {
+		g_bands_sent = g_bands_want;
+		sendf("BANDS\ton=%d", g_bands_sent);
+	}
 	if (g_fd < 0 || g_show == (int)g_show_want) return;
 	g_show = g_show_want;
 	sendf("VIDEO\tshow=%d", g_show);
@@ -263,6 +282,22 @@ static void event(const char *line)
 	if (!strncmp(line, "READY", 5)) {
 		show_send();
 		if (g_pending) play_current();
+	} else if (!strncmp(line, "BANDS", 5)) {
+		/* 32 levels, two hex digits each: anything else is not taken */
+		const char *v = strstr(line, "\tv=");
+		uint8_t lv[MUSEC_BANDS];
+		int i;
+
+		if (!v || strlen(v + 3) < MUSEC_BANDS * 2) return;
+		for (i = 0; i < MUSEC_BANDS; i++) {
+			char h[3] = { v[3 + i * 2], v[4 + i * 2], 0 };
+			char *end;
+
+			lv[i] = (uint8_t)strtoul(h, &end, 16);
+			if (*end) return;
+		}
+		memcpy(g_bands, lv, sizeof g_bands);
+		g_bands_ms = plat_now_ms() | 1;
 	} else if (!strncmp(line, "STATE", 5)) {
 		field(line, "state", v, sizeof v);
 		/* The track that ended says "stopped" AFTER its END, and by then the
@@ -330,6 +365,7 @@ static void event(const char *line)
 				g_seeking = false;
 		}
 		g_now.at = at;
+		g_at_ms = plat_now_ms();
 	} else if (!strncmp(line, "END", 3)) {
 		advance(false);
 	} else if (!strncmp(line, "SINK", 4)) {
@@ -414,12 +450,14 @@ static void headset_keys(void)
 }
 
 static void snap_send(void);
+static void bands_lapse(void);
 
 void musec_poll(void)
 {
 	ssize_t got;
 
 	headset_keys();
+	bands_lapse();
 
 	/* Reconnect whenever there is a queue to look after, not only when a
 	 * play is waiting: a daemon that restarts mid-album would otherwise
@@ -479,7 +517,7 @@ void musec_play(const char *const *paths, int n, int start, double at, bool book
 	if (!g_videos_call) g_videos = false;
 	g_speed = speed >= 0.5 && speed <= 2.0 ? speed : 1.0;
 	muq_init(&g_order, k, start >= 0 && start < k ? start : 0,
-	         book || g_videos ? MUQ_IN_ORDER : g_mode, plat_now_ms() * 2654435761u + 1);
+	         book ? MUQ_IN_ORDER : g_videos ? g_video_mode : g_mode, plat_now_ms() * 2654435761u + 1);
 	g_skips = 0;
 	g_start_at = at > 0 ? at : 0;
 	g_ran_out = false;
@@ -511,6 +549,33 @@ void musec_video_show(bool on)
 {
 	g_show_want = on;
 	show_send();
+}
+
+void musec_bands_keep(void)
+{
+	g_bands_until = plat_now_ms() + MUSEC_BANDS_LEASE;
+	if (!g_bands_want) {
+		g_bands_want = true;
+		g_bands_ms = 0;
+		show_send();
+	}
+}
+
+/* The lease run out: no frame of bars for a while, so nobody is looking */
+static void bands_lapse(void)
+{
+	if (!g_bands_want || (int)(plat_now_ms() - g_bands_until) < 0) return;
+	g_bands_want = false;
+	g_bands_ms = 0;
+	show_send();
+}
+
+bool musec_bands(uint8_t out[MUSEC_BANDS], unsigned *age_ms)
+{
+	if (!g_bands_ms || !g_bands_want) return false;
+	memcpy(out, g_bands, sizeof g_bands);
+	if (age_ms) *age_ms = plat_now_ms() - g_bands_ms;
+	return true;
 }
 
 /* What is wanted, sent once there is a daemon to send it to: the first snap
@@ -579,6 +644,18 @@ void musec_channels(const char *mode)
 	fprintf(stderr, "muse: channels -> %s\n", m);
 }
 
+void musec_eq(const int8_t db[5], bool live)
+{
+	char bands[32], said[40];
+
+	if (g_fd < 0 || !g_sink_said[0]) return;   /* not connected, or not heard from */
+	snprintf(bands, sizeof bands, "%d,%d,%d,%d,%d", db[0], db[1], db[2], db[3], db[4]);
+	snprintf(said, sizeof said, "%s live=%d", bands, live ? 1 : 0);
+	if (!strcmp(said, g_eq_sent)) return;
+	snprintf(g_eq_sent, sizeof g_eq_sent, "%s", said);
+	sendf("EQ\tbands=%s\tlive=%d", bands, live ? 1 : 0);
+}
+
 void musec_sink_again(void)
 {
 	/* Forget what was asked, so the next musec_sink sends even an unchanged
@@ -617,6 +694,7 @@ void musec_next(void)
 static void seek_to(double t)
 {
 	g_now.at = t;                  /* shown at once, confirmed by a POS */
+	g_at_ms = plat_now_ms();
 	g_seeking = true;
 	g_seek_to = t;
 	g_seek_ms = plat_now_ms();
@@ -754,7 +832,32 @@ bool musec_take_ran_out(void)
 
 muq_mode musec_mode(void) { return g_mode; }
 
+void musec_set_video_mode(muq_mode m)
+{
+	if (m != MUQ_REPEAT_ALL && m != MUQ_REPEAT_ONE) m = MUQ_IN_ORDER;
+	g_video_mode = m;
+	if (!g_videos) return;
+	muq_set_mode(&g_order, m);
+	g_now.index = g_order.pos;
+}
+
+muq_mode musec_video_mode(void) { return g_video_mode; }
+
 const mu_now *musec_now(void) { return &g_now; }
+
+double musec_at_live(void)
+{
+	double at = g_now.at, since;
+
+	if (g_now.state != MU_PLAYING || !g_at_ms) return at;
+	/* On from the last report at the speed it plays, but never more than
+	 * a report and a half past it: a daemon that has stopped saying is not
+	 * run away from */
+	since = (double)(plat_now_ms() - g_at_ms) / 1000.0 * (g_book ? g_speed : 1.0);
+	if (since > 1.5) since = 1.5;
+	at += since;
+	return g_now.len > 0 && at > g_now.len ? g_now.len : at;
+}
 
 const char *musec_path(void)
 {

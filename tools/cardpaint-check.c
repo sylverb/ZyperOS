@@ -23,6 +23,11 @@
  *   of one, and the cards after are the frame's pixels again.
  * - Nothing to draw with: no faces, or no worker, and the card is the
  *   frame's to make, as it always was.
+ * - Two at once. texload's two workers draw two cards at once, as they
+ *   decode two covers at once: a game's card costs a worker as much as a
+ *   decode (40-50 ms on the Pixel 2), and when the two took turns, a Grid of
+ *   games with no art filled at half the rate of one with art, and the rows
+ *   a press brought into sight slid in as empty cells.
  *
  * And one thing the two ways cannot tell apart, since they choose a face the
  * same way: that the choice is the language's. 日本語 is Japanese's own name,
@@ -40,9 +45,13 @@
 #include "ui.h"
 
 #include <SDL_image.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 static int fails;
 
@@ -292,6 +301,52 @@ static void the_language(void)
 	if (c) SDL_FreeSurface(c);
 }
 
+/* A card held in the middle of its paint - its system's art a FIFO no one
+ * has opened to write, so the worker's open of it waits - and a card asked
+ * for then: drawn and answered by the other worker while the first is held,
+ * and the held one when it is let go (its art does not decode, so it is drawn
+ * without, as a missing one is). Holding one with a FIFO rather than a slow
+ * card: whoever runs it, however fast, one card is in the middle of its paint
+ * for as long as the other takes. */
+static void the_two_at_once(void)
+{
+	const char *fifo = "build-native/cardpaint-check.fifo";
+	ui_card_order held, next;
+	texload_got g = { 0 };
+	bool got_next = false, got_held = false;
+	Uint32 until;
+	int fd;
+
+	unlink(fifo);
+	if (mkfifo(fifo, 0600) != 0) {
+		ck(0, "a FIFO to hold a card with", strerror(errno));
+		return;
+	}
+	ui_card_order_set(&held, "Contra", 0xE6312E, false);
+	ui_card_order_game(&held, "8bit", fifo, NULL);
+	texload_want_or_draw(7, 4000, "/no/such/.media/Contra.png", NULL, &held);
+	/* a worker has it, and is waiting on the FIFO */
+	SDL_Delay(200);
+	ui_card_order_set(&next, "Metroid", 0xE6312E, false);
+	texload_want_or_draw(7, 4001, "/no/such/.media/Metroid.png", NULL, &next);
+	for (until = SDL_GetTicks() + 2000; !got_next && SDL_GetTicks() < until; SDL_Delay(1))
+		while (texload_take(&g)) {
+			if (g.sys == 7 && g.idx == 4001) got_next = g.surf != NULL;
+			if (g.sys == 7 && g.idx == 4000) got_held = true;
+			if (g.surf) SDL_FreeSurface(g.surf);
+		}
+	ck(got_next, "a card asked for while another is in the middle of its paint is drawn beside it", NULL);
+	ck(!got_held, "while the other is still held", NULL);
+	/* A writer, so the worker's open returns; read and write, so this open
+	 * never waits, whether or not the worker is there yet */
+	fd = open(fifo, O_RDWR | O_NONBLOCK);
+	g = (texload_got){ 0 };
+	ck(wait_for(4000, &g) && g.surf, "and the held card when it is let go", NULL);
+	if (g.surf) SDL_FreeSurface(g.surf);
+	if (fd >= 0) close(fd);
+	unlink(fifo);
+}
+
 int main(void)
 {
 	SDL_Surface *screen;
@@ -339,6 +394,9 @@ int main(void)
 	printf("the fonts down and up around a fallback game:\n");
 	the_fallback(r);
 
+	printf("two cards at once:\n");
+	the_two_at_once();
+
 	printf("no faces to draw with:\n");
 	texload_bump();
 	ui_quit();
@@ -364,6 +422,7 @@ int main(void)
 	SDL_Quit();
 	if (fails) { printf("cardpaint: %d FAILED\n", fails); return 1; }
 	printf("ok: the card with no art drawn on a worker is the frame's, pixel for pixel, "
-	       "in both themes; never shown after a turn; safe across the fonts going down\n");
+	       "in both themes; never shown after a turn; safe across the fonts going down; "
+	       "two drawn at once\n");
 	return 0;
 }

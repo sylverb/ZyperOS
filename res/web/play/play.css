@@ -96,6 +96,7 @@
 	--radius-row: 9px;
 	--radius-key: 8px;
 	--radius-chip: 5px;
+	--radius-bar: 2px;
 	--fs-title: 20px;
 	--fs-label: 18px;
 	--fs-menu: 16px;
@@ -130,9 +131,18 @@
 	--t-tour-reward: 1100ms;
 	--t-tour-pulse: 440ms;
 	--t-hold-unlock: 2000ms;
+	--t-hold-power: 1000ms;
 	--t-hold-lock-lit: 4000ms;
 	--t-hold-controls: 3000ms;
+	--t-peak-hold: 400ms;
+	--t-bar-fall: 140ms;
+	--t-spin-up: 360ms;
+	--t-spin-down: 520ms;
+	--t-rewind: 700ms;
+	--t-wind: 180ms;
+	--t-arm-glide: 180ms;
 	--t-hold-snap: 1000ms;
+	--t-hold-band: 2000ms;
 	--t-sheen: 480ms;
 	--t-sharpen: 200ms;
 	--t-hold-low-battery: 6000ms;

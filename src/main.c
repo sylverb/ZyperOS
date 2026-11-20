@@ -36,6 +36,7 @@
 #include "storage_screen.h"
 #include "media_screen.h"
 #include "menu_panel.h"
+#include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "bt.h"
 #include "btvol.h"
@@ -45,8 +46,10 @@
 #include "sort.h"
 #include "coverflow.h"
 #include "library.h"
+#include "nightkeep.h"
 #include "platform.h"
 #include "texload.h"
+#include "screencard.h"
 #include "tween.h"
 #include "artshrink.h"
 #include "artbadge.h"
@@ -70,6 +73,8 @@
 #include "spawn.h"
 #include "webtheme.h"
 #include "devmode.h"
+#include "dl_screen.h"
+#include "dlq.h"
 #include "sshlink.h"
 #include "mdns.h"
 #include "linksteps.h"
@@ -104,6 +109,7 @@
 #include "musec.h"
 #include "mp4lock.h"
 #include "topbar.h"
+#include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
 #include "museart.h"
 #include "muselib.h"
@@ -133,13 +139,13 @@
 #include "tourdraw.h"
 #include "tourdevice.h"
 #include "game_menu.h"
+#include "pico8.h"
 #include "portmenu.h"
 #include "gamedel.h"
 #include "gamerows.h"
 #include "portinfo.h"
 #include "dsv.h"
 #include "dslang.h"
-#include "dsslow.h"
 #include "corestate.h"
 #include "dsresume.h"
 #include "ui.h"
@@ -303,7 +309,10 @@ const ds_rgb DIATOM_PAGE = { 0, 0, 0 };
 
 /* ---------- per-system display mode --------------------------------------- */
 
-/* MENU's shader, every system's that has not chosen its own (SHADERS) */
+/* Every system's shader that has not chosen its own (SHADERS): the `shader`
+ * key, which MENU's Shader row set for every system up to 1.0.6. That row
+ * is the screens' own now (below) and nothing sets this; a system with no
+ * choice of its own still plays with it, so a game looks as it did. */
 int g_shader_all;
 
 /* A shader by Diatom's name for it (SHADERS), or -1 */
@@ -316,22 +325,23 @@ static int shader_index(const char *name)
 	return -1;
 }
 
-/* Whether this device offers shader k: the old screens only where Diatom
- * draws them with a GPU (plat_gpu_shaders) */
-static bool shader_offered(int k)
+/* Whether this device offers shader k to the system tagged `tag`: the old
+ * screens only where Diatom draws them with a GPU (plat_gpu_shaders), and a
+ * shader for some systems only to them (shader_for) */
+static bool shader_offered(int k, const char *tag)
 {
-	return k >= 0 && k < SHADER_COUNT && (!SHADERS[k].gpu || plat_gpu_shaders());
+	return shader_for(k, tag) && (!SHADERS[k].gpu || plat_gpu_shaders());
 }
 
-/* The shader a step `d` comes to from k, round the ones this device offers:
- * each Shader row steps with it */
-int shader_step(int k, int d)
+/* The shader a step `d` comes to from k, round the ones this device offers
+ * the system tagged `tag`: each Shader row steps with it */
+int shader_step(int k, int d, const char *tag)
 {
 	int i;
 
 	for (i = 0; i < SHADER_COUNT; i++) {
 		k = (k + d + SHADER_COUNT) % SHADER_COUNT;
-		if (shader_offered(k)) break;
+		if (shader_offered(k, tag)) break;
 	}
 	return k;
 }
@@ -339,8 +349,9 @@ int shader_step(int k, int d)
 /* Keyed on the system's tag rather than its folder or its place in the list,
  * for the same reason saves are: renaming a ROM folder or reordering
  * systems.cfg then cannot quietly hand a system somebody else's setting.
- * The shaders too, each system's: its own shader.<TAG>, else MENU's
- * `shader`, else Off; and their strength the same way (src/strength.h). */
+ * The shaders too, each system's: its own shader.<TAG>, else the old
+ * `shader` for every system, else Off; and their strength the same way
+ * (src/strength.h). The screens' own shader with them (screen_shader_load). */
 void display_load(app *a)
 {
 	char key[CFG_STR + 16], name[CFG_STR];
@@ -349,10 +360,19 @@ void display_load(app *a)
 	g_shader_all = 0;
 	if (db_get_str(db_dev(), "shader", name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
 		g_shader_all = k;
-	for (i = 0; i < a->sys.count; i++) {
-		snprintf(key, sizeof key, "shader.%s", a->sys.systems[i].tag);
-		a->view[i].shader = g_shader_all;
-		if (db_get_str(db_dev(), key, name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
+	/* The systems off the home too (app.parked): their games start from
+	 * Favorites and Recents in their own mode */
+	for (i = 0; i < sys_kept(a); i++) {
+		const char *tag = a->sys.systems[i].tag;
+
+		snprintf(key, sizeof key, "shader.%s", tag);
+		/* A shader for some systems only (shader_for) that names another,
+		 * by the old every-system key or its own on an edited card, is that
+		 * system's default instead: the old key's if that is for it, else
+		 * Off */
+		a->view[i].shader = shader_for(g_shader_all, tag) ? g_shader_all : 0;
+		if (db_get_str(db_dev(), key, name, sizeof name, NULL) && (k = shader_index(name)) >= 0 &&
+		    shader_for(k, tag))
 			a->view[i].shader = k;
 		a->view[i].strength = strength_read(db_dev(), a->sys.systems[i].tag);
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
@@ -360,6 +380,7 @@ void display_load(app *a)
 		for (k = 0; k < DMODE_COUNT; k++)
 			if (!strcmp(DMODES[k].name, name)) { a->view[i].dmode = k; break; }
 	}
+	screen_shader_load();
 }
 
 /* One row per visible system, and nothing else touched.
@@ -379,7 +400,7 @@ void display_save(app *a)
 	char key[CFG_STR + 16];
 	int i;
 
-	for (i = 0; i < a->sys.count; i++) {
+	for (i = 0; i < sys_kept(a); i++) {
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
 		db_set_str(db_dev(), key, DMODES[a->view[i].dmode].name);
 	}
@@ -397,68 +418,90 @@ void shader_save(app *a, int sys)
 	db_set_str(db_dev(), key, SHADERS[a->view[sys].shader].name);
 }
 
-/* Every key a system's own shader is kept under, gathered before any goes:
- * a walk is not the place to delete what it walks */
-typedef struct { char key[CFG_MAX_SYSTEMS * 2][CFG_STR + 16]; int n; } shader_keys;
+/* ---------- the screens' shader --------------------------------------------- */
 
-static bool shader_key_note(const char *key, const char *value, void *ctx)
+/* MENU > Display > Shader from the home (src/screenfx.h, DESIGN.md 11.50):
+ * ZyperOS's own screens' shader while no game is up, a SHADERS index, Off
+ * to start with, and its strength, 100% to start with. Keys of their own,
+ * launcher_shader and launcher_strength, so no system's shader moves: not
+ * under "shader." nor "shader_strength.", which are the systems'. */
+int g_screen_shader;
+int g_screen_strength = STRENGTH_MAX;
+/* What a list's cursor shows in their place (src/ds/hover.h): -1, none */
+int g_screen_shown = -1, g_screen_shown_strength = -1;
+
+/* The screens' choices: Off and the old screens this device draws.
+ * Sharp-Shimmerless sizes a game's pixels evenly, and these screens are
+ * drawn at the panel's own: it would change nothing, so it is not offered. */
+bool screen_shader_offered(int k)
 {
-	shader_keys *k = ctx;
-
-	(void)value;
-	if (k->n >= (int)(sizeof k->key / sizeof k->key[0])) return false;
-	snprintf(k->key[k->n++], sizeof k->key[0], "%s", key);
-	return true;
+	return k == 0 || (k > 0 && k < SHADER_COUNT && SHADERS[k].gpu && plat_gpu_shaders() &&
+	                  shader_for(k, NULL));
 }
 
-/* MENU's row: shader `k` for every system, those whose games are off the card
- * now too, so each system's own choice goes and the next game of any of them
- * plays with it. */
-void shader_set_all(app *a, int k)
-{
-	static shader_keys keys;
-	int i;
-
-	g_shader_all = k;
-	db_set_str(db_dev(), "shader", SHADERS[k].name);
-	keys.n = 0;
-	db_each_prefix(db_dev(), "shader.", shader_key_note, &keys);
-	for (i = 0; i < keys.n; i++) db_del(db_dev(), keys.key[i]);
-	for (i = 0; i < a->sys.count; i++) a->view[i].shader = k;
-}
-
-/* What MENU's row says: the shader every system has, or "per system" when one
- * of them chose another in its own menu or in a game */
-const char *shader_all_label(const app *a)
+/* The screens' row's step, as shader_step is the systems' */
+int screen_shader_step(int k, int d)
 {
 	int i;
 
-	for (i = 0; i < a->sys.count; i++)
-		if (a->view[i].shader != g_shader_all) return T(S_GAMEMENU_SHADER_MIXED);
-	return shader_label(g_shader_all);
+	for (i = 0; i < SHADER_COUNT; i++) {
+		k = (k + d + SHADER_COUNT) % SHADER_COUNT;
+		if (screen_shader_offered(k)) break;
+	}
+	return k;
 }
 
-/* The Strength rows (src/strength.h). MENU has one while any system draws an
- * old screen; a system's menu and the in-game menu while that system does. */
-bool strength_all_shown(const app *a)
+/* The device told what to draw: the shown one over the kept one, and Off
+ * while a game is up (from RUN to its end, its in-game menu and what that
+ * opens with it, and a port's menu): what is drawn then is over the game,
+ * whose own shader is its frame's */
+void screen_shader_apply(void)
 {
-	int i;
+	int k = g_screen_shown >= 0 ? g_screen_shown : g_screen_shader;
+	int s = g_screen_shown_strength >= 0 ? g_screen_shown_strength : g_screen_strength;
 
-	for (i = 0; i < a->sys.count; i++)
-		if (shader_has_strength(a->view[i].shader)) return true;
-	return false;
+	if (g_ctl_game.on || g_port_menu || !screen_shader_offered(k)) k = 0;
+	plat_screen_shader(SHADERS[k].name, s);
 }
 
-/* MENU's row's value: every system's strength, or "per system" when one
- * chose another */
-const char *strength_all_label(const app *a)
+void screen_shader_load(void)
+{
+	char name[CFG_STR];
+	int k;
+
+	g_screen_shader = 0;
+	if (db_get_str(db_dev(), "launcher_shader", name, sizeof name, NULL) &&
+	    (k = shader_index(name)) >= 0 && screen_shader_offered(k))
+		g_screen_shader = k;
+	g_screen_strength = strength_clamp(db_get_int(db_dev(), "launcher_strength", STRENGTH_MAX));
+	screen_shader_apply();
+}
+
+void screen_shader_set(int k)
+{
+	g_screen_shader = screen_shader_offered(k) ? k : 0;
+	db_set_str(db_dev(), "launcher_shader", SHADERS[g_screen_shader].name);
+	screen_shader_apply();
+}
+
+void screen_strength_set(int pct)
+{
+	g_screen_strength = strength_clamp(pct);
+	db_set_int(db_dev(), "launcher_strength", g_screen_strength);
+	screen_shader_apply();
+}
+
+/* MENU's Strength row: there while the screens' shader is an old screen */
+bool screen_strength_shown(void)
+{
+	return shader_has_strength(g_screen_shader);
+}
+
+const char *screen_strength_label(void)
 {
 	static char buf[16];
-	int i, all = strength_read_all(db_dev());
 
-	for (i = 0; i < a->sys.count; i++)
-		if (strength_clamp(a->view[i].strength) != all) return T(S_GAMEMENU_SHADER_MIXED);
-	strength_label(all, buf, sizeof buf);
+	strength_label(g_screen_strength, buf, sizeof buf);
 	return buf;
 }
 
@@ -504,6 +547,87 @@ bool core_present(const char *core)
 	return access(path, R_OK) == 0;
 }
 
+/* The files the player brings for `core` on `s` (config/systems.cfg's
+ * brings lines: your PICO-8's pico8_64 and pico8.dat), each on the card;
+ * true for a core that needs none. `missing`, n bytes, gets the first one
+ * that is not there ("Bios/PICO-8/pico8_64"), when given. */
+bool core_brought(const system_cfg *s, const char *core, char *missing, size_t n)
+{
+	const char *p = s->brings;
+
+	if (missing && n) missing[0] = '\0';
+	if (!s->brings_core[0] || strcmp(core, s->brings_core)) return true;
+	while (*p) {
+		size_t len = strcspn(p, ",");
+		char path[CFG_STR * 2];
+
+		snprintf(path, sizeof path, "%s/%.*s", P_CARD, (int)len, p);
+		if (len && access(path, R_OK) != 0) {
+			if (missing) snprintf(missing, n, "%.*s", (int)len, p);
+			return false;
+		}
+		p += len;
+		if (*p) p++;
+	}
+	return true;
+}
+
+/* A core that can run here: on the card, and with what the player brings */
+bool core_ready(const system_cfg *s, const char *core)
+{
+	return core_present(core) && core_brought(s, core, NULL, 0);
+}
+
+/* The cores the shelf's Core row offers, in the core field's order: each
+ * that can run here, and the one chosen whatever it is, so the row still
+ * says it. Your PICO-8 is offered once its files are on the card, and on a
+ * handheld whose ZyperOS has its script (the Pixel 2's). Their count; the
+ * i-th into `out` with core_offered_at. */
+int core_offered_count(const system_cfg *s)
+{
+	char alt[CFG_STR];
+	int k, n = 0;
+
+	for (k = 0; cfg_core_at(s, k, alt, sizeof alt); k++)
+		if (!strcmp(alt, s->core) || core_ready(s, alt)) n++;
+	return n;
+}
+
+bool core_offered_at(const system_cfg *s, int i, char *out, int cap)
+{
+	char alt[CFG_STR];
+	int k;
+
+	for (k = 0; cfg_core_at(s, k, alt, sizeof alt); k++)
+		if (!strcmp(alt, s->core) || core_ready(s, alt)) {
+			if (i-- == 0) {
+				snprintf(out, (size_t)cap, "%s", alt);
+				return true;
+			}
+		}
+	return false;
+}
+
+/* ---------- your PICO-8, from a zip copied by hand (src/pico8.h) ---------- */
+
+/* What the launcher says once the home is up about the zip it took, "" for
+ * nothing (Tarik's pick, 2026-11-19: the zip as it comes, or its files) */
+char g_p8_said[256];
+
+void p8_take_now(void)
+{
+	char ver[32], zip[128];
+	p8_take t = p8_take_zip(P_CARD, ver, sizeof ver, zip, sizeof zip);
+
+	if (t == P8_TAKE_DONE)
+		fprintf(stderr, "pico8: took your PICO-8 %s out of Bios/PICO-8/%s\n", ver[0] ? ver : "(no version)", zip);
+	else if (t == P8_TAKE_NOT_RASPI)
+		fprintf(stderr, "pico8: Bios/PICO-8/%s is not the PICO-8 for Raspberry Pi zip\n", zip);
+	else if (t == P8_TAKE_FAILED)
+		fprintf(stderr, "pico8: could not take PICO-8 out of Bios/PICO-8/%s\n", zip);
+	p8_take_message(t, ver, zip, g_p8_said, sizeof g_p8_said);
+}
+
 /* What the Core row says: a libretro core by its short name, as every other
  * shelf's row always has, and a script by its own name - "Flycast" for
  * run:Emulators/Flycast/Flycast.sh - since the path is the card's business. */
@@ -524,7 +648,9 @@ void core_load(app *a)
 	char key[CFG_STR + 16], name[CFG_STR], alt[CFG_STR];
 	int i, k, n;
 
-	for (i = 0; i < a->sys.count; i++) {
+	/* The systems off the home too: a game of one starts from Favorites and
+	 * Recents on the core chosen for it */
+	for (i = 0; i < sys_kept(a); i++) {
 		system_cfg *s = &a->sys.systems[i];
 		bool set = false;
 
@@ -537,7 +663,7 @@ void core_load(app *a)
 					set = true;
 				}
 		for (k = 0; k < n && !set; k++)
-			if (cfg_core_at(s, k, alt, sizeof alt) && core_present(alt)) {
+			if (cfg_core_at(s, k, alt, sizeof alt) && core_ready(s, alt)) {
 				snprintf(s->core, sizeof s->core, "%s", alt);
 				set = true;
 			}
@@ -546,18 +672,18 @@ void core_load(app *a)
 	}
 }
 
-/* The next core in the shelf's list, or the previous one. */
+/* The next core the shelf's Core row offers, or the previous one. */
 void core_step(app *a, int sys, int d)
 {
 	system_cfg *s = &a->sys.systems[sys];
 	char key[CFG_STR + 16], alt[CFG_STR];
-	int n = cfg_core_count(s), k, cur = 0;
+	int n = core_offered_count(s), k, cur = 0;
 
 	if (n < 2) return;
 	for (k = 0; k < n; k++)
-		if (cfg_core_at(s, k, alt, sizeof alt) && !strcmp(alt, s->core)) cur = k;
+		if (core_offered_at(s, k, alt, sizeof alt) && !strcmp(alt, s->core)) cur = k;
 	cur = (cur + d + n) % n;
-	if (!cfg_core_at(s, cur, alt, sizeof alt)) return;
+	if (!core_offered_at(s, cur, alt, sizeof alt)) return;
 	snprintf(s->core, sizeof s->core, "%s", alt);
 	snprintf(key, sizeof key, "core.%s", s->tag);
 	db_set_str(db_dev(), key, s->core);
@@ -580,13 +706,25 @@ dsl_choice dslang_load(void)
 	return dslang_parse(v);
 }
 
-/* When Slow (src/dsslow.h), as the device's database keeps it */
-dss_choice dsslow_load(void)
+/* Timing (src/pacing.h): the system's own, as the device's database keeps
+ * it, and its systems.cfg word until the player picks */
+pacing_choice pacing_load(const system_cfg *s)
 {
-	char v[16];
+	char key[32], v[16];
+	pacing_choice own = pacing_parse(s->pace, PACING_EXACT);
 
-	db_get_str(db_dev(), DSSLOW_SETTING, v, sizeof v, "keep");
-	return dsslow_parse(v);
+	pacing_key(s->tag, key, sizeof key);
+	db_get_str(db_dev(), key, v, sizeof v, pacing_id(own));
+	return pacing_parse(v, own);
+}
+
+/* A system with a pace line, and Diatom to pace it: a program of its own
+ * ("run:") or a port has its own timing */
+bool pacing_row_shown(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+
+	return s->pace[0] && strncmp(s->core, "run:", 4) != 0 && strcmp(s->core, "port") != 0;
 }
 
 bool dslang_row_shown(const app *a, int sys)
@@ -862,14 +1000,64 @@ static bool view_is(const char *tag, const char *want)
 
 bool view_listed(const char *tag) { return view_is(tag, "list"); }
 bool view_grid(const char *tag)   { return view_is(tag, "grid"); }
+bool view_video(const char *tag)  { return view_is(tag, "video"); }
+
+/* Recents' Card Picture (DESIGN.md 11.48): its covers, as it ships, or the
+ * screen each game was left on (src/screencard.h), kept in the device's
+ * database as RECENTS_PICTURE_KEY's "screen" */
+bool g_recents_screen;
+
+static void recents_picture_load(void)
+{
+	char v[16];
+
+	g_recents_screen = db_get_str(db_dev(), RECENTS_PICTURE_KEY, v, sizeof v, NULL) &&
+	                   !strcmp(v, "screen");
+}
+
+void recents_picture_turn(app *a)
+{
+	int r = shelf_recents_at(a);
+
+	g_recents_screen = !g_recents_screen;
+	db_set_str(db_dev(), RECENTS_PICTURE_KEY, g_recents_screen ? "screen" : "cover");
+	/* Every card of it asked for again, the other picture */
+	if (r >= 0) free_view_textures(&a->view[r]);
+}
+
+/* Recents' Last Screen for game `g` of system `o`: its resume point's
+ * picture, written beside its state as the game ended, and its cover, into
+ * `frame` and `cover` ("" for none). False when it has no resume point, and
+ * the card is its cover, as with Cover. Asked only while the card has no
+ * texture (game_card_wanted). */
+static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame, size_t fn,
+                                 char *cover, size_t cn)
+{
+	char st[LIB_PATH * 3];
+	struct stat sb;
+
+	state_path(a, o, g, st, sizeof st);
+	preview_path(a, o, g, frame, fn);
+	if (stat(st, &sb) != 0 || stat(frame, &sb) != 0 || sb.st_size <= 0) return false;
+	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
+	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
+	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
+		cover[0] = '\0';
+	return true;
+}
 
 void view_load(app *a)
 {
+	recents_picture_load();
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
+		/* Never MP4's (view_turn) */
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag) &&
+		                   !is_muse(&a->sys.systems[i]);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
+		a->view[i].vm.set = false;
 	}
 }
 
@@ -878,25 +1066,44 @@ static void view_save(app *a, int sys)
 	char key[CFG_STR + 16];
 
 	snprintf(key, sizeof key, "view.%s", a->sys.systems[sys].tag);
-	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid" : "covers");
+	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid"
+	                          : a->view[sys].video ? "video" : "covers");
 }
 
-/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid and List,
- * saved, the shelf on the same entry: START on the shelf goes forward, and
- * MENU's View row either way (2026-11-15: the grid between the two) */
+/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid, List and
+ * Video, saved, the shelf on the same entry: START on the shelf goes
+ * forward, and MENU's View row either way (2026-11-15: the grid between the
+ * two; 2026-11-19: Video, the fourth) */
 void view_turn(app *a, int sys, int dir)
 {
 	sysview *v = &a->view[sys];
-	int k = v->listed ? 2 : v->grid ? 1 : 0;
+	int k = view_index(v);
 
-	k = (k + (dir < 0 ? 2 : 1)) % 3;
-	v->listed = k == 2;
-	v->grid = k == 1;
+	/* MP4's shelf has no Video view: an album has no snap to play
+	 * (DESIGN.md 11.67) */
+	do k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	while (k == VIEW_VIDEO && is_muse(&a->sys.systems[sys]));
+	v->listed = k == VIEW_LIST;
+	v->grid = k == VIEW_GRID;
+	v->video = k == VIEW_VIDEO;
 	v->lm.set = false;
 	v->gm.set = false;
+	v->vm.set = false;
 	view_save(a, sys);
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+}
+
+/* The home's layout turned, `dir` 1 or -1 round Spotlight, Gallery and Grid,
+ * saved, the home on the same system: START on the home goes forward, as it
+ * turns a shelf's View, and MENU's Home Screen row either way (2026-11-17:
+ * "also implement start in the home menu with the systems") */
+void home_turn(app *a, int dir)
+{
+	a->home_layout = (home_layout)(((int)a->home_layout + (dir < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
+	db_set_str(db_dev(), "home", home_id(a->home_layout));
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+	redraw_now();
 }
 
 /* The grid's shape kept for shelf `sys` (src/gamegrid.h): by its tag, and
@@ -974,15 +1181,22 @@ void sort_shelf(app *a, int sys)
 		const char *tags[CFG_MAX_SYSTEMS];
 		int i;
 
-		for (i = 0; i < a->sys.count && i < CFG_MAX_SYSTEMS; i++)
+		/* Every owner's, the systems off the home too (app.parked) */
+		for (i = 0; i < sys_kept(a) && i < CFG_MAX_SYSTEMS; i++)
 			tags[i] = a->sys.systems[i].tag;
-		sort_apply_owned(v->list.items, v->owner, v->list.count, v->sort, tags);
+		/* Collections' top is its folders alone, A to Z (src/collect.h) */
+		sort_apply_owned(v->list.items + v->nfold, v->owner + v->nfold,
+		                 v->list.count - v->nfold, v->sort, tags);
 		return;
 	}
 	/* A shelf's folders stay first, A to Z (src/shelfdir.h): the order is
 	 * its games' */
 	sort_apply(v->list.items + v->nfold, v->list.count - v->nfold, v->sort,
 	           a->sys.systems[sys].tag);
+	/* Splore first among the PICO-8 shelf's, whatever the order (Tarik's
+	 * pick, 2026-11-19: the shelf's first entry) */
+	if (!strcmp(a->sys.systems[sys].tag, P8_TAG))
+		splore_pin(v->list.items + v->nfold, v->list.count - v->nfold);
 }
 
 void sort_all(app *a)
@@ -1386,7 +1600,7 @@ const muse_mode_name MUSE_MODES[MUQ_MODES] = {
  * is not a decode: the album it is for and its texture. `done` means this is
  * what the album will show - its art, or the card made for one with none - and
  * nothing more needs asking. */
-np_cover_state g_np = { .album = -1 };
+np_cover_state g_np = { .album = -1, .rgb = CFG_NO_COLOR };
 
 /* The menus' panel pass (panel_pass_begin): a screen, kept rather than made
  * per frame. */
@@ -1719,7 +1933,8 @@ void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated)
 {
 	sysview *v = &a->view[s];
 
-	if (is_muse(&a->sys.systems[s]) || i < 0 || i >= v->list.count || !v->tex[i]) return;
+	/* MP4's shelf too, since it has the Grid (DESIGN.md 11.67) */
+	if (i < 0 || i >= v->list.count || !v->tex[i]) return;
 	gg_note(&v->gart, a->r, v->list.count, i, v->tex[i], gg_key(v->list.items[i].file),
 	        surf, generated);
 }
@@ -1773,28 +1988,28 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 	 * folder, the wrong state directory and the wrong accent. */
 	int o = shelf_owner(a, s, i);
 
-	char pm[LIB_PATH * 2];
+	char pm[LIB_PATH * 2], pmc[LIB_PATH * 3];
 
 	if (is_muse(&a->sys.systems[s]) && game_card_wanted(v, i)) {
 		muse_card_want(a, s, i);
 	} else if (game_card_wanted(v, i) && v->list.items[i].folder) {
-		/* A folder on the shelf (src/shelfdir.h): its own card, no art */
+		/* A folder on the shelf (src/shelfdir.h): its own card, no art, in
+		 * its system's color or Folder Color's (look_folder_rgb) */
 		ui_card_order card;
+		const unsigned frgb = look_folder_rgb(a->sys.systems[o].accent);
 
-		ui_card_order_folder(&card, v->list.items[i].title, a->sys.systems[o].accent,
-		                     v->list.items[i].folder);
+		ui_card_order_folder(&card, v->list.items[i].title, frgb, v->list.items[i].folder);
 		if (!texload_want_or_draw(s, i, NULL, NULL, &card) && !g_loads_held) {
 			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-			v->tex[i] = ui_make_folder_card(a->r, v->list.items[i].title,
-			                                a->sys.systems[o].accent,
+			v->tex[i] = ui_make_folder_card(a->r, v->list.items[i].title, frgb,
 			                                v->list.items[i].folder, &v->tw[i], &v->th[i]);
 			v->cb[i] = 1.0f;
 		}
 	} else if (game_card_wanted(v, i) &&
-	           pm_cover_path(a, o, &v->list.items[i], theme_index(), pm, sizeof pm)) {
-		/* PortMaster's own cover, in the theme that is on, made a card of
-		 * that theme as a generated one is, so a change of theme asks for
-		 * the other (src/shelfbuild.h) */
+	           own_cover_path(a, o, &v->list.items[i], theme_index(), pm, sizeof pm)) {
+		/* An entry's own cover (PortMaster's, Splore's), in the theme that
+		 * is on, made a card of that theme as a generated one is, so a
+		 * change of theme asks for the other (src/shelfbuild.h) */
 		if (!texload_want_art(s, i, pm, NULL, theme_index()) && !g_loads_held) {
 			SDL_Surface *sf = IMG_Load(pm);
 
@@ -1804,6 +2019,28 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 				v->cb[i] = content_bottom(sf);
 				v->tex[i] = ui_card_upload(a->r, sf, theme_index());
 				if (v->tex[i]) { v->tw[i] = sf->w; v->th[i] = sf->h; }
+				grid_note(a, s, i, sf, false);
+				SDL_FreeSurface(sf);
+			}
+		}
+	} else if (g_recents_screen && s == shelf_recents_at(a) && game_card_wanted(v, i) &&
+	           recents_screen_paths(a, o, &v->list.items[i], pm, sizeof pm, pmc, sizeof pmc)) {
+		/* Recents' Last Screen (DESIGN.md 11.48): made on a worker, art
+		 * of no theme, so a change of theme keeps it; a game with no cover
+		 * has its generated card small in the corner, as its shelf shows it */
+		ui_card_order card;
+
+		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+		game_card_order(a, o, &v->list.items[i], &card);
+		if (!texload_want_screen(s, i, pm, pmc, &card) && !g_loads_held) {
+			SDL_Surface *sf = screen_card_make(pm, pmc, &card, false);
+
+			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
+			v->tex[i] = NULL;
+			if (sf) {
+				v->cb[i] = 1.0f;
+				if ((v->tex[i] = SDL_CreateTextureFromSurface(a->r, sf)))
+					SDL_QueryTexture(v->tex[i], NULL, NULL, &v->tw[i], &v->th[i]);
 				grid_note(a, s, i, sf, false);
 				SDL_FreeSurface(sf);
 			}
@@ -1872,7 +2109,7 @@ void shelf_put(void *ctx, texload_got *g)
 		return;
 	}
 
-	if (home_accept(&a->home, a->r, s, i, surf)) {
+	if (home_accept(&a->home, a->r, s, i, &surf)) {
 		if (surf) ui_card_free(surf);
 		return;
 	}
@@ -1925,15 +2162,16 @@ void shelf_put(void *ctx, texload_got *g)
 		ui_card_order card;
 		SDL_Surface *ground = NULL;
 
-		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
-		game_card_order(a, o, &v->list.items[i], &card);
-		v->tex[i] = is_muse(&a->sys.systems[s])
-		          ? ui_make_cover(a->r, v->list.items[i].title,
-		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
-		          : v->list.items[i].folder
+		if (is_muse(&a->sys.systems[s])) {
+			muse_album_card_order(a, s, i, a->sys.systems[o].accent, &card);
+		} else {
+			ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+			game_card_order(a, o, &v->list.items[i], &card);
+		}
+		v->tex[i] = v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
-		                                a->sys.systems[o].accent, v->list.items[i].folder,
-		                                &v->tw[i], &v->th[i])
+		                                look_folder_rgb(a->sys.systems[o].accent),
+		                                v->list.items[i].folder, &v->tw[i], &v->th[i])
 		          : ui_make_card_for(a->r, &card, &v->tw[i], &v->th[i], &ground);
 		v->cb[i] = 1.0f;
 		grid_note(a, s, i, ground, !v->list.items[i].folder);
@@ -2087,9 +2325,15 @@ void shelf_open_dir(app *a, int s, const char *dir, const char *select)
 	sysview *v = &a->view[s];
 	int i;
 
-	if (!v->all) return;
-	texload_bump();
-	shelf_show_dir(v, dir);
+	/* Collections' folders are its collections (src/collect.h) */
+	if (s == shelf_coll_at(a)) {
+		texload_bump();
+		if (!shelf_coll_show(a, s, dir)) return;
+	} else {
+		if (!v->all) return;
+		texload_bump();
+		shelf_show_dir(v, dir);
+	}
 	sort_shelf(a, s);
 	v->cursor = 0;
 	for (i = 0; select && i < v->list.count; i++)
@@ -2437,6 +2681,10 @@ static void on_game_tick(void)
 
 	/* Developer Mode's SSH, which a game does not end (see dev_ssh_tick) */
 	dev_ssh_tick();
+	/* Night Mode's hour behind the game: Diatom loads its table, and this
+	 * keeps the launcher's right for when it has the display back, and the
+	 * nights in the file Diatom reads (platform.h) */
+	plat_night_tick();
 	/* System Update behind the game: its looks, a cut download going on,
 	 * and its news as a notice */
 	tick_update_daily(true);
@@ -2552,10 +2800,16 @@ static void on_game_tick(void)
 		if (r == 0) return;
 		g_pending_hashing = false;
 		if (r == 1) {
+			/* The hash in the log, and the answer below: what a game that
+			 * found no set was asked by (a DS game, 2026-11-17) */
+			fprintf(stderr, "cheevos: first play, hash %s; asking RetroAchievements\n", h);
 			snprintf(g_pending_set, sizeof g_pending_set, "%s", set);
 			ra_fetch_begin(h, g_pending_set);
 		} else {
-			if (r == -1) chv_none_mark(set, true);
+			if (r == -1) {
+				fprintf(stderr, "cheevos: first play, no hash for this file; marked none\n");
+				chv_none_mark(set, true);
+			}
 			g_pending_set[0] = '\0';
 		}
 		return;
@@ -2569,7 +2823,12 @@ static void on_game_tick(void)
 	/* RA has nothing for this ROM: said so on its Achievements rows, "none"
 	 * rather than "not checked yet" (chv_state_of). A fetch that failed
 	 * says nothing, and the next launch with a network asks again. */
-	if (rc == RA_FETCH_NOTHING) chv_none_mark(g_pending_set, true);
+	if (rc == RA_FETCH_NOTHING) {
+		fprintf(stderr, "cheevos: RetroAchievements has no game for that hash; marked none\n");
+		chv_none_mark(g_pending_set, true);
+	} else if (rc < 0) {
+		fprintf(stderr, "cheevos: no set came (no network, or no answer); asked next launch\n");
+	}
 	if (rc < 0) { g_pending_set[0] = '\0'; return; }
 	chv_none_mark(g_pending_set, false);        /* a set now: it has one */
 
@@ -2786,6 +3045,11 @@ static void popup_now(const char *head, const char *body)
 	nq_hold(&g_nq, plat_now_ms(), 1500);
 }
 
+void popup_say(const char *head, const char *body)
+{
+	popup_now(head, body ? body : "");
+}
+
 /* Called from inside plat_resident_wait when Diatom says the speed step
  * changed (SELECT+R2, SELECT+L2), or that a game resumed fast: in halves, 3
  * is 1.5x. The step, not the speed reached: on a heavy SNES or GBA game the
@@ -2799,9 +3063,43 @@ static void on_speed(int half)
 	popup_now(T(S_POPUP_SPEED), body);
 }
 
-/* Called from inside plat_resident_wait when R2 turned a PSP game's d-pad
- * into the analog stick (on) or back: said over the game, and kept for the
- * game (rms_stick_put). The answers to the Controls tab's own SETSTICKs
+/* Called from inside plat_resident_wait for the player's hotkeys the
+ * launcher carries out (src/hotkeys.h): a screenshot Diatom wrote, said
+ * over the game with the picture small beside "Screenshot saved" and where
+ * it went; the next shader or display mode, stepped and kept as the menu's
+ * rows do, and named over the game */
+static app *g_hotkey_app;   /* main's, for on_hotkey's steps */
+
+static void on_hotkey(const char *key, const char *path)
+{
+	char p[CFG_STR * 2], body[CFG_STR * 2];
+
+	if (!strcmp(key, "shot") && path) {
+		const char *folder = strstr(path, "/Screenshots/");
+		const char *end = folder ? strrchr(path, '/') : NULL;
+
+		/* "Screenshots/Nintendo 64", where the file is */
+		if (folder && end > folder) snprintf(body, sizeof body, "%.*s", (int)(end - folder - 1), folder + 1);
+		else snprintf(body, sizeof body, "%s", path);
+		snprintf(p, sizeof p, "%s", NOTICE_FILE);
+		if (notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), body, path, NOTICE_PICTURE, 0, 0, p, theme_index()))
+			plat_resident_line("OVERLAY\tpath=%s\tms=1500", p);
+		nq_hold(&g_nq, plat_now_ms(), 1500);
+		return;
+	}
+	if (!strcmp(key, "shader") || !strcmp(key, "display")) {
+		const bool shader = key[1] == 'h';
+
+		if (!g_hotkey_app) return;
+		gm_hotkey_step(g_hotkey_app, shader, body, sizeof body);
+		popup_now(T(shader ? S_HOTKEYS_POPUP_SHADER : S_HOTKEYS_POPUP_DISPLAY), body);
+	}
+}
+
+/* Called from inside plat_resident_wait when a button given Stick On/Off
+ * (the PSP's R2 by default, DESIGN.md 11.45) turned a game's d-pad into the
+ * analog stick (on) or back: said over the game, and kept for the game
+ * (rms_stick_put), as its D-pad as Stick row says. The answers to the Controls tab's own SETSTICKs
  * never come here (plat_resident_set_stick): its row said it already. */
 static void on_stick(bool on)
 {
@@ -3227,10 +3525,16 @@ static void status_gather(status_marks *m, bool moving)
 
 		m->update = true;
 		m->update_pct = v->st.total ? (int)(v->st.done * 100 / v->st.total) : 0;
+	} else if (dlq_behind()) {
+		/* The downloads going on behind the screen (src/dlq.h): the same
+		 * arrow into a tray, swept as far as the lanes have got; not on
+		 * their own page, which shows the run whole */
+		m->update = true;
+		m->update_pct = dlq_pct();
 	}
 }
 
-/* The time a shot shows: today at --status's time of day, into *t. False for
+/* The time a shot shows: today (or --status's date=) at its time of day, into *t. False for
  * a shot with no time to show - no --status, or one with no time - which
  * then shows none, since the host's would change the shot every minute. Not
  * a shot: *t as it is, and true. */
@@ -3241,6 +3545,11 @@ bool shot_time(time_t *t)
 	if (!shot_st.shot) return true;
 	if (!shot_st.set || shot_st.minutes < 0) return false;
 	localtime_r(t, &tm);
+	if (shot_st.year) {
+		tm.tm_year = shot_st.year - 1900;
+		tm.tm_mon = shot_st.mon - 1;
+		tm.tm_mday = shot_st.mday;
+	}
 	tm.tm_hour = shot_st.minutes / 60;
 	tm.tm_min = shot_st.minutes % 60;
 	tm.tm_sec = 0;
@@ -3729,6 +4038,9 @@ void menu_message(app *a, const char *heading, menu_row row,
  * covers are handed here as it starts (g_snap_sys); without them only "all"
  * gets videos. The play times are folded once a run (stats_summarize). */
 const systems_cfg *g_snap_sys;
+/* Videos out of the run going now (the Downloads page's Videos row): none
+ * come, whatever each system's switch says */
+bool g_snap_run_off;
 
 static bool snap_wanted(const char *folder, const char *file)
 {
@@ -3736,7 +4048,7 @@ static bool snap_wanted(const char *folder, const char *file)
 	int which, i;
 	long secs = 0, last = 0;
 
-	if (!snaps_get(folder)) return false;
+	if (g_snap_run_off || !snaps_get(folder)) return false;
 	if ((which = snaps_for()) == SNAPS_FOR_ALL) return true;
 	for (i = 0; g_snap_sys && i < g_snap_sys->count; i++)
 		if (!strcmp(g_snap_sys->systems[i].folder, folder)) { tag = g_snap_sys->systems[i].tag; break; }
@@ -3744,6 +4056,13 @@ static bool snap_wanted(const char *folder, const char *file)
 	if (which == SNAPS_FOR_PLAYED && !(stats_lookup(tag, file, &secs, &last) && (secs > 0 || last > 0)))
 		return false;
 	return snaps_for_game(which, fav_is(tag, file), which == SNAPS_FOR_PLAYED);
+}
+
+/* The rule back after a game's own fetch asked for its video alone
+ * (Downloads' game panel) */
+void ss_run_videos_default(void)
+{
+	ss_run_videos(snap_wanted);
 }
 
 /* MENU > Scraper's value, from the last count of missing covers: taken as
@@ -4041,6 +4360,20 @@ static void ra_news_watch(void)
 	g_ra_news = 0;
 }
 
+/* A download that went on behind the screens has ended well: said once, in
+ * Zyper's bubble on the shelf ("Downloads done", "41 covers · 150 achievement
+ * sets"), as the update's news is; and the side lights' done (dlq's lanes) */
+static void dl_news_watch(void)
+{
+	char l1[96], l2[160];
+
+	if (g_heatpop.on || g_songpop.on || g_up_news[0][0]) return;
+	if (!downloads_news(l1, sizeof l1, l2, sizeof l2)) return;
+	heatpop_show(plat_now_ms());
+	snprintf(g_heatpop.line1, sizeof g_heatpop.line1, "%s", l1);
+	snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", l2);
+}
+
 /* The update's own clock, every 2 s, from every screen's loop through
  * tick_theme and from a game's tick: su_auto_step's looks and resumes
  * (src/sysupdate.h), and the news, once per release */
@@ -4099,10 +4432,21 @@ bool random_pick(app *a, bool all, int *shelf, int *game)
 		use[i] = all ? !is_muse(s) && !a->view[i].owner && !pm_only_offer(a, i)
 		             : i == a->sys_cursor && !is_muse(s);
 	}
-	if (!rg_pick(count, use, a->sys.count, rg_random(), last_shelf, last_game,
-	             shelf, game)) {
-		uisound_play(DS_SOUND_DENY);
-		return false;
+	/* Never an entry of a shelf's own that is no game (Splore's, PortMaster's
+	 * while it is not on the card): picked again, a few times */
+	for (i = 0;; i++) {
+		const game_list *gl;
+
+		if (i >= 8 || !rg_pick(count, use, a->sys.count, rg_random(), last_shelf, last_game,
+		                       shelf, game)) {
+			uisound_play(DS_SOUND_DENY);
+			return false;
+		}
+		gl = sys_games(&a->view[*shelf]);
+		if (*game < 0 || *game >= gl->count ||
+		    (!splore_is_entry(a, *shelf, &gl->items[*game]) &&
+		     !pm_is_offer(a, *shelf, &gl->items[*game])))
+			break;
 	}
 	last_shelf = *shelf;
 	last_game = *game;
@@ -4392,11 +4736,15 @@ leave_end panel_leave_run(app *a, void (*backdrop)(app *, void *, float),
  * go. Over the shelf, or over `over`'s backdrop with its power rule: the
  * in-game menu's paused game, where POWER stops the game. confirm_rows_as
  * and confirm_rows_over below are this with the parts they need. */
-static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int nq,
-                              const char *yes_label, const char *no_label, int fixed_w, int lv,
-                              usbpower_guard *guard, const menu_style *over, void *ctx)
+/* The question's answer: 1 the first (`yes_label`), 2 the second, 0 left
+ * with B, MENU or POWER. The cursor starts on the second, the safe one,
+ * unless `first` */
+static int confirm_rows_pick(app *a, const char *heading, menu_row *rows, int nq,
+                             const char *yes_label, const char *no_label, int fixed_w, int lv,
+                             usbpower_guard *guard, const menu_style *over, void *ctx,
+                             bool first)
 {
-	int sel = nq + 1;
+	int sel = first ? nq : nq + 1;
 	float k;
 
 	rows[nq]     = (menu_row){ yes_label, NULL, true };
@@ -4406,13 +4754,13 @@ static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int n
 		plat_input_poll(&a->in);
 		if (guard) ask_settle(a, guard);
 		ui_sounds_follow();
-		if (a->in.quit_requested) { a->running = false; return false; }
+		if (a->in.quit_requested) { a->running = false; return 0; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {
 			if (over && over->on_power) over->on_power(a, ctx);
 			else power_off(a);
-			return false;
+			return 0;
 		}
-		if (menu_leaving(a)) return false;
+		if (menu_leaving(a)) return 0;
 
 		/* Only the two answerable rows are reachable; the rows above are the
 		 * question. */
@@ -4427,7 +4775,7 @@ static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int n
 		}
 		if (a->in.pressed[IN_ACCEPT]) {
 			uisound_play(DS_SOUND_ACCEPT);
-			return sel == nq;
+			return sel == nq ? 1 : 2;
 		}
 
 		if (!panel_frame(a, lv, &k)) continue;
@@ -4444,6 +4792,47 @@ static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int n
 		plat_present();
 		ui_frame_rest(8);
 	}
+}
+
+static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int nq,
+                              const char *yes_label, const char *no_label, int fixed_w, int lv,
+                              usbpower_guard *guard, const menu_style *over, void *ctx)
+{
+	return confirm_rows_pick(a, heading, rows, nq, yes_label, no_label, fixed_w, lv, guard,
+	                         over, ctx, false) == 1;
+}
+
+/* ask_two_panel's rows: its question in lines the panel's width, as Delete
+ * Game's is (in one row a long one slid as a marquee), then the two answers;
+ * how many lines. A host shot draws the same rows (src/launch_screen.c's
+ * p8_said_shot). */
+int ask_two_rows(app *a, const char *msg, const char *first, const char *second,
+                 char (*lines)[CHV_WRAP_COLS], menu_row *rows)
+{
+	int n = wrap_text(ui_font(UI_F_MENU), msg, menu_std_width(a), lines, ASK_TWO_LINES), i;
+
+	ui_fit_drawn(msg);    /* drawn in lines, said whole to the host's check */
+	for (i = 0; i < n; i++)
+		rows[i] = (menu_row){ lines[i], MENU_NOTE_MARK, false };
+	rows[n]     = (menu_row){ first, NULL, true };
+	rows[n + 1] = (menu_row){ second, NULL, true };
+	return n;
+}
+
+/* A question with two answers that both go on (Splore's Turn On Wi-Fi and
+ * Open Offline), over the shelf: 1 the first, 2 the second, 0 left. The
+ * cursor starts on the first. */
+int ask_two_panel(app *a, const char *heading, const char *msg, const char *first,
+                  const char *second)
+{
+	char lines[ASK_TWO_LINES][CHV_WRAP_COLS];
+	menu_row rows[ASK_TWO_LINES + 2];
+	int lv = panel_open(), r, n = ask_two_rows(a, msg, first, second, lines, rows);
+
+	r = confirm_rows_pick(a, heading, rows, n, first, second, menu_std_width(a), lv, NULL, NULL,
+	                      NULL, true);
+	panel_close(a, lv, !a->running);
+	return r;
 }
 
 bool confirm_rows_as(app *a, const char *heading, menu_row *rows, int nq,
@@ -4581,7 +4970,8 @@ void refresh_game_titles(app *a)
 {
 	int si, i;
 
-	for (si = 0; si < a->sys.count; si++) {
+	/* The systems off the home too, whose games Favorites copies again */
+	for (si = 0; si < sys_kept(a); si++) {
 		sysview *v = &a->view[si];
 		char file[LIB_PATH];
 		int owner, selected;
@@ -4629,7 +5019,9 @@ int menu_measure(const menu_row *rows, int n, const char *heading)
 		int rw;
 
 		if (!rows[i].label) continue;          /* a rule measures nothing */
-		rw = ui_text_width(fm, rows[i].label);
+		/* buttons for a label (MENU_KEYS_MARK) are their glyphs' width */
+		rw = menu_keys_is(rows[i].label) ? ui_button_width(menu_keys_names(rows[i].label), MENU_KEYS_SIZE)
+		                                 : ui_text_width(fm, rows[i].label);
 		if (two_col && rows[i].value && !ROW_IS_NOTE(rows[i]))
 			rw += gap + menu_value_w(fm, rows[i].value);
 		if (rw > w) w = rw;
@@ -4658,7 +5050,7 @@ static int sm_pos(const app *a, int sys, sm_row which)
 {
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
-	               .dsslow = dslang_row_shown(a, sys) ? "" : NULL,
+	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
 	int n = sys_menu_system_rows(&dev, ids), k;
@@ -4678,8 +5070,8 @@ static int menu_shelf_width(app *a)
 	if (a->menu_w) return a->menu_w;
 
 	/* MENU's every tab, so the panel is one width on all of them, and on
-	 * the tab with Shader every value of it, "per system" too, so stepping
-	 * it does not resize the panel under it */
+	 * the tab with Shader every value of it, so stepping it does not resize
+	 * the panel under it */
 	{
 		int t, at = g_tabs.at, mw;
 
@@ -4695,20 +5087,27 @@ static int menu_shelf_width(app *a)
 				const char *keep = rows[k].value;
 				int j;
 
-				for (j = 0; j <= SHADER_COUNT; j++) {
-					if (j < SHADER_COUNT && !shader_offered(j)) continue;
-					rows[k].value = j < SHADER_COUNT ? shader_label(j) : T(S_GAMEMENU_SHADER_MIXED);
+				for (j = 0; j < SHADER_COUNT; j++) {
+					if (!screen_shader_offered(j)) continue;
+					rows[k].value = shader_label(j);
 					mw = menu_measure(rows, n, heading);
 					if (mw > w) w = mw;
 				}
 				rows[k].value = keep;
 				/* And Strength under it, there or not, at its widest */
-				for (j = 0; j < 2 && n < MENU_MAX_ROWS; j++) {
-					rows[n] = (menu_row){ T(S_GAMEMENU_STRENGTH),
-					                      j ? "100%" : T(S_GAMEMENU_SHADER_MIXED), true };
+				if (n < MENU_MAX_ROWS) {
+					rows[n] = (menu_row){ T(S_GAMEMENU_STRENGTH), "100%", true };
 					mw = menu_measure(rows, n + 1, heading);
 					if (mw > w) w = mw;
 				}
+			}
+			/* And Night Mode's row, the tab's last, at its longest mode
+			 * (night_row_widest) */
+			for (k = 0; k < n; k++)
+				if (rows[k].label == T(S_SYSMENU_NIGHT_MODE)) break;
+			if (k < n && night_row_widest(rows + k)) {
+				mw = menu_measure(rows, k + 1, heading);
+				if (mw > w) w = mw;
 			}
 		}
 		g_tabs.at = at;
@@ -4726,15 +5125,26 @@ static int menu_shelf_width(app *a)
 	for (i = 0; i < a->sys.count; i++) {
 		bool muse = is_muse(&a->sys.systems[i]);
 		bool own  = muse || a->view[i].owner;
-		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1;
+		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1, lookrow = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
-		int  wrow = own ? -1 : sm_pos(a, i, SM_DSSLOW);
+		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
+		/* Recents' Card Picture at the longer of its two (DESIGN.md 11.48) */
+		if (i == shelf_recents_at(a) && n > SM_FAV_ROWS) {
+			const char *keep = rows[SM_FAV_ROWS].value;
+			int mw;
+
+			rows[SM_FAV_ROWS].value = T(S_SYSMENU_CARD_PICTURE_SCREEN);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[SM_FAV_ROWS].value = T(S_SYSMENU_CARD_PICTURE_COVER);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[SM_FAV_ROWS].value = keep;
+		}
 		if (muse) {
 			sm_muse_row ids[SM_MUSE_ROWS];
 			int nn = sys_menu_muse_rows(muse_rows_kind(), muse_kinds() > 1,
@@ -4743,6 +5153,7 @@ static int menu_shelf_width(app *a)
 			for (k = 0; k < nn; k++) {
 				if (ids[k] == SMM_SORT) srow = k;
 				if (ids[k] == SMM_SHOW) show = k;
+				if (ids[k] == SMM_LOOK) lookrow = k;
 			}
 			/* The longer of Show's two values, so turning it over does not
 			 * change the menu's width under the cursor. */
@@ -4752,6 +5163,19 @@ static int menu_shelf_width(app *a)
 				rows[show].value = "Audiobooks";
 				mw = menu_measure(rows, n, heading);
 				if (mw > w) w = mw;
+			}
+			/* And Player Look's each look, for the same reason */
+			if (lookrow >= 0 && bufs.choice[lookrow].labels) {
+				const char *keep = rows[lookrow].value;
+
+				for (k = 0; k < bufs.choice[lookrow].n; k++) {
+					int mw;
+
+					rows[lookrow].value = bufs.choice[lookrow].labels[k];
+					mw = menu_measure(rows, n, heading);
+					if (mw > w) w = mw;
+				}
+				rows[lookrow].value = keep;
 			}
 		}
 		for (k = 0; drow >= 0 && k < DMODE_COUNT; k++) {
@@ -4764,7 +5188,7 @@ static int menu_shelf_width(app *a)
 		/* And each shader, for the same reason */
 		for (k = 0; hrow >= 0 && k < SHADER_COUNT; k++) {
 			int mw;
-			if (!shader_offered(k)) continue;
+			if (!shader_offered(k, a->sys.systems[i].tag)) continue;
 			rows[hrow].value = shader_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
@@ -4803,17 +5227,17 @@ static int menu_shelf_width(app *a)
 			}
 			rows[lrow].value = keep;
 		}
-		/* When Slow's two */
-		if (wrow >= 0) {
-			const char *keep = rows[wrow].value;
+		/* Timing's two */
+		if (prow >= 0 && prow < n) {
+			const char *keep = rows[prow].value;
 
-			for (k = 0; k < DSS_CHOICES; k++) {
+			for (k = 0; k < PACING_CHOICES; k++) {
 				int mw;
-				rows[wrow].value = T(dsslow_label_id((dss_choice)k));
+				rows[prow].value = T(pacing_label_id((pacing_choice)k));
 				mw = menu_measure(rows, n, heading);
 				if (mw > w) w = mw;
 			}
-			rows[wrow].value = keep;
+			rows[prow].value = keep;
 		}
 		/* View's three values, the longest kept */
 		if (vrow >= 0 && vrow < n) {
@@ -4826,10 +5250,14 @@ static int menu_shelf_width(app *a)
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = T(S_SYSMENU_VIEW_LIST);
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[vrow].value = T(S_SYSMENU_VIEW_VIDEO);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = keep;
 		}
 		for (k = 0; k < (muse ? ML_ORDERS : SORT_COUNT); k++) {
 			int mw;
+			/* Every order a shelf of either kind offers: Collections' two
+			 * too (src/sort.h), so its menu is no wider than this */
 			rows[srow].value = muse ? ml_order_label((ml_order)k, false) : sort_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
@@ -5149,6 +5577,7 @@ static int port_menu_main(int argc, char **argv)
 
 		db_get_str(db_dev(), "language", lc, sizeof lc, "en");
 		i18n_set(lang_parse(lc));
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap, appearance_id(APPEAR_LIGHT));
 		look_load();
 		theme_init(appearance_parse(ap));
@@ -5238,6 +5667,10 @@ int main(int argc, char *argv[])
 		 * cursor on ROW (src/homesys_screen.c) */
 		else if (!strcmp(argv[i], "--homesys-page") && i + 1 < argc)
 			shot_homesys = atoi(argv[++i]);
+		/* --lights-page ROW: MENU > Side Lights' page, the cursor on ROW
+		 * (src/lights_screen.c) */
+		else if (!strcmp(argv[i], "--lights-page") && i + 1 < argc)
+			shot_lights = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--look-page") && i + 1 < argc) {
 			shot_look_page = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5263,14 +5696,17 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--game") && i + 1 < argc) shot_game = argv[++i];
 		else if (!strcmp(argv[i], "--view") && i + 1 < argc) {
 			shot_view = argv[++i];
-			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid")) {
-				fprintf(stderr, "--view needs list, grid or covers\n");
+			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid") &&
+			    strcmp(shot_view, "video")) {
+				fprintf(stderr, "--view needs list, grid, video or covers\n");
 				return 2;
 			}
 		}
-		/* --keyboard [layer] [text] draws one frame of the text-entry panel,
-		 * for the same reason --menu and --slots exist: it is dense, and
-		 * laying it out against a screenshot beats a round trip to a device. */
+		/* --keyboard [layer] [text] [title] draws one frame of the text-entry
+		 * panel, for the same reason --menu and --slots exist: it is dense, and
+		 * laying it out against a screenshot beats a round trip to a device.
+		 * --kb-ss-user titles it as the ScreenScraper sign-in does, in the
+		 * shot's language. */
 		else if (!strcmp(argv[i], "--cheevos-screen")) {
 			shot_cheevos = 1;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5279,6 +5715,8 @@ int main(int argc, char *argv[])
 			 * long ones rather than only the short one that fit. */
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_cheevos_game = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--cheevo-card") && i + 1 < argc)
+			shot_cheevo_card = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--cheevos-badge") && i + 2 < argc) {
 			shot_badge_set = argv[++i];
 			shot_badge_name = argv[++i];
@@ -5296,6 +5734,11 @@ int main(int argc, char *argv[])
 				shot_np_at = (float)atof(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--paused")) shot_np_paused = 1;
+		/* --np-look cover|classic|spectrum...: Now Playing and MENU's
+		 * Player Look in that look, for the shot only, never saved */
+		else if (!strcmp(argv[i], "--np-look") && i + 1 < argc) np_look_shot(mp4l_from_key(argv[++i]));
+		/* --np-bench N: N frames of the look timed before the shot */
+		else if (!strcmp(argv[i], "--np-bench") && i + 1 < argc) shot_np_bench = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--locked")) shot_locked = 1;
 		else if (!strcmp(argv[i], "--video")) {
 			/* "controls": with the controls up; "hidden" ("full" before
@@ -5304,6 +5747,17 @@ int main(int argc, char *argv[])
 			shot_video = 0;
 			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = 1; i++; }
 			else if (i + 1 < argc && (!strcmp(argv[i + 1], "hidden") || !strcmp(argv[i + 1], "full"))) i++;
+		}
+		else if (!strcmp(argv[i], "--video-size") && i + 1 < argc)
+			sscanf(argv[++i], "%dx%d", &shot_video_w, &shot_video_h);
+		else if (!strcmp(argv[i], "--video-trouble") && i + 1 < argc) {
+			i++;
+			shot_video_trouble = !strcmp(argv[i], "too-big") ? MPF_TOO_BIG
+			                   : !strcmp(argv[i], "no-picture") ? MPF_NO_PICTURE : MPF_FINE;
+		}
+		else if (!strcmp(argv[i], "--video-at") && i + 2 < argc) {
+			shot_video_k = (float)atof(argv[++i]);
+			shot_video_grow = (float)atof(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--mode") && i + 1 < argc) shot_mode = argv[++i];
 		else if (!strcmp(argv[i], "--sysmove") && i + 1 < argc)
@@ -5320,10 +5774,21 @@ int main(int argc, char *argv[])
 		 * over the shelf (DESIGN.md 11.31) */
 		else if (!strcmp(argv[i], "--info-delete")) shot_info = 2;
 		else if (!strcmp(argv[i], "--info-rename")) shot_info = 3;
+		/* Collections (src/collect_screen.h): the details page on Add to
+		 * Collection, its list with the cursor on row K, and Delete
+		 * Collection's question on the Collections shelf */
+		else if (!strcmp(argv[i], "--info-collect")) shot_info = 5;
+		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
+		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--zip-said")) shot_zip_said = 1;
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
 		else if (!strcmp(argv[i], "--delete-ask")) shot_delete_ask = 1;
+		/* --gm-said K: Delete Game's and Rename's messages (shots.c's
+		 * GM_SAID: 0 the delete's wait, 1-6 Delete Game's, 7-10 Rename's) */
+		else if (!strcmp(argv[i], "--gm-said") && i + 1 < argc) shot_gm_said = atoi(argv[++i]);
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;
@@ -5387,7 +5852,8 @@ int main(int argc, char *argv[])
 		 * wifi=off|idle|1|2|3, bt, batt=PCT, chg, and blinkoff for a
 		 * critical battery caught in its second off, eta=MIN for what
 		 * MENU > Battery Icon > Time Left writes, icon=bars|percentage|time
-		 * for the setting itself. */
+		 * for the setting itself, date=YYYY-MM-DD for the day (today
+		 * without it). */
 		else if (!strcmp(argv[i], "--status") && i + 1 < argc) {
 			if (!shot_status_parse(argv[++i])) {
 				fprintf(stderr, "--status: cannot read \"%s\"\n", argv[i]);
@@ -5446,6 +5912,11 @@ int main(int argc, char *argv[])
 		/* --gm-undo: the game has a state from before its last load, so
 		 * the Game tab has Undo Load */
 		else if (!strcmp(argv[i], "--gm-undo")) g_shot_undo = true;
+		/* --gm-rumble: the game's core asked for the motor (PAUSED
+		 * rumble=1), so its Controls tab has Rumble */
+		else if (!strcmp(argv[i], "--gm-rumble")) g_shot_rumble = true;
+		/* --eq-phones: the Equalizer page as with headphones in */
+		else if (!strcmp(argv[i], "--eq-phones")) g_shot_eq_phones = true;
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
@@ -5454,6 +5925,13 @@ int main(int argc, char *argv[])
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's
 		 * list of choices; --hud-shows WORDS, the items it shows */
 		else if (!strcmp(argv[i], "--hud-page") && i + 1 < argc) shot_hud_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats")) shot_cheats = true;
+		else if (!strcmp(argv[i], "--cheats-page") && i + 1 < argc) shot_cheats_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats-ask")) shot_cheats_ask = true;
+		else if (!strcmp(argv[i], "--cheats-query") && i + 1 < argc) shot_cheats_query = argv[++i];
+		else if (!strcmp(argv[i], "--cheats-on-first")) shot_cheats_on_first = true;
+		else if (!strcmp(argv[i], "--cheats-note")) shot_cheats_note = true;
+		else if (!strcmp(argv[i], "--cheats-crash")) shot_cheats_crash = true;
 		else if (!strcmp(argv[i], "--hud-items")) shot_hud_items = true;
 		else if (!strcmp(argv[i], "--hud-pick") && i + 1 < argc) shot_hud_pick = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hud-shows") && i + 1 < argc) shot_hud_shows = argv[++i];
@@ -5469,6 +5947,7 @@ int main(int argc, char *argv[])
 			shot_gm_aspect = at ? atof(at + 1) : 4.0 / 3.0;
 		}
 		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
+		else if (!strcmp(argv[i], "--hover-sweep")) shot_hover_sweep = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {
 			i++;
@@ -5538,6 +6017,10 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--portload-later")) g_port_loading_later = true;
 		else if (!strcmp(argv[i], "--portload") && i + 1 < argc)
 			shot_portload = argv[++i];
+		/* --pico8-page: the page A opens on Splore while your PICO-8 is not
+		 * on the card (src/pico8.h) */
+		else if (!strcmp(argv[i], "--pico8-page")) g_p8_shot = true;
+		else if (!strcmp(argv[i], "--pico8-said") && i + 1 < argc) g_p8_said_shot = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--portmaster")) {
 			/* The Install PortMaster page, as ZYPEROS_PM_STATUS's file
 			 * says, with any of running, nonet, nopython, installed; and
@@ -5585,7 +6068,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--achtab") && i + 1 < argc) {
 			static const char *const names[] = {
 				"list", "not-system", "not-file", "signed-out", "waiting",
-				"unchecked", "none", "all"
+				"unchecked", "none", "paused", "all"
 			};
 			const char *v = argv[++i];
 			int k;
@@ -5676,6 +6159,11 @@ int main(int argc, char *argv[])
 		}
 		/* --snap-wait F: the games shelf with the bar under its focused
 		 * cover F of the way through the wait for its snap, 0 to 1 */
+		else if (!strcmp(argv[i], "--band") && i + 1 < argc) {
+			g_shot_band = (float)atof(argv[++i]);
+			if (g_shot_band < 0) g_shot_band = 0;
+			if (g_shot_band > 1) g_shot_band = 1;
+		}
 		else if (!strcmp(argv[i], "--snap-wait") && i + 1 < argc) {
 			g_shot_snap_wait = (float)atof(argv[++i]);
 			if (g_shot_snap_wait < 0) g_shot_snap_wait = 0;
@@ -5691,6 +6179,9 @@ int main(int argc, char *argv[])
 		/* --radl-page STATE: MENU > Achievements' page (radl_page_shot) */
 		else if (!strcmp(argv[i], "--radl-page") && i + 1 < argc)
 			shot_radl_page = atoi(argv[++i]);
+		/* --downloads STATE: MENU > Downloads (downloads_shot) */
+		else if (!strcmp(argv[i], "--downloads") && i + 1 < argc)
+			shot_downloads = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--scraper-page") && i + 1 < argc) {
 			shot_scraper_page = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5701,6 +6192,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '2')
 				shot_sgdb = atoi(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "--hotkeys") && i + 1 < argc) shot_hotkeys = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-game")) shot_hk_game = true;
+		else if (!strcmp(argv[i], "--hk-ask") && i + 1 < argc) shot_hk_ask = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-scope") && i + 1 < argc) shot_hk_scope = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-capture") && i + 1 < argc) shot_hk_capture = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-key") && i + 1 < argc) shot_hk_key = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--controls")) {
 			shot_controls = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5795,10 +6292,16 @@ int main(int argc, char *argv[])
 			else if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '2')
 				shot_power = atoi(argv[++i]);
 		}
+		/* --datetime [K [MONTH]]: Date & Time's page K, on the 3rd of MONTH
+		 * (1 to 12; October without it) */
 		else if (!strcmp(argv[i], "--datetime")) {
 			shot_datetime = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
 				shot_datetime = atoi(argv[++i]);
+			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9') {
+				shot_datetime_mon = atoi(argv[++i]);
+				if (shot_datetime_mon < 1 || shot_datetime_mon > 12) shot_datetime_mon = 10;
+			}
 		}
 		else if (!strcmp(argv[i], "--dev-page")) {
 			shot_dev = 0;
@@ -5922,6 +6425,7 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_text = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_title = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--kb-ss-user")) shot_kb_ss_user = 1;
 		/* --kbsel ROW COL puts the keyboard's selection on a key, so the
 		 * action row can be looked at selected key by key. */
 		else if (!strcmp(argv[i], "--kbsel") && i + 2 < argc) {
@@ -5936,6 +6440,13 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
 				shot_slot_aspect = (float)atof(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "--slot-when") && i + 2 < argc) {
+			shot_slot_mon = atoi(argv[++i]);
+			shot_slot_hour = atoi(argv[++i]);
+			if (shot_slot_mon < 1 || shot_slot_mon > 12 || shot_slot_hour < 0 || shot_slot_hour > 23)
+				shot_slot_mon = 0;
+		}
+		else if (!strcmp(argv[i], "--slot-save")) shot_slot_save = 1;
 	}
 	/* --status is for a shot, as --theme is: a launcher started
 	 * with it and no --shot draws the device's own corner. And a shot draws
@@ -6412,8 +6923,13 @@ int main(int argc, char *argv[])
 		plat_resident_on_speed(on_speed);
 		plat_resident_on_stick(on_stick);
 		plat_resident_on_quick(on_quick);
+		plat_resident_on_hotkey(on_hotkey);
+		g_hotkey_app = &a;
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);
+		/* The downloads' lanes go on behind every screen while it rests
+		 * (src/dlq.h); tick_theme steps them as one draws */
+		plat_on_input_wait(dlq_wait);
 		p2_setup();
 		heat_init(&g_heat);
 
@@ -6455,6 +6971,11 @@ int main(int argc, char *argv[])
 			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
 			for (k = 0; k < MUQ_MODES; k++)
 				if (!strcmp(m, MUSE_MODES[k].key)) musec_set_mode((muq_mode)k);
+			/* Videos' own, MENU > Repeat on MP4's video shelves */
+			db_get_str(db_dev(), "video.mode", m, sizeof m, "in order");
+			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
+			for (k = 0; k < MUQ_MODES; k++)
+				if (!strcmp(m, MUSE_MODES[k].key)) musec_set_video_mode((muq_mode)k);
 		}
 	}
 	t_mark("muse+accounts");
@@ -6499,6 +7020,9 @@ int main(int argc, char *argv[])
 		 * launcher's word: a shot in the other theme must not turn its
 		 * bar over. */
 		if (shot_path) theme_set_file(NULL);
+		/* A 1.0.5 device's Appearance Auto and its hours, once: the theme
+		 * Auto gave now, and the hours kept as Night Hours (nightkeep.h) */
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap,
 		           appearance_id(APPEAR_LIGHT));
 		/* The language, MENU > Language's, or --lang's for a shot: every
@@ -6513,14 +7037,18 @@ int main(int argc, char *argv[])
 		}
 		look_load();
 		/* --look's, for a shot: ACCENT,LIGHT,DARK,CORNERS,ZYPER as the
-		 * database keeps them ("blue,cool,deepblue,square,off") */
+		 * database keeps them ("blue,cool,deepblue,square,off"), and
+		 * FOLDERS and HIGHLIGHT after them if given (",teal,border";
+		 * System Colors and Bar without) */
 		if (shot_path && shot_look) {
-			char w[5][16] = { "", "", "", "", "" };
+			char w[7][16] = { "", "", "", "", "", "", "" };
 			look l;
 
-			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15s",
-			       w[0], w[1], w[2], w[3], w[4]);
+			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15[^,],%15[^,],%15s",
+			       w[0], w[1], w[2], w[3], w[4], w[5], w[6]);
 			l = look_parse(w[0], w[1], w[2], w[3], w[4]);
+			l.folder = look_folder_parse(w[5]);
+			l.focus = look_focus_parse(w[6]);
 			look_set(&l);
 			look_bar_colors();
 		}
@@ -6652,6 +7180,9 @@ int main(int argc, char *argv[])
 		for (k = 0; k < DMODE_COUNT && strcmp(DMODES[k].name, shot_dmode); k++) ;
 		for (v = 0; k < DMODE_COUNT && v < a.sys.count; v++) a.view[v].dmode = k;
 	}
+	/* A PICO-8 zip the player copied into Bios/PICO-8, before the cores are
+	 * chosen: once taken, your PICO-8 plays the carts from this start on */
+	p8_take_now();
 	core_load(&a);
 	sort_load(&a);
 	view_load(&a);
@@ -6689,8 +7220,8 @@ int main(int argc, char *argv[])
 	}
 	/* MENU+START (tools/zyhome.c): the home, whatever was running and
 	 * whatever the records say */
-	if (!access(CTL_HOME_FLAG, F_OK)) {
-		unlink(CTL_HOME_FLAG);
+	if (!access(plat_flag(CTL_HOME_FLAG), F_OK)) {
+		unlink(plat_flag(CTL_HOME_FLAG));
 		a.resume_menu = false;
 		playing_clear();
 		a.screen = SCREEN_SYSTEMS;
@@ -6714,6 +7245,7 @@ int main(int argc, char *argv[])
 		if (shot_view) {
 			a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
 			a.view[a.sys_cursor].grid = !strcmp(shot_view, "grid");
+			a.view[a.sys_cursor].video = !strcmp(shot_view, "video");
 		}
 		if (shot_folder) shelf_open_dir(&a, a.sys_cursor, shot_folder, NULL);
 		if (shot_game) shelf_reveal(&a, a.sys_cursor, shot_game);
@@ -6928,6 +7460,11 @@ int main(int argc, char *argv[])
 	 * card's empty .media folders go once the shelf is up (after_start_step). */
 	up_cable_tidy();
 
+	/* A test of MENU > Downloads (dl_test): the page at once */
+	if (getenv("ZYPEROS_DOWNLOADS_TEST")) {
+		downloads_screen(&a);
+		a.running = false;
+	}
 	/* A test of MENU > Scraper's page (scp_test): the page at once */
 	if (getenv("ZYPEROS_SCRAPER_TEST")) {
 		scraper_page(&a, NULL);
@@ -6937,6 +7474,15 @@ int main(int argc, char *argv[])
 		plat_input_poll(&a.in);
 		if (a.in.quit_requested || want_quit) break;
 		after_start_step(&a, last_render != 0);
+		/* What became of a PICO-8 zip copied by hand, once the home is up */
+		if (g_p8_said[0] && last_render) {
+			char said[sizeof g_p8_said];
+
+			snprintf(said, sizeof said, "%s", g_p8_said);
+			g_p8_said[0] = 0;
+			result_message(&a, "PICO-8", said);
+			redraw_now();
+		}
 
 		/* The memory back at full before a press is acted on, whatever it
 		 * opens: a menu, a game, the next shelf's art. Games set their own
@@ -7098,6 +7644,10 @@ int main(int argc, char *argv[])
 		g_ctl_shelf_pass = true;
 		tick_theme(&a);
 		g_ctl_shelf_pass = false;
+		/* A Scraper run that ended behind the screens may have named games
+		 * and brought covers and snaps: the shelves take them here, on the
+		 * shelf's own pass, as the page's close does (scraper_screen.c) */
+		scraper_after_run(&a);
 
 		/* Back on the shelf, so any menu MENU closed is closed: put the flag
 		 * down before anything here can open another. See menu_leaving. And
@@ -7114,6 +7664,7 @@ int main(int argc, char *argv[])
 		heat_watch();
 		up_news_watch();
 		ra_news_watch();
+		dl_news_watch();
 
 		/* SELECT is Muse, on the shelf and on every screen but a running
 		 * game - see muse_open. Before the shelf's own keys, which do not use
@@ -7207,6 +7758,9 @@ int main(int argc, char *argv[])
 
 done:
 	ctl_stop();
+	/* The downloads' requests with the launcher: the next run starts from
+	 * what is missing */
+	dlq_stop_all();
 	free_all_textures(&a);
 	/* First, and before IMG_Quit: the worker is inside IMG_Load, and the
 	 * views it decodes into are freed just below. The resizer too, for the
@@ -7215,7 +7769,7 @@ done:
 	art_shrink_stop();
 	/* Told, not waited for - see ra_flush_stop. */
 	ra_flush_stop();
-	for (int i = 0; i < a.sys.count; i++) {
+	for (int i = 0; i < sys_kept(&a); i++) {
 		free(a.view[i].tex); free(a.view[i].tw); free(a.view[i].th);
 		lib_free(&a.view[i].list);
 	}

@@ -125,20 +125,29 @@ static void rules(unsigned b)
 	CHECK(ch_screen_tick(&s, b + 20000, true, false, true) == CS_LIT, "a press lights it");
 	CHECK(ch_screen_tick(&s, b + 20000 + DS_MS_HOLD_CHARGE_LIT, false, false, true) == CS_DARK, "and it goes dark again");
 
-	/* POWER: a press lights, a hold starts */
+	/* POWER: a press lights, a hold starts. One second, Power Button on
+	 * Hold's (hold-power; Tarik, 1.0.6: "Can we have the hold power to turn
+	 * on on charging screen also be one second?"), not the lock's two */
+	CHECK(DS_MS_HOLD_POWER == 1000, "the hold to start is one second");
 	CHECK(ch_screen_tick(&s, b + 40000, true, true, true) == CS_LIT, "POWER down lights it");
-	CHECK(ch_screen_hold(&s, b + 40000 + DS_MS_HOLD_UNLOCK / 2) > 0.49f, "the bar fills while held");
-	CHECK(ch_screen_tick(&s, b + 40000 + DS_MS_HOLD_UNLOCK - 1, false, true, true) == CS_LIT, "not yet");
-	CHECK(ch_screen_tick(&s, b + 40000 + DS_MS_HOLD_UNLOCK, false, true, true) == CS_START, "held long enough: start");
+	CHECK(ch_screen_hold(&s, b + 40000 + DS_MS_HOLD_POWER / 2) > 0.49f &&
+	      ch_screen_hold(&s, b + 40000 + DS_MS_HOLD_POWER / 2) < 0.51f, "the bar is half full at half a second");
+	CHECK(ch_screen_tick(&s, b + 40000 + DS_MS_HOLD_POWER - 1, false, true, true) == CS_LIT, "not yet");
+	CHECK(ch_screen_hold(&s, b + 40000 + DS_MS_HOLD_POWER) == 1.0f, "the bar full at the second");
+	CHECK(ch_screen_tick(&s, b + 40000 + DS_MS_HOLD_POWER, false, true, true) == CS_START, "held long enough: start");
 	CHECK(ch_screen_tick(&s, b + 90000, false, false, false) == CS_START, "start stays");
 
 	ch_screen_start(&s, b);
 	ch_screen_tick(&s, b + 100, true, true, true);
-	ch_screen_tick(&s, b + 1500, false, false, true);
-	CHECK(ch_screen_hold(&s, b + 1500) == 0.0f, "let go: the bar empties");
+	CHECK(ch_screen_tick(&s, b + 100 + DS_MS_HOLD_POWER - 50, false, true, true) == CS_LIT,
+	      "held a little short of the second");
+	ch_screen_tick(&s, b + 100 + DS_MS_HOLD_POWER - 40, false, false, true);
+	CHECK(ch_screen_hold(&s, b + 100 + DS_MS_HOLD_POWER - 40) == 0.0f, "let go: the bar empties");
 	CHECK(ch_screen_tick(&s, b + 1600, true, true, true) == CS_LIT, "down again");
-	CHECK(ch_screen_tick(&s, b + 1600 + DS_MS_HOLD_UNLOCK - 1, false, true, true) == CS_LIT,
+	CHECK(ch_screen_tick(&s, b + 1600 + DS_MS_HOLD_POWER - 1, false, true, true) == CS_LIT,
 	      "a new hold counts from its own start");
+	CHECK(ch_screen_tick(&s, b + 1600 + DS_MS_HOLD_POWER, false, true, true) == CS_START,
+	      "and starts at its own second");
 
 	/* Unplugged */
 	ch_screen_start(&s, b);

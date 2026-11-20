@@ -97,7 +97,7 @@ int main(void)
 	CHECK(pg.bar && !strcmp(pg.bar_left, "Downloading") && !strcmp(pg.bar_right, "6.1 of 14 MB"), "Downloading 6.1 of 14 MB");
 	CHECK(pg.frac > 0.42f && pg.frac < 0.44f, "the bar is 43% full");
 	CHECK(pg.nkeys == 1 && is(&pg, "B", "Continue in background", SUA_BACK), "only B, and it goes on");
-	CHECK(!strcmp(su_menu_value(&v, buf, sizeof buf), "downloading"), "MENU's row: downloading");
+	CHECK(!strcmp(su_menu_value(&v, buf, sizeof buf), "Downloading"), "MENU's row: downloading");
 
 	/* The same status with nothing running: it was cut short */
 	v.running = false;
@@ -120,7 +120,7 @@ int main(void)
 	su_page_build(&v, &pg);
 	CHECK(!strcmp(pg.sub, "Downloaded and checked") && !strcmp(pg.line, "Or it goes in at the next start."), "ready: checked, or at the next start");
 	CHECK(is(&pg, "A", "Restart Now", SUA_RESTART) && is(&pg, "B", "Later", SUA_BACK) && !btn(&pg, "Y"), "ready: A Restart Now, B Later, no step back");
-	CHECK(!strcmp(su_menu_value(&v, buf, sizeof buf), "restart to update"), "MENU's row: restart to update");
+	CHECK(!strcmp(su_menu_value(&v, buf, sizeof buf), "Restart to update"), "MENU's row: restart to update");
 
 	/* Up to date */
 	v = base("state uptodate\nversion 0.1.0\n");

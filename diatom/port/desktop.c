@@ -11,11 +11,15 @@
 /* <SDL.h>, not <SDL2/SDL.h>: sdl2-config and pkg-config both put the SDL2
  * directory on the include path, and this is the form SDL documents. */
 #include <SDL.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
+#include "diatom_deskfb.h"
 #include "diatom_port.h"
 #include "port_clock.h"
 #include "port_power.h"
@@ -38,6 +42,48 @@ static diatom_filter g_tex_filter;
 static SDL_AudioDeviceID g_audio;
 static bool          g_quit;
 static uint32_t      g_buttons;
+
+/* DIATOM_DESKFB (diatom_deskfb.h): the frames into a file ZyperOS's desk mode
+ * shows in its own window, the buttons from it */
+static diatom_deskfb *g_fb;
+
+static void deskfb_open(const char *path, int w, int h)
+{
+	size_t bytes = DIATOM_DESKFB_BYTES(w, h);
+	int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+	void *m;
+
+	if (fd < 0 || ftruncate(fd, (off_t)bytes) != 0) {
+		fprintf(stderr, "desktop: no desk frame file %s\n", path);
+		if (fd >= 0) close(fd);
+		return;
+	}
+	m = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	close(fd);
+	if (m == MAP_FAILED) return;
+	g_fb = m;
+	memset(g_fb, 0, sizeof *g_fb);
+	g_fb->w = (uint32_t)w;
+	g_fb->h = (uint32_t)h;
+	g_fb->version = DIATOM_DESKFB_VERSION;
+	__atomic_store_n(&g_fb->magic, DIATOM_DESKFB_MAGIC, __ATOMIC_RELEASE);
+	fprintf(stderr, "desktop: frames to %s, %dx%d\n", path, w, h);
+}
+
+/* What was drawn, into the file, whole frames only */
+static void deskfb_frame(void)
+{
+	uint32_t seq;
+
+	if (!g_fb) return;
+	seq = __atomic_load_n(&g_fb->seq, __ATOMIC_RELAXED);
+	__atomic_store_n(&g_fb->seq, seq | 1u, __ATOMIC_RELEASE);
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+	SDL_RenderReadPixels(g_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, g_fb + 1, (int)g_fb->w * 4);
+	g_fb->polled = g_buttons;
+	g_fb->frames++;
+	__atomic_store_n(&g_fb->seq, (seq | 1u) + 1u, __ATOMIC_RELEASE);
+}
 
 /* ---------- the audio sink ------------------------------------------------ */
 
@@ -175,6 +221,10 @@ bool diatom_port_init(diatom_port_caps *out)
 	 * open below for why silence beats refusing to start. Rolled into one
 	 * SDL_Init, a missing or busy audio device is indistinguishable from a
 	 * missing display and kills both. */
+	/* Behind ZyperOS's desk mode (DIATOM_DESKFB below) this process shows
+	 * nothing of its own: no Dock icon on a Mac, never the keyboard's focus,
+	 * which stays on the launcher's window */
+	if (getenv("DIATOM_DESKFB")) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
 		fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
 		return false;
@@ -193,14 +243,21 @@ bool diatom_port_init(diatom_port_caps *out)
 			g_win_h = h;
 		}
 	}
+	/* In ZyperOS's desk mode the window is never shown: its frames go to
+	 * the launcher's (diatom_deskfb.h), drawn by SDL's software renderer,
+	 * whose pixels read back at the cost of a copy */
+	const char *deskfb = getenv("DIATOM_DESKFB");
+	bool desk = deskfb && *deskfb;
+
 	g_window = SDL_CreateWindow("diatom",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		g_win_w, g_win_h, SDL_WINDOW_SHOWN);
+		g_win_w, g_win_h, desk ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN);
 	if (!g_window) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); return false; }
 
-	g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);
+	g_renderer = SDL_CreateRenderer(g_window, -1, desk ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED);
 	if (!g_renderer) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); return false; }
 	SDL_SetRenderDrawColor(g_renderer, 0, 0, 0, 255);
+	if (desk) deskfb_open(deskfb, g_win_w, g_win_h);
 
 	/* Vsync OFF, deliberately.
 	 *
@@ -236,6 +293,10 @@ bool diatom_port_init(diatom_port_caps *out)
 	 * was asked for: the resampler still needs a target to convert into,
 	 * and a zero here would divide. */
 	out->audio_rate         = AUDIO_RATE;
+	/* No panel rate of its own here: the display lock is off, as the
+	 * desktop window has no flips to time. DIATOM_REFRESH_HZ gives one, for
+	 * the lock's own check (test/displaylock.py). */
+	out->refresh_hz         = getenv("DIATOM_REFRESH_HZ") ? atof(getenv("DIATOM_REFRESH_HZ")) : 0;
 	out->audio_buffer_frames = AUDIO_BUFFER_FRAMES;   /* open or not yet */
 	out->present_blocks     = false;
 	out->gpu                = false;
@@ -355,12 +416,34 @@ void diatom_port_planes(const diatom_plane *planes, int n)
  * effect here to weaken */
 void diatom_port_strength(int percent) { (void)percent; }
 
+/* No flip to watch on a desktop: SDL presents and says nothing of when. For
+ * test/flipwatch.py, DIATOM_TEST_MISSED=N counts every frame presented after
+ * the N-th as a refresh missed with the frame ready, as a shader on a capped
+ * GPU makes them on the Pixel 2 (src/flipwatch.h). */
+static unsigned g_presents, g_refreshes_missed;
+
+unsigned diatom_port_refreshes_missed(void) { return g_refreshes_missed; }
+
+static void count_missed(void)
+{
+	static long after = -2;
+
+	if (after == -2) {
+		const char *e = getenv("DIATOM_TEST_MISSED");
+
+		after = e && e[0] ? strtol(e, NULL, 10) : -1;
+	}
+	if (after >= 0 && ++g_presents > (unsigned long)after) g_refreshes_missed++;
+}
+
 void diatom_port_present(const void *src, int w, int h, size_t pitch,
                          diatom_pixfmt fmt, diatom_rect dst,
                          diatom_filter filter)
 {
 	SDL_Rect r, sr;
 	int i;
+
+	count_missed();
 
 	if (w > 0 && h > 0 && !ensure_texture(w, h, fmt, filter)) return;
 	if (src && g_texture) SDL_UpdateTexture(g_texture, NULL, src, (int)pitch);
@@ -379,6 +462,7 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 		SDL_RenderCopy(g_renderer, g_texture, NULL, &r);
 	}
 	draw_overlay();
+	deskfb_frame();
 	SDL_RenderPresent(g_renderer);
 }
 
@@ -433,6 +517,7 @@ size_t diatom_port_audio_queued(void)
 	return SDL_GetQueuedAudioSize(g_audio) / AUDIO_FRAME_BYTES;
 }
 
+/* ZyperOS's one key map (its src/device/keymap.h), the Simulator's too */
 static const struct { SDL_Scancode key; int btn; } keymap[] = {
 	{ SDL_SCANCODE_UP,     DIATOM_BTN_UP     },
 	{ SDL_SCANCODE_DOWN,   DIATOM_BTN_DOWN   },
@@ -444,11 +529,14 @@ static const struct { SDL_Scancode key; int btn; } keymap[] = {
 	{ SDL_SCANCODE_A,      DIATOM_BTN_Y      },
 	{ SDL_SCANCODE_Q,      DIATOM_BTN_L1     },
 	{ SDL_SCANCODE_W,      DIATOM_BTN_R1     },
-	{ SDL_SCANCODE_1,      DIATOM_BTN_L2     },
-	{ SDL_SCANCODE_2,      DIATOM_BTN_R2     },
+	{ SDL_SCANCODE_E,      DIATOM_BTN_L2     },
+	{ SDL_SCANCODE_R,      DIATOM_BTN_R2     },
 	{ SDL_SCANCODE_RSHIFT, DIATOM_BTN_SELECT },
+	{ SDL_SCANCODE_BACKSPACE, DIATOM_BTN_SELECT },
 	{ SDL_SCANCODE_RETURN, DIATOM_BTN_START  },
+	{ SDL_SCANCODE_KP_ENTER, DIATOM_BTN_START },
 	{ SDL_SCANCODE_ESCAPE, DIATOM_BTN_MENU   },
+	{ SDL_SCANCODE_M,      DIATOM_BTN_MENU   },
 };
 
 /* DIATOM_INPUT_SCRIPT: buttons held by script rather than by hand, for a
@@ -519,7 +607,8 @@ void diatom_port_input_poll(void)
 	for (i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
 		if (keys[keymap[i].key]) s |= DIATOM_BIT(keymap[i].btn);
 
-	g_buttons = s | script_held();
+	g_buttons = s | script_held() |
+	            (g_fb ? __atomic_load_n(&g_fb->buttons, __ATOMIC_ACQUIRE) : 0);
 }
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
@@ -527,14 +616,23 @@ uint32_t diatom_port_input_state(void) { return g_buttons; }
 /* No sticks: the keyboard is a d-pad */
 bool diatom_port_input_axes(int16_t axes[4]) { (void)axes; return false; }
 
-bool diatom_port_rumble(uint16_t strong, uint16_t weak)
+/* The pretend motor writes down what a motor of the Pixel 2's kind would
+ * run at: each strength times the scale, rounded (test/rumble.py) */
+static unsigned rumble_times(uint16_t v, float scale)
+{
+	if (scale >= 1.0f) return v;
+	if (scale <= 0.0f) return 0;
+	return (unsigned)((float)v * scale + 0.5f);
+}
+
+bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
 {
 	bool ok;
 
 	pthread_mutex_lock(&g_rumble_mx);
 	ok = g_rumble_log != NULL;
 	if (ok) {
-		fprintf(g_rumble_log, "%u %u\n", (unsigned)strong, (unsigned)weak);
+		fprintf(g_rumble_log, "%u %u\n", rumble_times(strong, scale), rumble_times(weak, scale));
 		fflush(g_rumble_log);
 	}
 	pthread_mutex_unlock(&g_rumble_mx);
@@ -578,6 +676,12 @@ bool diatom_port_capture(const char *path)
 	return ok;
 }
 
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	(void)at_us; (void)period_us;
+	return false;
+}
+
 uint64_t diatom_port_now_us(void)
 {
 	return diatom_ticks_to_us(SDL_GetPerformanceCounter(),
@@ -607,7 +711,18 @@ void diatom_port_level_invalidate(void) { }
 /* No device UI drawn over the game on a desktop: the window is for iteration,
  * and the host half of the low-battery state is tested through its answers. */
 void diatom_port_low_battery(bool on, bool blink) { (void)on; (void)blink; }
-void diatom_port_hud(bool on, double fps, double speed) { (void)on; (void)fps; (void)speed; }
+/* No overlay to draw, but the numbers it would say, written down when
+ * DIATOM_HUD_LOG is set, each with the time (Diatom's clock, the now file's
+ * t_us) its window ended, so test/hudspeed.py can read them */
+void diatom_port_hud(bool on, double fps, double speed)
+{
+	static int log = -1;
+
+	if (log < 0) log = getenv("DIATOM_HUD_LOG") != NULL;
+	if (log && on)
+		printf("diatom: hud t=%llu fps=%.2f speed=%.3f\n",
+		       (unsigned long long)diatom_port_now_us(), fps, speed);
+}
 void diatom_port_hud_style(const diatom_hud_words *w) { (void)w; }
 void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)
 {
@@ -627,7 +742,31 @@ void diatom_port_present_stop(diatom_park park) { (void)park; }
 static bool g_muted;
 void diatom_port_mute_set(bool on) { g_muted = on; }
 bool diatom_port_mute_get(void) { return g_muted; }
-void diatom_port_fast_clock(bool cpu, bool gpu) { (void)cpu; (void)gpu; }
+/* No clocks to hold either. For test/flipwatch.py, the holds are written as
+ * "1" or "0" to cpu_hold and gpu_hold in DIATOM_POWER_DIR (below), where
+ * the Pixel 2 writes its CPU's and GPU's lowest clocks. */
+static void hold_say(const char *name, bool on)
+{
+	const char *dir = getenv("DIATOM_POWER_DIR");
+	char path[512];
+	FILE *f;
+
+	if (!dir || !dir[0] || snprintf(path, sizeof path, "%s/%s", dir, name) >= (int)sizeof path) return;
+	if ((f = fopen(path, "w"))) {
+		fputs(on ? "1" : "0", f);
+		fclose(f);
+	}
+}
+
+void diatom_port_fast_clock(bool cpu, bool gpu)
+{
+	static int cpu_was = -1, gpu_was = -1;
+
+	if ((int)cpu != cpu_was) hold_say("cpu_hold", cpu);
+	if ((int)gpu != gpu_was) hold_say("gpu_hold", gpu);
+	cpu_was = cpu;
+	gpu_was = gpu;
+}
 
 /* No clocks on a desktop. For test/power.py, DIATOM_POWER_DIR names a folder
  * whose two files stand for the Pixel 2's DDR and GPU ceilings (PX2_POWER's

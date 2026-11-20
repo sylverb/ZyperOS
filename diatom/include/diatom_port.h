@@ -69,6 +69,11 @@ typedef enum {
 	DIATOM_FILTER_CRT_CURVED,
 	DIATOM_FILTER_SCANLINES,
 	DIATOM_FILTER_LCD,
+	/* The LCD's grid on a screen with no light behind it, as the Game Boy
+	 * Color's and the first Game Boy Advance's were: a light pixel shows
+	 * the screen's backing rather than glowing white. Which systems it is
+	 * for is the host's to say (ZyperOS: the Game Boy's three). */
+	DIATOM_FILTER_LCD_UNLIT,
 	DIATOM_FILTER_COUNT
 } diatom_filter;
 
@@ -85,6 +90,10 @@ typedef struct {
 	bool present_blocks;        /* does present() wait for vblank? */
 	bool gpu;                   /* can draw a core's GPU frames (diatom_port_gpu_begin) */
 	bool rumble;                /* has a motor diatom_port_rumble can run */
+	/* The panel's refresh rate from its mode, Hz; 0 where the port does not
+	 * know it. A core within 1% of it runs at it, one frame a refresh (the
+	 * frame loop's display lock, src/pace.h). */
+	double refresh_hz;
 } diatom_port_caps;
 
 /* Canonical Diatom buttons. Digital only, no analog axes anywhere.
@@ -361,14 +370,21 @@ bool diatom_port_input_axes(int16_t axes[4]);
 void     diatom_port_input_reset(void);
 
 /* The rumble motor. `strong` and `weak` are the two motors a pad of the
- * DualShock kind has, 0 (still) to 65535 (full); a device with one motor runs
- * it from whichever is stronger. Both 0 stops it. The whole state each time,
- * not a change, so a call is never read against one that was missed.
+ * DualShock kind has, 0 (still) to 65535 (full), as the core asks; a device
+ * with one motor runs it from whichever is stronger. `scale`, 0 to 1, is how
+ * much of that reaches the hand: the player's Rumble level (MENU > Sound, or
+ * the game's own: Off 0, Low 0.35, Medium 0.65, Full 1) times the system's
+ * share (systems.cfg's rumble| lines, Doom's 0.35). Each port makes its
+ * motor's sense of it: the Pixel 2's force feedback runs at the strength
+ * times the scale; a motor whose strength is a voltage (the Brick's) may take
+ * the scale as its step. Both strengths 0, or a scale of 0, stops it. The
+ * whole state each time, not a change, so a call is never read against one
+ * that was missed.
  *
  * May be called from a core's own thread (flycast2021 rumbles from its
  * emulation thread), so a port serializes it. A port with no motor says so in
  * its caps (rumble = false) and returns false here. */
-bool     diatom_port_rumble(uint16_t strong, uint16_t weak);
+bool     diatom_port_rumble(uint16_t strong, uint16_t weak, float scale);
 
 /* Levels the user can change with the device's own keys while a game runs -
  * volume and brightness on the Brick and the GKD Pixel 2, nothing at all on
@@ -445,9 +461,10 @@ typedef struct {
 } diatom_hud_words;
 void diatom_port_hud_style(const diatom_hud_words *w);
 
-/* ...and the line shown with these numbers, the frames the core ran a
- * second and that against the game's own rate (1 is full speed), until the
- * next call; or taken off. The port reads what else its items say (the
+/* ...and the line shown with these numbers, the pictures the core made a
+ * second and the frames it emulated against the game's own rate (1 is full
+ * speed; src/emumeter.h says how each is counted), until the next call; or
+ * taken off. The port reads what else its items say (the
  * chip's temperature, load and clock, the battery, the time) itself, then,
  * and only those picked. The host calls it twice a second while it is on,
  * from the emulation thread. A port with no screen of its own implements
@@ -497,6 +514,17 @@ void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done);
  * second under 58. Its GPU only puts the picture on the panel, so it is left
  * to its governor. */
 void diatom_port_fast_clock(bool cpu, bool gpu);
+
+/* How many frames since the port started were ready in time and still
+ * reached the panel a refresh late: asked of the display and shown more than
+ * a refresh and a quarter after, where a frame asked of it in time is shown
+ * at the next refresh. A frame that comes after a refresh is shown at the
+ * one after and is not one: that is the core's lateness, which the frame
+ * loop sees for itself. What such a miss costs is the display's own work,
+ * a shader on a GPU kept at a low clock (src/flipwatch.h), which no ceiling
+ * the frame loop knows of lifts by itself. A port that cannot tell returns
+ * 0. The frame loop asks once a turn. */
+unsigned diatom_port_refreshes_missed(void);
 
 /* How much clock a game gets. FULL is the device's top clocks; MEDIUM and
  * LIGHT are lower ceilings for systems that keep their speed under them
@@ -556,6 +584,12 @@ bool diatom_port_should_quit(void);
 bool diatom_port_capture(const char *path);
 
 uint64_t diatom_port_now_us(void);
+
+/* The last refresh a frame was flipped at, in diatom_port_now_us's time, and
+ * the refresh period measured from the flips, for the display lock to keep
+ * its frames half a refresh from the boundary. False where the port has no
+ * flips to time (the loop then runs at refresh_hz alone). */
+bool diatom_port_vblank(uint64_t *at_us, double *period_us);
 void     diatom_port_log(diatom_log_level lvl, const char *msg);
 
 #endif /* DIATOM_PORT_H */

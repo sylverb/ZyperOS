@@ -82,6 +82,10 @@ pub struct Card {
     /// started: its games partition is made by its first start, and until
     /// then there is no ZyperOS/ and no version to read
     pub started: bool,
+    /// The player's PICO-8 in Bios/PICO-8 on its games partition: its
+    /// version, "" when its version.txt doesn't say (put there by hand), None
+    /// when there is none (pico8.rs)
+    pub pico8: Option<String>,
 }
 
 /// The device whose system a boot partition's label names: PX2BOOT the GKD
@@ -181,6 +185,7 @@ fn read_contents(card: &mut Card, root: &Path, system: Option<Device>) {
     card.games = count_games(root);
     card.songs = count_songs(&root.join("Music"));
     card.books = count_books(root);
+    card.pico8 = system.and_then(|_| crate::pico8::on_card(root));
 }
 
 #[cfg(target_os = "macos")]
@@ -280,6 +285,7 @@ mod system {
                 books: 0,
                 volume: None,
                 started,
+                pico8: None,
             };
             // Where the games are: ZYPEROS on a card with ZyperOS's own system
             // (on a Brick card not started yet the largest is its root), else
@@ -453,6 +459,7 @@ mod system {
                 books: 0,
                 volume: None,
                 started,
+                pico8: None,
             };
             // Where the games are: ZYPEROS on a card with ZyperOS's own system,
             // never its root, which a desktop may mount too (and whose label,
@@ -698,6 +705,7 @@ mod system {
                 books: 0,
                 volume: None,
                 started,
+                pico8: None,
             };
             match games {
                 Some((letter, l)) => {
@@ -737,7 +745,8 @@ mod tests {
 
     fn card() -> Card {
         Card { id: "t".into(), name: String::new(), size_bytes: 0, reader: String::new(), locked: false,
-               device: None, os: None, version: None, games: 0, songs: 0, books: 0, volume: None, started: true }
+               device: None, os: None, version: None, games: 0, songs: 0, books: 0, volume: None, started: true,
+               pico8: None }
     }
 
     #[test]
@@ -763,6 +772,17 @@ mod tests {
         assert_eq!(c.device, Some(Device::Pixel2));
         assert_eq!((c.os.as_deref(), c.version.as_deref()), (Some("ZyperOS"), Some("0.1.0")));
         assert_eq!((c.games, c.songs, c.books), (2, 2, 2));
+        assert_eq!(c.pico8, None);
+        // The player's PICO-8, with its version.txt
+        create_dir_all(root.join("Bios/PICO-8")).unwrap();
+        write(root.join("Bios/PICO-8/pico8_64"), "").unwrap();
+        write(root.join("Bios/PICO-8/version.txt"), "0.2.7\n").unwrap();
+        read_contents(&mut c, &root, Some(Device::Pixel2));
+        assert_eq!(c.pico8.as_deref(), Some("0.2.7"));
+        // A card with no ZyperOS isn't asked
+        let mut other = card();
+        read_contents(&mut other, &root, None);
+        assert_eq!(other.pico8, None);
         let _ = fs::remove_dir_all(&root);
     }
 

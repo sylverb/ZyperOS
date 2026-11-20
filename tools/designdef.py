@@ -186,6 +186,7 @@ TYPE = [
     ("support", 28, "Regular", "home counts, compact game metadata, and the action beside its button glyph (action 27 and support 29 until 1.0.6)"),
     ("game-title", 37, "SemiBold", "the full game name below its cover row: meta's size, title's weight; its lines 40 apart (38 and 44 until 1.0.6)"),
     ("card",  71, "Regular",  "the title drawn into a generated card (512 px wide)"),
+    ("clock", 120, "SemiBold", "MP4's Classic look: the time played, large; digits only, so Lexend in every language"),
 ]
 
 # ---- space and shape -----------------------------------------------------------
@@ -210,6 +211,7 @@ SHAPE = [
     ("rule",         2,  "a heading's rule, the keyboard field's edge"),
     ("caret",        3,  "the keyboard's caret"),
     ("ring",         4,  "a button glyph's ring"),
+    ("radius-bar",   4,  "MP4's bars (Player Look); a bar's cap is a pill"),
 ]
 
 # ---- layout --------------------------------------------------------------------
@@ -239,6 +241,16 @@ LAYOUT = [
     ("page-line-gap",   48,  "between the line's marks and words"),
     ("page-line-gap-tight", 24, "...where they are wider than the page"),
     ("foot-y",          720, "every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724)"),
+    # the Video view (src/videoview.h, DESIGN.md 11.57)
+    ("video-band-top",  524, "the Video view's band of covers and keys: its top while it is up"),
+    ("video-step",      108, "its covers a step apart"),
+    ("video-cover-w",   90,  "a cover's box in the band"),
+    ("video-cover-h",   120, "...its height"),
+    ("video-focus-w",   108, "the focused cover's box"),
+    ("video-focus-h",   144, "...its height"),
+    ("video-card-y",    96,  "the name's card at the top left: its top, clear of the header row"),
+    ("video-card-pad-x", 28, "the card's padding at its sides"),
+    ("video-card-pad-y", 18, "...at its top and foot"),
     ("page-foot-gap",   40,  "between the hints at a page's foot"),
     ("page-foot-gap-tight", 20, "...where they are wider than the page"),
     ("page-tile-w",     472, "a page's tile, two side by side from the insets"),
@@ -251,6 +263,7 @@ LAYOUT = [
     ("tab-move-name",   96,  "a tab's turn (L1, R1): the tab names move this far the press's way"),
     ("tab-move-in",     64,  "...and the new tab's rows come in from this far, the Controls tab's handheld with them"),
     ("ctl-side",        280, "the Controls tab's handheld column: its rows and their focus fill start this far in from the content's left"),
+    ("sc-side",         192, "Screen Colors' color chart column: its six rows and their focus fill start this far in from the content's left (the design session's mock, 2026-11-16)"),
     ("ctl-device-x",    99,  "the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end"),
     ("ctl-device-y",    458, "the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13)"),
     ("hud-band",        152, "On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6)"),
@@ -313,14 +326,32 @@ LAYOUT = [
     # the dense grid (src/gamegrid.c)
     ("grid-gap",        24,  "between a grid's cells"),
     ("grid-band-gap",   24,  "a grid's foot to the band under it: the name and its facts"),
-    ("focus-ring",      4,   "the ring round a focused cell"),
-    ("focus-gap",       4,   "the ground between that ring and the cell"),
-    ("radius-cell",     14,  "a grid cell's corners; its ring's are radius-card (14 + 4 + 4)"),
+    # Highlight's marks (src/ds/focus.h), each drawn as the whole panel
+    # pixels it comes to (src/focusgeo.h): 2 on the Pixel 2, 3 on the Brick
+    ("focus-ring",      3,   "Border's ring round the item in focus, as whole panel pixels"),
+    ("focus-gap",       3,   "the ground between that ring and the item, as whole panel pixels"),
+    ("focus-bar-w",     40,  "Bar's bar under the item in focus"),
+    ("focus-bar-h",     6,   "...its height, a pill"),
+    ("focus-bar-under", 8,   "...under the item's foot (a cover's, a still's name)"),
+    ("radius-cell",     14,  "a grid cell's corners; its ring's are the cell's, the gap's and the ring's added"),
     # a choice's picture beside its list (src/ds/preview.h)
     ("preview-col-w",   336, "the picture column at an option list's left: the screen in small and its note"),
     ("preview-col-min", 200, "...narrower where the list's choices run long, to this"),
     ("preview-gap",     32,  "the column to the list's rows"),
     ("preview-note-gap", 16, "the small screen's foot to its note's first line"),
+    # MP4's Player Looks (src/nowplaying_looks.c, DESIGN.md 11.64): every
+    # edge on the grid, so whole pixels on the Pixel 2 as on the Brick
+    ("look-bar-w",      16,  "a bar: 10 whole pixels on the Pixel 2"),
+    ("look-bar-gap",    8,   "between two bars: 5"),
+    ("look-cap",        4,   "a bar's cap: its height, and its gap over the bar"),
+    ("look-classic-w",  488, "Classic: the clock's panel, 18 bars and their pad wide, and the words under it"),
+    ("look-panel-pad",  32,  "Classic: the clock's panel's words and bars from its edges"),
+    ("look-list-row",   56,  "Classic: a row of the track list"),
+    ("look-list-num",   48,  "Classic: a row's number, tabular, before its name"),
+    ("line-clock",      128, "Classic: the clock's line, as a box"),
+    ("look-cover",      192, "Spectrum: the cover beside the names"),
+    ("look-record",     448, "Vinyl: the platter, a 12-inch record and its rim, 424 and 12 each side"),
+    ("look-cassette-w", 592, "Cassette: a C-cassette, 100.4 x 63.8 mm, 74 x 47 grid steps (592 x 376), the nearest whole steps to its proportions"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
@@ -372,10 +403,19 @@ MOTION = [
     ("zyper-ears",  420,  "-",     "Zyper's ears swinging out and back as he says hello"),
     ("tour-reward", 1100, "-",     "a tutorial step's reward, before the next"),
     ("tour-pulse",  440,  "-",     "the right glyph's two pulses after a press of the wrong button"),
-    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold"),
+    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it"),
+    ("hold-power",  1000, "-",     "POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld"),
     ("hold-lock-lit", 4000, "-",   "MP4's lock screen, lit as it locks"),
     ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
+    ("peak-hold",   400,  "-",     "MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity"),
+    ("bar-fall",    140,  "follow", "MP4's bars falling to the sound: follow's tau, where a bar rises at once"),
+    ("spin-up",     360,  "out",   "MP4's reels (Player Look) coming up to speed as the music plays"),
+    ("spin-down",   520,  "out",   "...and coming to a stop as it pauses; the sound stops at once"),
+    ("rewind",      700,  "turn",  "MP4's cassette winding back to the start for the next song"),
+    ("wind",        180,  "follow", "MP4's cassette winding to a seek's place: follow's tau"),
+    ("arm-glide",   180,  "follow", "MP4's tonearm gliding to the song's place on the record: follow's tau"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
+    ("hold-band",   2000, "-",     "the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip"),
     ("sheen",       480,  "turn",  "one light crossing a game's card with no art, once, as the cover row stops on it"),
     ("sharpen",     200,  "fade",  "a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it"),
     ("hold-low-battery", 6000, "-", "the low-battery start screen before the handheld powers off"),

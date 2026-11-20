@@ -85,6 +85,21 @@ bool pm_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
 /* The icon the Install PortMaster page draws where System Update's draws
  * Zyper, into `out`; false when the card has none */
 bool pm_icon_path(char *out, size_t n);
+/* Splore on the PICO-8 shelf (src/pico8.h). p8_on_card: your PICO-8's files
+ * on the card, as its shelf `s` asks them, now. splore_is_entry: whether `g`,
+ * a game of system `sys`, is Splore's entry; splore_is_offer: and your
+ * PICO-8 is not on the card, so A opens the page that says how to add it;
+ * splore_cover_path: its own art for theme `theme_ix`, as pm_cover_path.
+ * own_cover_path: either entry's (PortMaster's, Splore's), false for any
+ * other game, which keeps its box art. pm_shelf_offers counts Splore's entry
+ * too: it is never a game. */
+bool p8_on_card(const system_cfg *s);
+bool splore_is_entry(const app *a, int sys, const game_entry *g);
+bool splore_is_offer(const app *a, int sys, const game_entry *g);
+bool splore_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
+                       char *out, size_t n);
+bool own_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
+                    char *out, size_t n);
 /* Folders on a shelf (src/shelfdir.h). shelf_dirs_init: after a scan, the
  * system's games moved to `all` when any is in a folder, and the shelf on
  * the top's folders and games; shelf_dirs_free: `all` let go, the shelf on
@@ -100,7 +115,24 @@ void refresh_favorites_shelf(app *a);
 /* Recents, the games played last (src/homesys.h), built again after a game
  * ended, keeping the shelf stood on */
 void refresh_recents_shelf(app *a);
-/* The two groups' names, Favorites and Recents, in the language that is on */
+/* Collections (src/collect.h, DESIGN.md 11.56), the group after them, made
+ * again after a collection or a game in one changed, keeping the shelf stood
+ * on and its place in Collections */
+void refresh_collections_shelf(app *a);
+/* The Collections shelf's index, or -1 when the home has none */
+int shelf_coll_at(const app *a);
+/* Recents' (src/homesys.h), the same */
+int shelf_recents_at(const app *a);
+/* How many games its collections hold on the shelves, each once: the home's
+ * count under it */
+int shelf_coll_games(void);
+/* Shelf `s`, when it is Collections, on collection `dir`, or on its top
+ * ("", or a collection with no game here any more): its list, owners and
+ * textures made again, its cursor kept in range, not sorted (sort_shelf).
+ * False when `s` is not Collections or there was no memory. */
+bool shelf_coll_show(app *a, int s, const char *dir);
+/* The groups' names, Favorites, Recents and Collections, in the language
+ * that is on */
 void shelf_groups_rename(app *a);
 /* Every shelf built again from the saved library, keeping the place: MENU >
  * Display > Home Systems, after a change */

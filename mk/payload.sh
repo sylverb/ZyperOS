@@ -64,6 +64,9 @@ cp "$MUSE_ELF" "$P/muse"                  # the audio player's engine; Muse cann
 # below.
 [ -n "${P2D_ELF:-}" ] && cp "$P2D_ELF" "$P/p2d"
 cp "$ROOT/sd/zyperos/launch.sh" "$P/launch.sh"
+# The equalizer's config for a port (launch.sh's run_port), on every device:
+# a device whose device.sh names no EQ_SLAVE never runs it
+cp "$ROOT/sd/zyperos/eq-port.sh" "$P/eq-port.sh"
 cp "$DEVICE_SH" "$P/device.sh"
 # Which ZyperOS this is, for plastron: the Pixel's image copies its ZyperOS/ over
 # the card's only when it is newer than the card's (/etc/init.d/zyperos), so a
@@ -214,9 +217,22 @@ for core in $(awk -F'|' '$1=="sys"{n=split($4, c, ","); for (i = 1; i <= n; i++)
 done
 if [ -n "$missing" ]; then
 	echo "payload: systems.cfg needs cores that vendor/ does not have:$missing" >&2
-	echo "payload: run mk/fetch-vendor.sh, mk/build-mgba-bridge.sh, mk/build-dsperate.sh," >&2
-	echo "payload: mk/build-fake08.sh, mk/build-flycast2021.sh, mk/build-scummvm.sh, mk/build-freej2me.sh," >&2
-	echo "payload: mk/build-small-cores.sh, mk/build-ppsspp.sh and mk/build-tic80.sh" >&2
+	echo "payload: run mk/fetch-vendor.sh, then the builds vendor/ does not yet have:" >&2
+	echo "payload: mk/build-mgba-bridge.sh, mk/build-dsperate.sh, mk/build-fake08.sh," >&2
+	echo "payload: mk/build-flycast2021.sh, mk/build-scummvm.sh, mk/build-freej2me.sh," >&2
+	echo "payload: mk/build-small-cores.sh, mk/build-ppsspp.sh, mk/build-tic80.sh," >&2
+	echo "payload: mk/build-pcsx-rearmed.sh, mk/build-mupen64plus-next.sh, mk/build-parallel-n64.sh," >&2
+	echo "payload: mk/build-yabasanshiro.sh (and mk/build-openbor.sh for the Pixel 2)" >&2
+	# The small cores have one command for all of them; tools/release.sh,
+	# tools/px2-payload.sh and plastron's card builds run it before this
+	small=
+	for core in $missing; do
+		grep -q "^$core|" "$ROOT/mk/build-small-cores.sh" && small="$small $core"
+	done
+	if [ -n "$small" ]; then
+		echo "payload:$small: in the main checkout (or with ZYPEROS_VENDOR set to the vendor/ this build reads), run" >&2
+		echo "payload:   sh mk/build-small-cores.sh --missing" >&2
+	fi
 	exit 1
 fi
 
@@ -262,6 +278,16 @@ if has_helper ports; then
 	cp "$VENDOR_DIR/openbor/OpenBOR" "$VENDOR_DIR/openbor/LICENSE" \
 	   "$VENDOR_DIR/openbor/LICENSE.libvpx" "$ROOT/sd/pixel2/OpenBOR.sh" "$P/openbor/"
 	chmod +x "$P/openbor/OpenBOR" "$P/openbor/OpenBOR.sh"
+	# Your PICO-8's script, which the PICO-8 shelf's first core names
+	# (config/systems.cfg), and Splore's entry art (tools/genpico8-art.py).
+	# Never PICO-8 itself: the player brings it into Bios/PICO-8 (src/pico8.h)
+	mkdir -p "$P/pico8/bin"
+	cp "$ROOT/sd/pixel2/PICO-8.sh" "$ROOT/res/pico8/cover-light.png" \
+	   "$ROOT/res/pico8/cover-dark.png" "$ROOT/res/pico8/icon.png" "$P/pico8/"
+	# and the wget its Splore downloads with: curl, with HTTPS, which the
+	# system's busybox wget lacks (sd/pixel2/PICO-8-wget.sh)
+	cp "$ROOT/sd/pixel2/PICO-8-wget.sh" "$P/pico8/bin/wget"
+	chmod +x "$P/pico8/PICO-8.sh" "$P/pico8/bin/wget"
 fi
 
 # One ROM folder per system. Read from systems.cfg (awk, not sed: folder names

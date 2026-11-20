@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the 17 result sites against the old blocking holds."""
+"""Guard the 21 result sites against the old blocking holds."""
 from pathlib import Path
 import os
 import re
@@ -11,11 +11,12 @@ import tempfile
 # src/main.c and the files split from it
 LAUNCHER = ("src/main.c", "src/about_screen.c", "src/aout_route.c", "src/bgm_screen.c",
             "src/bt_screen.c", "src/clock_screen.c", "src/ctl_channel.c",
-            "src/ctltab_screen.c", "src/devmode_screen.c", "src/gamedel_screen.c",
+            "src/ctltab_screen.c", "src/devmode_screen.c", "src/dl_screen.c",
+            "src/gamedel_screen.c",
             "src/gameinfo_screen.c", "src/gamern_screen.c", "src/ingame_screen.c",
             "src/launch_screen.c", "src/lights_screen.c", "src/media_screen.c",
             "src/menu_panel.c", "src/menu_runner.c", "src/muse_screen.c",
-            "src/nowplaying_screen.c", "src/place.c", "src/player2_screen.c",
+            "src/nowplaying_looks.c", "src/nowplaying_screen.c", "src/place.c", "src/player2_screen.c",
             "src/portload.c", "src/powerscreens.c", "src/raqueue.c", "src/saver_screen.c",
             "src/scraper_screen.c", "src/search_screen.c", "src/shelf_draw.c",
             "src/shelf_keys.c", "src/shelfbuild.c", "src/shots.c", "src/signin_screen.c",
@@ -53,7 +54,7 @@ def function(name):
                 return raw[match.start():token.end()]
     raise AssertionError(f"unclosed function: {name}")
 
-# The planned source guard holds coverage of all 17 sites. The C harness below
+# The planned source guard holds coverage of all 21 sites. The C harness below
 # then executes the actual loop, with the real timer, motion and snapshots.
 sites = {
     "wifi_key": (0, 3), "ra_signin_screen": (2, 0), "ss_signin_screen": (2, 0),
@@ -63,9 +64,12 @@ sites = {
     "xs_open": (2, 0), "xs_stop": (1, 0), "xs_before_game": (1, 0),
     # MENU > Scraper's page: A with no network, and A with too little room
     "scp_page": (0, 2), "album_art_screen": (1, 0),
-    # A port that could not start; a game whose own file is empty or cut short
-    # (src/gamefile.h) and a disc whose firmware is missing or the wrong size
-    "launch_port": (0, 1), "launch": (0, 2),
+    # A port whose brought files are gone (your PICO-8's, src/pico8.h) and a
+    # port that could not start; Splore with no network joined; a game whose
+    # own file is empty or cut short (src/gamefile.h), a zip packed with a
+    # method Diatom cannot read, a disc whose firmware is missing or the wrong
+    # size, and a core that would not load (src/startfail.h)
+    "launch_port_core": (0, 2), "splore_open": (0, 1), "launch": (0, 4),
 }
 for name, counts in sites.items():
     body = function(name)

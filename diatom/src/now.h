@@ -13,7 +13,9 @@
  *   fps      the game's own frame rate, as the core announces it
  *   seq      how many times the file was written for this game
  *   t_us     when, on Diatom's clock (diatom_port_now_us)
- *   frames   frames run since the clock started, fast ones too
+ *   frames   frames emulated since the clock started, fast ones too: a call
+ *            to retro_run that is two frames long (a game that draws at 30)
+ *            counts two, as emumeter.h has it from the core's sound
  *   run_us   time since the clock started, less the menu's
  *   speed    the speed step in force (1, 1.5, 2...)
  *   dropped  audio frames the port would not take, since Diatom started

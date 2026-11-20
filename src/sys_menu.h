@@ -70,10 +70,13 @@
 /* Show Tutorial between Controls and About: the same buttons as Controls,
  * taught a step at a time rather than listed (DESIGN.md 11.10), and like the
  * two either side of it, a row nobody needs every day. */
-/* PM_SCRAPER is Scraper, where Box Art was: the run that fetches missing box
- * art, Video Snaps, and the three sources it asks - ScreenScraper, libretro
- * and SteamGridDB - each linked on a page of its own. One row in place of
- * Box Art, ScreenScraper and SteamGridDB (My picks in the Scraper lab,
+/* PM_SCRAPER is Downloads (src/dl_screen.h): every download of game data -
+ * covers, videos, names, achievements - in one row and its page, in place of
+ * the Scraper and Achievements rows (my pick in the downloads lab, 2026-11-19:
+ * one door). Before it, Scraper, where Box Art was: the run that fetches
+ * missing box art, Video Snaps, and the three sources it asks - ScreenScraper,
+ * libretro and SteamGridDB - each linked on a page of its own. One row in
+ * place of Box Art, ScreenScraper and SteamGridDB (My picks in the Scraper lab,
  * 2026-11-06; DESIGN.md 11.19). On every device: with no network it cannot
  * fetch, but Video Snaps still play and a key pasted over the USB cable
  * still wants a place to be seen. */
@@ -88,6 +91,14 @@
  * settings together, as a phone keeps Language and Region (My pick in
  * the languages lab, 2026-11-07; DESIGN.md 11.30). Its value is the
  * language's own name; A opens the five. */
+/* PM_RUMBLE is Rumble, the Sound tab's last row, under Menu Music: how hard
+ * the motor runs in every game, Off, Low, Medium or Full (src/rumble.h),
+ * Full on a new card; each step buzzes once. Only where the handheld has a
+ * motor ZyperOS runs (no_rumble). My picks in the Sound lab, 2026-11-19. */
+/* PM_EQ is Equalizer, under Audio Channels: the third thing about how the
+ * sound reaches you, its shape. Its value is the preset of the output in use
+ * (the speaker's or the headphones'), Off on a new card; A opens its page
+ * (src/eq.h, DESIGN.md 11.60). My picks in the Sound lab, 2026-11-19. */
 /* MENU IS IN TABS (DESIGN.md 11.3, my picks 2026-11-12): Games, Display,
  * Sound, Connections, System and About, L1 and R1 going round them. The rows
  * are in the enum by tab, and in a tab in the enum's order; which tab a row
@@ -97,29 +108,43 @@
  * row is in a tab. */
 /* PM_POWER is Power Button, over Auto Off, the first of the rows about the
  * handheld going off: Press, POWER pressed turns it off, as it always has;
- * Hold, POWER held for two seconds (src/powerhold.h). Two choices, so A
+ * Hold, POWER held for one second (src/powerhold.h). Two choices, so A
  * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
 /* PM_HOMESYS is Home Systems, under System Order: which shelves the home
- * shows, each system with games, Favorites and Recents (src/homesys.h). Its
+ * shows, each system with games, Favorites, Recents and Collections (src/homesys.h). Its
  * value "All", or how many of them are on; A opens the page of switches
  * (sys_menu_homesys_rows). 1.0.6, asked for on the Discord. */
-/* PM_AUTOHOURS is Auto Hours, under Appearance: when Auto turns light and
- * when dark, by the half hour (src/theme.h), 7:00 and 19:00 as it ships.
- * PM_THEME is Theme, under it: the accent, a background tone for each theme,
- * the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks 2026-11-12. */
+/* PM_THEME is Theme, under Appearance: the accent, a background tone for
+ * each theme, the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks
+ * 2026-11-12. Appearance is Light or Dark (1.0.6: Auto went, its hours
+ * became Night Hours). */
+/* PM_SCREEN is Screen Colors, Display's last row: Temperature, Tint,
+ * Contrast, Saturation, Gamma and the looks for the whole screen, in the
+ * display's own table
+ * (src/panelgamma.h); only where the device has one (no_screen_colors).
+ * 1.0.6, asked for on the Discord; the page approved 2026-11-16. */
+/* PM_NIGHT is Night Mode, under Screen Colors: warmer colors for the night,
+ * its value Off, On or By Hours; A opens its page, as Screen Colors' does:
+ * Night Mode, Night Warmth (1 to 10, 8 as it ships), Night From and Until
+ * by the half hour (21:00 and 7:00 as it ships; 1.0.5's Auto Hours). Only
+ * where the display has a table (no_night, plat_night_here). Tarik's move,
+ * approved on the sheet 2026-11-16; one row and its page, his for 1.0.6
+ * rc.2 (DESIGN.md 11.42). */
 typedef enum {
 	/* Games */
-	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
+	PM_SEARCH, PM_STATS, PM_RANDOM, PM_SCRAPER,
 	/* Display */
-	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
+	PM_APPEARANCE, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
 	PM_SHADER,
 	PM_STRENGTH,
+	PM_SCREEN,
+	PM_NIGHT,
 	/* Sound */
-	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
+	PM_AUDIO, PM_CHANNELS, PM_EQ, PM_SOUNDS, PM_MUSIC, PM_RUMBLE,
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
-	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
+	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_HOTKEYS, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
 	PM_STORAGE, PM_UPDATE,
 	/* About */
 	PM_ABOUT, PM_CONTROLS, PM_TOUR,
@@ -147,7 +172,7 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
 #define SM_NOTE_W 760
 
 typedef enum {
-	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_DSSLOW, SM_SORT, SM_VIEW,
+	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_PACE, SM_SORT, SM_VIEW,
 	SM_DISPLAY, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
 	SM_RESCAN, SM_ROWS
 } sm_row;
@@ -168,6 +193,22 @@ typedef enum {
  * own question, and it is between the two as it is on a console's menu. View
  * (1.0.5) is the shelf's, under Sort By as on a console's. */
 #define SM_FAV_ROWS 4
+/* Recents' has a fifth, Card Picture (DESIGN.md 11.48): each card its cover,
+ * as it ships, or the screen the game was left on */
+#define SM_RECENTS_ROWS (SM_FAV_ROWS + 1)
+
+/* What the Collections shelf's menu is (src/collect.h, DESIGN.md 11.56),
+ * headed by the collection's name: on its top, the collection under the
+ * cursor's Rename and Delete Collection, the shelf's Sort By (its own four,
+ * Added first) and View between them; in one, that collection's count and
+ * Random Game first, and Remove from Collection, the game under the cursor
+ * out of it, before Delete Collection, which asks first. */
+typedef enum { SMC_GAMES, SMC_RANDOM, SMC_SORT, SMC_VIEW, SMC_RENAME, SMC_REMOVE,
+               SMC_DELETE } sm_coll_row;
+#define SM_COLL_ROWS 7
+/* Which rows, top (`inside` false) or in a collection, in order, into out;
+ * how many */
+int sys_menu_coll_rows(bool inside, sm_coll_row *out);
 
 /* What MP4's shelf menu is (Muse's, before it played video): how many
  * albums, Show - music, audiobooks or videos, the kinds its one shelf holds -
@@ -191,10 +232,36 @@ typedef enum {
  * card has songs, which are the two rows' only business.
  *
  * Lock Screen is the pocket lock, the way to find it without knowing X:
- * live while something plays, and saying so when nothing does. */
-typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_LOCK, SMM_ART,
-               SMM_RESCAN } sm_muse_row;
-#define SM_MUSE_ROWS 7
+ * live while something plays, and saying so when nothing does.
+ *
+ * Player Look, under Shuffle All where the songs are: how Now Playing draws
+ * a song (src/mp4look.h, DESIGN.md 11.64, 2026-11-19), its list showing the
+ * look under the cursor, playing.
+ *
+ * Repeat, on the shelves with videos (Videos, and All), is videos' own play
+ * mode: Off (in order, as before), One (the video playing, again and again)
+ * or All (its folder, round again), never shuffled; kept like music's mode,
+ * whose Y on Now Playing it leaves alone (2026-11-19: loop playback, a film
+ * left playing as a decoration). Its marks are music's, in the video's
+ * controls. Auto Off waits while something plays, so a loop keeps the screen
+ * on as long as it plays.
+ *
+ * Quit, the last row on every MP4 shelf, leaves MP4 for the screen it was
+ * opened from, as the in-game menu's Quit leaves a game, and X does it from
+ * any row (its glyph at the row's right, MENU_KEY_X). It leaves as SELECT
+ * does: what plays keeps playing, behind the home, as music does
+ * (2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+ * games (with the shortcut too)").
+ *
+ * Equalizer, over Lock Screen on every kind: the same row and page as
+ * MENU's, there while music or a video plays (2026-11-19).
+ *
+ * View, under Sort By on every kind: the shelf's Covers, Grid or List, as a
+ * system's View row, START's turn of it on the shelf (DESIGN.md 11.67); no
+ * Video, which plays a game's snap. */
+typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_LOOK, SMM_EQ, SMM_LOCK, SMM_ART,
+               SMM_RESCAN, SMM_QUIT, SMM_REPEAT, SMM_VIEW } sm_muse_row;
+#define SM_MUSE_ROWS 12
 
 /* MP4's rows in order, for the kind its shelf shows - 0 music, 1 books,
  * 2 videos, muselib.h's ml_kind, and 3 all of them with music among them
@@ -262,6 +329,13 @@ typedef struct {
 typedef struct {
 	bool games;              /* the system menu, rather than ZyperOS's own */
 	bool fav;                /* and that shelf is Favorites; see SM_FAV_ROWS */
+	bool coll;               /* or Collections; see SM_COLL_ROWS */
+	bool recents;            /* or Recents, whose fifth row is Card Picture */
+	bool recents_screen;     /* and its value Last Screen, not Cover */
+	/* Card Picture's two, as a list with a picture (A opens it) */
+	const struct menu_choice *pic_choice;
+	bool coll_inside;        /* and it shows one collection, coll_name */
+	const char *coll_name;   /* the collection under the cursor, or shown */
 	bool muse;               /* or Muse's; see SM_MUSE_ROWS */
 	bool muse_books;         /* and it shows books rather than music */
 	bool muse_videos;        /* or videos */
@@ -269,6 +343,8 @@ typedef struct {
 	bool muse_songs;         /* and the card has music, for All's rows */
 	bool muse_both;          /* and the card has more than one kind */
 	bool muse_playing;       /* and music is playing, so it can lock */
+	const char *muse_look;   /* Player Look's value: the look that is on */
+	const char *muse_repeat; /* videos' Repeat, as its row says it */
 
 	/* What the device HAS, rather than what state it is in. A radio that is
 	 * merely off keeps its rows, saying "needs Wi-Fi", because turning it on
@@ -322,16 +398,22 @@ typedef struct {
 	/* The ZyperOS menu: the tab it shows (pm_tab), or PT_TABS for every row
 	 * in the enum's order (a measure, a check) */
 	int         tab;
-	/* Auto Hours' value, "7:00 AM to 7:00 PM" as MENU > Clock writes the
-	 * time; NULL reads nothing */
-	const char *auto_hours;
+	/* Night Mode's value, the mode's word (NULL reads Off) */
+	const char *night;
+	/* No table for Night Mode here (plat_night_here): no row */
+	bool        no_night;
 	/* Theme's value: the accent's name (src/look.h); NULL reads Lime */
 	const char *theme;
+	/* No gamma table for Screen Colors here (plat_screen_colors_here): no
+	 * row. Its value otherwise, the look's name; NULL reads Standard. */
+	bool        no_screen_colors;
+	const char *screen_colors;
 	bool        ra_in;
 	const char *ra_name;     /* only read when ra_in */
 	/* The Scraper row's value: "142 missing", "complete", or NULL until a
 	 * count has been taken (art_count_missing, when its screen opens). */
 	const char *scraper;
+	const char *sys_downloads;  /* a console's Downloads row: its count, or NULL */
 	/* System Update (src/sysupdate.h): the row's value, or NULL on a device
 	 * or card without the update program, which has no row */
 	const char *update;
@@ -342,17 +424,20 @@ typedef struct {
 	 * is the clock's to say. NULL reads Light, the default. A label and not
 	 * an enum, as cards and dmode are, so this file need not link theme.c. */
 	const char *appearance;
-	/* Shader, for every system (src/app.h SHADERS): Off, a shader's name, or
-	 * "per system" when systems differ. NULL reads Off. A label, for the
-	 * reason appearance is one. */
-	const char *shader_all;
-	/* Strength, under it (src/strength.h): "50%", or "per system" when
-	 * systems differ. NULL reads 100%. */
-	const char *strength_all;
-	/* No Strength row, in MENU nor in the system menu: no system's shader
-	 * is an old screen (MENU), or this system's is not. False means present,
-	 * as no_lights does, so a check that says nothing gets every row. */
+	/* Shader, ZyperOS's own screens' (src/screenfx.h, 1.0.6): Off or an old
+	 * screen's name. NULL reads Off. A label, for the reason appearance is
+	 * one. Each system's own is in its menu. */
+	const char *shader_screens;
+	/* Strength, under it (src/strength.h): "50%". NULL reads 100%. */
+	const char *strength_screens;
+	/* No Strength row, in MENU nor in the system menu: the screens' shader
+	 * is not an old screen (MENU), or this system's is not. False means
+	 * present, as no_lights does, so a check that says nothing gets every
+	 * row. */
 	bool        no_strength;
+	/* No Shader row in MENU: the device draws no old screen
+	 * (plat_gpu_shaders), so the screens' row would have Off alone */
+	bool        no_shader;
 	const char *home;       /* Spotlight (default) or Gallery */
 	/* System Order, under Home Screen: "A to Z" (default, NULL reads it) or
 	 * "Release Date", systems.cfg's order (2026-11-06) */
@@ -387,6 +472,13 @@ typedef struct {
 	/* Menu Music: "On", "Off" or "no tracks" - bgm_menu_value's. NULL reads
 	 * "Off". A label, for the reason ui_sounds is one. */
 	const char *menu_music;
+	/* Rumble: the level's name, rumble_level_name's. NULL reads Full. And
+	 * no motor ZyperOS runs here (plat_has_rumble): no row. */
+	const char *rumble;
+	bool        no_rumble;
+	/* Equalizer, in MENU and MP4's menu: the preset's name for the output
+	 * in use, eq_preset_name's. NULL reads Off. */
+	const char *eq;
 
 	/* Bluetooth: the name of the connected headset, or NULL. The row used to
 	 * read "not yet" and be dead, which was true of the pairing screen and
@@ -405,9 +497,10 @@ typedef struct {
 	 * the row's value, "Auto (English)" or a language's name. NULL: the
 	 * shelf has no such row, and every other shelf's menu is as it was. */
 	const char *dslang;
-	/* When Slow, under Game Language, on the same shelf (src/dsslow.h):
-	 * "Keep Speed" or "Steady 30". NULL: no such row. */
-	const char *dsslow;
+	/* Timing, under Core (and Game Language), on a shelf whose system has a
+	 * pace line in systems.cfg (src/pacing.h): "Smooth" or "Exact". NULL:
+	 * no such row. */
+	const char *pace;
 	int         game_count;
 	const char *dmode;
 	/* This system's shader's label, after Display Mode; NULL reads Off */
@@ -422,6 +515,7 @@ typedef struct {
 	/* The shelf shows a list rather than its covers (View, SM_VIEW) */
 	bool        listed;
 	bool        grid;       /* the shelf is a grid of covers (MENU > View) */
+	bool        video;      /* or its video snaps (MENU > View, DESIGN.md 11.57) */
 	/* Each option row's choices, by its row (MENU's by pm_row, the system
 	 * menu's by sm_row, the Muse shelf's by sm_muse_row), which the screen
 	 * fills from what it knows and the build copies to its rows' places
@@ -502,7 +596,7 @@ void sys_menu_bytes(unsigned long long n, char *out, size_t outn);
  * Off, stepped by Left, Right or A. `ids` gets each row's part. */
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids);
 
-/* MENU > Display > Home Systems' page (src/homesys.h): Favorites and Recents,
+/* MENU > Display > Home Systems' page (src/homesys.h): Favorites, Recents and Collections (with one),
  * a rule, then every system the card has games for (`names` and `tags`, `n`
  * of them, in the home's order), each On or Off as homesys_shown says,
  * stepped by Left, Right or A; then the note. While one system alone is on,
@@ -512,8 +606,13 @@ typedef struct {
 	const char *const *names;
 	const char *const *tags;
 	int n;
+	/* The card has a collection (src/collect.h): Collections has its row,
+	 * as a system has one only with games */
+	bool coll;
 } homesys_ui;
-#define HS_ROWS (CFG_MAX_SYSTEMS + 6)
+/* The groups' rows first: Favorites, Recents and Collections */
+#define HS_GROUPS 3
+#define HS_ROWS (CFG_MAX_SYSTEMS + HS_GROUPS + 4)
 int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids);
 
 /* Build whichever menu u->games calls for. Returns the row count, so the input

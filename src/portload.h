@@ -18,5 +18,9 @@ bool port_loading_draw(app *a, const system_cfg *s, int i);
 extern bool g_port_loading_later;
 /* The still for the game under the cursor, written for splash */
 void port_loading_screen(app *a, const system_cfg *s);
+/* The letters and the box splash draws the port's latest output with, for
+ * the last screen port_loading_draw drew, written to `path`; false and no
+ * file when it could not be written */
+bool port_out_write(const char *path);
 
 #endif

@@ -41,7 +41,9 @@ for n, sha in pins:
         fails.append(f'{n} is pinned {names.count(n)} times')
     if not re.search(r'^\| `' + re.escape(n) + r'_libretro\.so` \|', licenses, re.M):
         fails.append(f'{n} has no row in THIRD-PARTY-LICENSES.md, so the release would name no source for it')
-if len(pins) < 19:
+# 18 since 1.0.6, when the PlayStation's core left the release to be built
+# with a patch (mk/build-pcsx-rearmed.sh)
+if len(pins) < 18:
     fails.append(f'only {len(pins)} pins read; the check is not reading the script')
 
 for f in fails:

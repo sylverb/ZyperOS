@@ -8,7 +8,7 @@
  * main.c. */
 #include "app.h"
 #include "dslang.h"
-#include "dsslow.h"
+#include "pacing.h"
 #include "game_menu.h"
 #include "hare.h"
 #include "heat.h"
@@ -167,6 +167,10 @@ typedef struct {
 	/* A picture at each row's left, by place: the Achievements tab's
 	 * badges (main.c's g_row_icon while the panel is drawn). NULL: none. */
 	SDL_Texture *(*row_icon)(int row);
+	/* Told the cursor's row each pass, after the keys and before the
+	 * frame is drawn, so an option's list shows the choice under it
+	 * (src/ds/hover.h) in the frame the cursor reaches it. NULL: none. */
+	void   (*at)(app *a, void *ctx, int sel);
 } menu_style;
 
 /* ---- the menu runner (main.c's menu_run) ------------------------------------
@@ -225,6 +229,9 @@ void game_controls_pages(app *a, const menu_style *over, void *ctx);
 
 /* What a screen with a panel draws under it, and asks every frame */
 void draw_shelf(app *a);
+/* The shelf drawn by a loop of its own, as the main loop's render draws it
+ * (MP4's shelf): its focus effects live (src/shelf_draw.c) */
+void draw_shelf_live(app *a);
 void tick_tint(app *a);
 bool tick_theme(app *a);
 
@@ -250,6 +257,13 @@ int  menu_std_width(app *a);
 int  menu_list_fit(int fixed, int rules, int notes);
 /* One line on a panel over the shelf, before something that blocks */
 void wait_panel(app *a, const char *heading, const char *msg);
+/* A question on a panel over the shelf with two answers that both go on: 1
+ * the first, 2 the second, 0 left with B */
+int ask_two_panel(app *a, const char *heading, const char *msg, const char *first,
+                  const char *second);
+/* Its rows: `msg` in lines (at most ASK_TWO_LINES), then the two answers;
+ * how many lines */
+#define ASK_TWO_LINES 6
 /* A question on a panel over the shelf, Yes on `yes_label`: true on Yes */
 bool confirm_panel(app *a, const char *heading, const char *msg,
                    const char *yes_label);
@@ -262,6 +276,7 @@ void moved_sound(app *a, in_button b);
 bool timed_message(app *a, const char *heading, const menu_row *rows,
                    int n, int fixed_w, unsigned accent);
 bool result_message(app *a, const char *heading, const char *text);
+void result_preview(app *a, const char *heading, const char *text);
 kb_result keyboard_prompt(app *a, const char *title, char *buf, int cap);
 /* MENU pressed in a screen over the one asking: every screen closing */
 extern bool g_menu_closing;
@@ -290,6 +305,9 @@ bool confirm_rows(app *a, const char *heading, menu_row *rows, int nq,
 #define CHV_WRAP_COLS  96
 int wrap_text(TTF_Font *f, const char *src, int w,
               char out[][CHV_WRAP_COLS], int max);
+/* ask_two_panel's rows (ASK_TWO_LINES above) */
+int ask_two_rows(app *a, const char *msg, const char *first, const char *second,
+                 char (*lines)[CHV_WRAP_COLS], menu_row *rows);
 /* The roles a row of menu_draw_ex's `vcolors` names. VCOL_EARNED is
  * the value in **accent-ink**, lime as a mark: an earned achievement. On the
  * focus fill it is **on-accent**, like every other value. */
@@ -423,6 +441,7 @@ void panel_close_at(app *a, int lv, bool cut, unsigned now);
  * or a shot, is drawn at rest. */
 #define PANEL_REST ((mm_frame){ { 1.0f, 0.0f }, { 1.0f, 1.0f }, 1.0f, false })
 extern const systems_cfg *g_snap_sys;
+extern bool g_snap_run_off;
 bool es_art_cover(const char *dir, const char *file, const char *stem);
 bool es_art_video(const char *dir, const char *file, const char *stem);
 void tiles_panel(app *a, int kind, const char *heading, const menu_row *tiles,
@@ -513,6 +532,9 @@ extern bool g_theme_late;
 void home_items(const app *a, home_item *items);
 void shelf_put(void *ctx, texload_got *g);
 void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated);
+/* Album i's card on MP4's shelf `s` where it has no cover: a game's card,
+ * square, MP4's art in its corner (src/muse_screen.c) */
+void muse_album_card_order(app *a, int s, int i, unsigned rgb, ui_card_order *card);
 void texload_drain(app *a);
 void prime_toward(app *a, int s, int center);
 void heat_said(const char *where);
@@ -541,6 +563,10 @@ void evict_far(sysview *v, int keep);
 void evict_grid(sysview *v, int cols, bool in_sight);
 void panel_base_close(int lv);
 int shelf_letter_jump(sysview *v, int dir);
+/* A shelf's cursor moved by this pass's presses in its View, with the
+ * step's sound; the direction a step took, 0 for a jump or none
+ * (src/shelf_keys.c): the games shelf's and MP4's */
+int shelf_move(app *a, sysview *v);
 
 /* ---- what src/saver_screen.c calls of the launcher's; each is described where it
  * is defined ---- */
@@ -688,17 +714,26 @@ extern bool shot_usb_menu;
 extern const char *const BATT_IDS[BATT_MODES];
 extern int g_batt_mode;
 extern char g_scraper_val[32];
-void shader_set_all(app *a, int k);
-const char *shader_all_label(const app *a);
-bool strength_all_shown(const app *a);
-const char *strength_all_label(const app *a);
+/* The screens' shader, MENU's row from the home (main.c, src/screenfx.h):
+ * its SHADERS index and strength, and a list's cursor's in their place */
+extern int g_screen_shader, g_screen_strength, g_screen_shown, g_screen_shown_strength;
+bool screen_shader_offered(int k);
+int  screen_shader_step(int k, int d);
+void screen_shader_load(void);
+void screen_shader_set(int k);
+void screen_strength_set(int pct);
+void screen_shader_apply(void);
+bool screen_strength_shown(void);
+const char *screen_strength_label(void);
 const char *core_label(const char *core, char *buf, size_t n);
 void core_step(app *a, int sys, int d);
 dsl_choice dslang_load(void);
-dss_choice dsslow_load(void);
+pacing_choice pacing_load(const system_cfg *s);
+bool pacing_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);
+void home_turn(app *a, int dir);
 float grid_shape_load(const app *a, int sys);
 void grid_shape_save(const app *a, int sys, float shape);
 void sort_save(app *a);
@@ -725,6 +760,8 @@ bool xs_row_cable(void);
 const char *xs_row_value(void);
 void xfer_screen(app *a);
 void scraper_page(app *a, const char *only);
+/* ss_run_videos' own rule again (main.c's snap_wanted) */
+void ss_run_videos_default(void);
 menu_result scraper_screen(app *a);
 void language_screen(app *a);
 void lights_screen(app *a);
@@ -778,7 +815,7 @@ extern const char *shot_path;
 extern int shot_cheevos_waiting;
 void present_clear(app *a, ds_rgb c);
 void drawn_forget(void);
-int shader_step(int k, int d);
+int shader_step(int k, int d, const char *tag);
 void display_save(app *a);
 void shader_save(app *a, int sys);
 const char *strength_row_label(const app *a, int sys);

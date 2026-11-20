@@ -29,6 +29,10 @@ Diatom's.
   exfatprogs, wpa_supplicant, and on the Brick BlueZ and bluez-alsa.
 - **Josefin Sans** (SIL Open Font License 1.1), by Santiago Orozco: the boot
   splash's lettering is drawn from it (`scripts/make-logo.py`).
+- **ladspa.h**, the LADSPA 1.1 API header (LGPL-2.1-or-later), by Richard
+  W.E. Furse, Paul Barton-Davis and Stefan Westerfeld, as alsa-lib carries
+  it: the ports' equalizer plugin builds against it
+  (`buildroot/package/zyperos-eq/src/ladspa.h`).
 
 ## GKD Pixel 2
 

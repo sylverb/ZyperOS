@@ -2,8 +2,8 @@
 /* The device profiles (src/device/profile.h): every profile filled in, every
  * control it has printed with something, no control twice, and today's
  * answers for the GKD Pixel 2, the TrimUI Brick and the host's `desktop`,
- * which the launcher's pixels depend on (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 1). The chip's temperature
+ * which the launcher's pixels depend on (docs/building.md,
+ * Devices). The chip's temperature
  * from the zones a profile names, on a sysfs made in a scratch folder. Then
  * the choice of a profile by its id, as --device makes it on the host. Built
  * with all three profiles, as the host build is. No SDL. */
@@ -117,6 +117,19 @@ static void brick(void)
 	ck(p->model == &td_model_brick && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
 	   "brick: its own model, Bluetooth, CPU shaders, no GPU frames, two speakers, no Player 2, built-in Wi-Fi");
+	ck(p->screen_colors, "brick: Screen Colors, on its display's own gamma table");
+	{
+		/* Its core options: some, and none of the Pixel 2's rumble until a
+		 * tester has felt its motor (src/device/brick_coreopts.c) */
+		const dev_default *d = p->coreopts;
+		bool any = false, rumble = false;
+
+		for (; d && d->key; d++) {
+			any = true;
+			if (strstr(d->key, "rumble") || strstr(d->key, "pak1")) rumble = true;
+		}
+		ck(any && !rumble, "brick: its own core options, no rumble in them");
+	}
 	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
 	   "brick: MENU is the word (no vendor mark as an icon)");
 	ck(label_is(p, IN_BRIGHTDN, "F1") && label_is(p, IN_BRIGHTUP, "F2"),

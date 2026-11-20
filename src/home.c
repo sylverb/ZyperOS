@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "home.h"
+#include "blur.h"
 #include "design.h"
+#include "ds/focus.h"
+#include "focusgeo.h"
+#include "look.h"
 #include "ds/layout.h"   /* DS_HINT_*: a hint's glyph and the gap to its word */
 #include "platform.h"    /* ZYPEROS_SCREEN_W: the stage's middle and right */
 #include "theme.h"
@@ -10,6 +14,7 @@
 #include <SDL_image.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "systemart_data.h"
 
@@ -100,6 +105,7 @@ const char *home_label(const char *key, const char *canonical)
     /* Favorites is the launcher's own shelf and named in the language that is on */
     if (key && !strcmp(key, "FAV")) return T(S_HOME_FAVORITES);
     if (key && !strcmp(key, "RECENT")) return T(S_HOME_RECENTS);
+    if (key && !strcmp(key, "COLL")) return T(S_HOME_COLLECTIONS);
     for (unsigned i = 0; key && i < sizeof labels / sizeof *labels; i++)
         if (!strcmp(key, labels[i].key)) return labels[i].name;
     /* Unknown long names use their tag at the same readable size. */
@@ -116,6 +122,7 @@ void home_reset(home *h, int cursor, int count, uint32_t now)
     h->initialized = true; h->cursor = cursor; h->count = count;
     h->from = h->target = (float)cursor; h->moved = h->animation = now;
     h->grid_cols = 0;              /* the grid placed again on its next frame */
+    h->grid_ax = -1;
     row_reset(&h->motion,cursor,count,now);
 }
 void home_select(home *h, int cursor, int count, int direction, uint32_t now)
@@ -149,6 +156,7 @@ unsigned char home_group_key(const char *tag, const char *core, const char *name
 {
     if (!strcmp(tag, "FAV")) return 1;
     if (!strcmp(tag, "RECENT")) return 3;
+    if (!strcmp(tag, "COLL")) return 4;
     if (!strcmp(core, "port")) return 2;
     for (const char *p = name; *p; p++) {
         unsigned char c = (unsigned char)*p;
@@ -200,6 +208,7 @@ static int asset_for(const char *key)
     else if (key && !strcmp(key,"PRT")) key="PORTS";
     else if (key && !strcmp(key,"FAV")) key="FAVORITES";
     else if (key && !strcmp(key,"RECENT")) key="RECENTS";
+    else if (key && !strcmp(key,"COLL")) key="COLLECTIONS";
     for (int i=0; i<(int)SA_ASSET_COUNT; i++)
         if (key && !strcmp(key,SA_ASSETS[i].key)) return i;
     return -1;
@@ -214,6 +223,7 @@ const char *home_art_key(const char *tag)
 static void release(home_texture *t)
 {
     if(t->tex) SDL_DestroyTexture(t->tex);
+    if(t->shade) SDL_DestroyTexture(t->shade);
     if(t->motion) SDL_FreeSurface(t->motion);
     *t = (home_texture){ .asset = -1 };
 }
@@ -226,6 +236,52 @@ void home_free(home *h)
 }
 static bool valid(int i)
 { return i>=0 && i<(int)SA_ASSET_COUNT; }
+/* A still's own soft shadow (Highlight's lift on the home, DESIGN.md 11.1):
+ * its opaque texels at half size, padded by the blur's reach and blurred
+ * three passes (src/blur.h), white with that alpha, to be tinted where it
+ * is drawn. Made once as the still arrives: 82 x 82 texels, a few
+ * thousand sums, and nothing per frame. */
+#define SHADE_RAD 3
+#define SHADE_PAD (3 * SHADE_RAD)
+static SDL_Texture *silhouette(SDL_Renderer *r, SDL_Surface *s)
+{
+    SDL_Surface *c = SDL_ConvertSurfaceFormat(s, SDL_PIXELFORMAT_ARGB8888, 0), *o = NULL;
+    SDL_Texture *t = NULL;
+    int w = s->w / 2, hh = s->h / 2, W = w + 2 * SHADE_PAD, H = hh + 2 * SHADE_PAD;
+    float *a = c ? calloc((size_t)W * H, sizeof *a) : NULL, *line = a ? malloc(sizeof *line * (size_t)(W > H ? W : H)) : NULL;
+
+    if (!c || !a || !line) goto done;
+    for (int y = 0; y < hh; y++)
+        for (int x = 0; x < w; x++) {
+            const Uint32 *p0 = (const Uint32 *)((const Uint8 *)c->pixels + (size_t)(2 * y) * c->pitch) + 2 * x;
+            const Uint32 *p1 = (const Uint32 *)((const Uint8 *)c->pixels + (size_t)(2 * y + 1) * c->pitch) + 2 * x;
+
+            a[(y + SHADE_PAD) * W + x + SHADE_PAD] = ((p0[0] >> 24) + (p0[1] >> 24) + (p1[0] >> 24) + (p1[1] >> 24)) / 1020.0f;
+        }
+    blur_box3(a, W, H, SHADE_RAD, line);
+    o = SDL_CreateRGBSurfaceWithFormat(0, W, H, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!o) goto done;
+    for (int y = 0; y < H; y++) {
+        Uint32 *row = (Uint32 *)((Uint8 *)o->pixels + (size_t)y * o->pitch);
+
+        for (int x = 0; x < W; x++) {
+            float v = a[y * W + x];
+
+            row[x] = (Uint32)lroundf((v < 0 ? 0 : v > 1 ? 1 : v) * 255) << 24 | 0xFFFFFFu;
+        }
+    }
+    t = SDL_CreateTextureFromSurface(r, o);
+    if (t) {
+        SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(t, SDL_ScaleModeLinear);
+    }
+done:
+    if (o) SDL_FreeSurface(o);
+    if (c) SDL_FreeSurface(c);
+    free(a);
+    free(line);
+    return t;
+}
 /* Every pose's opaque texels together, in the cell's coordinates: the first
  * pose's (the top cell of `c`, ARGB8888) and the region where the others
  * differ from it */
@@ -260,8 +316,9 @@ static bool atlas_size(const sa_asset *a, int *w, int *h)
     *h += a->rows*a->rh;
     return true;
 }
-static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface *s, bool atlas)
+static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface **sp, bool atlas)
 {
+    SDL_Surface *s = *sp;
     const sa_asset *a = valid(t->asset) ? &SA_ASSETS[t->asset] : NULL;
     int w, ht;
     t->done = true;
@@ -269,12 +326,19 @@ static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface *s, bool atlas
     if (!atlas) {
         if (s->w != (int)SA_STILL || s->h != (int)SA_STILL) return false;
         t->tex = SDL_CreateTextureFromSurface(r,s);
+        if (t->tex) t->shade = silhouette(r, s);
     } else {
         if (!atlas_size(a,&w,&ht) || s->w != w || s->h != ht) return false;
-        /* The loader frees `s`: the regions are kept in a copy of their own,
-         * in the texture's format, so a pose is one SDL_UpdateTexture */
-        SDL_Surface *c = SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_ARGB8888,0);
+        /* The regions are kept in the texture's format, so a pose is one
+         * SDL_UpdateTexture. The workers decode to it (src/texload.c), and
+         * such a surface is taken as it is, *sp left NULL for the caller:
+         * an atlas is up to a megapixel, and copying it on the frame it
+         * landed on was a hitch of its own (2026-11-19). Another format (a
+         * shot's own decode) is converted, as before. */
+        SDL_Surface *c = s->format->format == SDL_PIXELFORMAT_ARGB8888 ? s
+                       : SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_ARGB8888,0);
         if (!c) return false;
+        if (c == s) *sp = NULL;
         t->tex = SDL_CreateTexture(r,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,a->cell,a->cell);
         if (!t->tex || SDL_UpdateTexture(t->tex,&(SDL_Rect){0,0,a->cell,a->cell},c->pixels,c->pitch)) {
             if (t->tex) SDL_DestroyTexture(t->tex);
@@ -304,10 +368,11 @@ static void show_pose(home_texture *t, const sa_asset *a, unsigned tile)
     if (SDL_UpdateTexture(t->tex,&(SDL_Rect){a->rx,a->ry,a->rw,a->rh},p,t->motion->pitch)==0)
         t->shown = (int)tile;
 }
-bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface *s)
+bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface **s)
 {
     if (shelf != HOME_LOADER_ATLAS && shelf != HOME_LOADER_STILL) return false;
     if (shelf == HOME_LOADER_ATLAS) {
+        /* One slot holds an atlas (take_atlas), so one takes the surface */
         if (h->atlas.asset == asset && !h->atlas.done) install(&h->atlas,r,s,true);
         for(int i=0;i<HOME_NEAR;i++)
             if (h->near[i].asset == asset && !h->near[i].done) install(&h->near[i],r,s,true);
@@ -326,7 +391,7 @@ static void request(home_texture *t, SDL_Renderer *r, const char *root, bool atl
     /* --shot has no workers. Also log the exceptional worker-start failure path. */
     uint64_t start = SDL_GetPerformanceCounter();
     SDL_Surface *s = IMG_Load(path);
-    install(t,r,s,atlas);
+    install(t,r,&s,atlas);
     if(s) SDL_FreeSurface(s);
     fprintf(stderr,"home: cold %s %.2f ms\n",relative,
             (SDL_GetPerformanceCounter()-start)*1000.0/SDL_GetPerformanceFrequency());
@@ -355,6 +420,16 @@ void home_prepare(home *h, SDL_Renderer *r, const char *root,
         int id=asset_for(items[ix].key);
         if(!valid(id)) continue;
         bool found=false;
+        for(int j=0;j<n;j++) if(wanted[j]==id) found=true;
+        if(!found) wanted[n++]=id;
+    }
+    /* And the Grid's last tiles and those of a glide on its way: a system
+     * that left the home fades out as its own still (DESIGN.md 11.1) */
+    for(int k=0;k<h->grid_was_n+h->grid_from_n && n<HOME_STILLS;k++) {
+        const home_tile *t=k<h->grid_was_n?&h->grid_was[k]:&h->grid_from[k-h->grid_was_n];
+        int id=asset_for(t->key);
+        bool found=false;
+        if(!valid(id) || (k>=h->grid_was_n && !h->grid_gliding)) continue;
         for(int j=0;j<n;j++) if(wanted[j]==id) found=true;
         if(!found) wanted[n++]=id;
     }
@@ -438,6 +513,40 @@ static void sprite(home *h, SDL_Renderer *r, const home_item *item,
         if(dst.w>=256) ui_text(r,ui_font(UI_F_META),T(S_HOME_NO_ARTWORK),cx,ui_cap_y(ui_font(UI_F_META),cy+48),0,c);
     }
 }
+/* A system's still lifted (Highlight, src/ds/focus.h): its own soft shadow
+ * under `dst`, `lift` deep, at `k` of its strength. Beard: leaning a third
+ * of the way to the accent's ink, a little under the machine; Salt &
+ * Pepper: a light in the accent round it. */
+static void sprite_shade(const home *h, SDL_Renderer *r, const home_item *item, SDL_FRect dst,
+                         int lift, float k)
+{
+    const int id = asset_for(item->key);
+    const bool high = lift == DS_FOCUS_LIFT_HIGH, dark = theme_index() == DS_DARK;
+    SDL_Texture *t = NULL;
+    float u, pad, dy, grow;
+
+    if (lift == DS_FOCUS_LIFT_NONE || !(k > 0.02f) || !valid(id)) return;
+    for (int i = 0; i < HOME_STILLS; i++) if (h->still[i].asset == id) t = h->still[i].shade;
+    if (!t) return;
+    u = dst.w / (float)SA_STILL;
+    pad = SHADE_PAD * 2 * u;
+    dy = dark ? dst.h * (high ? .03f : .015f) : dst.h * (high ? .075f : .04f);
+    grow = high ? dst.w * .03f : 0;
+    if (dark) {
+        ds_rgb c = theme()->accent;
+
+        SDL_SetTextureColorMod(t, c.r, c.g, c.b);
+        SDL_SetTextureAlphaMod(t, (Uint8)lroundf((high ? 140 : 105) * (k > 1 ? 1 : k)));
+    } else {
+        ds_rgb a = theme()->ink, b = theme()->accent_ink;
+
+        SDL_SetTextureColorMod(t, (Uint8)(a.r + (b.r - a.r) * 2 / 5), (Uint8)(a.g + (b.g - a.g) * 2 / 5),
+                               (Uint8)(a.b + (b.b - a.b) * 2 / 5));
+        SDL_SetTextureAlphaMod(t, (Uint8)lroundf((high ? 110 : 88) * (k > 1 ? 1 : k)));
+    }
+    SDL_RenderCopyF(r, t, NULL, &(SDL_FRect){ dst.x - pad - grow, dst.y - pad - grow + dy,
+                                              dst.w + 2 * (pad + grow), dst.h + 2 * (pad + grow) });
+}
 void page_hint_fade(SDL_Renderer *r, const char *key, const char *label,
                     int x, int cy, bool focus, bool favorite, Uint8 alpha)
 {
@@ -458,6 +567,28 @@ int page_hint_width(const char *key, const char *label, bool focus)
 {
     return ui_button_width(key,focus?DS_HINT_GLYPH_FOCUS:DS_HINT_GLYPH)+DS_HINT_GAP+
            ui_text_width(page_font(focus?PAGE_ACTION:PAGE_CHROME),label);
+}
+/* The foot's left end, on every layout: MENU's Settings, then START and the
+ * layout it turns to, 32 on (keyhints' gap), as a shelf's foot names the
+ * View its START turns to (2026-11-17). Returns where START's word ends. */
+static int home_foot_keys(SDL_Renderer *r, home_layout layout, int x)
+{
+    const char *settings=T(S_HOME_SETTINGS);
+    const char *next=home_name((home_layout)(((int)layout+1)%HOME_LAYOUTS));
+    int sx=x+page_hint_width("MENU",settings,false)+DS_HINTS_GAP;
+
+    page_hint(r,"MENU",settings,x,DS_FOOT_Y,false,false);
+    page_hint(r,"START",next,sx,DS_FOOT_Y,false,false);
+    return sx+page_hint_width("START",next,false);
+}
+/* The place ("7 / 9", w wide) in the middle of the foot, or keyhints' gap
+ * right of the keys where a long word would meet it there (Italian's "In
+ * evidenza" by the Grid's "12 / 21") */
+static int home_foot_mid(int keys_end, int w)
+{
+    int mid=ZYPEROS_SCREEN_W/2;
+
+    return mid-w/2<keys_end+DS_HINTS_GAP ? keys_end+DS_HINTS_GAP+(w+1)/2 : mid;
 }
 /* These draws alter only the draw color/blend. Targets, scale, viewport and
  * clipping stay untouched, including when a menu draws the home into a target. */
@@ -529,13 +660,6 @@ static int row_draws(const home *h,bool gallery,int count,int cursor,uint32_t no
     return n;
 }
 
-/* Whole pixels a sprite at `f` can touch */
-static SDL_Rect cover(SDL_FRect f)
-{
-    int x0=(int)floorf(f.x), y0=(int)floorf(f.y);
-    return (SDL_Rect){x0,y0,(int)ceilf(f.x+f.w)-x0,(int)ceilf(f.y+f.h)-y0};
-}
-
 static SDL_Rect content_rect(const home *h)
 {
     const sa_asset *a = valid(h->atlas.asset) ? &SA_ASSETS[h->atlas.asset] : NULL;
@@ -559,46 +683,139 @@ static SDL_Rect content_rect(const home *h)
     return (SDL_Rect){x0,y0,x1-x0,y1-y0};
 }
 
-/* The row's sprites over the content: true for each in `hit`. False when one
- * of those overlaps another of the row, which would have to be drawn again
- * too (only while the row moves, which is no focus frame's). */
-static bool row_over(const row_draw *row,int nr,SDL_Rect content,bool hit[ROW_SLOTS])
+/* The row as Highlight marks it (src/ds/focus.h): Border's ring round the
+ * focused still, holding still as the row slides under it; Lift raises the
+ * focused still on its own shadow; None leaves the others a step back;
+ * Bar's bar is under it (home_draw). One painter for the whole frame and
+ * the focus frame, so the two lay the same pixels. */
+static void row_paint(home *h,SDL_Renderer *r,const home_item *items,const row_draw *row,int nr,
+                      bool gallery,ds_focus_marks marks,uint32_t phase,uint32_t *wait,const bool *only)
 {
+    const float fs=gallery?HOME_GALLERY_STILL:128.0f, fy0=gallery?HOME_GALLERY_Y:HOME_ROW_Y-8;
+
+    /* `only`: the layers to lay (focus_layers' slots), or NULL for all */
+    if(marks.ring && (!only || only[0]))
+        ds_focus_ring(r,(SDL_FRect){HOME_MID_X-fs/2,fy0-fs/2,fs,fs},DS_RADIUS_CELL,255);
     for(int k=0;k<nr;k++) {
-        SDL_Rect c=cover(row[k].dst);
-        hit[k]=SDL_HasIntersection(&c,&content);
+        SDL_FRect d=row[k].dst;
+        if(only && !only[1+k]) continue;
+        float f=gallery?(d.w-208)/176.0f:(d.w-112)/16.0f, a=row[k].alpha;
+        if(f<0) f=0;
+        if(f>1) f=1;
+        if(marks.lift==DS_FOCUS_LIFT_HIGH) { d.y-=8*f; sprite_shade(h,r,&items[row[k].item],d,marks.lift,f); }
+        if(marks.focus==LOOK_FOCUS_NONE) a*=.6f+.4f*f;
+        sprite(h,r,&items[row[k].item],d,row[k].active,phase,wait,a);
     }
-    for(int k=0;k<nr;k++) for(int j=0;j<nr;j++) {
-        SDL_Rect a=cover(row[k].dst), b=cover(row[j].dst);
-        if(hit[k] && j!=k && SDL_HasIntersection(&a,&b)) return false;
+}
+
+/* The layers of Spotlight's stage over the ground besides the focused
+ * sprite, as row_paint lays them: Border's ring, then each of the row's
+ * sprites (lifted, its shade under it). `ext` is the whole pixels each can
+ * touch, empty for a layer not drawn. Slot 0 is the ring, 1 + k row[k]. */
+#define FOCUS_LAYERS (1 + ROW_SLOTS)
+#define RING_REACH   10   /* units: the ring's gap and line round its tile, on any panel, rounded out */
+
+static SDL_Rect px_cover(float x, float y, float w, float h)
+{
+    int x0=(int)floorf(x), y0=(int)floorf(y);
+    return (SDL_Rect){x0,y0,(int)ceilf(x+w)-x0,(int)ceilf(y+h)-y0};
+}
+
+static int focus_layers(const home *h,int count,int cursor,uint32_t now,ds_focus_marks marks,
+                        row_draw row[ROW_SLOTS],SDL_Rect ext[FOCUS_LAYERS])
+{
+    int nr=row_draws(h,false,count,cursor,now,row);
+
+    memset(ext,0,sizeof(SDL_Rect)*FOCUS_LAYERS);
+    if(marks.ring)
+        ext[0]=px_cover(HOME_MID_X-64-RING_REACH,HOME_ROW_Y-8-64-RING_REACH,128+2*RING_REACH,128+2*RING_REACH);
+    for(int k=0;k<nr;k++) {
+        SDL_FRect d=row[k].dst;
+        float f=(d.w-112)/16.0f;
+        SDL_Rect e;
+
+        if(f<0) f=0;
+        if(f>1) f=1;
+        if(marks.lift==DS_FOCUS_LIFT_HIGH) d.y-=8*f;
+        e=px_cover(d.x,d.y,d.w,d.h);
+        if(marks.lift==DS_FOCUS_LIFT_HIGH && f>0.02f) {
+            /* sprite_shade's rect, its deepest: pad, grow and drop */
+            float u=d.w/(float)SA_STILL, pad=SHADE_PAD*2*u, grow=d.w*.03f, dy=d.h*.075f;
+            SDL_Rect sh=px_cover(d.x-pad-grow,d.y-pad-grow,d.w+2*(pad+grow),d.h+2*(pad+grow)+dy), u2;
+
+            SDL_UnionRect(&e,&sh,&u2);
+            e=u2;
+        }
+        ext[1+k]=e;
     }
+    return nr;
+}
+
+/* The ground a focus frame lays and the layers it draws again whole over
+ * it: the sprite's frames' part of its square; every layer over the
+ * square, which the sprite drawn again whole would cover; and every layer
+ * reaching ground already laid, round until none more does. False when
+ * that runs to more than HOME_FOCUS_GROUNDS rects or reaches Bar's bar,
+ * which a focus frame does not draw. */
+static bool focus_plan(const home *h,int count,int cursor,uint32_t now,
+                       SDL_Rect ground[HOME_FOCUS_GROUNDS],int *ng,bool again[FOCUS_LAYERS],
+                       row_draw row[ROW_SLOTS],int *nr)
+{
+    const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_STILL);
+    const SDL_Rect square=px_cover(FOCUS.x,FOCUS.y,FOCUS.w,FOCUS.h);
+    SDL_Rect ext[FOCUS_LAYERS], c=content_rect(h);
+    bool grew=true;
+    int n=0;
+
+    if (c.w<=0 || c.h<=0) return false;
+    *nr=focus_layers(h,count,cursor,now,marks,row,ext);
+    ground[n++]=c;
+    for(int i=0;i<FOCUS_LAYERS;i++) again[i]=ext[i].w>0 && SDL_HasIntersection(&ext[i],&square);
+    for(int i=0;i<FOCUS_LAYERS;i++) if(again[i]) {
+        if(n==HOME_FOCUS_GROUNDS) return false;
+        ground[n++]=ext[i];
+    }
+    while(grew) {
+        grew=false;
+        for(int i=0;i<FOCUS_LAYERS;i++) {
+            if(again[i] || ext[i].w<=0) continue;
+            for(int j=0;j<n && !again[i];j++) again[i]=SDL_HasIntersection(&ext[i],&ground[j]);
+            if(!again[i]) continue;
+            if(n==HOME_FOCUS_GROUNDS) return false;
+            ground[n++]=ext[i];
+            grew=true;
+        }
+    }
+    if(marks.bar) {
+        const int under_y=HOME_ROW_Y-8+64+16;
+        SDL_Rect bar={HOME_MID_X-64,under_y-8,128,32};   /* its pill and round it */
+
+        for(int j=0;j<n;j++) if(SDL_HasIntersection(&ground[j],&bar)) return false;
+    }
+    *ng=n;
     return true;
 }
 
 bool home_focus_alone(const home *h,home_layout layout,int count,int cursor,uint32_t now)
 {
+    SDL_Rect ground[HOME_FOCUS_GROUNDS];
+    bool again[FOCUS_LAYERS];
     row_draw row[ROW_SLOTS];
-    bool hit[ROW_SLOTS];
-    SDL_Rect c;
+    int ng, nr;
 
     if (layout!=HOME_SPOTLIGHT || count<=0 || cursor<0 || cursor>=count ||
         row_moving(&h->motion,now))
         return false;
-    c=content_rect(h);
-    return c.w>0 && c.h>0 && row_over(row,row_draws(h,false,count,cursor,now,row),c,hit);
+    return focus_plan(h,count,cursor,now,ground,&ng,again,row,&nr);
 }
 
 int home_focus_ground(const home *h,int count,int cursor,uint32_t now,SDL_Rect out[HOME_FOCUS_GROUNDS])
 {
+    bool again[FOCUS_LAYERS];
     row_draw row[ROW_SLOTS];
-    bool hit[ROW_SLOTS];
-    SDL_Rect c=content_rect(h);
-    int nr=row_draws(h,false,count,cursor,now,row), n=0;
+    int ng, nr;
 
-    if (c.w<=0 || c.h<=0 || !row_over(row,nr,c,hit)) return 0;
-    out[n++]=c;
-    for(int k=0;k<nr && n<HOME_FOCUS_GROUNDS;k++) if(hit[k]) out[n++]=cover(row[k].dst);
-    return n;
+    return focus_plan(h,count,cursor,now,out,&ng,again,row,&nr) ? ng : 0;
 }
 
 uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int count,int cursor,
@@ -606,16 +823,18 @@ uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int coun
 {
     draw_state saved=save_state(r);
     uint32_t wait=UINT32_MAX, phase=animate?now-h->animation:0, row_wait=UINT32_MAX;
+    SDL_Rect ground[HOME_FOCUS_GROUNDS];
+    bool again[FOCUS_LAYERS];
     row_draw row[ROW_SLOTS];
-    bool hit[ROW_SLOTS];
-    int nr=row_draws(h,false,count,cursor,now,row);
+    int ng, nr;
 
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     sprite(h,r,&items[cursor],FOCUS,true,phase,&wait,1);
-    /* Then the row's sprites the content reaches, over it, in home_draw's order */
-    if (row_over(row,nr,content_rect(h),hit))
-        for(int k=0;k<nr;k++) if(hit[k])
-            sprite(h,r,&items[row[k].item],row[k].dst,row[k].active,phase,&row_wait,row[k].alpha);
+    /* Then the layers on the ground laid, whole, in home_draw's order:
+     * Border's ring, the row's sprites with Highlight's lift, shade and
+     * step back (row_paint) */
+    if (focus_plan(h,count,cursor,now,ground,&ng,again,row,&nr))
+        row_paint(h,r,items,row,nr,false,ds_focus_marks_of(DS_FOCUS_STILL),phase,&row_wait,again);
     if(!animate) wait=UINT32_MAX;
     restore_state(r,saved);
     return wait;
@@ -626,50 +845,43 @@ uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int coun
 /* The systems in a grid: each its still and its short name under it, the
  * focus its moving sprite on a **surface** tile with a thumbnail's lift, its
  * name in **text** with the accent's underline under it, the others in
- * **text-soft**. The grid's room is the shelf grid's
- * (src/gamegrid.c): from the top bar's band and a section (96) to where the
- * band under it starts; its cells DS_GRID_GAP apart, as many across as cells
- * of at least HG_CELL fit between the margins, three rows, the grid in the
- * middle of its room. The band, the shelf grid's: the system's whole name,
- * its count, A. */
+ * **text-soft**. The grid sizes itself to how many systems there are
+ * (2026-11-19: Man in Boots on the Discord, "a little too much white space"
+ * on a card of few systems; my picks from the home grid lab): the still in
+ * four steps, 256 for up to three, 176 for up to eight, 128 for up to ten,
+ * 104 for up to twelve in two rows, and today's grid of 104s, six across and
+ * three rows in sight, for more (gh_layout, src/gridrule.h); the name grows
+ * with its still. The grid's room is the shelf grid's (src/gamegrid.c): from
+ * the top bar's band and a section (96) to where the band under it starts,
+ * the grid in its middle, a short last row in the middle under the full
+ * ones. The band, the shelf grid's: the system's whole name, its count, A. */
 #define HG_MARGIN   HOME_MARGIN
 #define HG_TOP      HOME_TOP
 #define HG_FOOT     568      /* the room's foot: the band's top less DS_GRID_BAND_GAP */
 #define HG_BAND_TOP 592
-#define HG_CELL     128      /* a cell at the least: a still and room either side */
-#define HG_SPRITE   104      /* the still in its cell */
-#define HG_LABEL_GAP 8       /* the still to its name (related) */
-#define HG_LABEL_BOX 28      /* the name's line box, chrome type */
-#define HG_CELL_H   (HG_SPRITE + HG_LABEL_GAP + HG_LABEL_BOX)
 #define HG_TILE_PAD 8        /* the focus's tile round its cell and its underline */
 
-typedef struct { int x, y, cols, cw, gap; } hg_geom;
-
-static hg_geom hg_of(int sw)
+gh_geom home_grid_geom(int count)
 {
-    int room = sw - 2 * HG_MARGIN, gap = DS_GRID_GAP;
-    int cols = (room + gap) / (HG_CELL + gap);
-    hg_geom g;
-    int h;
-
-    if (cols < 3) cols = 3;
-    g = (hg_geom){ HG_MARGIN, 0, cols, (room - (cols - 1) * gap) / cols, gap };
-    h = HOME_GRID_ROWS * HG_CELL_H + (HOME_GRID_ROWS - 1) * gap;
-    g.x = HG_MARGIN + (room - (cols * g.cw + (cols - 1) * gap)) / 2;
-    g.y = HG_TOP + (HG_FOOT - HG_TOP - h) / 2;
-    return g;
+    return gh_layout(count, HG_MARGIN, HG_TOP, ZYPEROS_SCREEN_W - 2 * HG_MARGIN,
+                     HG_FOOT - HG_TOP, DS_GRID_GAP);
 }
 
-int home_grid_cols(void) { return hg_of(ZYPEROS_SCREEN_W).cols; }
-
-static int hg_window(int cursor, int count, int cols, int top)
+/* A name's face by its type (GH_NAME_*): chrome, support or meta */
+static TTF_Font *hg_name_font(int name)
 {
-    int row = cursor / cols, last = (count + cols - 1) / cols - HOME_GRID_ROWS;
+    return name == GH_NAME_META ? ui_font(UI_F_META)
+         : name == GH_NAME_SUPPORT ? page_font(PAGE_META) : page_font(PAGE_CHROME);
+}
+
+static int hg_window(const gh_geom *g, int cursor, int top)
+{
+    int row = cursor / g->cols, last = g->rows - g->win;
 
     if (last < 0) last = 0;
-    if (top < 0) top = row - HOME_GRID_ROWS / 2;
+    if (top < 0) top = row - g->win / 2;
     if (row < top) top = row;
-    if (row > top + HOME_GRID_ROWS - 1) top = row - HOME_GRID_ROWS + 1;
+    if (row > top + g->win - 1) top = row - g->win + 1;
     if (top > last) top = last;
     if (top < 0) top = 0;
     return top;
@@ -682,29 +894,39 @@ static float hg_eased(float from, float to, uint32_t since, int ms)
     return k >= 1 ? to : from + (to - from) * ds_out(k);
 }
 
-/* The cursor moved: the window glides in ms.move, the underline in
- * ms.quick, from where they are; a jump of more than a row shows where it
- * lands with a short glide, as the shelf's do */
-static void hg_follow(home *h, const hg_geom *g, int cursor, int count, uint32_t now)
+/* The cursor moved: the window glides in ms.move, the focus in ms.quick,
+ * from where they are; a jump of more than a row shows where it lands with a
+ * short glide, as the shelf's do. A grid of another shape (the systems
+ * changed) places them again. The focus's place is in units, the window at
+ * its first row. */
+static void hg_follow(home *h, const gh_geom *g, int cursor, uint32_t now)
 {
+    int x, y, px, py;
     float top, fx, fy;
 
-    if (h->grid_cols != g->cols || h->grid_cursor < 0 || h->grid_cursor >= count) {
-        int t = hg_window(cursor, count, g->cols, -1);
+    gh_cell(g, cursor, &x, &y);
+    if (h->grid_cols != g->cols || h->grid_n != g->n || h->grid_still != g->still ||
+        h->grid_cursor < 0 || h->grid_cursor >= g->n) {
+        int t = hg_window(g, cursor, -1);
 
         h->grid_cols = g->cols;
+        h->grid_n = g->n;
+        h->grid_still = g->still;
         h->grid_cursor = cursor;
         h->grid_top_from = h->grid_top_to = (float)t;
-        h->grid_fx = (float)(cursor % g->cols);
-        h->grid_fy = (float)(cursor / g->cols);
+        h->grid_fx = (float)x;
+        h->grid_fy = (float)y;
         h->grid_moved = now - DS_MS_MOVE;
+        h->grid_w.n = 0;
         return;
     }
     if (h->grid_cursor == cursor) return;
+    ds_focus_weights_move(&h->grid_w, h->grid_cursor, now - h->grid_moved);
+    gh_cell(g, h->grid_cursor, &px, &py);
     top = hg_eased(h->grid_top_from, h->grid_top_to, now - h->grid_moved, DS_MS_MOVE);
-    fx = hg_eased(h->grid_fx, (float)(h->grid_cursor % g->cols), now - h->grid_moved, DS_MS_QUICK);
-    fy = hg_eased(h->grid_fy, (float)(h->grid_cursor / g->cols), now - h->grid_moved, DS_MS_QUICK);
-    h->grid_top_to = (float)hg_window(cursor, count, g->cols, (int)lroundf(h->grid_top_to));
+    fx = hg_eased(h->grid_fx, (float)px, now - h->grid_moved, DS_MS_QUICK);
+    fy = hg_eased(h->grid_fy, (float)py, now - h->grid_moved, DS_MS_QUICK);
+    h->grid_top_to = (float)hg_window(g, cursor, (int)lroundf(h->grid_top_to));
     h->grid_top_from = top;
     h->grid_fx = fx;
     h->grid_fy = fy;
@@ -712,87 +934,240 @@ static void hg_follow(home *h, const hg_geom *g, int cursor, int count, uint32_t
         int dir = cursor > h->grid_cursor ? 1 : -1;
 
         h->grid_top_from = h->grid_top_to - (h->grid_top_to != top ? dir * .2f : 0);
-        h->grid_fx = (float)(cursor % g->cols);
-        h->grid_fy = (float)(cursor / g->cols) - dir * .2f;
+        h->grid_fx = (float)x;
+        h->grid_fy = (float)y - dir * .2f * (g->ch + g->gap);
     }
     h->grid_cursor = cursor;
     h->grid_moved = now;
+}
+
+/* The systems changed under the grid (one turned off or on in MENU > Display
+ * > Home Systems, Favorites or Recents made or emptied, a system's last game
+ * deleted, System Order turned): a glide from the tiles it drew last, each to
+ * its new place and size, in ms.turn on the turn curve; a system that left
+ * fades out where it was in ms.fade-out, one that came fades in at its place.
+ * Held at its start while a menu is over the home (`covered`), drawing no
+ * more frames than the home would, and run from the frame the menu starts to
+ * leave, so it is seen. Only from a grid drawn last: never on the first
+ * frame, nor coming from Spotlight or Gallery. */
+static void hg_glide_note(home *h, const home_item *items, int count, uint32_t now)
+{
+    bool same = h->grid_was_n == count;
+
+    for (int i = 0; same && i < count; i++)
+        same = !strcmp(h->grid_was[i].key, items[i].key ? items[i].key : "");
+    if (same) return;
+    if (h->grid_live && h->grid_was_n > 0) {
+        memcpy(h->grid_from, h->grid_was, sizeof h->grid_from);
+        h->grid_from_n = h->grid_was_n;
+        for (int i = 0; i < count && i < HOME_STILLS; i++) {
+            h->grid_map[i] = -1;
+            for (int k = 0; k < h->grid_from_n; k++)
+                if (!strcmp(h->grid_from[k].key, items[i].key ? items[i].key : "")) { h->grid_map[i] = (signed char)k; break; }
+        }
+        h->grid_gliding = true;
+        h->grid_held = true;
+        h->grid_glide = now;
+    }
+    h->grid_was_n = 0;
+}
+
+/* The glide's turn and fade now (0 to 1), and whether it goes on */
+static bool hg_glide_at(home *h, uint32_t now, float *k, float *fade)
+{
+    uint32_t since;
+
+    if (!h->grid_gliding) return false;
+    if (h->grid_held && !h->covered) { h->grid_held = false; h->grid_glide = now; }
+    since = h->grid_held ? 0 : now - h->grid_glide;
+    if (since >= (DS_MS_TURN > DS_MS_FADE_OUT ? DS_MS_TURN : DS_MS_FADE_OUT)) {
+        h->grid_gliding = false;
+        return false;
+    }
+    *k = ds_turn((float)since / DS_MS_TURN);
+    *fade = since >= DS_MS_FADE_OUT ? 1 : (float)since / DS_MS_FADE_OUT;
+    return true;
+}
+
+/* The grid's focus, in one place: Highlight's marks (src/ds/focus.h,
+ * DESIGN.md 11.1; my picks in the focus lab, 2026-11-19). Behind the tiles,
+ * Border's: a **surface** card 8 round the cell, grown a little, on a soft
+ * lift, the ring round it. In front, Bar's: the bar 8 under the focused
+ * name's box. Lift and None mark nothing: the still itself grows and rises
+ * (hg_tile). `cell` is the cell, its still and its name down, where the
+ * focus is now (gliding); `still` the still's side and `box` the name's
+ * line; `window` the clip of the rows in sight, NULL when every row is.
+ * *(2026-11-15: a name and an underline alone were hard to find at arm's
+ * length among 21 systems; the step back of the others and a mark of the
+ * player's choosing answer that now.)* */
+static void hg_focus(home *h, SDL_Renderer *r, const SDL_FRect *cell, float still, int box,
+                     const ds_focus_marks *m, bool front, const SDL_Rect *window)
+{
+    (void)h;
+    if (!front) {
+        SDL_FRect card;
+        SDL_Rect q;
+
+        if (!m->ring) {
+            /* the tiles cut to the window of rows, when there is one */
+            if (window) SDL_RenderSetClipRect(r, window);
+            return;
+        }
+        card = ds_focus_tile((SDL_FRect){ cell->x - HG_TILE_PAD, cell->y - HG_TILE_PAD,
+                                          cell->w + 2 * HG_TILE_PAD, cell->h + 2 * HG_TILE_PAD }, m, 1);
+        q = (SDL_Rect){ (int)lroundf(card.x), (int)lroundf(card.y), (int)lroundf(card.w), (int)lroundf(card.h) };
+        /* the lift in the room the caller gave it, then the card, its ring
+         * and the tiles cut to the window of rows, when there is one */
+        ui_lift_focus(r, &q, false, 1);
+        if (window) SDL_RenderSetClipRect(r, window);
+        ui_round_rect(r, &q, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+        ds_focus_ring(r, card, DS_RADIUS_CARD, 255);
+        return;
+    }
+    if (m->bar) {
+        ds_focus_marks sm = *m;
+        SDL_FRect st;
+
+        sm.ring = sm.bar = false;
+        st = ds_focus_tile((SDL_FRect){ roundf(cell->x + cell->w / 2 - still / 2), cell->y, still, still }, &sm, 1);
+        ds_focus_bar(r, (SDL_FRect){ cell->x, st.y + st.h + GH_NAME_GAP, cell->w, (float)box }, 255);
+    }
+}
+
+/* One tile: its still `s` square in the middle of its cell, `cw` wide at
+ * (x, y), and its name under it in `font`, `alpha` of it. `w` is its weight
+ * in the focus's glide: the still grows to Highlight's size on whole pixels
+ * and rises on its own shadow with it, the name follows the still's foot
+ * and turns from **text-soft** to **text**, and a tile out of focus steps
+ * back (src/ds/focus.h). */
+static void hg_tile(home *h, SDL_Renderer *r, const home_item *item, const char *name,
+                    TTF_Font *font, int box, float x, float y, float s, float cw, bool focus,
+                    float w, const ds_focus_marks *m, float alpha, uint32_t phase, uint32_t *wait)
+{
+    char fit[64];
+    SDL_Color c = UI_TEXT, soft = UI_TEXT_SOFT;
+    float cx = x + cw / 2.0f;
+    ds_focus_marks sm = *m;
+    SDL_FRect st;
+
+    if (alpha <= 0) return;
+    sm.ring = sm.bar = false;
+    st = ds_focus_tile((SDL_FRect){ roundf(cx - s / 2.0f), y, s, s }, &sm, w);
+    alpha *= fg_dim_still(w);
+    sprite_shade(h, r, item, st, m->lift, w * alpha);
+    sprite(h, r, item, st, focus, phase, wait, alpha);
+    ui_fit_text(font, name, fit, sizeof fit, (int)cw + DS_GRID_GAP - 8);
+    c.r = (Uint8)lroundf(soft.r + (c.r - soft.r) * w);
+    c.g = (Uint8)lroundf(soft.g + (c.g - soft.g) * w);
+    c.b = (Uint8)lroundf(soft.b + (c.b - soft.b) * w);
+    c.a = (Uint8)lroundf(255 * alpha);
+    ui_text(r, font, fit, (int)lroundf(cx),
+            ui_cap_y(font, (int)lroundf(st.y + st.h) + GH_NAME_GAP + box / 2), 0, c);
 }
 
 static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items, int count,
                                int cursor, const char *count_label, const char *open_label,
                                uint32_t now, uint32_t phase, uint32_t *wait)
 {
-    hg_geom g = hg_of(ZYPEROS_SCREEN_W);
-    TTF_Font *label = page_font(PAGE_CHROME), *title = page_font(PAGE_GAME_TITLE);
+    gh_geom g = home_grid_geom(count);
+    const ds_focus_marks marks = ds_focus_marks_of(DS_FOCUS_STILL);
+    TTF_Font *label = hg_name_font(g.name), *title = page_font(PAGE_GAME_TITLE);
     TTF_Font *meta = page_font(PAGE_META);
-    int rows = (count + g.cols - 1) / g.cols, pitch = HG_CELL_H + g.gap;
-    float top, fx, fy;
+    int pitch = g.ch + g.gap, n = count < HOME_STILLS ? count : HOME_STILLS;
+
+    if (cursor >= n) cursor = n - 1;
+    float top, fx, fy, k = 1, fade = 1;
+    bool gliding;
+    SDL_FRect focus;
     SDL_Rect clip;
+    struct { float x, y, s, cw, ch; } at[HOME_STILLS];
 
-    hg_follow(h, &g, cursor, count, now);
+    hg_glide_note(h, items, n, now);
+    hg_follow(h, &g, cursor, now);
+    gliding = hg_glide_at(h, now, &k, &fade);
     top = hg_eased(h->grid_top_from, h->grid_top_to, now - h->grid_moved, DS_MS_MOVE);
-    fx = hg_eased(h->grid_fx, (float)(cursor % g.cols), now - h->grid_moved, DS_MS_QUICK);
-    fy = hg_eased(h->grid_fy, (float)(cursor / g.cols), now - h->grid_moved, DS_MS_QUICK);
-    if (now - h->grid_moved < DS_MS_MOVE) *wait = 0;
-
-    /* The window of rows: from the top row's tile to the foot of the last
-     * row's, so a row scrolling in or out is cut there and the next is not
-     * seen. The tile and its lift get room round it for the lift's blur. */
-    clip = (SDL_Rect){ 0, g.y - HG_TILE_PAD, ZYPEROS_SCREEN_W,
-                       (HOME_GRID_ROWS - 1) * pitch + HG_CELL_H + 4 + DS_BAR + 2 * HG_TILE_PAD };
-    SDL_RenderSetClipRect(r, &(SDL_Rect){ clip.x, clip.y - g.gap, clip.w, clip.h + 2 * g.gap });
-    /* The focus's tile (2026-11-15: in a grid of many systems a name and its
-     * underline alone are hard to find at arm's length): **surface** behind
-     * the focused cell, the still and its name, corners radius.card (square
-     * with Square corners, as every panel), with a thumbnail's lift as the
-     * shelf grid's focused cover has (UI_LIFT_FOCUS_SMALL, in the system's
-     * color in Salt & Pepper), gliding from cell to cell with the underline */
     {
-        SDL_Rect tile = {
-            (int)lroundf(g.x + fx * (g.cw + g.gap)) - HG_TILE_PAD,
-            (int)lroundf(g.y + (fy - top) * pitch) - HG_TILE_PAD,
-            g.cw + 2 * HG_TILE_PAD,
-            HG_CELL_H + 4 + DS_BAR + 2 * HG_TILE_PAD,
-        };
+        int x, y;
 
-        ui_lift_k(r, &tile, items[cursor].accent, UI_LIFT_FOCUS_SMALL, 1);
-        SDL_RenderSetClipRect(r, &clip);
-        ui_round_rect(r, &tile, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+        gh_cell(&g, cursor, &x, &y);
+        fx = hg_eased(h->grid_fx, (float)x, now - h->grid_moved, DS_MS_QUICK);
+        fy = hg_eased(h->grid_fy, (float)y, now - h->grid_moved, DS_MS_QUICK);
     }
-    for (int i = (int)floorf(top) * g.cols; i < count && i < ((int)floorf(top) + HOME_GRID_ROWS + 1) * g.cols; i++) {
-        float cx = g.x + (i % g.cols) * (g.cw + g.gap) + g.cw / 2.0f;
-        float y = g.y + (i / g.cols - top) * pitch;
-        bool focus = i == cursor;
+    if (now - h->grid_moved < DS_MS_MOVE || (gliding && !h->grid_held)) *wait = 0;
+
+    /* Each tile where it is now: its cell, or on its way there from the
+     * grid drawn before */
+    for (int i = 0; i < n; i++) {
+        int x, y;
+
+        gh_cell(&g, i, &x, &y);
+        at[i].x = (float)x; at[i].y = y - top * pitch; at[i].s = (float)g.still;
+        at[i].cw = (float)g.cw; at[i].ch = (float)g.ch;
+        if (gliding && h->grid_map[i] >= 0) {
+            const home_tile *f = &h->grid_from[(int)h->grid_map[i]];
+
+            at[i].x = f->x + (at[i].x - f->x) * k;
+            at[i].y = f->y + (at[i].y - f->y) * k;
+            at[i].s = f->s + (at[i].s - f->s) * k;
+            at[i].cw = f->cw + (at[i].cw - f->cw) * k;
+            at[i].ch = f->ch + (at[i].ch - f->ch) * k;
+        }
+    }
+    focus = gliding ? (SDL_FRect){ at[cursor].x, at[cursor].y, at[cursor].cw, at[cursor].ch }
+                    : (SDL_FRect){ fx, fy - top * pitch, (float)g.cw, (float)g.ch };
+
+    /* The window of rows: a gap round the rows in sight, from the foot of
+     * the row above to the top of the row below, so the focus's marks have
+     * room (Border's ring, Bar's bar under the name) and a row scrolling in
+     * or out is cut there and the next is not seen. Border's card lift gets
+     * another gap round it for its blur. A grid with every row in sight is
+     * not cut. */
+    clip = (SDL_Rect){ 0, g.y - g.gap, ZYPEROS_SCREEN_W, (g.win - 1) * pitch + g.ch + 2 * g.gap };
+    if (g.rows > g.win)
+        SDL_RenderSetClipRect(r, &(SDL_Rect){ clip.x, clip.y - g.gap, clip.w, clip.h + 2 * g.gap });
+    hg_focus(h, r, &focus, (float)g.still, g.box, &marks, false, g.rows > g.win ? &clip : NULL);
+    /* A system that left fades out where it was */
+    if (gliding)
+        for (int j = 0; j < h->grid_from_n; j++) {
+            const home_tile *f = &h->grid_from[j];
+            bool kept = false;
+
+            for (int i = 0; i < n && !kept; i++) kept = h->grid_map[i] == j;
+            if (kept) continue;
+            hg_tile(h, r, &(home_item){ f->key, f->name, f->accent }, f->name, hg_name_font(f->font),
+                    f->font == GH_NAME_META ? 40 : f->font == GH_NAME_SUPPORT ? 36 : 28,
+                    f->x, f->y, f->s, f->cw, false, 0, &marks, 1 - fade, phase, wait);
+        }
+    for (int i = 0; i < n; i++) {
         const char *name = home_label(items[i].key, items[i].name);
-        char fit[64];
+        float alpha = gliding && h->grid_map[i] < 0 ? k : 1;
 
-        if (y > clip.y + clip.h || y + HG_CELL_H < clip.y) continue;
-        sprite(h, r, &items[i], (SDL_FRect){ roundf(cx - HG_SPRITE / 2.0f), y, HG_SPRITE, HG_SPRITE },
-               focus, phase, wait, 1);
-        ui_fit_text(label, name, fit, sizeof fit, g.cw + g.gap - 8);
-        ui_text(r, label, fit, (int)lroundf(cx),
-                ui_cap_y(label, (int)lroundf(y) + HG_SPRITE + HG_LABEL_GAP + HG_LABEL_BOX / 2), 0,
-                focus ? UI_TEXT : UI_TEXT_SOFT);
+        if (at[i].y >= clip.y + clip.h || at[i].y + at[i].ch <= clip.y) continue;
+        hg_tile(h, r, &items[i], name, label, g.box, at[i].x, at[i].y, at[i].s, at[i].cw,
+                i == cursor, gliding ? (i == cursor ? 1.0f : 0.0f) : ds_focus_weight(&h->grid_w, i, cursor, now - h->grid_moved),
+                &marks, alpha, phase, wait);
     }
-    /* The focus's underline, gliding from cell to cell: a grid step under
-     * its name's box, as Spotlight's is under its sprite */
-    {
-        ds_rgb ink = theme()->accent_ink;
-        float ux = g.x + fx * (g.cw + g.gap) + g.cw / 2.0f;
-        float uy = g.y + (fy - top) * pitch + HG_SPRITE + HG_LABEL_GAP + HG_LABEL_BOX + 4;
-
-        SDL_SetRenderDrawColor(r, ink.r, ink.g, ink.b, 255);
-        SDL_RenderFillRect(r, &(SDL_Rect){ (int)lroundf(ux) - 20, (int)lroundf(uy), 40, DS_BAR });
-    }
+    hg_focus(h, r, &focus, (float)g.still, g.box, &marks, true, NULL);
     SDL_RenderSetClipRect(r, NULL);
+    /* What it drew, for a glide when the systems change */
+    for (int i = 0; i < n; i++) {
+        home_tile *w = &h->grid_was[i];
+
+        snprintf(w->key, sizeof w->key, "%s", items[i].key ? items[i].key : "");
+        snprintf(w->name, sizeof w->name, "%s", home_label(items[i].key, items[i].name));
+        w->accent = items[i].accent;
+        w->x = at[i].x; w->y = at[i].y; w->s = at[i].s; w->cw = at[i].cw; w->ch = at[i].ch;
+        w->font = g.name;
+    }
+    h->grid_was_n = n;
+    h->grid_live = true;
     /* The rail, when the systems are more than the window */
-    if (rows > HOME_GRID_ROWS) {
-        int x = ZYPEROS_SCREEN_W - DS_RAIL_INSET - DS_BAR, hh = HOME_GRID_ROWS * HG_CELL_H + (HOME_GRID_ROWS - 1) * g.gap;
-        int mh = hh * HOME_GRID_ROWS / rows, my;
+    if (g.rows > g.win) {
+        int x = ZYPEROS_SCREEN_W - DS_RAIL_INSET - DS_BAR, hh = g.win * g.ch + (g.win - 1) * g.gap;
+        int mh = hh * g.win / g.rows, my;
 
         if (mh < DS_RAIL_MIN) mh = DS_RAIL_MIN;
-        my = g.y + (int)lroundf((hh - mh) * top / (rows - HOME_GRID_ROWS));
+        my = g.y + (int)lroundf((hh - mh) * top / (g.rows - g.win));
         ui_round_rect(r, &(SDL_Rect){ x, g.y, DS_BAR, hh }, DS_BAR / 2, ui_col(theme()->track, 255));
         ui_round_rect(r, &(SDL_Rect){ x, my, DS_BAR, mh }, DS_BAR / 2, ui_col(theme()->accent_ink, 255));
     }
@@ -817,19 +1192,49 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
         page_hint(r, "A", open, ZYPEROS_SCREEN_W - HG_MARGIN - aw, ny, true, false);
         ui_text(r, meta, count_label ? count_label : "", HG_MARGIN, ui_cap_y(meta, fy2), -1, UI_TEXT_DIM);
     }
-    /* The foot, as Spotlight's: MENU at the left, the place in the middle,
-     * SELECT at the right, on the one foot (DS_FOOT_Y, the shelf
-     * grid's) */
+    /* The foot, as Spotlight's: MENU and START at the left, the place in
+     * the middle, SELECT at the right, on the one foot (DS_FOOT_Y, the
+     * shelf grid's) */
     {
         char index[32];
-        int sw = page_hint_width("SELECT", "MP4", false);
+        int sw = page_hint_width("SELECT", "MP4", false), end = home_foot_keys(r, HOME_GRID, HG_MARGIN);
+        TTF_Font *chrome = page_font(PAGE_CHROME);
 
         snprintf(index, sizeof index, "%d / %d", cursor + 1, count);
-        ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), DS_FOOT_Y), 0, UI_TEXT_DIM);
-        page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, DS_FOOT_Y, false, false);
+        ui_text_tabular(r, chrome, index, home_foot_mid(end, ui_text_tabular_width(chrome, index)),
+                        ui_cap_y(chrome, DS_FOOT_Y), 0, UI_TEXT_DIM);
         page_hint(r, "SELECT", "MP4", ZYPEROS_SCREEN_W - HG_MARGIN - sw, DS_FOOT_Y, false, false);
     }
     return *wait;
+}
+
+void home_focus_preview(home *h, SDL_Renderer *r, const home_item *items, SDL_Rect box, int focus)
+{
+    const ds_focus_marks m = ds_focus_marks_for(DS_FOCUS_STILL, focus);
+    ds_focus_marks sm = m;
+    const float s = floorf(box.w * .24f), gap = floorf(box.w * .07f);
+    const float x0 = box.x + (box.w - 3 * s - 2 * gap) / 2, y = box.y + (box.h - s) / 2 - (m.bar ? 6 : 0);
+    uint32_t wait = UINT32_MAX;
+
+    sm.ring = sm.bar = false;
+    for (int i = 0; i < 3; i++) {
+        SDL_FRect cell = { roundf(x0 + i * (s + gap)), roundf(y), s, s }, st;
+        float w = i == 1 ? 1.0f : 0.0f;
+
+        if (i == 1 && m.ring) {
+            SDL_FRect card = ds_focus_tile((SDL_FRect){ cell.x - HG_TILE_PAD, cell.y - HG_TILE_PAD,
+                                                        cell.w + 2 * HG_TILE_PAD, cell.h + 2 * HG_TILE_PAD }, &m, 1);
+            SDL_Rect q = { (int)lroundf(card.x), (int)lroundf(card.y), (int)lroundf(card.w), (int)lroundf(card.h) };
+
+            ui_lift_focus(r, &q, false, 1);
+            ui_round_rect(r, &q, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+            ds_focus_ring(r, card, DS_RADIUS_CARD, 255);
+        }
+        st = ds_focus_tile(cell, &sm, w);
+        sprite_shade(h, r, &items[i], st, m.lift, w);
+        sprite(h, r, &items[i], st, false, 0, &wait, fg_dim_still(w));
+        if (i == 1 && m.bar) ds_focus_bar(r, st, 255);
+    }
 }
 
 uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
@@ -843,6 +1248,7 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     uint32_t wait=UINT32_MAX, phase=animate?now-h->animation:0;
     
     bool gallery=layout==HOME_GALLERY;
+    if(layout!=HOME_GRID) h->grid_live=false;   /* no glide from a grid not drawn last */
     if(layout==HOME_GRID) {
         home_grid_draw(h,r,items,count,cursor,count_label,open_label,now,phase,&wait);
         if(!animate) wait=UINT32_MAX;
@@ -850,9 +1256,9 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
         return wait;
     }
     if(!gallery) sprite(h,r,&items[cursor],FOCUS,true,phase,&wait,1);
+    const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_STILL);
     row_draw row[ROW_SLOTS]; int nr=row_draws(h,gallery,count,cursor,now,row);
-    for(int k=0;k<nr;k++)
-        sprite(h,r,&items[row[k].item],row[k].dst,row[k].active,phase,&wait,row[k].alpha);
+    row_paint(h,r,items,row,nr,gallery,marks,phase,&wait,NULL);
     const char *label=home_label(items[cursor].key,items[cursor].name);
     if(gallery && items[cursor].name && items[cursor].name[0] &&
        ui_text_width(ui_font(UI_F_TITLE),items[cursor].name)<=880) label=items[cursor].name;
@@ -866,12 +1272,12 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     ui_text(r,ui_font(UI_F_TITLE),fitted,title_x,ui_cap_y(ui_font(UI_F_TITLE),title_y),gallery?0:-1,UI_TEXT);
     ui_text(r,page_font(PAGE_META),count_label?count_label:"",title_x,
             ui_cap_y(page_font(PAGE_META),title_y+HOME_LINE),gallery?0:-1,UI_TEXT_DIM);
-    ds_rgb accent=theme()->accent_ink;
-    SDL_SetRenderDrawColor(r,accent.r,accent.g,accent.b,255);
-    SDL_Rect underline={HOME_MID_X-20,under_y,40,DS_BAR}; SDL_RenderFillRect(r,&underline);
+    /* Bar's bar where the underline always was: a pill, on whole pixels */
+    if(marks.bar) ds_focus_bar(r,(SDL_FRect){HOME_MID_X-64,(float)under_y-8,128,0},255);
     char index[32]; snprintf(index,sizeof index,"%d / %d",cursor+1,count);
-    ui_text(r,page_font(PAGE_CHROME),index,HOME_MID_X,ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
-    page_hint(r,"MENU",T(S_HOME_SETTINGS),HOME_MARGIN,DS_FOOT_Y,false,false);
+    int keys_end=home_foot_keys(r,layout,HOME_MARGIN);
+    ui_text(r,page_font(PAGE_CHROME),index,home_foot_mid(keys_end,ui_text_width(page_font(PAGE_CHROME),index)),
+            ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
     if(!gallery) page_hint(r,"SELECT","MP4",HOME_SELECT_X,DS_FOOT_Y,false,false);
     /* The gallery's A hint starts at 768 and keeps there while it ends by 1000;
      * a longer label (the pseudo-locale's) slides left to end there instead of

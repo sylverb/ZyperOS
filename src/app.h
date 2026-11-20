@@ -10,6 +10,7 @@
 #include "games.h"
 #include "gamelist.h"
 #include "gamegrid.h"
+#include "videoview.h"
 #include "home.h"
 #include "i18n.h"
 #include "idle.h"
@@ -25,6 +26,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 typedef enum { SCREEN_SYSTEMS, SCREEN_GAMES } screen_id;
@@ -85,6 +88,11 @@ typedef struct {
 	 * (11.47); never both */
 	bool listed;
 	bool grid;
+	/* ...or the Video view (DESIGN.md 11.57, src/videoview.h): the focused
+	 * game's snap on the whole screen, its covers in a band at the foot;
+	 * never with either of those, and its band's motion */
+	bool video;
+	vv_motion vm;
 	/* The grid's place and motion, what it knows of each cover beyond its
 	 * texture (src/gamegrid.h), and the shape kept for this shelf in the
 	 * device's database (grid_shape_load), read when the grid opens it, and
@@ -126,9 +134,15 @@ static inline const game_list *sys_games_c(const sysview *v)
  * Fill and Native 1:1 before it), and `note` is the line under the Display
  * row that says it in a sentence. The names, which the card keeps
  * (display.<TAG>), are unchanged. */
+/* Square Pixels (1.1.0, #346) sits between Original Shape and Sharp Pixels
+ * because it is the step between them: Original Shape's full height, Sharp
+ * Pixels' square pixels, without Sharp Pixels' whole sizes. Read down, the
+ * list goes from the game's shape to its pixels. A card's names are kept by
+ * name, never by place, so the row in the middle moves nobody's choice. */
 static const struct { const char *name, *label; str_id text, note; } DMODES[] = {
 	{ "stretch",          "Full Screen",          S_GAMEMENU_DMODE_STRETCH,      S_GAMEMENU_DMODE_STRETCH_NOTE      },
 	{ "aspect",           "Original Shape",       S_GAMEMENU_DMODE_ASPECT,       S_GAMEMENU_DMODE_ASPECT_NOTE       },
+	{ "square",           "Square Pixels",        S_GAMEMENU_DMODE_SQUARE,       S_GAMEMENU_DMODE_SQUARE_NOTE       },
 	{ "integer",          "Sharp Pixels",         S_GAMEMENU_DMODE_INTEGER,      S_GAMEMENU_DMODE_INTEGER_NOTE      },
 	{ "integer-vertical", "Sharp Pixels, Tall",   S_GAMEMENU_DMODE_INTEGER_TALL, S_GAMEMENU_DMODE_INTEGER_TALL_NOTE },
 	{ "overscale",        "Sharp Pixels, Zoomed", S_GAMEMENU_DMODE_OVERSCALE,    S_GAMEMENU_DMODE_OVERSCALE_NOTE    },
@@ -158,16 +172,36 @@ static inline const char *dmode_note(int k)
  * a row here, a string, and Diatom's filter of that name.
  *
  * `gpu`: an old screen only a GPU draws (Diatom's port/pixel2.c), offered
- * where plat_gpu_shaders says so and stepped over elsewhere (shader_step). */
-static const struct { const char *name; str_id text; bool gpu; } SHADERS[] = {
-	{ "nearest",     S_MENU_OFF_TITLE,               false },
-	{ "shimmerless", S_GAMEMENU_SHADER_SHIMMERLESS,  false },
-	{ "crt",         S_GAMEMENU_SHADER_CRT,          true  },
-	{ "crt-curved",  S_GAMEMENU_SHADER_CRT_CURVED,   true  },
-	{ "scanlines",   S_GAMEMENU_SHADER_SCANLINES,    true  },
-	{ "lcd",         S_GAMEMENU_SHADER_LCD,          true  },
+ * where plat_gpu_shaders says so and stepped over elsewhere (shader_step).
+ * `only`: the systems' tags it is for, a space before and after each, or
+ * NULL for every system (shader_for). LCD No Backlight is the screen the
+ * Game Boy's three had, so only their shelves and games offer it, never
+ * ZyperOS's own screens (screen_shader_offered), and a system that is not
+ * one of them and names it (an edited card) gets its default instead
+ * (display_load). */
+static const struct { const char *name; str_id text; bool gpu; const char *only; } SHADERS[] = {
+	{ "nearest",     S_MENU_OFF_TITLE,               false, NULL },
+	{ "shimmerless", S_GAMEMENU_SHADER_SHIMMERLESS,  false, NULL },
+	{ "crt",         S_GAMEMENU_SHADER_CRT,          true,  NULL },
+	{ "crt-curved",  S_GAMEMENU_SHADER_CRT_CURVED,   true,  NULL },
+	{ "scanlines",   S_GAMEMENU_SHADER_SCANLINES,    true,  NULL },
+	{ "lcd",         S_GAMEMENU_SHADER_LCD,          true,  NULL },
+	{ "lcd-unlit",   S_GAMEMENU_SHADER_LCD_UNLIT,    true,  " GB GBC GBA " },
 };
 #define SHADER_COUNT ((int)(sizeof SHADERS / sizeof SHADERS[0]))
+
+/* Whether shader k is one the system tagged `tag` may have, on any device
+ * (`only`); NULL, ZyperOS's own screens, has only the ones for every system */
+static inline bool shader_for(int k, const char *tag)
+{
+	char key[16];
+
+	if (k < 0 || k >= SHADER_COUNT) return false;
+	if (!SHADERS[k].only) return true;
+	if (!tag || !*tag || strlen(tag) + 3 > sizeof key) return false;
+	snprintf(key, sizeof key, " %s ", tag);
+	return strstr(SHADERS[k].only, key) != NULL;
+}
 
 /* Shader k's label in the language that is on; past the ends, Off's */
 static inline const char *shader_label(int k)
@@ -191,7 +225,17 @@ typedef struct {
 
 	home home;
 	home_layout home_layout;
+	/* When the focused system's shelf is asked for ahead of A: once the
+	 * home's cursor has rested on it (src/shelf_keys.c); 0 for none */
+	Uint32 home_prime_at;
 	sysview view[CFG_MAX_SYSTEMS];
+	/* The systems MENU > Display > Home Systems turned off (src/homesys.h),
+	 * kept after the home's shelves, at sys.systems[] and view[] from
+	 * sys.count on (sys_kept): no shelf of the home, nor Search's or Random
+	 * Game's, but their games stay on Favorites and Recents and start from
+	 * there, as an owner of those (shelf_owner). Davistoa's ask, my OK on
+	 * 2026-11-19: "hide every system and live in Favorites". */
+	int parked;
 
 	screen_id screen;
 	int sys_cursor;
@@ -207,6 +251,15 @@ typedef struct {
 	idle_clock idle;            /* Auto Off's clock - src/idle.h */
 	SDL_Renderer *r;
 } app;
+
+/* How many systems have their games in memory: the home's shelves and, after
+ * them, the ones turned off the home (app.parked). A loop over a game's own
+ * system by its index or tag goes this far; a loop over the home stops at
+ * sys.count. */
+static inline int sys_kept(const app *a)
+{
+	return a->sys.count + a->parked;
+}
 
 /* The earliest moment something already on screen will look different with
  * nobody touching anything - a card mid-move, the tint still easing toward a
@@ -332,6 +385,21 @@ void core_load(app *a);
 void sort_load(app *a);
 /* MENU > View, each shelf's: its covers or a list (DESIGN.md 11.39) */
 void view_load(app *a);
+/* A shelf's View, in the order Right and START step it (view_turn): Covers,
+ * Grid, List, Video (DESIGN.md 11.39, 11.47, 11.57) */
+enum { VIEW_COVERS, VIEW_GRID, VIEW_LIST, VIEW_VIDEO, VIEW_COUNT };
+static inline int view_index(const sysview *v)
+{
+	return v->listed ? VIEW_LIST : v->grid ? VIEW_GRID : v->video ? VIEW_VIDEO : VIEW_COVERS;
+}
+bool view_video(const char *tag);
+/* Recents' Card Picture (DESIGN.md 11.48): false its covers, as it ships;
+ * true the screen each game was left on, its cover small in a corner
+ * (src/screencard.h). recents_picture_turn turns it over, saves it, and has
+ * Recents' cards asked for again. */
+#define RECENTS_PICTURE_KEY "recents.picture"
+extern bool g_recents_screen;
+void recents_picture_turn(app *a);
 bool view_listed(const char *tag);
 bool view_grid(const char *tag);
 void sort_shelf(app *a, int sys);
@@ -346,8 +414,25 @@ bool file_nonempty(const char *p);
  * a shelf is Muse's, and the in-game menu's Quit (a disc system's BIOS is
  * src/biosfile.h's) */
 bool core_present(const char *core);
+/* What config/systems.cfg's brings line asks of the player for `core` on
+ * `s` is on the card (`missing` gets the first path that is not), and a
+ * core that can run: on the card and with those files (src/main.c) */
+bool core_brought(const system_cfg *s, const char *core, char *missing, size_t n);
+bool core_ready(const system_cfg *s, const char *core);
+/* A PICO-8 zip the player copied into Bios/PICO-8, taken (src/pico8.h,
+ * p8_take_zip), before the cores are chosen; what to say of it once the home
+ * is up in g_p8_said, "" for nothing */
+extern char g_p8_said[256];
+void p8_take_now(void);
+/* The cores the shelf's Core row offers: those that can run, and the one
+ * chosen */
+int  core_offered_count(const system_cfg *s);
+bool core_offered_at(const system_cfg *s, int i, char *out, int cap);
 bool is_muse(const system_cfg *s);
 void gm_quit(void);
+/* A pop-up over the running game, as the quick slot's (main.c's popup_now):
+ * `head` and under it `body`, at the top for about a second and a half */
+void popup_say(const char *head, const char *body);
 /* A Ports shelf's core, and a standalone emulator's: "run:<script>"
  * (main.c's launch_port hands both to launch.sh) */
 #define PORT_CORE    "port"
@@ -387,6 +472,7 @@ typedef struct {
 	int          calc;         /* the calculating dots, this many filled, -1 for none */
 	bool         full;         /* on the cable and charged */
 	int          icon;         /* BATT_BARS.., -1 for the saved setting */
+	int          year, mon, mday;  /* date=YYYY-MM-DD, the day the shot shows; 0 for today */
 	status_marks m;
 } shot_status;
 extern shot_status shot_st;
@@ -444,6 +530,7 @@ void book_cycle_speed(void);
 void muse_play(const char *const *paths, int n, int start, double at,
                bool book, double speed, const char *artist, const char *album);
 void muse_cycle_mode(void);
+void video_cycle_repeat(void);   /* Y on a video: MP4's Repeat, Off, One, All */
 typedef struct { const char *key; int glyph; } muse_mode_name;
 extern const muse_mode_name MUSE_MODES[MUQ_MODES];
 void muse_power(app *a);
@@ -451,6 +538,9 @@ typedef struct {
 	int          album;
 	bool         done;
 	SDL_Texture *tex;
+	/* The cover's main color (src/covercolor.h), CFG_NO_COLOR for an album
+	 * with none, whose card is drawn in the accent */
+	unsigned     rgb;
 } np_cover_state;
 extern np_cover_state g_np;
 void np_cover(app *a, int al);

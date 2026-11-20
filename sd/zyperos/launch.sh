@@ -34,12 +34,17 @@ SDCARD=/mnt/SDCARD
 #   HAS_OFF_PENDING  the marker a charger that comes during a power-off is
 #                    started for (plastron's lastoff, the power-off's last step)
 #
+# EQ_SLAVE, the dmix a port mixes into, for the equalizer over a port's
+# sound (eq-port.sh): unset, a port plays as it always did.
+#
 # BACKLIGHT, the system's tool that lights the panel at each start of the
 # launcher, where the launcher does not light it itself; WIFI_DOWN, what the
 # log says when Wi-Fi does not come up; and these, called where they are
 # named below, each nothing where device.sh does not say otherwise.
 device_card() { :; }       # before the card's folders are made
 device_log() { :; }        # once this boot's log is open
+device_boot_mount() { return 1; }  # the boot partition readable at BOOT_DIR
+device_boot_unmount() { :; }       # and let go of again
 device_resident() { :; }   # just before Diatom starts
 device_radios() { :; }     # in the background, once Diatom has started
 BACKLIGHT=
@@ -81,6 +86,12 @@ export ZYPEROS_DIATOM_SOCKET=/tmp/diatom.sock
 # launcher started (measured 2026-10-01). The radios go in the background.
 
 device_card
+
+# A card's first start: its device's folder in .userdata is made below, by
+# this start (the payload has none). What ZyperOS Installer left in the boot
+# partition for it is read then, and never again (pico8_from_boot)
+FIRST_START=
+[ -d "$USERDATA_PATH" ] || FIRST_START=1
 
 # Only on a fresh card are any of these missing
 for d in "$BIOS_PATH" "$ROMS_PATH" "$SAVES_PATH" "$USERDATA_PATH" "$LOGS_PATH" \
@@ -182,6 +193,28 @@ LOG=$LOGS_PATH/zyperos.log
 	[ -f "$LOG.prev" ] && mv -f "$LOG.prev" "$LOG.1"
 ) &
 device_log
+
+# Your PICO-8, from a fresh install: ZyperOS Installer puts the player's own
+# pico8_64 and pico8.dat (and its license and version.txt) in the image's boot
+# partition, pico8/, as a card that never started has no games partition yet
+# (installer/src-tauri/src/pico8.rs). Its first start copies them into
+# Bios/PICO-8, where the PICO-8 shelf looks (src/pico8.h). Only on that
+# start, and only with no PICO-8 there already: no other boot mounts anything.
+# The files stay in the boot partition; ZyperOS never ships PICO-8, and these
+# are this card's player's own.
+if [ -n "$FIRST_START" ] && [ ! -f "$BIOS_PATH/PICO-8/pico8_64" ] && device_boot_mount; then
+	if [ -f "$BOOT_DIR/pico8/pico8_64" ] && [ -f "$BOOT_DIR/pico8/pico8.dat" ]; then
+		mkdir -p "$BIOS_PATH/PICO-8" &&
+			cp "$BOOT_DIR/pico8/"* "$BIOS_PATH/PICO-8/" &&
+			chmod +x "$BIOS_PATH/PICO-8/pico8_64" 2> /dev/null
+		if [ -f "$BIOS_PATH/PICO-8/pico8_64" ]; then
+			echo "pico8: your PICO-8 copied from the boot partition into Bios/PICO-8" >> "$LOG"
+		else
+			echo "pico8: your PICO-8 is in the boot partition, and the copy into Bios/PICO-8 failed" >> "$LOG"
+		fi
+	fi
+	device_boot_unmount
+fi
 
 # The settings this script needs before ZyperOS runs, which ZyperOS writes out
 # for it. The defaults are for a fresh card's first boot, before ZyperOS has
@@ -427,7 +460,7 @@ run_port() {
 	# It steps ZyperOS's own levels, saved in its database, and shows the bar
 	# over the port, in the theme the Appearance setting there makes; the
 	# library database holds the time zone Auto's hour is read in
-	local keys= still= turn= m
+	local keys= still= turn= m sout= slater=
 	trap port_power USR1
 	trap port_quit USR2
 	# The Pixel 2's panel is a 480x640 portrait one mounted turned (below). A
@@ -440,16 +473,24 @@ run_port() {
 		[ "$m" = 480x640 ] && turn=270
 	fi
 	# The loading screen the launcher left (launch_port), held on the panel
-	# until the port draws, so a minute of loading is not a black panel; and
-	# the same screen after a minute, saying how to leave (SPLASH_LATER, which
-	# a splash older than 1.0.6 ignores)
+	# until the port draws, so a minute of loading is not a black panel; the
+	# same screen after a minute, saying how to leave (SPLASH_LATER, which a
+	# splash older than 1.0.6 ignores); and the port's latest line at its
+	# foot, so an install that runs for hours shows that it runs (SPLASH_OUT,
+	# the letters and the box the launcher wrote, which a splash older than
+	# 1.0.6 ignores too). splash follows this log from its end, the port's
+	# output being in it, and passes over what goes in while the in-game menu
+	# is up over the screen (SPLASH_OUT_PAUSE, there while it is: portkeys's).
+	# One left by a portkeys that ended with its menu up would hold the line
+	# back for the whole start, so none is kept from before.
 	if [ "$HAS_PORT_STILL" = 1 ] && [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] &&
 	   [ -x /usr/bin/splash ]; then
-		if [ -f /tmp/zyperos_loading_later.raw ]; then
-			SPLASH_LATER=/tmp/zyperos_loading_later.raw /usr/bin/splash --still /tmp/zyperos_loading.raw &
-		else
+		rm -f /tmp/zyperos_menu_up
+		[ -f /tmp/zyperos_loading_later.raw ] && slater=/tmp/zyperos_loading_later.raw
+		[ -f /tmp/zyperos_loading_out ] && sout=/tmp/zyperos_loading_out
+		SPLASH_LATER=$slater SPLASH_OUT=$sout SPLASH_OUT_LOG=${sout:+$LOG} \
+		SPLASH_OUT_PAUSE=${sout:+/tmp/zyperos_menu_up} \
 			/usr/bin/splash --still /tmp/zyperos_loading.raw &
-		fi
 		still=$!
 	fi
 	# A program of its own (OpenBOR, the standalone Flycast, a port,
@@ -476,9 +517,34 @@ run_port() {
 	# its desktop GL one, which SDL prefers once it has OpenGL, draws nothing
 	# but the clear color on the Pixel 2's Panfrost, so a port that draws with
 	# SDL_Renderer was black.
+	# The equalizer over the port's sound (DESIGN.md 11.60): while the
+	# launcher's bands are not flat and the system has ZyperOS's plugin
+	# (plastron's zyperos-eq), the port gets an ALSA config of its own whose
+	# default runs through it into the same mix (eq-port.sh); flat, no
+	# bands file, no plugin (or an empty one), or no EQ_SLAVE, and the port
+	# starts as it always did, the plugin nowhere in its chain. Two files:
+	# its PCMs, and the one in its ALSA_CONFIG_PATH that loads them after
+	# /etc/asound.conf, whose default would replace them (eq-port.sh)
+	local eqcfg=
+	if [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
+	   sh "$ZYPEROS_DIR/eq-port.sh" --on; then
+		eqcfg=/tmp/zyperos_port_eq.hook
+		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > /tmp/zyperos_port_eq.conf &&
+		   sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$eqcfg"; then
+			echo "port: the equalizer over its sound (into $EQ_SLAVE)" >> "$LOG"
+		else
+			eqcfg=
+		fi
+	fi
+	# And the system's Display row ("integer" for Sharp Pixels, its
+	# display.<TAG> name), fourth: a "run:" script that draws to it reads
+	# ZYPEROS_DISPLAY (your PICO-8's, sd/pixel2/PICO-8.sh)
 	( cd "${1%/*}" &&
 	  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
-	  SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
+	  if [ -n "$eqcfg" ]; then
+		export ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg
+	  fi &&
+	  ZYPEROS_DISPLAY=$4 SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
 	PORT_PID=$!
 	# A USR1 (POWER) ends the wait early; the port has ended once its
 	# process is gone
@@ -513,7 +579,7 @@ run_port() {
 	[ -n "$3" ] && killall -TERM zyperos.elf 2> /dev/null
 	trap - USR1 USR2
 	[ -n "$still" ] && kill "$still" 2> /dev/null
-	rm -f /tmp/zyperos_loading.raw
+	rm -f /tmp/zyperos_loading.raw /tmp/zyperos_loading_out /tmp/zyperos_menu_up
 	# A helper left behind would keep the buttons typing keys under the
 	# shelf: gptokeyb
 	killall -9 gptokeyb gptokeyb2 2> /dev/null
@@ -614,20 +680,26 @@ while : ; do
 		continue
 	fi
 	if [ "$HAS_PORTS" = 1 ] && [ -f "$PORT_REQUEST" ]; then
-		# The script, the game and the menu's tag, a tab between each
-		# (launch_port). Split by hand: read would run the two tabs around a
-		# port's empty game together, as it does any whitespace in IFS
+		# The script, the game, the menu's tag and the system's Display row,
+		# a tab between each (launch_port). Split by hand: read would run the
+		# two tabs around a port's empty game together, as it does any
+		# whitespace in IFS
 		TAB=$(printf '\t')
 		IFS= read -r REQ < "$PORT_REQUEST"
 		rm -f "$PORT_REQUEST"
-		PORT=${REQ%%"$TAB"*}; GAME=; TAG=
+		PORT=${REQ%%"$TAB"*}; GAME=; TAG=; DISP=
 		case $REQ in *"$TAB"*)
 			REQ=${REQ#*"$TAB"}
 			GAME=${REQ%%"$TAB"*}
-			case $REQ in *"$TAB"*) TAG=${REQ#*"$TAB"} ;; esac
+			case $REQ in *"$TAB"*)
+				REQ=${REQ#*"$TAB"}
+				TAG=${REQ%%"$TAB"*}
+				case $REQ in *"$TAB"*) DISP=${REQ#*"$TAB"} ;; esac
+				;;
+			esac
 			;;
 		esac
-		run_port "$PORT" "$GAME" "$TAG"
+		run_port "$PORT" "$GAME" "$TAG" "$DISP"
 		# POWER, or the battery run flat, over the port (port_power)
 		[ -f /tmp/zyperos_poweroff ] && break
 		cd "$ZYPEROS_DIR"

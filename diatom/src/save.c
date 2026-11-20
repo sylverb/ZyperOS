@@ -45,6 +45,13 @@
  * trailer - is statefile.c's: here are the core and the card. */
 
 static char        g_sram_path[1024];
+/* A cartridge's clock, apart from its battery RAM where the core keeps it
+ * apart (RETRO_MEMORY_RTC: Gambatte's MBC3, Snes9x's S-RTC), as RetroArch
+ * keeps it: <rom>.rtc beside the .srm, read at the start and written on the
+ * way out. Its bytes are the core's own (a base time and the registers), so
+ * nothing changes while the game runs; none when the core keeps none. */
+static char        g_rtc_path[1024];
+static diatom_core *g_rtc_core;
 static uint8_t    *g_sram;        /* the core's buffer; the core owns it */
 static uint8_t    *g_shadow;      /* what we last handed to the writer */
 static uint8_t    *g_staging;     /* the writer's private copy */
@@ -149,6 +156,41 @@ static void stem(const char *path, char *out, size_t n)
 	snprintf(out, n, "%.*s", dot ? (int)(dot - base) : (int)strlen(base), base);
 }
 
+/* The cartridge's clock read in, when the core keeps one apart and the
+ * card has it; a size that differs is the core's layout, and is not read */
+static void rtc_load(diatom_core *c)
+{
+	size_t n = c->get_memory_size(RETRO_MEMORY_RTC);
+	uint8_t *d = c->get_memory_data(RETRO_MEMORY_RTC);
+	FILE *f;
+	long len;
+
+	g_rtc_core = n && d ? c : NULL;
+	if (!g_rtc_core || !(f = fopen(g_rtc_path, "rb"))) return;
+	fseek(f, 0, SEEK_END);
+	len = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	if (len == (long)n && fread(d, 1, n, f) == n)
+		logf_(DIATOM_LOG_INFO, "save: the cartridge's clock from %s", g_rtc_path);
+	else
+		logf_(DIATOM_LOG_WARN, "save: %s is %ld bytes, the core keeps %zu; not read",
+		      g_rtc_path, len, n);
+	fclose(f);
+}
+
+/* And written out, on every way out (diatom_save_flush) */
+static void rtc_flush(void)
+{
+	size_t n;
+	uint8_t *d;
+
+	if (!g_rtc_core) return;
+	n = g_rtc_core->get_memory_size(RETRO_MEMORY_RTC);
+	d = g_rtc_core->get_memory_data(RETRO_MEMORY_RTC);
+	if (n && d && write_atomic(g_rtc_path, d, n))
+		logf_(DIATOM_LOG_INFO, "save: the cartridge's clock to %s", g_rtc_path);
+}
+
 bool diatom_save_init(diatom_core *c, const char *save_dir, const char *rom_path)
 {
 	char  name[512];
@@ -165,6 +207,9 @@ bool diatom_save_init(diatom_core *c, const char *save_dir, const char *rom_path
 	stem(rom_path, name, sizeof name);
 	snprintf(g_sram_path, sizeof g_sram_path, "%s/%s.srm",
 	         save_dir ? save_dir : ".", name);
+	snprintf(g_rtc_path, sizeof g_rtc_path, "%s/%s.rtc",
+	         save_dir ? save_dir : ".", name);
+	rtc_load(c);
 
 	g_late_core = NULL;
 	if (!g_sram_size || !g_sram) {
@@ -281,6 +326,7 @@ void diatom_save_tick(void)
 
 void diatom_save_flush(void)
 {
+	rtc_flush();
 	if (!g_sram_size) return;
 	if (!memcmp(g_sram, g_shadow, g_sram_size)) return;
 
@@ -308,6 +354,7 @@ void diatom_save_shutdown(void)
 	g_shadow = g_staging = NULL;
 	g_sram_size = 0;
 	g_late_core = NULL;
+	g_rtc_core = NULL;
 }
 
 /* A state as its file holds it before it is packed - header, the core's
@@ -423,14 +470,18 @@ bool diatom_state_save(diatom_core *c, const char *path)
  * upstream the same day in 543a1975. That fix is in no downloadable core:
  * libretro builds from its own fork, unsynced since 2026-08-06. ZyperOS
  * therefore ships a bridge build - libretro's tree at the pinned commit plus
- * upstream's own one-hunk fix - and it reports `0.11.0` rather than
+ * upstream's own fixes - and it reports `0.11.0` rather than
  * `0.11-219-e31759b` only because there is no git in the build container.
  *
  * WHY IT IS SAFE, which is a claim about these two binaries and not a general
- * one. They are the same commit. The patch touches GBMBCSwitchSramBank, which
- * is mapper code; mGBA's state stores sramCurrentBank as an integer and
- * re-derives the pointer on load, so the fix makes loading MORE correct rather
- * than incompatible. Nothing about the serialized layout differs.
+ * one. They are the same commit, and no fix changes what a state holds.
+ * 543a1975 touches GBMBCSwitchSramBank, which is mapper code; mGBA's state
+ * stores sramCurrentBank as an integer and re-derives the pointer on load, so
+ * the fix makes loading MORE correct rather than incompatible. 685023e
+ * rescales a FIFO DMA's sourceOffset, which a state never holds:
+ * GBADMADeserialize derives it from the DMA's registers. 8485192 corrects the
+ * offset a custom RTC source's data is read from, on load only. Nothing about
+ * the serialized layout differs.
  *
  * WHAT IT BUYS. Without it, swapping between the two rejects every save state
  * - gracefully, the game just starts normally - so the day the official core
@@ -438,7 +489,7 @@ bool diatom_state_save(diatom_core *c, const char *path)
  * Battery saves are unaffected either way; .srm is raw cartridge RAM with no
  * version in it.
  *
- * WHEN TO REMOVE IT: as soon as github.com/libretro/mgba carries 543a1975 and
+ * WHEN TO REMOVE IT: as soon as github.com/libretro/mgba carries all three and
  * ZyperOS goes back to the fetched core. Then this table is not merely dead, it
  * is WRONG - it would let a genuinely foreign state through. Delete the table,
  * delete version_twins, and restore the plain strcmp above, at the same time
@@ -477,9 +528,23 @@ static bool version_twins(const char *have, const char *want)
  * loads a v3.0.5 state into each core it builds and runs it on. Without the
  * entry, the update lost every DS player's resume point (the .srm saves were
  * never at risk). Drop it when DSperate moves again: a new pair is a new
- * claim, to check the same way. */
+ * claim, to check the same way.
+ *
+ * Snes9x 2010 7db129b -> fe690dd and Genesis Plus GX b7e79b3 -> b9c2316: the
+ * builds ZyperOS 1.0.0 to 1.0.5 shipped and the buildbot's builds that
+ * replaced them (mk/fetch-vendor.sh, 2026-11-16). Neither change touches the
+ * save side. Snes9x 2010: snapshot.c's field lists and snapshot version are
+ * the same (it only waits for the new renderer before a freeze or a thaw),
+ * the structs they read (SPPU, InternalPPU, the CPU's, the APU's) did not
+ * change, and the S-DSP's new counter tables are constants. Genesis Plus GX:
+ * core/state.c and its STATE_VERSION are the same, no *_context_save changed,
+ * and the *_context_load changes only bound what a state may restore. A state
+ * each older core wrote was loaded into its newer one on the Pixel 2 and ran
+ * on (the core update's PR). Drop a row when that core moves again. */
 static const struct { const char *core, *from, *to; } STATE_READS[] = {
 	{ "DSperate", "v3.0.5", "v3.4.1" },
+	{ "Snes9x 2010", "1.52.4 7db129b", "1.52.4 fe690dd" },
+	{ "Genesis Plus GX", "v1.7.4 b7e79b3", "v1.7.4 b9c2316" },
 };
 
 static bool state_reads(const char *core, const char *have, const char *want)

@@ -62,8 +62,10 @@ const device_profile device_profile_pixel2 = {
 	.gpu_frames = true,
 	.coreopts = dev_coreopts_pixel2,
 	.speaker_mono = true,
+	.rumble = true,   /* PWM0, the joypad's force feedback (diatom/port/rumble_evdev.c) */
 	.player2 = true,
 	.usb_shared_port = true,
+	.screen_colors = true,
 	.wifi = DEV_WIFI_ADAPTER,
 	.thermal_zones = pixel2_zones,
 };

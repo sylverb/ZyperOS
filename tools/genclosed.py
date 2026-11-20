@@ -10,8 +10,7 @@ closed files, and the letters of the line its start says.
 The Brick's graphics and its Wi-Fi need closed files (Imagination's PowerVR
 driver, XRadio's firmware) that ZyperOS does not pass on: the ZyperOS
 Installer puts them on the card, in the boot partition's closed/ (the
-player's own copy, docs/superpowers/specs/2026-11-14-device-modular-design.md,
-section 7). A card without them all can't start the launcher, and the start
+player's own copy, docs/building.md, Devices). A card without them all can't start the launcher, and the start
 says so instead of leaving the screen black: plastron's init.d/brick finds
 one missing and its splash shows this, the two lines of res/strings'
 boot.closed_missing and boot.closed_missing_do, until POWER turns the Brick

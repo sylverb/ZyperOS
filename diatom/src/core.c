@@ -1,7 +1,8 @@
 /* Loading a core, and its lifecycle.
  *
- * Every core is dlopen'd once and NEVER unloaded, but for the one that runs a
- * single game per load (one_game_per_load below), which is closed after each
+ * Every core is dlopen'd once and NEVER unloaded, but for the ones that run a
+ * single game per load (one_game_per_load below), and every core whose file
+ * ZyperOS did not ship (core_is_shipped below), which are closed after each
  * game and opened again for the next, as RetroArch does with every core.
  * RTLD_LOCAL always. It is the only thing preventing symbol collision between
  * resident cores - measured, picodrive exports 1069 non-retro_* symbols
@@ -17,9 +18,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "cheevos.h"
+#include "corefail.h"
 #include "diatom.h"
 
 static bool bind_sym(void *h, void *slot, const char *name)
@@ -35,6 +38,24 @@ static bool bind_sym(void *h, void *slot, const char *name)
 
 #define BIND(field, name) \
 	if (!bind_sym(c->handle, &c->field, name)) return false
+
+/* Why the last core that would not load would not (corefail.h), for the
+ * launcher's ERROR line: the path it was asked by and the reason. Written
+ * with the registry's lock held, since a core is opened only under it, and
+ * read under it (diatom_core_failure). One is enough: a RUN asks about the
+ * core it just asked for, and a core that fails at the premap fails again,
+ * and is described again, when a RUN names it. */
+static corefail g_fail;
+static char     g_fail_path[1024];
+
+static void note_failure(const char *path, corefail_why why, const char *name, const char *version)
+{
+	memset(&g_fail, 0, sizeof g_fail);
+	g_fail.why = why;
+	if (name) snprintf(g_fail.name, sizeof g_fail.name, "%s", name);
+	if (version) snprintf(g_fail.version, sizeof g_fail.version, "%s", version);
+	snprintf(g_fail_path, sizeof g_fail_path, "%s", path ? path : "");
+}
 
 /* What a core costs to open, logged rather than remembered.
  *
@@ -61,22 +82,69 @@ static const char *dbg_base(const char *p)
 	return s ? s + 1 : p;
 }
 
-bool diatom_core_open(diatom_core *c, const char *path)
+/* Is this core's file one ZyperOS shipped?
+ *
+ * ZyperOS/.files is the answer: the card's index of every file the folder
+ * shipped, "<sha256> <size> <path>" a line (mk/payload.sh writes it, System
+ * Update writes it again for every update; docs/updates.md). A core is shipped
+ * when the index names it, by its path from the ZyperOS folder, at the size it
+ * has on the card. One that is not named is one a person added (freeintv, #304).
+ * One that is named at another size is a shipped core's file with another
+ * build put over it, and it is not what ZyperOS shipped either.
+ *
+ * The size, not the hash: a hash is the whole file read through, which on the
+ * devices is more than a core costs to map, and this is asked of every core at
+ * every boot. A build that comes to the very same size is taken for the
+ * shipped one, which is the behaviour before this existed, not a new risk.
+ *
+ * The folder is the core's folder's parent: a core at <ZyperOS>/cores/x.so is
+ * "cores/x.so" in <ZyperOS>/.files. Where there is no index to read (a card
+ * from before System Update, a desktop build), or one with no entry in it, there
+ * is nothing to say a core was not shipped, and it is taken to be: the cores
+ * stay open between games as they always did. */
+static bool core_is_shipped(const char *path)
 {
-	double t0;
+	const char *file = strrchr(path, '/'), *dir, *rel;
+	char idx[1100], line[1300];
+	unsigned long long size = 0;
+	bool listed = false, any = false;
+	struct stat st;
+	FILE *f;
 
-	memset(c, 0, sizeof *c);
-	c->path = path;
+	if (!file || file == path) return true;
+	for (dir = file - 1; dir > path && *dir != '/'; dir--)
+		;
+	if (*dir != '/') return true;
+	rel = dir + 1;
+	snprintf(idx, sizeof idx, "%.*s/.files", (int)(dir - path), path);
 
-	t0 = dbg_now_ms();
-	c->handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-	fprintf(stderr, "diatom: dlopen %-28s %6.1f ms\n",
-	        dbg_base(path), dbg_now_ms() - t0);
-	if (!c->handle) {
-		fprintf(stderr, "diatom: dlopen %s: %s\n", path, dlerror());
-		return false;
+	f = fopen(idx, "r");
+	if (!f) return true;
+	while (fgets(line, sizeof line, f)) {
+		char *sp1 = strchr(line, ' '), *sp2;
+
+		line[strcspn(line, "\n")] = '\0';
+		if (!sp1 || sp1 - line != 64) continue;
+		sp2 = strchr(sp1 + 1, ' ');
+		if (!sp2) continue;
+		any = true;
+		if (!strcmp(sp2 + 1, rel)) {
+			size = strtoull(sp1 + 1, NULL, 10);
+			listed = true;
+			break;
+		}
 	}
+	fclose(f);
 
+	/* An index with no line of the form in it is no index */
+	if (!any) return true;
+	if (!listed) return false;
+	if (stat(path, &st) != 0) return true;
+	return (unsigned long long)st.st_size == size;
+}
+
+static bool bind_core(diatom_core *c)
+{
 	BIND(set_environment,            "retro_set_environment");
 	BIND(set_video_refresh,          "retro_set_video_refresh");
 	BIND(set_audio_sample,           "retro_set_audio_sample");
@@ -97,6 +165,53 @@ bool diatom_core_open(diatom_core *c, const char *path)
 	BIND(unserialize,                "retro_unserialize");
 	BIND(get_memory_data,            "retro_get_memory_data");
 	BIND(get_memory_size,            "retro_get_memory_size");
+
+	/* Every core exports these, but nothing is lost when one does not: its
+	 * games run, and the cheats it is handed go nowhere (cheats.c) */
+	{
+		void *r = dlsym(c->handle, "retro_cheat_reset");
+		void *s = dlsym(c->handle, "retro_cheat_set");
+
+		if (r && s) {
+			memcpy(&c->cheat_reset, &r, sizeof r);
+			memcpy(&c->cheat_set, &s, sizeof s);
+		}
+	}
+
+	return true;
+}
+
+bool diatom_core_open(diatom_core *c, const char *path)
+{
+	double t0;
+
+	memset(c, 0, sizeof *c);
+	c->path = path;
+	c->shipped = core_is_shipped(path);
+
+	t0 = dbg_now_ms();
+	c->handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+	fprintf(stderr, "diatom: dlopen %-28s %6.1f ms\n",
+	        dbg_base(path), dbg_now_ms() - t0);
+	if (!c->handle) {
+		/* The whole text stays in the log; the launcher is sent what it
+		 * says in a few words (corefail.h) */
+		const char *err = dlerror();
+		corefail why;
+
+		fprintf(stderr, "diatom: dlopen %s: %s\n", path, err ? err : "(no reason given)");
+		corefail_classify(&why, path, err, corefail_machine());
+		note_failure(path, why.why, why.name, why.version);
+		fprintf(stderr, "diatom: core load failed: %s%s%s%s%s\n", corefail_word(why.why),
+		        why.name[0] ? " " : "", why.name, why.version[0] ? " " : "", why.version);
+		return false;
+	}
+
+	if (!bind_core(c)) {
+		/* It loads and is not a libretro core: no retro_run, or the like */
+		note_failure(path, COREFAIL_OTHER, NULL, NULL);
+		return false;
+	}
 
 	return true;
 }
@@ -173,6 +288,17 @@ static diatom_core *resident_locked(const char *path)
 	snprintf(g_resident_path[g_nresident], sizeof g_resident_path[0], "%s", path);
 	g_resident[g_nresident].path = g_resident_path[g_nresident];
 	return &g_resident[g_nresident++];
+}
+
+bool diatom_core_failure(const char *path, corefail *out)
+{
+	bool is;
+
+	pthread_mutex_lock(&g_resident_lock);
+	is = path && !strcmp(path, g_fail_path) && g_fail_path[0];
+	if (is) *out = g_fail;
+	pthread_mutex_unlock(&g_resident_lock);
+	return is;
 }
 
 diatom_core *diatom_core_resident(const char *path)
@@ -536,18 +662,39 @@ bool diatom_core_start(diatom_core *c, const char *rom_path)
  * rows, and a mod's episodes stayed in the next game's menu (1.0.5, Discord;
  * the first seen on a Mac with the pinned core and Freedoom).
  *
- * By name, because nothing a core declares says so. */
+ * blueMSX too. A second load_game in the same library, especially with
+ * bluemsx_additional_cart, SIGSEGVs in the SCC-plus mapper create path:
+ * the additional cart's chip object is left corrupt after unload. Cold
+ * retro_init after a process restart works. Unloading the .so between
+ * games does the same without leaving the shelf.
+ * A fix has been submitted in blueMSX core, but not yet merged:
+ * https://github.com/libretro/blueMSX-libretro/pull/213
+ * Once merged, this core will not need to unload between games.
+ *
+ * By name, because nothing a core declares says so.
+ *
+ * And every core ZyperOS did not ship, which is the case nobody can name
+ * ahead of time: a core a person adds to the cores folder is one nobody here
+ * has read. freeintv, added by hand to a Brick (#304), keeps its last game in
+ * statics too: the next game, with no resume point, started on the first
+ * game's screen under "LOAD CART OKAY / INTELLIVISION HALTED", and that
+ * screen was saved as the next game's resume point when the player left. The
+ * cores ZyperOS ships were each read and measured to stay open; a core nobody
+ * here has read starts clean, as under RetroArch, and costs a dlopen and a
+ * retro_init a game. See core_is_shipped. */
 static bool one_game_per_load(diatom_core *c)
 {
 	struct retro_system_info si;
 
+	if (!c->shipped) return true;
 	memset(&si, 0, sizeof si);
 	c->get_system_info(&si);
 	return si.library_name && (!strcmp(si.library_name, "ScummVM") ||
 	                           !strcmp(si.library_name, "FreeJ2ME-Plus") ||
 	                           !strcmp(si.library_name, "ParaLLEl N64") ||
 	                           !strcmp(si.library_name, "Mupen64Plus-Next") ||
-	                           !strcmp(si.library_name, "PrBoom"));
+	                           !strcmp(si.library_name, "PrBoom") ||
+	                           !strcmp(si.library_name, "blueMSX"));
 }
 
 /* Stops the GAME, not the core. The core stays initialized and stays mapped -

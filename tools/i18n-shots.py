@@ -22,7 +22,9 @@ Portuguese, and Chinese's taller face. The launcher, built for the host, says
 on stderr when a string from res/strings had to be cut, broken past its
 lines, slid in a marquee or drawn off the screen ("i18n: cut: ...", src/ui.c), in the language
 it is drawn in. This shoots the README's screens (tools/readme-shots.py's
-cards and SHOTS) and the rest of the main ones in every language, and fails on any such line, or a shot that fails.
+cards and SHOTS) and the rest of the main ones in every language, and fails on any such line, or a shot that fails
+twice (one that fails is taken once more: a screen fails every time, and one
+that passes the second time is said, "flaky ...", with its first reason).
 
 The pseudo-locale, xx (src/i18n.h: every string accented, 40% longer and in
 brackets), is shot too, and what it does not fit is listed: a warning of
@@ -30,7 +32,12 @@ what a longer translation would meet, which fails only with --strict.
 
 Shots, not pictures held to a reference: what is drawn is the launcher's own,
 and English's frames are held by the other shot checks. Each language has its
-own scratch cards, so the five run at once. Needs the launcher built (SDL2);
+own scratch cards, cloned from one set made once a run, so they run at once,
+one launcher a language and handheld (--jobs says otherwise). Stopped
+(Ctrl-C, SIGTERM, a closed terminal), each language ends after its shot and
+every scratch card goes. A pass is kept by the launcher's bytes and the
+inputs its verdict is made of, and the same again prints it and passes at
+once (ZYPEROS_SHOTS_CACHE=0 shoots anyway). Needs the launcher built (SDL2);
 skips cleanly without SDL2.
 """
 import argparse
@@ -43,6 +50,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,7 +73,7 @@ DEVICES = ["pixel2", "brick"]
 class Strings:
     def __init__(self, code):
         errors = []
-        self.names, self.whole, self.formats = [], {}, []
+        self.names, self.whole, self.formats, self.leads = [], {}, [], []
         for name, s, form in i18n.flat(i18n.parse(errors)):
             sid = s.id + ("" if not s.plural else (".one" if form == 0 else ".other"))
             en = i18n.get(s, "en", form)
@@ -84,6 +92,10 @@ class Strings:
                     pattern += re.escape(piece[pos:])
                     literal += len(piece) - pos
                     self.formats.append((re.compile("^" + pattern.replace("%%", "%") + "$", re.S), sid, literal))
+                    # A format whose own words come first ("auto (%s)"): what
+                    # it begins with is the string's, not a name put in it
+                    if i18n.FMT_RE.match(piece) is None:
+                        self.leads.append((self.formats[-1][0], sid))
 
     def ids(self, text):
         """The IDs a drawn text may be: [] when it is no string's (a name, a number)"""
@@ -104,6 +116,17 @@ class Strings:
                     ids += [n for n in self.whole.get(piece, []) if n.startswith(COMPOSED)]
         return ids
 
+    def small_first(self, text):
+        """The IDs whose words begin `text` with a small letter: a row's value
+        begins with a capital in every language that has them
+        (GLOSSARY.md), and a name in it (a core's, a network's, a song's)
+        keeps its own case, so only the table's own first word is held"""
+        if not text[:1].islower():
+            return []
+        if text in self.whole:
+            return self.whole[text]
+        return [sid for pattern, sid in self.leads if pattern.match(text)]
+
     def label(self, text):
         found = self.ids(text)
         found = list(dict.fromkeys(found))
@@ -111,9 +134,14 @@ class Strings:
 
 
 # The strings that are drawn as a part of another's text: a page's name in a
-# heading, and a mix's in Audio Channels' "auto (mono)" or a place's in Audio
-# Output's "auto (speaker)"
-COMPOSED = ("controls.page.", "audio.")
+# heading, a mix's in Audio Channels' "auto (mono)" or a place's in Audio
+# Output's "auto (speaker)", and the reason a scraper's run passed a system
+# over in "NES: no such folder" (art.problem), and a month's short name and
+# AM or PM in MENU's Date & Time row ("Jan 15, 10:08", clock.label_24h) and
+# in a save slot's moment ("Aug 20 1:00:00 PM", slots.when)
+COMPOSED = ("controls.page.", "audio.", "art.why_", "clock.short_", "clock.am", "clock.pm", "slots.jan",
+            "slots.feb", "slots.mar", "slots.apr", "slots.may", "slots.jun", "slots.jul", "slots.aug",
+            "slots.sep", "slots.oct", "slots.nov", "slots.dec", "slots.am", "slots.pm")
 
 STRINGS = {}
 
@@ -212,7 +240,7 @@ EXTRA = {
     "system-menu-list": ("demo", "GBA", ["--screen", "games", "--view", "list", "--menu", "View"]),
     # ...and at its end: with View and Shader (1.0.5), Box Art is below the
     # first shot's rows
-    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Box Art"]),
+    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Downloads"]),
     "storage-art": ("demo", "PS1", ["--storage", "art"]),
     "storage-states": ("demo", "PS1", ["--storage", "states"]),
     "storage-delete": ("demo", "PS1", ["--storage", "delete"]),
@@ -264,6 +292,7 @@ EXTRA = {
     # Every display mode's name on the Display row (1.0.6; what each does is
     # in its list, beside its picture: gamemenu-display-list-*)
     "gamemenu-dmode-aspect": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "aspect"]),
+    "gamemenu-dmode-square": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "square"]),
     "gamemenu-dmode-integer": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer"]),
     "gamemenu-dmode-tall": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer-vertical"]),
     "gamemenu-dmode-overscale": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "overscale"]),
@@ -291,17 +320,62 @@ EXTRA = {
     "achtab-waiting": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "waiting"]),
     "achtab-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "unchecked"]),
     "achtab-none": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "none"]),
+    # An achievement's card, opened with A from its list (1.1.0): its badge
+    # under the heading's rule, its description whole. Earned; not earned,
+    # the longest description there is, which scrolls itself (and the same
+    # moved on); earned offline, waiting to send; none, with the plain badge
+    "cheevo-card": ("demo", "PS1", ["--cheevo-card", "0", "--cheevos-badge",
+                                    "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b2"]),
+    "cheevo-card-long": ("demo", "PS1", ["--cheevo-card", "1", "--phase", "0", "--cheevos-badge",
+                                         "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b4"]),
+    "cheevo-card-long-moved": ("demo", "PS1", ["--cheevo-card", "1", "--phase", "9000", "--cheevos-badge",
+                                               "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b4"]),
+    "cheevo-card-waiting": ("demo", "PS1", ["--cheevo-card", "2", "--cheevos-badge",
+                                            "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b3"]),
+    "cheevo-card-plain": ("demo", "PS1", ["--cheevo-card", "3"]),
     "info-nohash": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-no-hash", "file"]),
     "gamecontrols": ("demo", "PS1", ["--gamecontrols", "1", "MD"]),
     "slots": ("demo", "PS1", ["--slots", "0"]),
     "synopsis": ("demo", "PS1", ["--screen", "games", "--info", "--synopsis"]),
     "keyboard": ("demo", "PS1", ["--keyboard"]),
+    # The ScreenScraper sign-in's title, the longest the keyboard has
+    "keyboard-ss-user": ("demo", "PS1", ["--keyboard", "--kb-ss-user"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
     "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
+    # A video this CPU cannot carry, its notice: too big (AV1 at 60 fps), with
+    # the controls it brings up; no picture at all, alone in the black
+    "video-too-big": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls",
+                                       "--video-size", "1920x1080", "--video-trouble", "too-big"]),
+    "video-no-picture": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden",
+                                          "--video-size", "1920x1080", "--video-trouble", "no-picture"]),
     # MP4's lock screen, its panel with the bar a hold fills: over music, and
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # MP4's shelf in its other two Views, START's turns (DESIGN.md 11.67);
+    # the README's mp4 is Covers
+    "mp4-grid": ("media", "MUSE", ["--screen", "games"]),
+    "mp4-list": ("media", "MUSE", ["--screen", "games"]),
+    # MP4's Player Looks (DESIGN.md 11.64): each on Now Playing, Classic
+    # paused too (its panel says so where the time's words would), and
+    # MENU's Player Look list with its picture, the look under the cursor
+    "np-cassette": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "cassette"]),
+    "np-vinyl": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "vinyl"]),
+    "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
+    "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
+    "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
+    # ...its list with the cursor on each look, so every look's note is
+    # drawn in its picture's narrow column
+    **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
+                                                   "a", "--pick-at", str(_k)])
+       for _k, _l in enumerate(("cover", "cassette", "vinyl", "classic", "spectrum"))},
+    # its Repeat row on One, the value no other shot has
+    "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
+    # MP4's menu with its cursor on the Equalizer row, the same as MENU's
+    "mp4-menu-eq": ("media", "MUSE", ["--screen", "games", "--menu", "Equalizer"]),
+    # its Album Art row, under the fold since Repeat and Equalizer (opened, it
+    # asks MusicBrainz, which no shot can hold still)
+    "mp4-menu-art": ("media", "MUSE", ["--screen", "games", "--menu", "Album Art"]),
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
     "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),
@@ -394,6 +468,40 @@ EXTRA = {
     "scraper-page-done-full": ("demo", "PS1", ["--scraper-page", "15"]),
     # and the Video Snaps page it opens: how the shelf plays them, the room
     "scraper-video-snaps": ("demo", "PS1", ["--scraper", "3"]),
+    # MENU > Downloads (DESIGN.md 11.53), every screen and state of the
+    # downloads lab's picked design: the hub (its plan, a run going on, every
+    # kind done, no network and nobody signed in, counting, on a kind, a kind
+    # out), Settings, the kinds' pages, Systems, a system's games and a
+    # game's panel, the run (going, waiting for Wi-Fi, paused), done and
+    # stopped, On the Card, RetroAchievements' account, a console's page and
+    # Videos for
+    "downloads": ("demo", "PS1", ["--downloads", "0"]),
+    "downloads-running": ("demo", "PS1", ["--downloads", "1"]),
+    "downloads-done": ("demo", "PS1", ["--downloads", "2"]),
+    "downloads-offline": ("demo", "PS1", ["--downloads", "3"]),
+    "downloads-settings": ("demo", "PS1", ["--downloads", "4"]),
+    "downloads-counting": ("demo", "PS1", ["--downloads", "5"]),
+    "downloads-on-covers": ("demo", "PS1", ["--downloads", "6"]),
+    "downloads-covers-out": ("demo", "PS1", ["--downloads", "7"]),
+    "downloads-covers": ("demo", "PS1", ["--downloads", "8"]),
+    "downloads-videos": ("demo", "PS1", ["--downloads", "9"]),
+    "downloads-names": ("demo", "PS1", ["--downloads", "10"]),
+    "downloads-systems": ("demo", "PS1", ["--downloads", "11"]),
+    "downloads-games": ("demo", "PS1", ["--downloads", "12"]),
+    "downloads-game": ("demo", "PS1", ["--downloads", "13"]),
+    "downloads-run": ("demo", "PS1", ["--downloads", "14"]),
+    "downloads-run-no-wifi": ("demo", "PS1", ["--downloads", "15"]),
+    "downloads-run-paused": ("demo", "PS1", ["--downloads", "16"]),
+    "downloads-all-done": ("demo", "PS1", ["--downloads", "17"]),
+    "downloads-stopped": ("demo", "PS1", ["--downloads", "18"]),
+    "downloads-on-the-card": ("demo", "PS1", ["--downloads", "19"]),
+    "downloads-ra-account": ("demo", "PS1", ["--downloads", "20"]),
+    "downloads-console": ("demo", "PS1", ["--downloads", "21"]),
+    "downloads-videos-for": ("demo", "PS1", ["--downloads", "22"]),
+    "downloads-ra-signed-out": ("demo", "PS1", ["--downloads", "24"]),
+    "downloads-on-names": ("demo", "PS1", ["--downloads", "25"]),
+    "downloads-covers-complete": ("demo", "PS1", ["--downloads", "26"]),
+    "downloads-no-accounts": ("demo", "PS1", ["--downloads", "27"]),
     # A game's Cover and Video (DESIGN.md 11.34) in every state, a tile of
     # each kind and region focused, Delete's question and the message of a
     # download that did not come; and the details row's other value
@@ -459,6 +567,36 @@ for _page in (3, 4, 5):
 for _scroll in ("0.5", "1"):
     EXTRA.setdefault("about-2-scroll-" + _scroll, ("demo", "PS1", ["--about", "2", "--about-scroll", _scroll]))
     EXTRA.setdefault("about-3-scroll-" + _scroll, ("demo", "PS1", ["--about", "3", "--about-scroll", _scroll]))
+# The Scraper page's run saying what it is doing past a game's name (the
+# catalog, a game with no art, the checksums), and done with the reason it
+# passed a system over or stopped a source (art_status's lines)
+for _k, _w in enumerate(("catalog", "no-art", "checksums")):
+    EXTRA.setdefault("scraper-page-run-" + _w, ("demo", "PS1", ["--scraper-page", "17", str(_k)]))
+for _k, _w in enumerate(("no-folder", "not-in-table", "no-curl", "index-failed", "index-bad", "ss-quota",
+                         "ss-too-many", "ss-busy", "ss-no-answer", "sg-refused", "sg-busy", "sg-no-answer")):
+    EXTRA.setdefault("scraper-page-done-" + _w, ("demo", "PS1", ["--scraper-page", "16", str(_k)]))
+# Every month: Date & Time's page on the 3rd of each (its name in full), and
+# MENU's Date & Time row on the 15th (its short name, --status's date=), in
+# 12 hours in July (AM) and December (PM)
+_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+for _k, _m in enumerate(_MONTHS):
+    if _m != "oct":
+        EXTRA.setdefault("datetime-" + _m, ("demo", "PS1", ["--datetime", "3", str(_k + 1)]))
+    # its own --status after the shots' one, which it takes the place of
+    _st = "%s %s wifi=off batt=82 date=2026-%02d-15" % ("18:05" if _m == "dec" else "10:08",
+                                                       "12h" if _m in ("jul", "dec") else "24h", _k + 1)
+    EXTRA.setdefault("menu-clock-" + _m, ("demo", "PS1", ["--menu", "Language", "--status", _st]))
+# The save slots: the slot in view saved in each other month (August is the
+# slots shot's), in 12 hours in January (AM) and February (PM); an empty
+# slot; and the strip as Save asks where to
+for _k, _m in enumerate(_MONTHS):
+    if _m != "aug":
+        _f = ["--slots", "1", "--slot-when", str(_k + 1), "9" if _m == "jan" else "15"]
+        if _m in ("jan", "feb"):
+            _f += ["--status", "10:08 12h wifi=off batt=82"]
+        EXTRA.setdefault("slots-" + _m, ("demo", "PS1", _f))
+EXTRA.setdefault("slots-empty", ("demo", "PS1", ["--slots", "5"]))
+EXTRA.setdefault("slots-save", ("demo", "PS1", ["--slots", "1", "--slot-save"]))
 EXTRA.setdefault("hare-cable", ("demo", "PS1", ["--hare", "10.42.0.1", "1 signed in", "Tobu Tobu Girl.gb"]))
 # File Transfer's news on Flash Drive's page (DESIGN.md 11.23): the tiles in
 # each state, over Wi-Fi and over the cable (SSH beside the browsers)
@@ -506,12 +644,29 @@ EXTRA.setdefault("gamemenu-dual", ("demo", "PS1", ["--gamemenu", "0", "dual"]))
 # ...and its Display tab, where the screens' three rows are, on the Stylus row
 EXTRA.setdefault("gamemenu-dual-display", ("demo", "PS1", ["--gamemenu", "0", "dual", "--gm-tab", "1"]))
 EXTRA.setdefault("gamemenu-dual-stylus", ("demo", "PS1", ["--gamemenu", "4", "dual", "--gm-tab", "1"]))
-# MENU's Shader when a system has its own (SHOT_SETTINGS below): "per system"
+# Rename's refusal of a name, the longest of its and Delete Game's messages
+# (src/shots.c's GM_SAID): four lines in English, German, French and
+# Portuguese, which three cut ("* ?...")
+EXTRA.setdefault("gm-said-7", ("demo", "PS1", ["--screen", "games", "--gm-said", "7"]))
+# MENU's Shader, ZyperOS's own screens' (src/screenfx.h, SHOT_SETTINGS
+# below): CRT Curved on the menu itself, a system's own shader beside it
+# changing nothing
 EXTRA.setdefault("menu-shader", ("demo", "PS1", ["--menu", "Shader"]))
+# The screens' shader on the home, a shelf and a menu, one old screen each
+# (the proof sheet has every one on each)
+EXTRA.setdefault("screens-crt-curved-home", ("demo", "PS1", ["--home", "spotlight"]))
+EXTRA.setdefault("screens-scanlines-shelf", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("screens-lcd-menu", ("demo", "PS1", ["--menu", "Search Games"]))
 
 # The README's shots' own settings, and these shots'
-SHOT_SETTINGS = {**R.SHOT_SETTINGS, "menu-shader": {"shader.PS1": "shimmerless"},
-                 "menu-saver-off": {"saver": "0"}}
+SHOT_SETTINGS = {**R.SHOT_SETTINGS,
+                 "menu-shader": {"launcher_shader": "crt-curved", "shader.PS1": "shimmerless"},
+                 "screens-crt-curved-home": {"launcher_shader": "crt-curved"},
+                 "screens-scanlines-shelf": {"launcher_shader": "scanlines"},
+                 "screens-lcd-menu": {"launcher_shader": "lcd", "launcher_strength": "50"},
+                 "menu-saver-off": {"saver": "0"},
+                 "mp4-grid": {"view.MUSE": "grid"},
+                 "mp4-list": {"view.MUSE": "list"}}
 
 # MENU > Menu Music with the card's own tracks in its Menu Music folder, at
 # the top of the card (src/bgm.h): ZyperOS Tracks and the note in each of its counts,
@@ -548,8 +703,9 @@ for _s in ("shimmerless", "crt", "crt-curved", "scanlines", "lcd"):
 
 # The Shader list, each shader under its cursor beside its picture and its
 # note (src/shaderdemo.h); the Strength list beside its picture; MENU's
-# Shader list (the Pixel 2 offers all six; the Brick Off and
-# Sharp-Shimmerless, its list's last row standing in past them)
+# Shader list, the screens' own, its choice on the whole screen and its note
+# under it (the Pixel 2 offers Off and the four old screens; the Brick has no
+# such row, its list's last row standing in)
 for _k, _s in enumerate(["off", "shimmerless", "crt", "crt-curved", "scanlines", "lcd"]):
     EXTRA.setdefault("gamemenu-shader-list-" + _s,
                      ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
@@ -557,17 +713,45 @@ EXTRA.setdefault("gamemenu-strength-list", ("demo", "PS1", ["--gamemenu", "2", "
                                                            "--pick-at", "4"]))
 SHOT_SETTINGS["gamemenu-strength-list"] = {"shader.PS1": "crt", "shader_strength.PS1": "50"}
 EXTRA.setdefault("menu-shader-list", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
-SHOT_SETTINGS["menu-shader-list"] = {"shader": "scanlines"}
+SHOT_SETTINGS["menu-shader-list"] = {"launcher_shader": "scanlines"}
+
+# LCD No Backlight (src/app.h SHADERS' only), the Game Boy's three's alone:
+# in the in-game menu of a Game Boy Advance game, its row and its list under
+# the cursor; the GBA shelf's own Shader list with it; and where it is not
+# offered, with a card edited to name it: the SNES shelf's list (Off, the
+# SNES's default, and no such row) and MENU's, the screens' own (Off)
+EXTRA.setdefault("gamemenu-shader-lcd-unlit", ("demo", "GBA", ["--screen", "games", "--gamemenu", "1",
+                                                               "--gm-tab", "1"]))
+SHOT_SETTINGS["gamemenu-shader-lcd-unlit"] = {"shader.GBA": "lcd-unlit"}
+EXTRA.setdefault("gamemenu-shader-list-lcd-unlit",
+                 ("demo", "GBA", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", "6"]))
+EXTRA.setdefault("system-menu-shader-list-gba", ("demo", "GBA", ["--screen", "games", "--menu", "Shader",
+                                                                 "--press", "a"]))
+SHOT_SETTINGS["system-menu-shader-list-gba"] = {"shader.GBA": "lcd-unlit"}
+EXTRA.setdefault("system-menu-shader-list-snes", ("demo", "SNES", ["--screen", "games", "--menu", "Shader",
+                                                                   "--press", "a"]))
+SHOT_SETTINGS["system-menu-shader-list-snes"] = {"shader.SNES": "lcd-unlit"}
+EXTRA.setdefault("menu-shader-list-unlit", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
+SHOT_SETTINGS["menu-shader-list-unlit"] = {"launcher_shader": "lcd-unlit"}
 
 # The Strength row under each Shader row while the shader is an old screen
-# (src/strength.h): in the game on it, in the system menu, and MENU's saying
-# "per system" when one system has its own
+# (src/strength.h): in the game on it, in the system menu, and MENU's, the
+# screens' own, a system's own beside it changing nothing
 EXTRA.setdefault("gamemenu-strength", ("demo", "PS1", ["--screen", "games", "--gamemenu", "2", "--gm-tab", "1"]))
 SHOT_SETTINGS["gamemenu-strength"] = {"shader.PS1": "lcd", "shader_strength.PS1": "50"}
 EXTRA.setdefault("system-menu-strength", ("demo", "PS1", ["--screen", "games", "--menu", "Strength"]))
 SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_strength.PS1": "20"}
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
-SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
+SHOT_SETTINGS["menu-strength"] = {"launcher_shader": "crt", "launcher_strength": "60", "shader_strength.PS1": "60"}
+SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "3", "screen_saturation": "3", "screen_gamma": "-2"}
+SHOT_SETTINGS["screen-colors-custom"] = {"screen_temp": "4", "screen_tint": "-1", "screen_contrast": "3",
+                                         "screen_saturation": "5", "screen_gamma": "-2"}
+SHOT_SETTINGS["screen-colors-look-custom"] = dict(SHOT_SETTINGS["screen-colors-custom"])
+
+# Timing (src/pacing.h) on the GBA's system menu, at its other value, Exact:
+# Smooth, the default, is drawn in every GBA system menu shot
+EXTRA.setdefault("system-menu-timing-exact", ("demo", "GBA", ["--screen", "games", "--menu", "Timing"]))
+SHOT_SETTINGS["system-menu-timing-exact"] = {"pace.GBA": "exact"}
 
 # The in-game menu's Controls tab (src/ctltab.c), beside the handheld: its
 # end (Reset Buttons, Hotkeys), a button's choices, the system over a game
@@ -589,19 +773,44 @@ for _name, _tag, _flags in (
         ("keys-ingame", "PS1", ["--gamemenu", "13", "--gm-keys", "1"]),
         ("n64-end", "N64", ["--gamemenu", "13"]),
         ("dc", "DC", ["--gamemenu", "2"]), ("dc-end", "DC", ["--gamemenu", "13"]),
-        ("dc-place", "DC", ["--gamemenu", "2"]), ("dc-mixed", "DC", ["--gamemenu", "2"])):
+        ("dc-place", "DC", ["--gamemenu", "2"]), ("dc-mixed", "DC", ["--gamemenu", "2"]),
+        ("stick", "PS1", ["--gamemenu", "9"]),
+        ("pick-share", "PS1", ["--gamemenu", "5", "--gm-pick", "--pick-at", "1"]),
+        ("shared", "PS1", ["--gamemenu", "5"])):
     EXTRA.setdefault("gamemenu-controls-" + _name,
                      ("demo", _tag, ["--screen", "games", "--gm-tab", "2"] + _flags))
 # A Nintendo 64 game's Pak row, back in the Controls tab
 EXTRA.setdefault("gamemenu-pak", ("demo", "N64", ["--screen", "games", "--gm-tab", "2", "--gamemenu", "2"]))
+# Rumble, an N64 game's whose core asked for the motor: the row under the
+# Pak, and the list A opens there; and MENU > Sound's row and its list
+EXTRA.setdefault("gamemenu-rumble", ("demo", "N64", ["--screen", "games", "--gm-tab", "2",
+                                                     "--gamemenu", "3", "--gm-rumble"]))
+EXTRA.setdefault("gamemenu-rumble-list", ("demo", "N64", ["--screen", "games", "--gm-tab", "2",
+                                                          "--gamemenu", "3", "--gm-rumble", "--gm-pick"]))
+# The game's own level, Low: the row in accent-ink, the list's tick on Low and
+# Default on MENU's Full
+EXTRA.setdefault("gamemenu-rumble-own-list", ("demo", "N64", ["--screen", "games", "--gm-tab", "2",
+                                                              "--gamemenu", "3", "--gm-rumble", "--gm-pick"]))
+EXTRA.setdefault("menu-rumble", ("demo", "PS1", ["--menu", "Rumble"]))
+EXTRA.setdefault("menu-rumble-list", ("demo", "PS1", ["--menu", "Rumble", "--press", "a"]))
+# MENU's level at Low: the list opens on it, with the share's note
+EXTRA.setdefault("menu-rumble-list-low", ("demo", "PS1", ["--menu", "Rumble", "--press", "a"]))
+SHOT_SETTINGS["menu-rumble-list-low"] = {"rumble": "low"}
+# And at Off: the note that says so
+EXTRA.setdefault("menu-rumble-list-off", ("demo", "PS1", ["--menu", "Rumble", "--press", "a"]))
+SHOT_SETTINGS["menu-rumble-list-off"] = {"rumble": "off"}
 CTL_FOCUS = {"gamemenu-pak": "Mario Kart 64 (USA).z64",
+             "gamemenu-rumble": "Mario Kart 64 (USA).z64",
+             "gamemenu-rumble-list": "Mario Kart 64 (USA).z64",
+             "gamemenu-rumble-own-list": "Mario Kart 64 (USA).z64",
              "gamemenu-controls-n64-end": "Mario Kart 64 (USA).z64",
              **{"gamemenu-controls-" + _n: _SONIC for _n in ("dc", "dc-end", "dc-place", "dc-mixed")}}
 # A game's details with its own buttons (Buttons, This Game), and the page that
 # row opens
 EXTRA.setdefault("info-buttons", ("demo", "PS1", ["--screen", "games", "--info"]))
 EXTRA.setdefault("info-buttons-page", ("demo", "PS1", ["--screen", "games", "--info-buttons"]))
-SHOT_LIB = {"info-buttons": {_MGS: "1;b:y,y:b"},
+SHOT_LIB = {"gamemenu-rumble-own-list": {"rumble.N64.Mario Kart 64 (USA).z64": "low"},
+            "info-buttons": {_MGS: "1;b:y,y:b"},
             "info-buttons-page": {_MGS: "1;b:y,y:b"},
             "gamemenu-controls-all": {_MGS: "1;b:y,y:b"},
             "gamemenu-controls-pick": {_MGS: "1;b:y,y:b"},
@@ -610,7 +819,14 @@ SHOT_LIB = {"info-buttons": {_MGS: "1;b:y,y:b"},
             "gamemenu-controls-ask-all": {"map.PS1": "1;b:y,y:b"},
             "gamemenu-controls-dc-end": {"stick.DC." + _SONIC: "1"},
             "gamemenu-controls-dc-place": {"map.DC." + _SONIC: "1;a:a,b:b,x:x,y:y"},
-            "gamemenu-controls-dc-mixed": {"map.DC." + _SONIC: "1;a:a"}}
+            "gamemenu-controls-dc-mixed": {"map.DC." + _SONIC: "1;a:a"},
+            # L2 Stick While Held and R2 Stick On/Off, a button's two stick
+            # choices (DESIGN.md 11.45), the cursor on R2
+            "gamemenu-controls-stick": {_MGS: "1;l2:stickhold,r2:stick"},
+            # Y on cross, which B gives, in Y's list: the foot's A Swap and Y
+            # Both, and what each does; and Y given cross as well, the two
+            # rows each with the other's glyph (issue #305)
+            "gamemenu-controls-shared": {_MGS: "1;y:b"}}
 
 
 # MENU > Display > Home Systems (src/homesys.h, DESIGN.md 11.48): its row with
@@ -627,10 +843,146 @@ SHOT_SETTINGS["menu-homesys"] = _HS_OFF
 EXTRA.setdefault("homesys-page", ("demo", "PS1", ["--homesys-page", "4"]))
 SHOT_SETTINGS["homesys-page"] = _HS_OFF
 EXTRA.setdefault("homesys-last", ("openbor", "OPENBOR", ["--homesys-page", "3"]))
+# MENU > Side Lights (DESIGN.md 11.27), where the handheld has the lights (the
+# Pixel 2; nothing over the shelf on the Brick): its page, the cursor on
+# Battery Level, Off as on a new card
+EXTRA.setdefault("lights-page", ("demo", "PS1", ["--lights-page", "2"]))
 for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "games"])):
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
     CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
+
+
+# Collections (src/collect.h, DESIGN.md 11.56): three lists on the card, one
+# naming a game in a folder of games and one with a note line, as the files
+# a player keeps; the home on its group, its shelf's top, one opened, a
+# game's details on Add to Collection and its list, the shelf's menu at its
+# top and in one, and Delete Collection's question
+SHOT_TEXT = {}
+_COLL = {"Collections/Couch Co-op.txt": "/Roms/SNES/Super Mario World (USA).sfc\n"
+                                        "/Roms/Game Boy Advance/Mario Kart - Super Circuit (USA).gba\n"
+                                        "/Roms/PlayStation/Tekken 3 (USA).chd\n",
+         "Collections/RPGs to Finish.txt": "/Roms/SNES/Chrono Trigger (USA).sfc\n"
+                                           "/Roms/Game Boy Advance/Commercial Owned/Golden Sun (USA).gba\n"
+                                           "# after Golden Sun\n"
+                                           "/Roms/Game Boy/Pokemon - Red Version (USA, Europe).gb\n",
+         "Collections/For the Kids.txt": "/Roms/NES/Kirby's Adventure (USA).nes\n"}
+for _name, _flags in (("home-collections", []),
+                      ("shelf-collections", ["--screen", "games"]),
+                      ("shelf-collection-in", ["--screen", "games", "--folder", "RPGs to Finish"]),
+                      ("shelf-collection-list", ["--screen", "games", "--folder", "RPGs to Finish",
+                                                 "--view", "list"]),
+                      ("collect-menu-top", ["--screen", "games", "--menu", "Delete Collection"]),
+                      ("collect-menu-in", ["--screen", "games", "--folder", "RPGs to Finish",
+                                           "--menu", "Remove from Collection"]),
+                      ("collect-menu-sort", ["--screen", "games", "--folder", "RPGs to Finish",
+                                             "--menu", "Sort By", "--press", "a"]),
+                      ("collect-delete", ["--screen", "games", "--collect-delete"])):
+    EXTRA.setdefault(_name, ("demo", "COLL", _flags))
+    SHOT_TEXT[_name] = _COLL
+# Home Systems with a collection on the card: Collections' row after Recents
+EXTRA.setdefault("homesys-page-coll", ("demo", "PS1", ["--homesys-page", "2"]))
+SHOT_TEXT["homesys-page-coll"] = _COLL
+SHOT_SETTINGS["homesys-page-coll"] = {"home.hidden": "COLL"}
+for _name, _flags in (("collect-said-long", ["--screen", "games", "--collect-said", "0"]),
+                      ("collect-said-taken", ["--screen", "games", "--collect-said", "1"]),
+                      ("collect-said-failed", ["--screen", "games", "--collect-said", "2"]),
+                      ("info-collect", ["--screen", "games", "--info-collect"]),
+                      ("collect-page", ["--screen", "games", "--collect-page", "1"]),
+                      ("collect-page-none", ["--screen", "games", "--collect-page", "0"])):
+    EXTRA.setdefault(_name, ("demo", "SFC", _flags))
+    SHOT_TEXT[_name] = {} if _name == "collect-page-none" else _COLL
+    CTL_FOCUS[_name] = "Chrono Trigger (USA).sfc"
+
+
+def set_text(card, files, on):
+    """A shot's files with their text or bytes (SHOT_TEXT) on the card, or off it"""
+    for f, text in (files or {}).items():
+        path = card / f
+        if on:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(text, bytes):
+                path.write_bytes(text)
+            else:
+                path.write_text(text)
+        elif path.exists():
+            path.unlink()
+
+
+def scene_bmp(w, h, sky, ground, hue):
+    """A made-up frame of play, a 24-bit BMP of w x h drawn here (no Pillow):
+    a sky of `sky` fading to white, hills, `ground` at the foot and a block
+    of `hue` in the middle, as a game's resume picture stands in a shot"""
+    import struct
+    row = (w * 3 + 3) & ~3
+    out = bytearray()
+    for y in range(h - 1, -1, -1):       # a BMP's rows from the bottom
+        line = bytearray()
+        for x in range(w):
+            if y > h * 3 // 4:
+                c = ground
+            elif y > h * 3 // 4 - 2 - ((x // 8) % 5 == 0) * 6 and y > h // 2 + abs((x % 64) - 32) // 2:
+                c = tuple(max(0, v - 40) for v in ground)
+            elif w * 2 // 5 <= x < w * 3 // 5 and h * 2 // 5 <= y < h * 3 // 5:
+                c = hue
+            else:
+                k = y / h
+                c = tuple(int(v + (255 - v) * k * 0.6) for v in sky)
+            line += bytes((c[2], c[1], c[0]))
+        out += line + b"\0" * (row - w * 3)
+    head = struct.pack("<2sIHHI", b"BM", 54 + len(out), 0, 0, 54)
+    info = struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(out), 2835, 2835, 0, 0)
+    return head + info + bytes(out)
+
+
+# Recents' Card Picture (DESIGN.md 11.48): the three games with a resume
+# point, each its state and the picture Diatom writes beside it, made up
+# here; Last Screen on the cover row and the grid, the row in its menu, and
+# its list with the picture of each choice
+_RECENT_SCREENS = {}
+for (_folder, _file, _wh, _sky, _ground, _hue) in (
+        ("Game Boy Advance", "The Legend of Zelda - The Minish Cap (USA).gba", (240, 160),
+         (64, 140, 220), (72, 150, 60), (230, 200, 60)),
+        ("SNES", "Super Metroid (USA).sfc", (256, 224), (40, 30, 90), (110, 70, 50), (220, 80, 60)),
+        ("PlayStation", "Metal Gear Solid (USA).chd", (320, 240), (60, 80, 90), (70, 80, 70), (200, 200, 210))):
+    _RECENT_SCREENS["shared/.zyperos/%s/%s.auto.state" % (_folder, _file)] = "state"
+    _RECENT_SCREENS["shared/.zyperos/%s/%s.auto.bmp" % (_folder, _file)] = scene_bmp(*_wh, _sky, _ground, _hue)
+for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
+                      ("shelf-recents-screen-grid", ["--screen", "games", "--view", "grid"]),
+                      ("recents-menu-picture", ["--screen", "games", "--menu", "Card Picture"]),
+                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a"]),
+                      ("recents-picture-list-cover", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
+                                                      "--pick-at", "0"])):
+    EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
+    SHOT_LIB[_name] = _RECENT_LIB
+    SHOT_TEXT[_name] = _RECENT_SCREENS
+    # The grid's band has the name and Resume on one line: a name short
+    # enough for German's word there too
+    CTL_FOCUS[_name] = "Super Metroid (USA).sfc" if _name.endswith("-grid") else \
+        "The Legend of Zelda - The Minish Cap (USA).gba"
+    if _name != "recents-picture-list-cover":
+        SHOT_SETTINGS[_name] = {"recents.picture": "screen"}
+
+
+# The Video view (DESIGN.md 11.57): a game with no snap, its card whole
+# above the band; its snap playing (the test picture), the band up; the band
+# down to its strip, and halfway there; MENU's View on Video and its list
+for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
+                      ("shelf-video-snap", ["--screen", "games", "--view", "video", "--snap", "1"]),
+                      ("shelf-video-strip", ["--screen", "games", "--view", "video", "--snap", "1", "--band", "1"]),
+                      ("shelf-video-half", ["--screen", "games", "--view", "video", "--snap", "1", "--band", ".5"]),
+                      ("system-menu-view-video", ["--screen", "games", "--view", "video", "--menu", "View"]),
+                      ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
+                                                       "--press", "a"])):
+    EXTRA.setdefault(_name, ("demo", "PS1", _flags))
+
+
+# A zip whose game Diatom cannot unpack (DESIGN.md 11.63): its message
+EXTRA.setdefault("launch-zip-method", ("demo", "SFC", ["--screen", "games", "--zip-said"]))
+# Two cores on the Game Boy shelves (DESIGN.md 11.62): the GB shelf's menu
+# on Core, and a game's details with its Core fact
+EXTRA.setdefault("system-menu-core-gb", ("demo", "GB", ["--screen", "games", "--menu", "Core"]))
+EXTRA.setdefault("info-core-gb", ("demo", "GB", ["--screen", "games", "--info"]))
 
 
 def set_lib(card, settings, on):
@@ -652,8 +1004,8 @@ def set_lib(card, settings, on):
 for _tab in range(6):
     EXTRA.setdefault("menu-tab-%d" % _tab, ("demo", "PS1", ["--menu-tab", str(_tab), "--menu", "0"]))
 EXTRA.setdefault("menu-display-theme", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Theme"]))
-# Display's Screensaver at off: "off", a status's lowercase, now that the
-# switches say On and Off (menu.off, and scraper.off and ssh.off, its words)
+# Display's Screensaver at off: "Off", a status begun with a capital as every
+# row's value is (menu.off, and scraper.off and ssh.off, its words)
 EXTRA.setdefault("menu-saver-off", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Screensaver"]))
 # An option row's list (DESIGN.md 11.3), A on the row: Auto Off's every
 # value (its seconds and minutes); Display's, with what the mode under the
@@ -664,7 +1016,10 @@ EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--
 # --status, SHOT_STATUS), Auto Off off, and the systems in release order
 SHOT_STATUS = {}
 EXTRA.setdefault("menu-hours-12h", ("demo", "PS1", ["--menu", "Language"]))
-SHOT_STATUS["menu-hours-12h"] = "10:08 12h wifi=off batt=82"
+# On a day of two digits, as the Date & Time row's widest: with no date= it
+# was the day the check ran, so the row fitted on the 19th and was tight on
+# the 20th (German on the Brick, 2026-11-20)
+SHOT_STATUS["menu-hours-12h"] = "10:08 12h wifi=off batt=82 date=2026-11-28"
 for _icon in ("percentage", "time"):
     EXTRA.setdefault("menu-battery-" + _icon, ("demo", "PS1", ["--menu-tab", "1", "--menu", "Battery Icon"]))
     SHOT_STATUS["menu-battery-" + _icon] = "10:08 24h wifi=off batt=82 eta=95 icon=" + _icon
@@ -678,6 +1033,32 @@ EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", 
 # Home Screen's three (Spotlight, Gallery, Grid) over the Grid home
 EXTRA.setdefault("menu-home-list", ("demo", "PS1", ["--home", "grid", "--menu-tab", "1", "--menu", "Home Screen", "--press", "a"]))
 EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
+# Cheats (src/cheats_screen.h, DESIGN.md 11.62): the Game tab's row with two
+# on, the game's list (the player's file, libretro's two under their seams,
+# Turn All Off), its end, the first cheat's question, the Achievements tab
+# while paused, and the two lists with none: libretro has none, not checked
+EXTRA.setdefault("cheats-row", ("demo", "PS1", ["--gamemenu", "4", "--cheats"]))
+EXTRA.setdefault("cheats-page", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "2"]))
+EXTRA.setdefault("cheats-page-end", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "99"]))
+EXTRA.setdefault("cheats-ask", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "4", "--cheats-ask"]))
+EXTRA.setdefault("cheats-achtab", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "paused"]))
+EXTRA.setdefault("cheats-none-libretro", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
+EXTRA.setdefault("cheats-not-checked", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
+EXTRA.setdefault("cheats-note", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "1", "--cheats-note"]))
+EXTRA.setdefault("cheats-note-end", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "99", "--cheats-note"]))
+EXTRA.setdefault("cheats-on-first", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-on-first"]))
+EXTRA.setdefault("cheats-search", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "infinite"]))
+EXTRA.setdefault("cheats-search-none", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "zzz"]))
+EXTRA.setdefault("cheats-crash", ("demo", "PS1", ["--cheats-crash"]))
+R.SHOT_FOCUS.setdefault("cheats-none-libretro", "Crash Bandicoot (USA).chd")
+R.SHOT_FOCUS.setdefault("cheats-not-checked", "Spyro the Dragon (USA).chd")
+# A name long enough to reach the screen's middle under the focused cover,
+# where Highlight's bar is (src/games.c): the bar clear of it, and the snap's
+# wait bar in the bar's place while it fills
+EXTRA.setdefault("games-long-title", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("games-long-title-wait", ("demo", "PS1", ["--screen", "games", "--snap-wait", "0.5"]))
+for _n in ("games-long-title", "games-long-title-wait"):
+    R.SHOT_FOCUS.setdefault(_n, "Tony Hawk's Pro Skater 2 (USA).chd")
 # On-Screen Stats' page (src/hudmenu_screen.h): its rows with three items
 # shown ("3 Items"), the Shows list (every item's name), and each row's list
 # of more than two (every corner, distance, opacity and color); Background
@@ -693,13 +1074,20 @@ for _r, _n in ((2, "corner"), (3, "edge"), (5, "opacity"), (6, "color")):
                                                        "--hud-pick", str(_r)]))
 # Each mode under the list's cursor, its picture and its note beside the
 # list (src/ds/preview.h): every note in its room in every language
-for _k, _m in enumerate(["stretch", "aspect", "integer", "integer-vertical", "overscale", "fill", "native"]):
+for _k, _m in enumerate(["stretch", "aspect", "square", "integer", "integer-vertical", "overscale", "fill",
+                        "native"]):
     EXTRA.setdefault("gamemenu-display-list-" + _m,
                      ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
+# Square Pixels over an NES game's 256x224, which fceumm asks to show wider
+# (1.3061, diatom/docs/reference/core-facts.md): the picture 8:7, as tall as
+# the screen, room at its sides (#346)
+EXTRA.setdefault("gamemenu-display-list-square-nes",
+                 ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose", "--pick-at", "2",
+                                  "--gm-source", "256x224@1.3061"]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to
-# Default, both ways; and Auto Hours
+# Default, both ways
 _TONES = (("warm", "black"), ("neutral", "deepblue"), ("cool", "darkgrey"))
 for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "red", "orange",
                            "yellow", "silver")):
@@ -707,10 +1095,87 @@ for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "r
     EXTRA.setdefault("theme-" + _acc, ("demo", "PS1", [
         "--look", "%s,%s,%s,%s,on" % (_acc, _lt, _dk, "square" if _i % 2 else "rounded"),
         "--look-page", "theme", "0"]))
-EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "5"]))
+# Theme's three lists with the cursor off the choice kept, the whole screen
+# showing the one under it and the tick on the kept one (src/ds/hover.h): a
+# ground of the theme that is not on shows that theme while its list is open
+EXTRA.setdefault("theme-accent-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "0", "--pick-at", "2"]))
+EXTRA.setdefault("theme-light-list-cool", ("demo", "PS1", ["--look-page", "theme-list", "1", "--pick-at", "2"]))
+EXTRA.setdefault("theme-dark-list-deepblue", ("demo", "PS1", ["--look-page", "theme-list", "2", "--pick-at", "1"]))
+# Folder Color (1.0.6 rc.3): its row in focus, System Colors and an accent,
+# and its list with the picture of the shelf's folders beside it, on System
+# Colors and on an accent under the cursor
+EXTRA.setdefault("theme-folders-system", ("demo", "PS1", ["--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,black,rounded,on,orange",
+                                                          "--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
+EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
+# Highlight (the focus lab, 2026-11-19): its row in focus on each choice,
+# the pictures over it showing the dock's mark as the choice has it, and its
+# list with the home's three systems beside it marked as the choice under
+# the cursor marks them, each choice's note under the picture
+for _k, _f in enumerate(("bar", "border", "lift", "none")):
+    EXTRA.setdefault("theme-highlight-" + _f, ("demo", "PS1", ["--look", "lime,warm,black,rounded,on,system," + _f,
+                                                              "--look-page", "theme", "5"]))
+    EXTRA.setdefault("theme-highlight-list-" + _f, ("demo", "PS1", ["--look-page", "theme-list", "5",
+                                                                   "--pick-at", str(_k)]))
+# Timing's list (src/pacing.h): two choices, opened on A all the same for
+# the picture beside it (the two ways, slowed) and what each does under it
+for _k, _p in enumerate(("smooth", "exact")):
+    EXTRA.setdefault("system-menu-timing-list-" + _p, ("demo", "GBA", ["--screen", "games", "--menu", "Timing",
+                                                                      "--press", "a", "--pick-at", str(_k)]))
+EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "6"]))
+# MENU > Display > Screen Colors (src/panelgamma.h): its row, and its page
+# Standard as it ships, Vivid, and Custom with every row moved (the values
+# from the database, as the page reads them); and the Look's list with each
+# look under the cursor, its note in the picture column, and Custom's
+EXTRA.setdefault("menu-screen", ("demo", "PS1", ["--menu", "Screen Colors"]))
+# MENU > Sound > Equalizer (src/eq.h): the row; the page Off, as a new card
+# has it, and with a curve of the player's own, the cursor on 60 Hz; the
+# presets' list, each with its picture, the cursor on Bass
+EXTRA.setdefault("menu-eq", ("demo", "PS1", ["--menu", "Equalizer"]))
+EXTRA.setdefault("eq-page", ("demo", "PS1", ["--look-page", "eq", "0"]))
+EXTRA.setdefault("eq-page-custom", ("demo", "PS1", ["--look-page", "eq", "1"]))
+SHOT_SETTINGS["eq-page-custom"] = {"eq.speaker": "custom", "eq.speaker.bands": "4,1,-2,3,5"}
+EXTRA.setdefault("eq-presets", ("demo", "PS1", ["--look-page", "eq-presets", "0", "--pick-at", "1"]))
+# And the cursor on each other preset, for its note and its picture
+for _k, _p in enumerate(["off", "bass", "voice", "treble", "custom"]):
+    if _p != "bass":
+        EXTRA.setdefault("eq-presets-" + _p, ("demo", "PS1", ["--look-page", "eq-presets", "0", "--pick-at", str(_k)]))
+SHOT_SETTINGS["eq-presets-custom"] = {"eq.speaker.bands": "4,1,-2,3,5"}
+# With headphones in: their own preset, Bass, and its curve on the bands
+EXTRA.setdefault("eq-page-phones", ("demo", "PS1", ["--look-page", "eq", "0", "--eq-phones"]))
+SHOT_SETTINGS["eq-page-phones"] = {"eq.phones": "bass"}
+EXTRA.setdefault("screen-colors", ("demo", "PS1", ["--look-page", "screen", "0"]))
+EXTRA.setdefault("screen-colors-vivid", ("demo", "PS1", ["--look-page", "screen", "0"]))
+EXTRA.setdefault("screen-colors-custom", ("demo", "PS1", ["--look-page", "screen", "1"]))
+for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"]):
+    EXTRA.setdefault("screen-colors-look-" + _l,
+                     ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", str(_k)]))
+EXTRA.setdefault("screen-colors-look-custom",
+                 ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
-                                                    "--look-page", "theme", "5"]))
-EXTRA.setdefault("auto-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))
+                                                    "--look-page", "theme", "6"]))
+# MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
+# table (the Pixel 2 and the Brick): its one row, By Hours; and its page, A on the row:
+# By Hours with every row live, Off and On with the rows they do not use
+# quiet, the hours on the 12-hour clock at their longest (10:30 PM, 11:30
+# AM), and the lists of Night Mode, Night Warmth and Night From
+EXTRA.setdefault("menu-night", ("demo", "PS1", ["--menu", "Night Mode"]))
+SHOT_SETTINGS["menu-night"] = {"night.mode": "hours"}
+EXTRA.setdefault("night-page", ("demo", "PS1", ["--look-page", "night", "0"]))
+SHOT_SETTINGS["night-page"] = {"night.mode": "hours", "night.from": "1260", "night.until": "420"}
+EXTRA.setdefault("night-page-off", ("demo", "PS1", ["--look-page", "night", "0"]))
+EXTRA.setdefault("night-page-on", ("demo", "PS1", ["--look-page", "night", "1"]))
+SHOT_SETTINGS["night-page-on"] = {"night.mode": "on", "night.warmth": "10"}
+EXTRA.setdefault("night-page-12h", ("demo", "PS1", ["--look-page", "night", "2"]))
+SHOT_SETTINGS["night-page-12h"] = {"night.mode": "hours", "night.from": "1350", "night.until": "690"}
+SHOT_STATUS["night-page-12h"] = "10:08 12h wifi=off batt=82"
+EXTRA.setdefault("night-mode-list", ("demo", "PS1", ["--look-page", "night-list", "0"]))
+SHOT_SETTINGS["night-mode-list"] = {"night.mode": "hours"}
+EXTRA.setdefault("night-warmth-list", ("demo", "PS1", ["--look-page", "night-list", "1"]))
+SHOT_SETTINGS["night-warmth-list"] = {"night.mode": "on"}
+EXTRA.setdefault("night-from-list", ("demo", "PS1", ["--look-page", "night-list", "2"]))
+SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 
 # The pop-ups the SELECT hotkeys put over a game (src/main.c, on_quick and
 # on_speed), each as it says: the slot saved, loaded, empty or failed, a game
@@ -720,10 +1185,29 @@ EXTRA.setdefault("auto-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped"):
+              "player2_stopped", "shot", "shader", "display", "cheats", "cheats_one"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))
+# The Hotkeys list (src/hotkeys_screen.h): MENU > System's, at its top and its
+# end (Home, the line under it, Reset Hotkeys); a game's, Applies To on each
+# of its three and All Controls at the end; the capture screen waiting and
+# with SELECT and Y down; the swap question; Reset Hotkeys' question for each
+# scope; and Reset Game's question over the game
+for _name, _flags in (
+        ("top", ["--hotkeys", "4"]), ("end", ["--hotkeys", "103"]),
+        ("game", ["--screen", "games", "--hk-game", "--hotkeys", "100"]),
+        ("game-every", ["--screen", "games", "--hk-game", "--hk-scope", "0", "--hotkeys", "100"]),
+        ("game-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "100"]),
+        ("game-end", ["--screen", "games", "--hk-game", "--hotkeys", "104"]),
+        ("capture", ["--hotkeys", "4", "--hk-capture", "1"]),
+        ("capture-keys", ["--hotkeys", "4", "--hk-capture", "2", "--hk-key", "3"]),
+        ("swap", ["--hotkeys", "4", "--hk-ask", "1", "--hk-key", "7"]),
+        ("reset-every", ["--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-game", ["--screen", "games", "--hk-game", "--hk-scope", "2", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-ask", ["--screen", "games", "--hk-game", "--hotkeys", "103", "--hk-ask", "3"])):
+    EXTRA.setdefault("hotkeys-" + _name, ("demo", "PS1", _flags))
 # NES Player 2 (src/p2.h): its page over a paused NES game in every state
 # (--player2), the code on the hotspot with nobody yet and its address under
 # it, a player connected, the cable, before A on each link, with neither
@@ -756,6 +1240,20 @@ UPDATE_STATES = {
     "update-ready": ("state ready\nversion 0.1.1\nkind system\ntime {now}\n", True),
 }
 EXTRA.update({name: ("demo", "PS1", ["--update"]) for name in UPDATE_STATES})
+
+# About's Details with a battery (src/about.c): the full charge never measured
+# (charge_full_learned 0, as the Pixel 2's kernel says until its first
+# measure: "Not measured yet") and measured worn ("81% estimate"). The
+# launcher reads these files for the gauge's folder (ZYPEROS_BATTERY_DIR,
+# plat_battery_info_path), made for the shot.
+BATTERY_DIRS = {
+    "about-1-unmeasured": {"charge_full": "1730000\n", "charge_full_design": "1730000\n",
+                           "charge_full_learned": "0\n"},
+    "about-1-measured": {"charge_full": "1400000\n", "charge_full_design": "1730000\n",
+                         "charge_full_learned": "3\n"},
+}
+for _name in BATTERY_DIRS:
+    EXTRA.setdefault(_name, ("demo", "PS1", ["--about", "1"]))
 
 # The Install PortMaster page (src/pminstall.c) in its states with the
 # longest words: its status as res/portmaster/pm-install.py writes it, and
@@ -793,6 +1291,13 @@ EXTRA["portmaster-details"] = ("pmcard", "PRT", ["--screen", "games", "--info"])
 # (The Ports shelf with PortMaster's Install, and the page downloading, are
 # the README's, tools/readme-shots.py's ports and portmaster.)
 
+# A port's loading screen (src/portload.c, DESIGN.md 11.11): the start's line,
+# and the one after a minute that tools/portkeys.c shows, which says how long
+# a first start can install and how to go back (check-portload holds its
+# contrast and Zyper's frame, in English)
+EXTRA["portload"] = ("portdocs", "PRT", ["--portload", "Star Farm"])
+EXTRA["portload-later"] = ("portdocs", "PRT", ["--portload-later", "--portload", "Star Farm"])
+
 # Every Controls page of the made-up ports (tools/fixtures/ports) and of
 # PortMaster's own app, on the card that has them (readme-shots.py's
 # portdocs_card): a port's README's words, its keys, In a game and its About,
@@ -817,6 +1322,35 @@ for _name, _shot in (("menu-power-hold", ("demo", "PS1", ["--menu-tab", "4", "--
     EXTRA.setdefault(_name, _shot)
     SHOT_SETTINGS[_name] = {"power.button": "hold"}
 PORT_FOCUS["port-plain-0-hold"] = "Plain.sh"
+
+# Your PICO-8 (src/pico8.h, DESIGN.md 11.55), on a card of its own with the
+# payload's script and Splore's art and a cart, but not PICO-8's own files:
+# Splore first on the shelf, Not installed, A How to Add; the page A opens
+# there; and what it says over the shelf (src/launch_screen.c's
+# p8_said_shot): a zip copied by hand taken, with its version and without,
+# and not taken (another PICO-8's zip, one that could not be), Splore with
+# no network joined, Delete Game on Splore, and Splore's question with no
+# network
+def pico8_card(card):
+    R.card_dirs(card)
+    (card / "ZyperOS/pico8").mkdir()
+    shutil.copy(ROOT / "sd/pixel2/PICO-8.sh", card / "ZyperOS/pico8/PICO-8.sh")
+    for art in ("cover-light.png", "cover-dark.png", "icon.png"):
+        shutil.copy(ROOT / "res/pico8" / art, card / "ZyperOS/pico8" / art)
+    # fake08, the shelf's other core, as the payload has it (a stand-in file)
+    (card / "ZyperOS/cores").mkdir()
+    (card / "ZyperOS/cores/fake08_libretro.so").write_bytes(b"")
+    (card / "Roms/PICO-8").mkdir(parents=True)
+    (card / "Roms/PICO-8/Cloud Hopper.p8").write_text("pico-8 cartridge // stand-in\n")
+
+
+EXTRA["pico8-splore"] = ("pico8", "PICO8", ["--screen", "games"])
+# Splore on the Video view (DESIGN.md 11.57): A How to Add and no Y, as on
+# the other views
+EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view", "video"])
+EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
+for _k in range(7):
+    EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
 
 
 # The demonstration card with one game in each system that has none (a name
@@ -849,37 +1383,102 @@ def all_systems_card(card):
 KNOWN_KEYS = set()
 
 
-def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True):
+# The scratch cards every run shoots from, by name
+CARDS = ["demo", "empty", "scummvm", "openbor", "ports", "all", "portdocs", "media", "pmcard", "psp",
+         "es", "systems", "pico8"]
+
+
+def make_cards(top):
+    """Every scratch card under top/: made once a run (about 250 MB, 4 s on
+    an idle M3 and 20 s on a loaded one), then cloned for each language and
+    handheld (clone_cards), since no card says a language"""
+    cards = {name: top / name for name in CARDS}
+    R.demo_card(cards["demo"], None, {"artwork": {}})
+    R.systems_card(cards["systems"])
+    R.media_card(cards["media"])
+    R.es_card(cards["es"])
+    R.ports_card(cards["ports"])
+    R.portdocs_card(cards["portdocs"])
+    R.portdocs_card(cards["pmcard"])
+    (cards["pmcard"] / "Roms/Ports/PortMaster").mkdir()
+    (cards["pmcard"] / "Roms/Ports/PortMaster/pugwash").touch()
+    (cards["pmcard"] / "Roms/Ports/PortMaster/version").write_text("2026.11.12-1059\n")
+    R.demo_card(cards["all"], None, {"artwork": {}})
+    all_systems_card(cards["all"])
+    R.scummvm_card(cards["scummvm"])
+    R.openbor_card(cards["openbor"])
+    R.psp_card(cards["psp"])
+    pico8_card(cards["pico8"])
+    R.card_dirs(cards["empty"])
+
+
+def clone(src, dst):
+    """src's tree as dst: cloned where the file system can (APFS's
+    clonefile, cp -c; a reflink on Btrfs or XFS), so copies share their
+    blocks and cost next to nothing, and copied where it cannot"""
+    if sys.platform == "darwin":
+        cmd = ["cp", "-cR", str(src), str(dst)]
+    else:
+        cmd = ["cp", "-a", "--reflink=auto", str(src), str(dst)]
+    if subprocess.call(cmd, stderr=subprocess.DEVNULL) != 0:
+        shutil.rmtree(dst, ignore_errors=True)
+        shutil.copytree(src, dst, symlinks=True)
+
+
+def clone_cards(template, tmp):
+    """The cards of make_cards into tmp/, a run's own to write: eighteen
+    runs share one copy's blocks and take a quarter of a second each"""
+    for name in CARDS:
+        clone(template / name, Path(tmp) / name)
+    return {name: Path(tmp) / name for name in CARDS}
+
+
+# What the launcher writes on a card while it is shot: its settings database
+# and boot.env (userdata/) and the library it scans (shared/.zyperos/), and
+# nothing else (2026-11-18, every shot of a language against a copy of the
+# cards). Each shot starts from the cards' own: a shot's frame was the
+# shots' before it too (a per-game remap one left put a row on Game Info and
+# swapped the PlayStation's keys on Controls), so the same screen drew
+# otherwise in a run of some shots than in a run of all, and the pixel gate
+# compared the two.
+STATE = ("userdata", "shared/.zyperos")
+
+
+def reset_state(template, card):
+    for sub in STATE:
+        shutil.rmtree(card / sub, ignore_errors=True)
+        src = template / card.name / sub
+        if src.exists():
+            clone(src, card / sub)
+
+
+# Set when the run is stopped (Ctrl-C, SIGTERM, a closed terminal): each
+# language's run ends after the shot it is taking, and its scratch cards go
+STOP = threading.Event()
+# Every scratch folder this run made, deleted at its end whatever happens
+SCRATCH = []
+
+
+def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True, template=None):
     notes, failures, data, drawn = [], [], {}, set()
+    small_said = set()      # a value said once a language, on the first screen it is on
     with tempfile.TemporaryDirectory(prefix="zyperos-i18n-%s-" % code) as tmp:
-        cards = {"demo": Path(tmp) / "demo", "empty": Path(tmp) / "empty", "scummvm": Path(tmp) / "scummvm",
-                 "openbor": Path(tmp) / "openbor", "ports": Path(tmp) / "ports", "all": Path(tmp) / "all",
-                 "portdocs": Path(tmp) / "portdocs", "media": Path(tmp) / "media",
-                 "pmcard": Path(tmp) / "pmcard", "psp": Path(tmp) / "psp", "es": Path(tmp) / "es",
-                 "systems": Path(tmp) / "systems"}
-        R.demo_card(cards["demo"], None, {"artwork": {}})
-        R.systems_card(cards["systems"])
-        R.media_card(cards["media"])
-        R.es_card(cards["es"])
-        R.ports_card(cards["ports"])
-        R.portdocs_card(cards["portdocs"])
-        R.portdocs_card(cards["pmcard"])
-        (cards["pmcard"] / "Roms/Ports/PortMaster").mkdir()
-        (cards["pmcard"] / "Roms/Ports/PortMaster/pugwash").touch()
-        (cards["pmcard"] / "Roms/Ports/PortMaster/version").write_text("2026.11.12-1059\n")
-        R.demo_card(cards["all"], None, {"artwork": {}})
-        all_systems_card(cards["all"])
-        R.scummvm_card(cards["scummvm"])
-        R.openbor_card(cards["openbor"])
-        R.psp_card(cards["psp"])
-        R.card_dirs(cards["empty"])
+        SCRATCH.append(tmp)
+        if template is None:
+            make_cards(Path(tmp) / "template")
+            cards = clone_cards(Path(tmp) / "template", tmp)
+        else:
+            cards = clone_cards(template, tmp)
         out = keep if keep else Path(tmp) / "out"
         out.mkdir(parents=True, exist_ok=True)
         for name, (card_name, tag, flags) in shots.items():
+            if STOP.is_set():
+                break
             card = cards[card_name]
+            reset_state(template if template is not None else Path(tmp) / "template", card)
             focus = PORT_FOCUS.get(name) or CTL_FOCUS.get(name) or R.SHOT_FOCUS.get(name) or \
                 {"PS1": R.FOCUS + ".chd", "SCUMMVM": R.SCUMMVM_FOCUS, "OPENBOR": R.OPENBOR[0],
-                 "PRT": "PortMaster.sh"}.get(tag, "")
+                 "PRT": "PortMaster.sh", "PICO8": "Splore.splore"}.get(tag, "")
             (card / "ZyperOS/.last").write_text(tag + "\n" + focus + "\n")
             # A state of the update page: its status, with or without a network
             up = card / "userdata/update"
@@ -909,21 +1508,71 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                 pm.mkdir(exist_ok=True)
                 (pm / "status").write_text(PM_STATES[name][0])
                 env["ZYPEROS_PM_STATUS"] = str(pm / "status")
-            # A shot's own settings (readme-shots' SHOT_SETTINGS), only while it
-            # is taken: the Shader row at its widest value
-            R.set_settings(card, SHOT_SETTINGS.get(name), True)
-            set_lib(card, SHOT_LIB.get(name), True)
-            set_files(card, SHOT_FILES.get(name), True)
-            r = subprocess.run(command, cwd=ROOT, env=env, text=True, errors="replace",
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            R.set_settings(card, SHOT_SETTINGS.get(name), False)
-            set_lib(card, SHOT_LIB.get(name), False)
-            set_files(card, SHOT_FILES.get(name), False)
+            if name in BATTERY_DIRS:
+                bat = Path(tmp) / ("battery-" + name)
+                bat.mkdir(exist_ok=True)
+                for _f, _text in BATTERY_DIRS[name].items():
+                    (bat / _f).write_text(_text)
+                env["ZYPEROS_BATTERY_DIR"] = str(bat)
+
+            def shoot():
+                # A shot's own settings (readme-shots' SHOT_SETTINGS), only while
+                # it is taken: the Shader row at its widest value
+                if target.exists():
+                    target.unlink()
+                R.set_settings(card, SHOT_SETTINGS.get(name), True)
+                set_lib(card, SHOT_LIB.get(name), True)
+                set_files(card, SHOT_FILES.get(name), True)
+                set_text(card, SHOT_TEXT.get(name), True)
+                r = subprocess.run(command, cwd=ROOT, env=env, text=True, errors="replace",
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                R.set_settings(card, SHOT_SETTINGS.get(name), False)
+                set_lib(card, SHOT_LIB.get(name), False)
+                set_files(card, SHOT_FILES.get(name), False)
+                set_text(card, SHOT_TEXT.get(name), False)
+                return r
+
+            def failed(r):
+                # A row this handheld has not (the Strength row where there are
+                # no GPU shaders) is said, not failed: on the first handheld a
+                # missing row is a renamed one, and fails
+                ok_anyway = name in R.CORNER_OWN and R.CORNER_OWN[name] in r.stdout
+                if not first and r.returncode and re.search(r"--menu: no row called", r.stdout):
+                    return False
+                return bool(r.returncode and not ok_anyway) or not target.is_file()
+
+            def last_words(r):
+                # Its last words but the strings it drew, which bury the reason
+                # ("--menu: no row called Strength") under the rows it did draw
+                return " | ".join([l for l in r.stdout.strip().splitlines()
+                                   if not l.startswith("fit: ")][-4:])
+
+            r = shoot()
+            # A shot is the same frame from the same card every time, so one
+            # that fails is taken once more: what fails twice is the screen's,
+            # and fails; what passes the second time was the run's, and is said
+            # with its first reason. On GitHub's runners, sixteen checks at once,
+            # one in some thousand launches built MENU with the Shader Off
+            # (pixel2:ja/system-menu-strength, pixel2:pt-BR/menu-strength,
+            # 2026-11-16), which none of 1,700 here did.
+            if failed(r):
+                once = r
+                r = shoot()
+                if not failed(r):
+                    print("flaky %s:%s/%s: failed once (exit %d), passed again: %s" % (
+                        device, code, name, once.returncode, last_words(once)))
             for line in r.stdout.splitlines():
                 if line.startswith(("i18n: cut data: ", "i18n: slides data: ", "i18n: tight data: ")):
                     data.setdefault(name, []).append(line[6:])
                 elif line.startswith("fit: drawn: "):
                     drawn.add(unescape(line[12:]))
+                elif line.startswith("fit: value: "):
+                    value = unescape(line[12:])
+                    small = strings_of(code).small_first(value)
+                    if small and value not in small_said:
+                        small_said.add(value)
+                        failures.append("%s/%s: a row's value begins with a small letter: %r (%s)" % (
+                            code, name, value, "/".join(list(dict.fromkeys(small))[:3])))
                 elif line.startswith("fit: overflow: "):
                     px, box, text = line[15:].split("|", 2)
                     kind, span, *beside = box.split(" ", 2)
@@ -936,21 +1585,144 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                         code, name, strings_of(code).label(text), px, what, text.replace("\n", " / ")[:60]))
                 elif line.startswith("i18n: "):
                     notes.append("%s/%s: %s" % (code, name, line[6:]))
-            ok_anyway = name in R.CORNER_OWN and R.CORNER_OWN[name] in r.stdout
-            # A row this handheld has not (the Strength row where there are no
-            # GPU shaders): said, not failed; on the first handheld a missing
-            # row is a renamed one, and fails
             row = re.search(r"--menu: no row called (.*)", r.stdout)
             if not first and r.returncode and row:
                 print("not on %s: %s/%s: no row %s" % (device, code, name, row.group(1).strip()))
                 continue
-            if (r.returncode and not ok_anyway) or not target.is_file():
-                tail = " | ".join(r.stdout.strip().splitlines()[-3:])
-                failures.append("%s/%s: the shot failed (exit %d): %s" % (code, name, r.returncode, tail))
+            if failed(r):
+                failures.append("%s/%s: the shot failed twice (exit %d): %s" % (
+                    code, name, r.returncode, last_words(r)))
     return device, code, notes, failures, data, drawn
 
 
+def shot_list(only=()):
+    """{name: (card, tag, flags)}: every shot, or those named. The README's
+    but those of one language (menu-pt is that language's own), and EXTRA's.
+    tools/pixel-gate.py keys its kept base frames by it."""
+    shots = {k: v for k, v in R.SHOTS.items() if "--lang" not in v[2]}
+    shots.update(EXTRA)
+    if only:
+        shots = {k: v for k, v in shots.items() if k in only}
+    return shots
+
+
+def cache_dir():
+    if os.environ.get("ZYPEROS_SHOTS_CACHE_DIR"):
+        return Path(os.environ["ZYPEROS_SHOTS_CACHE_DIR"]).expanduser()
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "ZyperOS" / "i18n-shots"
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "zyperos" / "i18n-shots"
+
+
+# What a verdict is made of besides the launcher: the cards and their files
+# (res/, the fixtures, the systems), the strings this reads the drawn text
+# against (res/strings, tools/i18n.py), the list of strings no shot draws,
+# and this tool and the one it takes its cards and shots from
+VERDICT_INPUTS = ["res", "tools/i18n-shots.py", "tools/readme-shots.py", "tools/i18n.py",
+                  "tools/i18n-unshot.txt", "tools/fixtures", "config/systems.cfg"]
+
+
+def verdict_key(binary, argv):
+    """A pass's key: the launcher's own bytes (rebuilt from the same source,
+    the same bytes), VERDICT_INPUTS as this tree has them, committed or not
+    (their git hashes, staged into a copy of this worktree's index), the
+    host's SDL, and the arguments. None when git cannot say."""
+    import hashlib
+    h = hashlib.sha256()
+    h.update(binary.read_bytes())
+    paths = [p for p in VERDICT_INPUTS if (ROOT / p).exists()]
+    with tempfile.TemporaryDirectory(prefix="zyperos-i18n-index-") as tmp:
+        index = Path(tmp) / "index"
+        real = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-path", "index"],
+                              cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.strip()
+        if real and Path(real).is_file():
+            shutil.copyfile(real, index)
+        env = dict(os.environ, GIT_INDEX_FILE=str(index))
+        if subprocess.call(["git", "add", "-A", "--", *paths], cwd=ROOT, env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL):
+            return None
+        tree = subprocess.run(["git", "write-tree"], cwd=ROOT, env=env, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.strip()
+        listing = subprocess.run(["git", "ls-tree", tree, "--", *paths], cwd=ROOT, text=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+    if not tree:
+        return None
+    libs = subprocess.run(["pkg-config", "--modversion", "sdl2", "SDL2_image", "SDL2_ttf"],
+                          text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+    h.update(("\n".join([listing, libs, sys.platform, repr(argv)])).encode())
+    return h.hexdigest()
+
+
+class Tee:
+    """What is printed, printed and kept: a pass's words are kept with it"""
+    def __init__(self, out):
+        self.out, self.kept = out, []
+
+    def write(self, text):
+        self.kept.append(text)
+        return self.out.write(text)
+
+    def flush(self):
+        self.out.flush()
+
+
 def main():
+    """check() with the run's stops and its kept passes around it: a pass is
+    kept by verdict_key (ZYPEROS_SHOTS_CACHE_DIR; ~/Library/Caches/ZyperOS/
+    i18n-shots on a Mac), and the same launcher and inputs again print it
+    and pass at once (make check run again after a change to a document,
+    a check or the device's system). ZYPEROS_SHOTS_CACHE=0 shoots anyway.
+    Kept only for a run that writes nothing (no --keep, --coverage or
+    --write-unshot)."""
+    import signal
+
+    def stop(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGHUP, stop)
+    argv = sys.argv[1:]
+    writes = any(a.startswith(("--keep", "--coverage", "--write-unshot")) for a in argv)
+    key = kept = None
+    binary = ROOT / "build-native" / "zyperos"
+    for i, a in enumerate(argv):
+        if a == "--binary" and i + 1 < len(argv):
+            binary = Path(argv[i + 1]).resolve()
+        elif a.startswith("--binary="):
+            binary = Path(a.split("=", 1)[1]).resolve()
+    if not writes and os.environ.get("ZYPEROS_SHOTS_CACHE", "1") != "0" and binary.is_file():
+        key = verdict_key(binary, argv)
+        if key:
+            kept = cache_dir() / (key + ".txt")
+            if kept.is_file():
+                sys.stdout.write(kept.read_text(encoding="utf-8"))
+                print("(kept: the same launcher and inputs passed on %s; ZYPEROS_SHOTS_CACHE=0 "
+                      "shoots them again)" % time.strftime("%Y-%m-%d %H:%M", time.localtime(kept.stat().st_mtime)))
+                os.utime(kept)
+                return 0
+    tee = Tee(sys.stdout)
+    sys.stdout = tee
+    try:
+        code = check()
+    except KeyboardInterrupt:
+        STOP.set()
+        print("i18n-shots: stopped", file=sys.stderr)
+        code = 130
+    finally:
+        sys.stdout = tee.out
+        for d in SCRATCH:
+            shutil.rmtree(d, ignore_errors=True)
+    if code == 0 and kept is not None:
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        tmp = kept.with_suffix(".%d.tmp" % os.getpid())
+        tmp.write_text("".join(tee.kept), encoding="utf-8")
+        os.replace(tmp, kept)
+        # The 200 passes used last
+        for old in sorted(kept.parent.glob("*.txt"), key=lambda p: p.stat().st_mtime)[:-200]:
+            old.unlink(missing_ok=True)
+    return code
+
+
+def check():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--keep", type=Path, help="keep the frames in DIR/<code>/, or DIR/<device>/<code>/ "
                     "for more than one handheld")
@@ -965,6 +1737,8 @@ def main():
     ap.add_argument("--jobs", type=int, help="launchers at once (one a language a handheld)")
     ap.add_argument("--device", action="append",
                     help="as this handheld only (more than once for more; all of DEVICES by default)")
+    ap.add_argument("--cards", type=Path, help="clone the cards from DIR, which make_cards made (tools/pixel-gate.py "
+                    "makes them once a gate), and leave it")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
     args = ap.parse_args()
     if subprocess.call(["pkg-config", "--exists", "sdl2", "SDL2_image", "SDL2_ttf"],
@@ -976,24 +1750,35 @@ def main():
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first", file=sys.stderr)
         return 1
-    # The README's shots of one language (menu-pt) are that language's own
-    shots = {k: v for k, v in R.SHOTS.items() if "--lang" not in v[2]}
-    shots.update(EXTRA)
-    if args.only:
-        shots = {k: v for k, v in shots.items() if k in args.only}
+    shots = shot_list(args.only)
     langs = args.lang or (i18n.CODES + [i18n.PSEUDO])
     keep = args.keep.resolve() if args.keep else None
     runs = [(d, c) for d in devices for c in langs]
 
+    # One launcher a language and handheld, as before 2026-11-18: fewer when
+    # the computer was loaded (its free cores) left a make check's run at two
+    # launchers under other sessions' load, 712.9 s where 18 at once took 166
+    jobs = max(1, min(args.jobs or len(runs), len(runs)))
+    results = {}
+    if args.cards:
+        template = args.cards.resolve()
+    else:
+        template = Path(tempfile.mkdtemp(prefix="zyperos-i18n-cards-"))
+        SCRATCH.append(str(template))
+        make_cards(template)
+
     def run(dc):
         d, c = dc
         out = None if not keep else keep / c if len(devices) == 1 else keep / d / c
-        return run_language(c, shots, binary, out, args.theme, d, d == devices[0])
-
-    results = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(args.jobs or len(runs), len(runs)))) as pool:
-        for device, code, notes, failures, data, drawn in pool.map(run, runs):
-            results[(device, code)] = (notes, failures, data, drawn)
+        return run_language(c, shots, binary, out, args.theme, d, d == devices[0], template)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(jobs, len(runs)))) as pool:
+        try:
+            for device, code, notes, failures, data, drawn in pool.map(run, runs):
+                results[(device, code)] = (notes, failures, data, drawn)
+        except KeyboardInterrupt:
+            # Each run ends after its shot, and its cards go with it
+            STOP.set()
+            raise
 
     def texts(said):
         # the data each line names, whether it was cut or slides: a name

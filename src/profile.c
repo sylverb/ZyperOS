@@ -63,9 +63,12 @@ bool plat_has_bluetooth(void)        { return active->bluetooth; }
 bool plat_gpu_shaders(void)          { return active->gpu_shaders; }
 bool plat_gpu_frames(void)           { return active->gpu_frames; }
 bool plat_speaker_mono(void)         { return active->speaker_mono; }
+bool plat_has_rumble(void)           { return active->rumble; }
 bool plat_brightness_on_volume(void) { return active->chords.bright == DEV_BRIGHT_MENU_VOL; }
 bool plat_battery_lights(void)       { return active->chords.battery_chord; }
 bool plat_player2(void)              { return active->player2; }
+bool plat_screen_colors_here(void)   { return active->screen_colors; }
+bool plat_night_here(void)           { return active->screen_colors; }
 
 /* The image's "has" line (/etc/zyperos/system, written by plastron at the
  * image's build: "has usbdrive hostapd"): 1 when it names `part`, 0 when it

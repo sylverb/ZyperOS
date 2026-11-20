@@ -76,6 +76,13 @@ typedef struct {
 	 * with RUN, which steps a game back up at the first frame it can't keep.
 	 * Ports and the standalone emulators always run at full. */
 	char power[8];
+	/* Timing (src/pacing.h): a `pace|tag|smooth` or `pace|tag|exact` line
+	 * gives the system's menu its Timing row, and the word is the row's
+	 * default until the player picks: Smooth locks a game to the panel's
+	 * refresh where the rates are close (diatom/src/pace.h, DISPLAY LOCK),
+	 * Exact keeps the core's own rate. Empty: no row, the core's rate, as
+	 * before 1.0.6. Any other word is no line. */
+	char pace[8];
 	/* How hard the motor runs for its games, in percent of what the core
 	 * asks: 1 to 99 for a core that shakes harder than the handheld wants
 	 * (PrBoom, on every shot), 0 for the core's own. From a
@@ -118,6 +125,13 @@ typedef struct {
 	 * shelf_folder_choose). What a system IS to the tables keyed on
 	 * ZyperOS's names, libretro's and ScreenScraper's, goes by this. */
 	char home[CFG_STR];
+	/* A "run:" core of this shelf that runs files the player brings, which
+	 * ZyperOS never ships (your PICO-8), and those files, under the card,
+	 * comma separated: from a `brings|tag|core|paths` line. The core counts
+	 * as on the card only with each of them there (src/main.c, core_ready).
+	 * Empty for a shelf with none. */
+	char brings_core[CFG_STR];
+	char brings[160];
 } system_cfg;
 
 typedef struct {
@@ -147,10 +161,18 @@ int cfg_name_cmp(const char *a, const char *b);
 void cfg_sort_systems(systems_cfg *s);
 
 /* The RUN keys for a game on `s`, tab separated, into `out`: a two-screen
- * game's (`dual`) screens=2 and frameskip=, `frameskip` the DS shelf's When
- * Slow ("late", or "steady"; NULL is late, src/dsslow.h), then power=,
- * controller= and rumble= */
-void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, char *out, int cap);
+ * game's (`dual`) screens=2 and frameskip=late (a frame that starts late is
+ * run undrawn, so the game keeps its speed: always, since 1.0.6's When Slow
+ * row went, Tarik 2026-11-17), then power=, controller= and rumble=, and on a
+ * system with a Timing row pace=, `pace` the player's choice ("smooth" or
+ * "exact"; NULL or another word is the system's own, src/pacing.h) */
+void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap);
+/* The same with the motor's share given, in percent of what the core asks
+ * (src/rumble.h's rumble_run_pct: the player's Rumble level times the
+ * system's share): rumble= when it is under 100, rumble=0 for Off.
+ * cfg_run_keys is this with the system's share alone. */
+void cfg_run_keys_at(const system_cfg *s, bool dual, const char *pace, int rumble,
+                     char *out, int cap);
 
 /* How many cores `s` lists, and the i-th of them into `out` (false past the
  * end). A system with one core lists one. */

@@ -180,14 +180,15 @@ int main(void)
 	ck(appearance_parse("DARK") == APPEAR_DARK, "a database edited by hand, in capitals, still says dark");
 	ck(appearance_parse("Auto") == APPEAR_AUTO, "and in the menu's capitals, auto");
 
-	/* Stepping, for the row: the three in a ring, either way */
+	/* Stepping, for the row: Light and Dark since 1.0.6, either way; Auto,
+	 * a 1.0.5 word the start migrates, steps as Light */
 	printf("stepping:\n");
 	ck(appearance_step(APPEAR_LIGHT, 1) == APPEAR_DARK, "Light, forward, is Dark");
-	ck(appearance_step(APPEAR_DARK, 1) == APPEAR_AUTO, "Dark, forward, is Auto");
-	ck(appearance_step(APPEAR_AUTO, 1) == APPEAR_LIGHT, "Auto, forward, wraps to Light");
-	ck(appearance_step(APPEAR_LIGHT, -1) == APPEAR_AUTO, "Light, back, wraps to Auto");
-	ck(appearance_step(APPEAR_AUTO, -1) == APPEAR_DARK, "Auto, back, is Dark");
+	ck(appearance_step(APPEAR_DARK, 1) == APPEAR_LIGHT, "Dark, forward, wraps to Light");
+	ck(appearance_step(APPEAR_LIGHT, -1) == APPEAR_DARK, "Light, back, wraps to Dark");
 	ck(appearance_step(APPEAR_DARK, -1) == APPEAR_LIGHT, "Dark, back, is Light");
+	ck(appearance_step(APPEAR_AUTO, 1) == APPEAR_DARK, "Auto steps as Light: forward, Dark");
+	ck(appearance_step(APPEAR_AUTO, 0) == APPEAR_LIGHT, "and no step from it is Light");
 	ck(appearance_step((appearance)99, 1) == APPEAR_DARK, "a setting past the three steps from Light");
 
 	/* Before anything starts it: Beard, which is what a screen drawn before

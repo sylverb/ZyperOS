@@ -20,10 +20,17 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 #include "../src/xfer.h"
 
 static int failures;
+
+/* The card's systems, as xfer_set_systems asks: NES and GBA, in any case */
+static bool known_systems(const char *folder)
+{
+	return !strcasecmp(folder, "NES") || !strcasecmp(folder, "GBA");
+}
 
 #define CHECK(cond, ...)                                                      \
 	do {                                                                      \
@@ -131,7 +138,7 @@ int main(void)
 			{ "/mnt/SDCARD/Audiobooks",                       XFER_DEL_NO },
 			{ "/mnt/SDCARD/Bios",                             XFER_DEL_NO },
 			{ "/mnt/SDCARD/.userdata/shared/.zyperos",         XFER_DEL_NO },
-			{ "/mnt/SDCARD/Roms/NES",                         XFER_DEL_EMPTY },
+			{ "/mnt/SDCARD/Roms/NES",                         XFER_DEL_NO },
 			{ "/mnt/SDCARD/Roms/NES/Some Disc Game",          XFER_DEL_ALL },
 			{ "/mnt/SDCARD/Roms/NES/.media",                  XFER_DEL_ALL },
 			{ "/mnt/SDCARD/Music/Radiohead",                  XFER_DEL_ALL },
@@ -156,6 +163,39 @@ int main(void)
 			      t[k].want);
 		xfer_delete_rule("/mnt/SDCARD/Roms/NES", &why);
 		CHECK(why && why[0], "and a reason when it will not");
+	}
+
+	printf("  a console's own folder, by systems.cfg's names:\n");
+	{
+		static const struct { const char *abs; bool console; xfer_del want; } t[] = {
+			{ "/mnt/SDCARD/Roms/NES",                         true,  XFER_DEL_NO },
+			{ "/mnt/SDCARD/Roms/NES/",                        true,  XFER_DEL_NO },
+			{ "/mnt/SDCARD/Roms/nes",                         true,  XFER_DEL_NO },
+			{ "/mnt/SDCARD/Roms/Mine",                        false, XFER_DEL_EMPTY },
+			{ "/mnt/SDCARD/Roms/NES/Rom Hacks",               false, XFER_DEL_ALL },
+			{ "/mnt/SDCARD/Roms/NES/GBA",                     false, XFER_DEL_ALL },
+			{ "/mnt/SDCARD/.userdata/shared/.zyperos/NES",     true,  XFER_DEL_NO },
+			{ "/mnt/SDCARD/.userdata/shared/.zyperos/Other",   false, XFER_DEL_EMPTY },
+			{ "/mnt/SDCARD/Saves/NES",                        false, XFER_DEL_EMPTY },
+			{ "/mnt/SDCARD/Bios/NES",                         false, XFER_DEL_EMPTY },
+			{ "/mnt/SDCARD/Music/NES",                        false, XFER_DEL_ALL },
+			{ "/mnt/SDCARD/Roms",                             false, XFER_DEL_NO },
+		};
+		size_t k;
+
+		xfer_set_systems(known_systems);
+		for (k = 0; k < sizeof t / sizeof t[0]; k++) {
+			CHECK(xfer_console(t[k].abs) == t[k].console, "%s: a console's folder %s",
+			      t[k].abs, t[k].console ? "not seen" : "seen where there is none");
+			CHECK(xfer_delete_rule(t[k].abs, NULL) == t[k].want, "%s: got %d, wanted %d",
+			      t[k].abs, xfer_delete_rule(t[k].abs, NULL), t[k].want);
+		}
+		xfer_set_systems(NULL);
+		/* Before the launcher says its systems: every folder at the top of
+		 * ROMs is a console's, and none in the states */
+		CHECK(xfer_console("/mnt/SDCARD/Roms/Mine"), "a top ROMs folder is not a console's without systems.cfg");
+		CHECK(!xfer_console("/mnt/SDCARD/.userdata/shared/.zyperos/NES"),
+		      "a states folder is a console's without systems.cfg");
 	}
 
 	printf("  climbing out, in every shape:\n");

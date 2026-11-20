@@ -66,10 +66,10 @@ that rebuilds it to the same bytes.
 | `fceumm_libretro.so` | NES | GPL-2.0-or-later | https://github.com/libretro/libretro-fceumm at 236ccdf |
 | `mednafen_pce_fast_libretro.so` | TurboGrafx-16 and CD | GPL-2.0 (Mednafen-derived) | https://github.com/libretro/beetle-pce-fast-libretro at bebe2b1 (no commit in the binary; this one rebuilds the buildbot's bytes, and the file shipped is that build without its .comment section, `mk/fetch-vendor.sh`) |
 | `mednafen_ngp_libretro.so` | Neo Geo Pocket and Color | GPL-2.0 (Mednafen-derived) | https://github.com/libretro/beetle-ngp-libretro at a50d5ac |
-| `pcsx_rearmed_libretro.so` | PlayStation | GPL-2.0 | https://github.com/libretro/pcsx_rearmed at 7b0e8f8 |
-| `mgba_libretro.so` | Game Boy, Color and Advance | MPL-2.0 | https://github.com/libretro/mgba at e31759b plus mGBA's fix 543a197 (https://github.com/mgba-emu/mgba); `mk/build-mgba-bridge.sh` builds it |
-| `snes9x2010_libretro.so` | SNES | **Non-commercial** | https://github.com/libretro/snes9x2010 at 7db129b |
-| `genesis_plus_gx_libretro.so` | Genesis, Master System, Game Gear | **Non-commercial** | https://github.com/libretro/Genesis-Plus-GX at b7e79b3 |
+| `pcsx_rearmed_libretro.so` | PlayStation | GPL-2.0 | https://github.com/libretro/pcsx_rearmed at 7b0e8f8, with ZyperOS's `mk/patches/pcsx_rearmed-memcard-resume.patch` (a memory card that is the same when a state is loaded is not shown to the game as a new card); built by `mk/build-pcsx-rearmed.sh` with the buildbot's toolchain, not by the buildbot |
+| `mgba_libretro.so` | Game Boy, Color and Advance | MPL-2.0 | https://github.com/libretro/mgba at e31759b plus mGBA's fixes 543a197, 685023e and 8485192 (https://github.com/mgba-emu/mgba); `mk/build-mgba-bridge.sh` builds it |
+| `snes9x2010_libretro.so` | SNES | **Non-commercial** | https://github.com/libretro/snes9x2010 at fe690dd |
+| `genesis_plus_gx_libretro.so` | Genesis, Master System, Game Gear | **Non-commercial** | https://github.com/libretro/Genesis-Plus-GX at b9c2316 |
 | `stella2014_libretro.so` | Atari 2600 | GPL-2.0 | https://github.com/libretro/stella2014-libretro at 7d1361e |
 | `prosystem_libretro.so` | Atari 7800 | GPL-2.0 | https://github.com/libretro/prosystem-libretro at 8a88014 |
 | `gw_libretro.so` | Game & Watch | zlib | https://github.com/libretro/gw-libretro at dddc9d5 (the hash the binary reports as its own) |
@@ -91,6 +91,7 @@ that rebuilds it to the same bytes.
 | `parallel_n64_libretro.so` | Nintendo 64 (the default) | GPL-2.0 (Mupen64Plus; Glide64, Rice and gles2n64, GPL-2.0-or-later; angrylion-rdp-plus, MIT) | https://github.com/libretro/parallel-n64 at 334998e (the commit ROGUE OS's core names), for OpenGL ES 2; built by `mk/build-parallel-n64.sh`, not the buildbot |
 | `mupen64plus_next_libretro.so` | Nintendo 64 | GPL-2.0 (Mupen64Plus, GLideN64) | https://github.com/libretro/mupen64plus-libretro-nx at f275caf (ROCKNIX's mupen64plus-nx-lr pin), for OpenGL ES 3; built by `mk/build-mupen64plus-next.sh`, not the buildbot, with ZyperOS's `mk/patches/mupen64plus-next-new-frame-swap.patch` (GPL-2.0, as the code it changes) |
 | `ppsspp_libretro.so` | PSP | GPL-2.0-or-later | https://github.com/hrydgard/ppsspp at fa50bb1 (v1.20.4, ROCKNIX's ppsspp-lr pin), its libretro core for OpenGL ES, with the submodules it builds from at the commits the tree records, plus ZyperOS's `mk/patches/ppsspp-serialize-size.patch`, `mk/patches/ppsspp-audio-thread.patch`, `mk/patches/ppsspp-context-null.patch`, `mk/patches/ppsspp-gl-draw-range.patch`, `mk/patches/ppsspp-panfrost-blit.patch` and `mk/patches/ppsspp-tc-float-bounds.patch`, and four patches of ARM64 speedups from Deadstation Portable (https://github.com/tyrannotorus/emulator-deadstation-portable, GPL-2.0-or-later, a PPSSPP v1.20.4 fork): `mk/patches/ppsspp-vertex-pairs.patch`, `mk/patches/ppsspp-vfpu-jit.patch`, `mk/patches/ppsspp-vfpu-dot.patch` and `mk/patches/ppsspp-jit-blocks.patch`; built by `mk/build-ppsspp.sh`, not the buildbot. Its assets (`ZyperOS/ppsspp`, copied to `Bios/PPSSPP`: the PSP's fonts, the VFPU tables, the game fixes, the system dialogs' languages) are PPSSPP's, from the same tree |
+| `gambatte_libretro.so` | Game Boy and Game Boy Color | GPL-2.0 | https://github.com/libretro/gambatte-libretro at 77f2567, its libretro core; built by `mk/build-small-cores.sh`, not the buildbot |
 | `gearcoleco_libretro.so` | ColecoVision | GPL-3.0 | https://github.com/drhelius/Gearcoleco at 063fa52 (1.7.6), its libretro core; built by `mk/build-small-cores.sh`, not the buildbot |
 | `prboom_libretro.so` | Doom | GPL-2.0-or-later | https://github.com/libretro/libretro-prboom at 4849268 (ROCKNIX's prboom-lr pin), with the engine's prboom.wad compiled in and ZyperOS's `mk/patches/prboom-turn-speed.patch` (the d-pad's turn at the original game's speed); built by `mk/build-small-cores.sh`, not the buildbot |
 | `tic80_libretro.so` | TIC-80 | MIT | https://github.com/nesbox/TIC-80 at b3dbd59 (v1.4.1), its libretro core with its language runtimes, plus ZyperOS's `mk/patches/tic80-no-state.patch`; built by `mk/build-tic80.sh` |
@@ -160,6 +161,15 @@ routine from Stack Overflow (CC BY-SA 3.0), each under its own terms, which
 its LICENSE.MD lists in full. It is not Lexaloffle's PICO-8 and is not related
 to it.
 
+Lexaloffle's PICO-8 itself is not part of ZyperOS, and no ZyperOS image,
+release or download contains any part of it. A player may add their own
+copy, the PICO-8 for Raspberry Pi download they bought from Lexaloffle: its
+`pico8_64` and `pico8.dat` go on that player's card only, in `Bios/PICO-8`,
+under Lexaloffle's license. ZyperOS runs it as a separate program through its
+own script (`sd/pixel2/PICO-8.sh`), as it runs OpenBOR. The Splore entry's art
+(`res/pico8`, `tools/genpico8-art.py`) is ZyperOS's own and uses no part of
+Lexaloffle's.
+
 ---
 
 ## Runtime libraries
@@ -168,7 +178,8 @@ None are on the card. ZyperOS links against libraries plastron's system
 carries: SDL2, SDL2_image and SDL2_ttf (with FreeType, libpng and
 libjpeg-turbo under them), SQLite, libcurl and OpenSSL for RetroAchievements
 and box art, FFmpeg (built without its GPL parts) for MP4's music,
-audiobooks and videos, ALSA and glibc. plastron's package list on the card,
+audiobooks and videos, with dav1d (BSD-2-Clause) for AV1 videos, ALSA and
+glibc. plastron's package list on the card,
 `Licenses/plastron-packages.md`, gives their versions and licenses.
 
 The Pixel 2's PortMaster installer (`res/portmaster/pm-install.py`, ZyperOS's

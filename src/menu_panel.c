@@ -9,6 +9,7 @@
 #include "ds/layout.h"
 #include "ds/mark.h"      /* the more marks */
 #include "ds/preview.h"   /* an option list's picture column */
+#include "ds/hover.h"     /* what its cursor shows */
 #include "look.h"
 #include "panel.h"
 #include "sys_menu.h"   /* SM_NOTE_W: a choice's line, as the Display row's */
@@ -77,9 +78,35 @@ static bool row_is_scale(menu_row r)
 
 /* What a row's value takes at the right of the rows, for the measures:
  * its text, a tick (MENU_TICK) or X's glyph (MENU_KEY_X) */
+/* A value's partners' glyphs (MENU_PARTNER_MARK): their width with the gap
+ * before each, 0 for a value with none; *words_n the words' length */
+static int partner_w(const char *v, size_t *words_n)
+{
+	const char *m = v ? strstr(v, MENU_PARTNER_MARK) : NULL;
+	char names[64], *tok, *save = NULL;
+	int w = 0;
+
+	if (words_n) *words_n = v ? strlen(v) : 0;
+	if (!m) return 0;
+	if (words_n) *words_n = (size_t)(m - v);
+	snprintf(names, sizeof names, "%s", m + strlen(MENU_PARTNER_MARK));
+	for (tok = strtok_r(names, " ", &save); tok; tok = strtok_r(NULL, " ", &save))
+		w += DS_GRID * 2 + ui_button_width(tok, MENU_PARTNER_SIZE);
+	return w;
+}
+
 int menu_value_w(TTF_Font *fm, const char *v)
 {
 	if (v == MENU_TICK) return ui_cap_height(fm) * 6 / 5;
+	if (menu_keys_is(v)) return ui_button_width(menu_keys_names(v), MENU_KEYS_SIZE);
+	if (v && strstr(v, MENU_PARTNER_MARK)) {
+		size_t wn;
+		int pw = partner_w(v, &wn);
+		char words[192];
+
+		snprintf(words, sizeof words, "%.*s", (int)wn, v);
+		return ui_text_width(fm, words) + pw;
+	}
 	if (v == MENU_KEY_X) return ui_button_width("X", MENU_KEY_SIZE);
 	if (ds_scale_is(v)) return DS_SCALE_MIN_W + ds_scale_num_w();
 	if (v == MENU_KEY_Y_ON || v == MENU_KEY_Y_OFF)
@@ -202,9 +229,10 @@ static void menu_zyper_draw(app *a, const SDL_Rect *panel, int pad)
 /* `fixed_w` is the content width to use, or 0 to size to these rows. The shelf
  * menus pass a width measured across both of them so the panel never resizes;
  * the in-game menu has no values to cycle and sizes to itself. */
-/* `accent` is whose menu it is: a system's color, which is its heading rule
- * and the light it is lifted with in Salt & Pepper, or MENU_ZYPEROS for a menu
- * that is no system's. The shelf's own menu passes MENU_ZYPEROS because that
+/* `accent` is whose menu it is: a system's color, or MENU_ZYPEROS for a menu
+ * that is no system's. Since 1.0.6 rc.2 (Tarik's) the panel draws nothing in
+ * it - its rule is **edge** and its light the neutral one on every menu -
+ * and it stays only as the callers' word until the cleanup after 1.0.6. The shelf's own menu passes MENU_ZYPEROS because that
  * menu is ZyperOS, not whichever card is under the cursor; a menu that
  * belongs to a system passes that system's color, CFG_NO_COLOR for one whose
  * line names none. It is never the focus, which is lime on every menu
@@ -445,13 +473,11 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	 * clears 6:1. */
 	const SDL_Color on = ui_col(thm->on_accent, 255);
 	const SDL_Color on_quiet = ui_col(thm->on_accent, 184);
-	/* The heading's rule and the list's: **edge**, or in a system's menu that
-	 * system's color as a mark (ui_sys_mark), which for a system with no
-	 * color is **text-dim**, as its other marks are. */
-	const unsigned rule_rgb = accent == MENU_ZYPEROS ? ui_rgb(thm->edge)
-	                                                 : ui_sys_mark(accent);
-	const ds_rgb rule = { (Uint8)(rule_rgb >> 16), (Uint8)(rule_rgb >> 8),
-	                      (Uint8)rule_rgb };
+	/* The heading's rule and the list's: **edge**, on every menu, a
+	 * system's too (1.0.6 rc.2, Tarik's: "why the line below the header in
+	 * the menu varies with the system? can we not do that?"). Whose menu it
+	 * is, its heading says. */
+	const ds_rgb rule = thm->edge;
 	TTF_Font *fm = ui_font(UI_F_MENU), *fh = ui_font(UI_F_LABEL);
 	int row_h = menu_row_h();
 	int pad = menu_pad();
@@ -563,6 +589,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		if (!rows[i].label) continue;          /* a rule measures nothing */
 		/* A legend of button hints (keyhints.h) on its one row */
 		w = keyhints_is(rows[i].label) ? keyhints_line_width(rows[i].label)
+		  : menu_keys_is(rows[i].label) ? ui_button_width(menu_keys_names(rows[i].label), MENU_KEYS_SIZE)
 		                               : ui_text_width(fm, rows[i].label);
 		if (two_col && rows[i].value && !ROW_IS_NOTE(rows[i]))
 			w += gap + menu_value_w(fm, rows[i].value);
@@ -616,8 +643,15 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 				for (j = k + 1; k > sel && j < n; j++)
 					if (rows[j].live || (rows[j].label && !ROW_IS_NOTE(rows[j]))) k = -1;
 				if (k > sel) {
+					/* A panel with a picture beside its rows holds the
+					 * height its pages have (below), so its footer comes
+					 * out of that: their rows, and of the bottom pad all
+					 * but a note's own air, which its last note keeps
+					 * (a button's list on the Controls tab, 11.45) */
+					int room = g_menu_side ? avail / row_h * row_h + pad - pad / 3 : avail;
+
 					for (j = k; j < n; j++) foot_h += ROW_H(rows[j]);
-					if (avail - foot_h >= row_h) { nl = k; avail -= foot_h; }
+					if (room - foot_h >= row_h) { nl = k; avail = room - foot_h; }
 					else foot_h = 0;
 				}
 			}
@@ -755,7 +789,10 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		int most = (MENU_AVAIL_H - content_off - pad) / row_h;
 		int tall = content_off + most * row_h + pad;
 
-		if (panel.h < tall) panel.h = tall;
+		/* and no taller with a footer kept under its rows: the footer
+		 * stands in the bottom pad (above) rather than the panel growing
+		 * as a button's list opens over its page */
+		if (panel.h < tall || (g_menu_side && foot_h)) panel.h = tall;
 	}
 	panel.x = (ZYPEROS_SCREEN_W - panel.w) / 2;
 	panel.y = (ZYPEROS_SCREEN_H - panel.h) / 2;
@@ -768,9 +805,9 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	                          panel.y + panel.h - pad - content_y };
 
 	/* DESIGN.md 11.3: **surface** in an **edge** frame, lifted off what is
-	 * behind it - a shadow on Beard, light in the system's color in Salt &
-	 * Pepper, or a neutral light for a menu that is no system's. The frame is
-	 * never the system's color: a menu says whose it is on its heading rule. */
+	 * behind it - a shadow on Beard, a neutral light in Salt & Pepper - the
+	 * same on every menu, a system's too: no system's color on the panel,
+	 * its frame, its rule or its light (1.0.6 rc.2, Tarik's) */
 	/* Moving, the lift goes straight on the screen at the panel's size and
 	 * its strength, and the panel into the pass: a shadow or a glow drawn
 	 * into a clear texture and copied out with its alpha would be faded
@@ -778,7 +815,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	{
 		const ds_pass pass = { panel_scaled, menu_pass_begin, menu_pass_end, a };
 
-		posed = ds_panel_open(a->r, &panel, accent == MENU_ZYPEROS ? CFG_NO_COLOR : accent, pose, &pass);
+		posed = ds_panel_open(a->r, &panel, CFG_NO_COLOR, pose, &pass);
 	}
 
 	if (heading) {
@@ -960,10 +997,14 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		if (tween_moving(&give, nw)) redraw_now();    /* the list still easing: moving */
 	}
 
-	/* No plate on a note nothing can land on: a list that is only that (the
-	 * in-game menu's Controls tab before it has rows) has no cursor to show */
+	/* No plate where the cursor has nothing to land on: on a note (the
+	 * in-game menu's Controls tab before it has rows), or anywhere in a list
+	 * with no row it can take (no live row, and not visits_all), which is a
+	 * message and not a choice: the Achievements tab's "RetroAchievements has
+	 * no achievements for this game", for one. A plate there read as a row
+	 * to pick. */
 	if (sel >= 0 && sel < n && rows[sel].label &&
-	    !(ROW_IS_NOTE(rows[sel]) && !rows[sel].live)) {
+	    !(ROW_IS_NOTE(rows[sel]) && !rows[sel].live) && menu_rows_landable(rows, n, visits_all)) {
 		static int   pl_n = -1;
 		static unsigned pl_ep;
 		static tween pl_y, pl_h;
@@ -1014,7 +1055,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		 * it is, and never the system's color. On a dark red system a plate
 		 * in the system's color read as a stain on the row rather than a
 		 * highlight under it, and with the system's color on the heading rule
-		 * the two competed; lime is ZyperOS's, and it means the focus
+		 * (as it was before 1.0.6) the two competed; lime is ZyperOS's, and it means the focus
 		 * wherever it is.
 		 *
 		 * Flat, with no radial glow under it. The glow was brightest at the
@@ -1232,6 +1273,58 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 				                content_w, mq_phase(slot, sel, i), lc);
 			}
 			notes_drawn++;
+		} else if (two_col && rows[i].value && strstr(rows[i].value, MENU_PARTNER_MARK)) {
+			/* A value and its partners' glyphs after it, dim: the
+			 * Controls tab's game button another button gives too */
+			size_t wn;
+			const int pw = partner_w(rows[i].value, &wn);
+			char words[192], names[64], lbl[192], *tok, *save = NULL;
+			int x = content_x + content_w - pw;
+
+			snprintf(words, sizeof words, "%.*s", (int)wn, rows[i].value);
+			snprintf(names, sizeof names, "%s", strstr(rows[i].value, MENU_PARTNER_MARK) + strlen(MENU_PARTNER_MARK));
+			ui_fit_text(fm, rows[i].label, lbl, sizeof lbl,
+			            content_w - menu_value_w(fm, rows[i].value) - gap);
+			ui_text(a->r, fm, lbl, content_x, ty, -1, lc);
+			ui_text(a->r, fm, words, x, ty, 1, vc);
+			for (tok = strtok_r(names, " ", &save); tok; tok = strtok_r(NULL, " ", &save)) {
+				const int bw = ui_button_width(tok, MENU_PARTNER_SIZE);
+
+				x += DS_GRID * 2;
+				ui_button_pressed(a->r, tok, x + bw / 2, y + ROW_H(rows[i]) / 2, MENU_PARTNER_SIZE,
+				                  sel_w >= 0.5f ? UI_BUTTON_ON_ACCENT : UI_BUTTON_PLAIN, 0.0f, 1.0f,
+				                  lc.a / 255.0f * 0.7f);
+				x += bw;
+			}
+		} else if (two_col && menu_keys_is(rows[i].value)) {
+			/* Buttons for a value (MENU_KEYS_MARK): the Hotkeys list's keys,
+			 * this handheld's glyphs where the value's right edge is, on the
+			 * fill as a selected key's, and the label in what they leave */
+			const char *keys = menu_keys_names(rows[i].value);
+			const int kw = ui_button_width(keys, MENU_KEYS_SIZE);
+			char lbl[192];
+
+			ui_button_pressed(a->r, keys, content_x + content_w - kw / 2, y + ROW_H(rows[i]) / 2,
+			                  MENU_KEYS_SIZE, sel_w >= 0.5f ? UI_BUTTON_ON_ACCENT : UI_BUTTON_PLAIN,
+			                  0.0f, 1.0f, lc.a / 255.0f);
+			ui_fit_text(fm, rows[i].label, lbl, sizeof lbl, content_w - kw - fit_gap);
+			ui_text(a->r, fm, lbl, content_x, ty, -1, lc);
+		} else if (two_col && menu_keys_is(rows[i].label)) {
+			/* Buttons for a label (MENU_KEYS_MARK): this handheld's glyphs
+			 * where the label goes, faded with the row, and the value at
+			 * the right in what they leave */
+			const char *keys = menu_keys_names(rows[i].label);
+			const int kw = ui_button_width(keys, MENU_KEYS_SIZE);
+			char val[192];
+
+			ui_button_pressed(a->r, keys, content_x + kw / 2, y + ROW_H(rows[i]) / 2, MENU_KEYS_SIZE,
+			                  sel_w >= 0.5f ? UI_BUTTON_ON_ACCENT : UI_BUTTON_PLAIN, 0.0f, 1.0f,
+			                  lc.a / 255.0f);
+			if (rows[i].value) {
+				ui_fit_value(rows[i].value);
+				ui_fit_text(fm, rows[i].value, val, sizeof val, content_w - kw - fit_gap);
+				ui_text(a->r, fm, val, content_x + content_w, ty, 1, vc);
+			}
 		} else if (two_col) {
 			char lbl[192], val[192];
 			/* g_row_icon's square, three quarters of the row, and the row
@@ -1250,6 +1343,12 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			int lw = ui_text_width(fm, rows[i].label);
 			int vw = menu_value_w(fm, rows[i].value);
 			int room;
+
+			/* A value in words, for the host's check that it begins with a
+			 * capital (ui_fit_value): not a tick, a key or a scale */
+			if (rows[i].value && rows[i].value != MENU_TICK && rows[i].value != MENU_KEY_X &&
+			    rows[i].value != MENU_KEY_Y_ON && rows[i].value != MENU_KEY_Y_OFF && !row_is_scale(rows[i]))
+				ui_fit_value(rows[i].value);
 
 			/* WHICHEVER IS LONGER IS THE CONTENT, and the content is what
 			 * moves. The other one is a caption, and a caption keeps its
@@ -1457,8 +1556,12 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		/* a list that goes round carries on both ways, always */
 		if (first > 0 || loop)
 			ds_more(a->r, (float)cx, (float)(content_y - off - DS_MORE_H), true, dim);
+		/* Under the window's rows as drawn: over a pinned footer, its
+		 * window's height (shorter than its slots when a note is among
+		 * them), so the mark never lands on the footer's first row */
 		if (first + vis < n || loop)
-			ds_more(a->r, (float)cx, (float)(content_y + vis * row_h + off), false, dim);
+			ds_more(a->r, (float)cx, (float)(content_y + (foot_h ? list_h : vis * row_h) + off),
+			        false, dim);
 	}
 	if (posed) {
 		panel_pass_end(a, &panel, pose);
@@ -1482,6 +1585,12 @@ typedef struct {
 	void (*preview)(void *app, int k, int x, int y, int w, int h);
 	int side_w;                /* its column's width (menu_pick_width) */
 	int note_lines;            /* its note's room: the set's tallest */
+	/* Told the choice under the cursor on every pass (menu_pick_focus) */
+	void (*focus)(void *app, int k);
+	/* What the cursor shows (menu_pick_hover), run by `run` */
+	const ds_hover *hover;
+	ds_hover_run run;
+	app *app;
 	int sel;                   /* the cursor, as the runner leaves it (sel_out) */
 	unsigned char sound[MENU_CHOICES_MAX + 3];
 	char word[MENU_CHOICES_MAX][64];
@@ -1494,6 +1603,10 @@ static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 	int i;
 
 	*heading = p->heading;
+	/* The build runs on every pass, the cursor of the pass before in
+	 * p->sel: the screen shows the choice under it (a list with focus
+	 * loads a table only when the choice changes) */
+	if (p->focus) p->focus(p->app, p->sel >= 0 && p->sel < p->n ? p->sel : 0);
 	for (i = 0; i < p->n && i < max && i < MENU_CHOICES_MAX; i++) {
 		menu_pick_word(p->labels ? p->labels[i] : NULL, p->word[i], (int)sizeof p->word[i]);
 		rows[i] = (menu_row){ p->word[i], i == p->cur ? MENU_TICK : NULL, true };
@@ -1544,10 +1657,27 @@ static void pick_backdrop(app *a, void *ctx, float k)
 static menu_result pick_power(app *a, void *ctx)
 {
 	pick_ctx *p = ctx;
-	menu_result r = p->over->on_power(a, p->over_ctx);
+	menu_result r;
 
+	/* What the cursor shows put back first: the power-off keeps the
+	 * place and the theme, and must keep the kept one, not the shown */
+	ds_hover_end(&p->run);
+	if (!p->over || !p->over->on_power) {
+		power_off(a);
+		return MENU_DONE;
+	}
+	r = p->over->on_power(a, p->over_ctx);
 	if (r == MENU_DONE) p->powered = true;
 	return r;
+}
+
+/* The cursor where it is for this frame: the choice under it shown */
+static void pick_at(app *a, void *ctx, int sel)
+{
+	pick_ctx *p = ctx;
+
+	(void)a;
+	ds_hover_at(&p->run, sel >= 0 && sel < p->n ? sel : 0);
 }
 
 static pick_ctx g_pick_list;
@@ -1618,12 +1748,15 @@ static void pick_side(app *a, const menu_side *at)
 static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *heading,
                     const char *const *labels, const char *const *notes,
                     void (*preview)(void *app, int k, int x, int y, int w, int h),
-                    int n, int ticked, int at)
+                    void (*focus)(void *app, int k), const ds_hover *hover, int n, int ticked, int at)
 {
 	pick_ctx *const q = &g_pick_list;
 
 	memset(q, 0, sizeof *q);
 	q->preview = preview;
+	q->focus = focus;
+	q->hover = hover;
+	q->app = a;
 	q->heading = heading;
 	q->labels = labels;
 	q->n = n > MENU_CHOICES_MAX ? MENU_CHOICES_MAX : n;
@@ -1637,24 +1770,30 @@ static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *
 	const int width = menu_pick_width(a, from && from->fixed_w ? from->fixed_w : menu_std_width(a),
 	                                  labels, q->n, ticked, preview != NULL, &q->side_w);
 	q->note_lines = preview ? menu_pick_note_room(notes, q->n, q->side_w) : 0;
+	ds_hover_begin(&q->run, hover, a, ticked, cur >= 0 && cur < q->n ? cur : 0);
 
 	menu_run(a, &(menu_style){ .accent = from ? from->accent : MENU_ZYPEROS,
 	                           .follow_tint = from && from->follow_tint,
 	                           .backdrop = from && from->backdrop ? pick_backdrop : NULL,
-	                           .on_power = from && from->on_power ? pick_power : NULL,
+	                           .on_power = pick_power,
 	                           .fixed_w = width,
 	                           .sound = q->sound, .start_sel = cur >= 0 && cur < q->n ? cur : 0,
-	                           .sel_out = notes ? &q->sel : NULL, .pin_foot = !preview,
+	                           .sel_out = notes || focus ? &q->sel : NULL, .pin_foot = !preview,
 	                           .side = preview ? pick_side : NULL,
-	                           .side_w = q->side_w },
+	                           .side_w = q->side_w,
+	                           .at = hover ? pick_at : NULL },
 	         pick_build, pick_key, q);
+	if (focus) focus(a, -1);
+	/* Closed, whichever way: what is kept back before A's choice is
+	 * applied, so the row steps it from the kept one */
+	ds_hover_end(&q->run);
 	return q->powered ? MENU_PICK_POWER : q->picked;
 }
 
 int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
               const char *const *labels, const char *const *notes, int n, int ticked, int at)
 {
-	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, n, ticked, at);
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, NULL, NULL, n, ticked, at);
 }
 
 int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char *heading,
@@ -1662,5 +1801,27 @@ int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char
                       void (*preview)(void *app, int k, int x, int y, int w, int h),
                       int n, int ticked, int at)
 {
-	return pick_run(a, from, from_ctx, heading, labels, notes, preview, n, ticked, at);
+	return pick_run(a, from, from_ctx, heading, labels, notes, preview, NULL, NULL, n, ticked, at);
+}
+
+int menu_pick_focus(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes,
+                    void (*focus)(void *app, int k), int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, focus, NULL, n, ticked, at);
+}
+
+int menu_pick_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes, const ds_hover *hover,
+                    int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, NULL, hover, n, ticked, at);
+}
+
+int menu_pick_preview_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                            const char *const *labels, const char *const *notes,
+                            void (*preview)(void *app, int k, int x, int y, int w, int h),
+                            const ds_hover *hover, int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, preview, NULL, hover, n, ticked, at);
 }

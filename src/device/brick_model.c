@@ -2,9 +2,7 @@
 /* The TrimUI Brick's 3D drawing as data (src/device/td_model.h), in the
  * millimetres of its published outline (73.2 x 109.9 mm; 11.8 deep above
  * the back ledge, 19.9 below it) and the key places measured to it
- * (docs/superpowers/specs/2026-11-14-device-modular-design.md, appendix
- * "Measurements"; the plan's model coordinates, docs/superpowers/plans/
- * 2026-11-15-brick-front-step5.md): the d-pad, F1 and F2, A B X Y and the
+ * (from TrimUI's product images; the numbers are the ones in this file): the d-pad, F1 and F2, A B X Y and the
  * three round keys along the bottom (MENU, SELECT, START) on the front, the
  * volume keys on the left side, POWER on the right, and the four shoulders
  * on the back ledge, L1 and R1 outside. A side key's x is its depth across
@@ -41,6 +39,44 @@ static const td_part brick_parts[] = {
 	{ TD_R1,     TD_FACE_LEDGE,  27.85f,  13.65f, 8.75f },
 };
 
+/* Drawn flat (td_model.h): desk mode's window and the Simulator's. Its
+ * graphite body, MENU's word and SELECT's and START's marks on their caps,
+ * F1 and F2 printed under their pills, no side lights. */
+static const td_flat_key brick_flat_keys[] = {
+	{ .key = TD_X, .label = "X", .hint = TD_HINT_ABOVE },
+	{ .key = TD_Y, .label = "Y", .hint = TD_HINT_LEFT },
+	{ .key = TD_A, .label = "A", .hint = TD_HINT_RIGHT },
+	{ .key = TD_B, .label = "B", .hint = TD_HINT_BELOW },
+	{ .key = TD_F1, .under = "F1", .hint = TD_HINT_ABOVE, .thick = 2.6f },
+	{ .key = TD_F2, .under = "F2", .hint = TD_HINT_ABOVE, .thick = 2.6f },
+	{ .key = TD_MENU, .label = "MENU", .hint = TD_HINT_ABOVE },
+	{ .key = TD_SELECT, .label = "\xE2\x96\xA0", .under = "SELECT", .hint = TD_HINT_ABOVE },
+	{ .key = TD_START, .label = "\xE2\x96\xB6", .under = "START", .hint = TD_HINT_ABOVE },
+	{ .key = TD_L1, .label = "L1", .hint = TD_HINT_ON },
+	{ .key = TD_L2, .label = "L2", .hint = TD_HINT_ON },
+	{ .key = TD_R2, .label = "R2", .hint = TD_HINT_ON },
+	{ .key = TD_R1, .label = "R1", .hint = TD_HINT_ON },
+	{ .key = TD_VOLUP, .label = "+", .hint = TD_HINT_RIGHT },
+	{ .key = TD_VOLDN, .label = "-", .hint = TD_HINT_RIGHT },
+	{ .key = TD_POWER, .hint = TD_HINT_LEFT },
+};
+static const td_flat_label brick_flat_labels[] = {
+	{ "VOL", -40.2f, 39.1f, true }, { "POWER", 40.2f, 15.65f, true },
+};
+static const td_flat brick_flat = {
+	.corner = 5.5f,
+	.margin_x = 6.0f, .margin_top = 4.0f, .margin_bottom = 2.5f,
+	.glass = { 0, 25.4f, 69.6f, 55.6f }, .glass_r = 1.6f,
+	.screen = { 0, 26.4f, 65.0f, 48.8f },
+	.word = "ZyperOS", .word_y = -0.3f,
+	.dpad_arm = 3.5f,
+	.side_out = 0.8f, .side_w = 3.0f, .shoulder_rise = 0.65f, .shoulder_h = 3.6f,
+	.body_hi = 0x4B4F56, .body = 0x3B3E44, .body_lo = 0x2C2E33, .recess_c = 0x26282C,
+	.cap = 0x232427, .cap_down = 0x121315, .marking = 0xA2A6AC, .glass_c = 0x07080A, .light_off = 0x26282C,
+	.keys = brick_flat_keys, .n_keys = (int)(sizeof brick_flat_keys / sizeof brick_flat_keys[0]),
+	.labels = brick_flat_labels, .n_labels = (int)(sizeof brick_flat_labels / sizeof brick_flat_labels[0]),
+};
+
 const td_model td_model_brick = {
 	.name = "TrimUI Brick",
 	.art = TD_ART_BRICK,
@@ -73,4 +109,5 @@ const td_model td_model_brick = {
 	 * -108.6 to 109.2 and y -145.4 to 143.8 about the handheld's middle */
 	.keep_tour = { 12, 95, 256, 334 },
 	.keep_tab = { 111, 148, 224, 294 },
+	.flat = &brick_flat,
 };

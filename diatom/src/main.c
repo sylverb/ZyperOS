@@ -19,13 +19,18 @@
 #include <pthread.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <zlib.h>
 
+#include "cheats.h"
 #include "cheevos.h"
 #include "chord.h"
 #include "diatom.h"
+#include "emumeter.h"
 #include "levels.h"
 #include "now.h"
 #include "pace.h"
+#include "flipwatch.h"
 #include "player2.h"
 #include "screens.h"
 
@@ -48,6 +53,7 @@ typedef struct diatom_session {
 	                           * into play, if there is none there yet */
 	const char   *firmware;   /* what the launcher says this content needs */
 	const char   *cheevos;    /* an achievement set to watch */
+	const char   *cheats;     /* the cheat codes that are on (cheats.h) */
 	int           console;    /* which console's address space it is written against */
 	long          limit;
 	int           mode;
@@ -61,7 +67,7 @@ typedef struct diatom_session {
 	 * its drawing left out, when the core can do that. See the frame loop. */
 	bool          late_skip;
 	/* RUN frameskip=steady: as late, but while frames run late exactly
-	 * every second one is drawn (MENU's When Slow, Steady 30) */
+	 * every second one is drawn (no launcher sends it now; see diatom.h) */
 	bool          late_steady;
 	bool          stylus;     /* --stylus: start with stylus mode on (tests) */
 	/* RUN power=: the clock ceiling the system keeps its speed under, a
@@ -78,9 +84,21 @@ typedef struct diatom_session {
 	/* RUN stick=plain: the d-pad is the left stick always, and the joypad's
 	 * d-pad too. No SELECT rule (SELECT is the system's own) and no R2 turn */
 	bool          stick_plain;
+	/* RUN stick=dpad-pad or plain-pad: dpad or plain, starting on the
+	 * d-pad's side, for a button the map gives the stick to turn */
+	bool          stick_pad;
+	/* RUN pace=smooth: the display's rate where it is close to the core's
+	 * (src/pace.h, DISPLAY LOCK), the launcher's Timing: Smooth. Without
+	 * it, the core's own rate (Exact) */
+	bool          pace_smooth;
+	/* RUN hotkeys=: SELECT's keys (chord.h), "" for the shoulders' four */
+	const char   *hotkeys;
+	/* RUN shots=: a screenshot's folder and name, "" for none */
+	const char   *shots;
 } diatom_session;
 
 static bool game_msg(const diatom_msg *m);
+static void hotkeys_set(const char *spec, bool say);
 static void bg_report(bool wait, bool apply);
 static void levels_forget(void);
 static void apply_display(int mode, diatom_filter filter);
@@ -341,6 +359,202 @@ static bool write_preview(const char *path)
 	if (f) fclose(f);
 	free(b);
 	return ok;
+}
+
+/* ---- the screenshot (CHORD_SHOT, DESIGN.md 11.61) ----
+ *
+ * The game's own frame, as a save's picture is, at its own size: the
+ * frame Diatom already keeps (a GPU core's read back once, gpu_snapshot),
+ * copied here between frames and written as a PNG on a thread of its own,
+ * so the frame loop never waits on the card or on the encoding. Where it
+ * goes is the launcher's (RUN shots=): the time and ".png" are added. SHOT
+ * path= once the file is there, said by the loop, which looks once a turn;
+ * one at a time, a press while one is being written is said and dropped. */
+static char g_shots[1024];
+
+typedef struct {
+	char     path[1100];
+	uint8_t *px;            /* w x h, `bpp` bytes a pixel, top row first */
+	int      w, h, bpp;     /* 2: RGB565, 4: XRGB8888 */
+} shot_job;
+
+/* 0 idle, 1 being written, 2 written, 3 failed: the thread's answer, read
+ * by the loop (shot_poll) */
+static volatile int g_shot_state;
+static char         g_shot_done[1100];
+
+static void png_u32(uint8_t *p, uint32_t v)
+{
+	p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16); p[2] = (uint8_t)(v >> 8); p[3] = (uint8_t)v;
+}
+
+/* A chunk at out: its length, type, data and CRC; the new end */
+static uint8_t *png_chunk(uint8_t *out, const char *type, const uint8_t *data, uint32_t n)
+{
+	uLong crc;
+
+	png_u32(out, n);
+	memcpy(out + 4, type, 4);
+	if (n) memcpy(out + 8, data, n);
+	crc = crc32(0L, out + 4, 4 + n);
+	png_u32(out + 8 + n, (uint32_t)crc);
+	return out + 12 + n;
+}
+
+/* The pixels as an 8-bit RGB PNG, every row filter none; malloc'd */
+static uint8_t *png_encode(const shot_job *j, size_t *len)
+{
+	static const uint8_t SIG[8] = { 137, 'P', 'N', 'G', 13, 10, 26, 10 };
+	const size_t row = (size_t)j->w * 3 + 1, raw_n = row * (size_t)j->h;
+	uint8_t *raw, *out, *o, ihdr[13];
+	uLongf zn;
+	int x, y;
+
+	*len = 0;
+	if (!(raw = malloc(raw_n))) return NULL;
+	for (y = 0; y < j->h; y++) {
+		uint8_t *r = raw + (size_t)y * row;
+		const uint8_t *src = j->px + (size_t)y * (size_t)j->w * (size_t)j->bpp;
+
+		r[0] = 0;
+		for (x = 0; x < j->w; x++) {
+			uint8_t *d = r + 1 + x * 3;
+
+			if (j->bpp == 2) {
+				unsigned v = ((const uint16_t *)src)[x];
+
+				d[0] = (uint8_t)(((v >> 11) & 0x1f) * 255 / 31);
+				d[1] = (uint8_t)(((v >> 5) & 0x3f) * 255 / 63);
+				d[2] = (uint8_t)((v & 0x1f) * 255 / 31);
+			} else {
+				uint32_t v = ((const uint32_t *)src)[x];
+
+				d[0] = (uint8_t)(v >> 16); d[1] = (uint8_t)(v >> 8); d[2] = (uint8_t)v;
+			}
+		}
+	}
+	zn = compressBound((uLong)raw_n);
+	if (!(out = malloc(8 + 25 + 12 + zn + 12))) { free(raw); return NULL; }
+	memcpy(out, SIG, 8);
+	png_u32(ihdr, (uint32_t)j->w);
+	png_u32(ihdr + 4, (uint32_t)j->h);
+	ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;   /* 8-bit RGB */
+	o = png_chunk(out + 8, "IHDR", ihdr, 13);
+	if (compress2(o + 8, &zn, raw, (uLong)raw_n, 6) != Z_OK) { free(raw); free(out); return NULL; }
+	free(raw);
+	/* the IDAT written in place: its data is already at o + 8 */
+	png_u32(o, (uint32_t)zn);
+	memcpy(o + 4, "IDAT", 4);
+	png_u32(o + 8 + zn, (uint32_t)crc32(0L, o + 4, (uInt)(4 + zn)));
+	o += 12 + zn;
+	o = png_chunk(o, "IEND", NULL, 0);
+	*len = (size_t)(o - out);
+	return out;
+}
+
+/* Every folder of `path` but its last part, made as needed */
+static void make_dirs(const char *path)
+{
+	char d[1100];
+	size_t i;
+
+	snprintf(d, sizeof d, "%s", path);
+	for (i = 1; d[i]; i++) {
+		if (d[i] != '/') continue;
+		d[i] = '\0';
+		mkdir(d, 0755);
+		d[i] = '/';
+	}
+}
+
+static void *shot_write(void *arg)
+{
+	shot_job *j = arg;
+	size_t n = 0;
+	uint8_t *png = png_encode(j, &n);
+	bool ok;
+
+	make_dirs(j->path);
+	ok = png && diatom_write_atomic(j->path, png, n);
+	free(png);
+	snprintf(g_shot_done, sizeof g_shot_done, "%s", j->path);
+	__sync_synchronize();
+	g_shot_state = ok ? 2 : 3;
+	free(j->px);
+	free(j);
+	return NULL;
+}
+
+/* SELECT and the screenshot's button: this frame, to the card */
+static void shot_take(void)
+{
+	shot_job *j;
+	pthread_t th;
+	const void *src = g_frame;
+	void *pic = NULL;
+	size_t pitch = g_frame_pitch;
+	int w = g_frame_w, h = g_frame_h, bpp, y;
+	char when[32];
+	time_t t = time(NULL);
+	struct tm tm;
+
+	if (!g_shots[0] || g_shot_state == 1) {
+		printf("diatom: screenshot: %s\n", g_shots[0] ? "one is being written" : "no folder (RUN shots=)");
+		fflush(stdout);
+		return;
+	}
+	/* A GPU game's frame is on the GPU: read back once, here, between
+	 * frames, as a pause's preview is */
+	if (diatom_hw_active() && !gpu_snapshot()) return;
+	src = g_frame;
+	pitch = g_frame_pitch;
+	w = g_frame_w;
+	h = g_frame_h;
+	bpp = g_policy.pixfmt == DIATOM_PIX_RGB565 ? 2 : 4;
+	if (!src || w <= 0 || h <= 0) return;
+	/* Two screens laid out: the picture the player sees, as the preview */
+	if (g_dual && g_nplanes > 0 && (pic = scr_compose(g_frame, g_frame_pitch, bpp, g_planes, g_nplanes, &w, &h))) {
+		src = pic;
+		pitch = (size_t)w * (size_t)bpp;
+	}
+	if (!(j = calloc(1, sizeof *j)) || !(j->px = malloc((size_t)w * (size_t)h * (size_t)bpp))) {
+		free(j);
+		free(pic);
+		return;
+	}
+	for (y = 0; y < h; y++)
+		memcpy(j->px + (size_t)y * (size_t)w * (size_t)bpp, (const uint8_t *)src + (size_t)y * pitch,
+		       (size_t)w * (size_t)bpp);
+	free(pic);
+	j->w = w;
+	j->h = h;
+	j->bpp = bpp;
+	localtime_r(&t, &tm);
+	strftime(when, sizeof when, "%Y-%m-%d %H.%M.%S", &tm);
+	snprintf(j->path, sizeof j->path, "%s %s.png", g_shots, when);
+	g_shot_state = 1;
+	if (pthread_create(&th, NULL, shot_write, j) != 0) {
+		shot_write(j);
+		return;
+	}
+	pthread_detach(th);
+}
+
+/* Once a turn: a screenshot written is said, SHOT path=, for the
+ * launcher's pop-up with the picture in it */
+static void shot_poll(void)
+{
+	int st = g_shot_state;
+
+	if (st < 2) return;
+	__sync_synchronize();
+	printf("diatom: screenshot %s %s\n", st == 2 ? "written" : "failed", g_shot_done);
+	fflush(stdout);
+	if (diatom_proto_connected()) {
+		if (st == 2) diatom_proto_send("SHOT\tpath=%s", g_shot_done);
+		else diatom_proto_send("ERROR\tcode=shot_failed\tmsg=%s", g_shot_done);
+	}
+	g_shot_state = 0;
 }
 
 static diatom_port_caps g_caps;
@@ -643,6 +857,14 @@ static bool          g_swap;
 static long     g_present_frames;
 static uint64_t g_present_us;
 
+/* What the overlay's Speed and FPS and the now file's counter are made of
+ * (emumeter.h): the sound frames the core made, on any thread since a game
+ * began (the core's thread adds to it, hence atomic; a relaxed add is one
+ * instruction), and the new pictures it handed over, on the host's. A frame
+ * pays one add each. */
+static uint64_t g_sound_made;
+static uint64_t g_pictures;
+
 /* The frame turned by the game's rotation (SET_ROTATION, see env.c), written
  * packed into g_frame. Libretro's quarter turns are counter-clockwise: a
  * source pixel (x, y) in a w x h frame lands at
@@ -693,6 +915,7 @@ void diatom_on_video(const void *data, unsigned w, unsigned h, size_t pitch)
 	size_t need;
 
 	if (!data) return;          /* dupe: keep the previous frame */
+	g_pictures++;
 	/* Drawn by the GPU into the port's framebuffer (hw.c): no pixels to copy,
 	 * only the size. Not turned: no GPU core here asks for a rotation. */
 	if (data == RETRO_HW_FRAME_BUFFER_VALID) {
@@ -810,6 +1033,7 @@ static void foreign_pace(void)
 
 void diatom_on_audio_batch_store(const int16_t *data, size_t frames)
 {
+	__atomic_fetch_add(&g_sound_made, (uint64_t)frames, __ATOMIC_RELAXED);
 	if (pthread_equal(pthread_self(), g_host_thread))
 		g_turn_sound += frames;
 	else {
@@ -855,11 +1079,13 @@ static void usage(void)
 		"              [--frameskip late|steady]  leave a late frame undrawn, at 1x too;\n"
 		"                                  steady: every second one while late\n"
 		"              [--power light|medium]  run under that clock ceiling\n"
+		"              [--pace smooth]     the display's rate where close, one frame a refresh\n"
 		"              [--controller <n>]  libretro controller type for port 0\n"
 		"              [--stick dpad]      the d-pad as the left analog stick (N64)\n"
-		"              [--stick toggle]    R2 turns the d-pad into the left stick and back (PSP)\n"
+		"              [--stick toggle]    the d-pad, which a Stick On/Off button (r2:stick in the map) turns into the left stick and back (PSP)\n"
 		"              [--stick toggle-stick]  the same, starting as the stick\n"
-		"              [--stick plain]     the d-pad is always the left stick and the d-pad; no SELECT rule, no R2 (PlayStation)\n"
+		"              [--stick plain]     the d-pad is the left stick and the d-pad; no SELECT rule (PlayStation)\n"
+		"              [--stick dpad-pad|plain-pad]  dpad or plain, starting as the d-pad until a stick button turns it\n"
 		"\n--firmware names a file the content needs, e.g. syscard3.pce for a PC\n"
 		"Engine CD. Diatom does not know which content needs what and will not\n"
 		"learn - it has no core list - so whoever launches it says.\n"
@@ -1127,8 +1353,19 @@ static double sound_rate(const struct retro_system_info *si,
  * next should start at once, so its sleep is the pacing's fault, whatever
  * the machine (until 2026-11-16 a slow core slept there a fifth of the
  * time). The turns short of the step say whether the machine could keep the
- * step at all. test/fastforward.py judges by these on any machine. */
-struct step_sleep { double us, short_us; long turns, short_turns; };
+ * step at all. test/fastforward.py judges by these on any machine.
+ *
+ * And the time the schedule gave up: a fast turn that ends more than one turn
+ * behind the schedule (a sleep that woke late, a stall in the last frame, the
+ * CPU taken between two turns) is repaid up to one turn, and the rest is
+ * dropped, so a core is never held to a step it missed. That is the one place
+ * a machine loses time without a turn short of the step: GitHub's macOS
+ * runner read 1.5x at 2.0x with none short, and the same figure from the
+ * turns and from the clock (2026-11-19). What the clock says is the step
+ * less what was lost: reached = step x (held - lost - at most one turn) /
+ * held. test/hudspeed.py and test/fastforward.py judge a step only where
+ * little was lost. */
+struct step_sleep { double us, short_us, lost_us; long turns, short_turns; };
 
 static void step_report(int half, long frames, double turns_us, uint64_t held_us,
                         uint64_t paused, double frame_us, uint64_t dropped,
@@ -1138,12 +1375,12 @@ static void step_report(int half, long frames, double turns_us, uint64_t held_us
 
 	printf("diatom: speed %.1fx held %.1fs, reached %.2fx (%.2fx of the clock), "
 	       "%llu audio frame(s) dropped, slept %.2fs (%.2fs after %ld of %ld turns short "
-	       "of the step)\n",
+	       "of the step), lost %.2fs\n",
 	       half / 2.0, held_us / 1000000.0,
 	       turns_us > 0.0 ? (double)frames * frame_us / turns_us : 0.0,
 	       ran_us > 0.0 ? (double)frames * frame_us / ran_us : 0.0,
 	       (unsigned long long)dropped, sl->us / 1000000.0, sl->short_us / 1000000.0,
-	       sl->short_turns, sl->turns);
+	       sl->short_turns, sl->turns, sl->lost_us / 1000000.0);
 	fflush(stdout);
 }
 
@@ -1161,6 +1398,9 @@ static void speed_emit(void)
 	speed_said(speed_half(), x, sizeof x);
 	if (diatom_proto_connected()) diatom_proto_send("SPEED\tx=%s", x);
 }
+
+/* What a pause a hotkey asks for is for, "reset" or "quit"; "" for MENU's */
+static char g_pause_for[8];
 
 static bool take_pause_request(void)
 {
@@ -1192,8 +1432,14 @@ static bool menu_pause_inner(const diatom_session *sn)
 	 * long as the menu is up: the core is not running to stop it. */
 	diatom_rumble_hold(true);
 
-	/* Symmetrical with RUNNING: the launcher may draw from here. */
-	diatom_proto_send("PAUSED");
+	/* Symmetrical with RUNNING: the launcher may draw from here. A pause a
+	 * hotkey asked for says what for (Reset Game asks first, Quit stops):
+	 * the launcher shows that, not its menu. And whether the core asked for
+	 * the motor, for the in-game menu's Rumble row (an old launcher reads
+	 * the verb alone). */
+	diatom_proto_send("PAUSED%s%s%s", g_pause_for[0] ? "\tfor=" : "", g_pause_for,
+	                  diatom_rumble_asked() ? "\trumble=1" : "");
+	g_pause_for[0] = '\0';
 
 	/* NOT for(;;). A paused Diatom blocks here on a socket with no timeout,
 	 * and this loop used to ignore g_terminate entirely - so SIGTERM set the
@@ -1597,7 +1843,8 @@ static void level_set(const diatom_msg *m)
 
 /* On-Screen Stats (ZyperOS's src/hud.h): on while the launcher's in-game
  * menu says so (SETHUD on=1), for every game until it says otherwise, as it
- * keeps the setting per player. hud_turn measures and the port draws. */
+ * keeps the setting per player. The meter measures (emumeter.h), hud_turn
+ * hands its numbers over and the port draws. */
 static bool g_hud_on;
 
 static void hud_set(const diatom_msg *m)
@@ -1647,42 +1894,31 @@ static void display_set(const diatom_msg *m)
 	apply_display(mode, filter);
 }
 
-/* Once a turn: the frames the core ran over the last half second
- * (HUD_EVERY_MS) and that against the game's own rate, from the counters
- * px2-perf reads in the now file (now.h: frames x 1e6 / fps / run_us), so the
- * two say the same; to the port twice a second. Off, one test. A new game
- * (its counters back under the window's start) starts a new window, and the
- * last game's numbers go until it has one. */
-static void hud_turn(uint64_t now, long frames, uint64_t run_us, double game_fps)
+/* Once a window (emumeter.h: half a second of the game's time, the menu's
+ * left out): the pictures the core made a second, and the frames it emulated
+ * against the game's own rate, from the same counters px2-perf reads in the
+ * now file (now.h), so the two say the same; to the port twice a second.
+ * Speed is the emulation's, so a game that draws 30 pictures a second at
+ * full speed reads 30 fps and 1.00x. Off, one test. A new game hides the
+ * last game's numbers until it has a window of its own. */
+static bool g_hud_shown;
+
+static void hud_hide(void)
 {
-	static uint64_t t0, run0;
-	static long f0;
-	static bool shown;
+	if (g_hud_shown) diatom_port_hud(false, 0, -1);
+	g_hud_shown = false;
+}
 
+static void hud_turn(const emumeter *m, bool closed)
+{
 	if (!g_hud_on) {
-		if (shown) diatom_port_hud(false, 0, -1);
-		shown = false;
-		t0 = 0;
+		hud_hide();
 		return;
 	}
-	if (!t0 || frames < f0 || run_us < run0) {
-		if (shown) diatom_port_hud(false, 0, -1);
-		shown = false;
-		t0 = now;
-		run0 = run_us;
-		f0 = frames;
-		return;
-	}
-	if (now - t0 < 500000 || run_us <= run0) return;
-	{
-		const double fps = (double)(frames - f0) * 1e6 / (double)(run_us - run0);
-
-		diatom_port_hud(true, fps, game_fps > 0 ? fps / game_fps : -1);
-		shown = true;
-	}
-	t0 = now;
-	run0 = run_us;
-	f0 = frames;
+	/* The window just closed; or, with the overlay just turned on, the last */
+	if (!closed && (g_hud_shown || !m->have)) return;
+	diatom_port_hud(true, m->pic_fps, m->speed);
+	g_hud_shown = true;
 }
 
 /* ---- two screens ---------------------------------------------------------
@@ -1730,13 +1966,12 @@ static void screens_set(const diatom_msg *m)
 	screens_emit();
 }
 
-/* RUN stick=toggle, the PSP's: R2 turned the d-pad into the left stick or
- * back. "STICK\ton=1" while it is the stick, sent at every turn, so the
- * launcher says it over the game and keeps it for the game. Additive: an old
- * launcher ignores the line, and an old Diatom ignores stick=toggle and
- * leaves the d-pad the d-pad. */
-static bool g_stick_toggle;
-
+/* A button the map gives Stick On/Off (`r2:stick`, the PSP's R2 by
+ * default) turned the d-pad into the left stick or back. "STICK\ton=1"
+ * while it is the stick, sent at every turn, so the launcher says it over
+ * the game and keeps it for the game. Additive: an old launcher ignores the
+ * line, and an old Diatom refuses a map with `stick` in it and leaves the
+ * d-pad the d-pad. */
 static void stick_emit(bool on)
 {
 	printf("diatom: the d-pad is the %s\n", on ? "left stick" : "d-pad");
@@ -1746,22 +1981,27 @@ static void stick_emit(bool on)
 }
 
 /* Sets how the d-pad is the stick, from a RUN's stick= or a SETSTICK's mode=
- * (plain, dpad, toggle, toggle-stick, off). False, and nothing touched, for
- * a name it does not know. `say` sends STICK on=1 when the d-pad is now the
- * stick and on=0 when it is the d-pad (the SELECT rule's dpad counts as the
- * stick, as it is until SELECT says otherwise). Plain is the toggle's
- * machinery with main.c's R2 turn left off: env.c's toggle mode has no SELECT
- * rule, and nothing here flips it; and the d-pad stays the joypad's d-pad as
- * well, so a PlayStation game whose DualShock stays digital still moves. */
+ * (plain, dpad, toggle, toggle-stick, dpad-pad, plain-pad, off). False, and
+ * nothing touched, for a name it does not know. `say` sends STICK on=1 when
+ * the d-pad is now the stick and on=0 when it is the d-pad (the SELECT
+ * rule's dpad counts as the stick, as it is until SELECT says otherwise).
+ * Toggle has no SELECT rule; plain is the toggle's stick side, and the d-pad
+ * stays the joypad's d-pad as well, so a PlayStation game whose DualShock
+ * stays digital still moves. What turns the side is a button the map gives
+ * the stick (stick_keys), in every mode; dpad-pad and plain-pad are dpad
+ * and plain starting on the d-pad's side, for a game whose D-pad as Stick
+ * is off and whose map gives a button the stick. */
 static bool stick_set(const char *mode, bool say)
 {
 	bool on;
 
-	if (!strcmp(mode, "dpad"))              { diatom_input_set_stick(true); g_stick_toggle = false; on = true; }
-	else if (!strcmp(mode, "plain"))        { diatom_input_set_stick_plain(); g_stick_toggle = false; on = true; }
-	else if (!strcmp(mode, "toggle"))       { diatom_input_set_stick_toggle(false); g_stick_toggle = true; on = false; }
-	else if (!strcmp(mode, "toggle-stick")) { diatom_input_set_stick_toggle(true); g_stick_toggle = true; on = true; }
-	else if (!strcmp(mode, "off"))          { diatom_input_set_stick(false); g_stick_toggle = false; on = false; }
+	if (!strcmp(mode, "dpad"))              { diatom_input_set_stick(true); on = true; }
+	else if (!strcmp(mode, "plain"))        { diatom_input_set_stick_plain(); on = true; }
+	else if (!strcmp(mode, "toggle"))       { diatom_input_set_stick_toggle(false); on = false; }
+	else if (!strcmp(mode, "toggle-stick")) { diatom_input_set_stick_toggle(true); on = true; }
+	else if (!strcmp(mode, "dpad-pad"))     { diatom_input_set_stick(true); diatom_input_stick_side(true); on = false; }
+	else if (!strcmp(mode, "plain-pad"))    { diatom_input_set_stick_plain(); diatom_input_stick_side(true); on = false; }
+	else if (!strcmp(mode, "off"))          { diatom_input_set_stick(false); on = false; }
 	else return false;
 	if (say && diatom_proto_connected())
 		diatom_proto_send("STICK\ton=%d", on ? 1 : 0);
@@ -1943,6 +2183,7 @@ static bool state_plane_msg(const diatom_msg *m)
 		if (!stick_set(m->dmode, true))
 			diatom_proto_send("ERROR\tcode=bad_stick\tmsg=%s", m->dmode);
 		return true;
+	case DIATOM_MSG_SETHOTKEYS: hotkeys_set(m->hotkeys, true); return true;
 	case DIATOM_MSG_PLAYER2:    player2_emit();      return true;
 	case DIATOM_MSG_SETPLAYER2: player2_set(m->on, m->buttons, m->players); return true;
 	case DIATOM_MSG_PREMAP:
@@ -1959,6 +2200,11 @@ static bool state_plane_msg(const diatom_msg *m)
 		return true;
 	case DIATOM_MSG_SETDISPLAY: display_set(m); return true;
 	case DIATOM_MSG_SETHUD:     hud_set(m); return true;
+	case DIATOM_MSG_SETRUMBLE:  diatom_env_rumble_level(m->rumble); return true;
+	case DIATOM_MSG_SETEQ:
+		if (!diatom_audio_eq(m->bands))
+			diatom_proto_send("ERROR\tcode=bad_eq\tmsg=%s", m->bands);
+		return true;
 	case DIATOM_MSG_OVERLAY:
 		/* Not on the state plane's query/write shape, because there is no
 		 * state to query: it is a thing that happens and then stops. The
@@ -1968,6 +2214,16 @@ static bool state_plane_msg(const diatom_msg *m)
 		                  m->path);
 		return true;
 	case DIATOM_MSG_CHEEVOS: diatom_cheevos_emit(); return true;
+	case DIATOM_MSG_SETCHEATS:
+		/* A switch in the in-game menu: the codes on from now. A file
+		 * that will not read changes nothing, and says so. */
+		if (diatom_cheats_read(m->path) < 0) {
+			diatom_proto_send("ERROR\tcode=bad_cheats\tmsg=%s", m->path);
+			return true;
+		}
+		diatom_cheats_apply(g_core);
+		diatom_proto_send("CHEATS\tcount=%d", diatom_cheats_count());
+		return true;
 	case DIATOM_MSG_SETCHEEVOS:
 		if (m->console) diatom_cheevos_set_console((unsigned)m->console);
 		diatom_cheevos_load(m->path);
@@ -2007,6 +2263,8 @@ static void bg_report(bool wait, bool apply)
 		break;
 	case DIATOM_BG_LOAD:
 		if (apply && ok) diatom_rumble_forget();
+		/* A state may carry the core's codes away: handed again */
+		if (apply && ok) diatom_cheats_apply(g_core);
 		if (apply)
 			diatom_proto_send(ok ? "LOADED\tpath=%s" : "ERROR\tcode=state_rejected\tmsg=%s",
 			                  path);
@@ -2049,6 +2307,7 @@ static bool game_msg(const diatom_msg *m)
 		}
 		if (diatom_state_load(g_core, m->path)) {
 			diatom_rumble_forget();
+			diatom_cheats_apply(g_core);
 			diatom_proto_send("LOADED\tpath=%s", m->path);
 		} else {
 			diatom_proto_send("ERROR\tcode=state_rejected\tmsg=%s", m->path);
@@ -2063,6 +2322,8 @@ static bool game_msg(const diatom_msg *m)
 		 * the title screen and nothing in progress survived. */
 		diatom_cheevos_runtime_reset();
 		diatom_rumble_forget();
+		/* A core may clear its codes with the reset: handed again */
+		diatom_cheats_apply(g_core);
 		diatom_proto_send("RESETDONE");
 		return true;
 	case DIATOM_MSG_OPTIONS:
@@ -2130,15 +2391,56 @@ static uint32_t sel_poll(uint32_t pad, uint32_t *give)
 	return o.hide;
 }
 
+/* SELECT's keys for each hotkey (chord.h): the shoulders' four unless the
+ * launcher said others (RUN hotkeys=, SETHOTKEYS), kept through every
+ * sel_reset; and whether this game's core keeps states, without which save
+ * and load are no hotkeys and their keys the game's under SELECT */
+static int  g_hk_key[CHORD_ACTS];
+static bool g_hk_keyed, g_sel_states = true;
+
+static void sel_live_update(void)
+{
+	g_sel_live = chord_keys(&g_sel);
+	if (!g_sel_states)
+		g_sel_live &= ~(chord_key_of(&g_sel, CHORD_SAVE) | chord_key_of(&g_sel, CHORD_LOAD));
+}
+
 /* A fresh start for SELECT: at a game's start and as the menu resumes it,
  * from the pad as it is, so a button already held is no press */
 static void sel_reset(uint32_t pad)
 {
 	chord_reset(&g_sel);
+	if (g_hk_keyed) chord_set_keys(&g_sel, g_hk_key);
+	sel_live_update();
 	g_sel_was = pad;
 	g_sel_acts = 0;
 	g_sel_took = 0;
 	diatom_env_poll_hook(sel_poll);
+}
+
+/* The launcher's keys: "" the shoulders' four. `say` answers HOTKEYS ok= */
+static void hotkeys_set(const char *spec, bool say)
+{
+	int key[CHORD_ACTS];
+	bool ok;
+
+	if (!spec || !spec[0]) {
+		chord_default_keys(key);
+		ok = true;
+	} else {
+		ok = chord_keys_parse(spec, key);
+	}
+	if (ok) {
+		memcpy(g_hk_key, key, sizeof key);
+		g_hk_keyed = true;
+		chord_set_keys(&g_sel, g_hk_key);
+		sel_live_update();
+		printf("diatom: hotkeys %s\n", spec && spec[0] ? spec : "save:r1,load:l1,faster:r2,slower:l2");
+		fflush(stdout);
+	} else {
+		diatom_port_log(DIATOM_LOG_WARN, "hotkeys: refused, kept as they were");
+	}
+	if (say && diatom_proto_connected()) diatom_proto_send("HOTKEYS\tok=%d", ok ? 1 : 0);
 }
 
 /* SELECT+R1 or SELECT+L1. The quick slot is the launcher's - it keeps one a
@@ -2192,6 +2494,7 @@ static int run_session_inner(const diatom_session *sn)
 	uint64_t t_start, paused_us = 0;   /* menu time, excluded from the rate */
 	uint32_t buttons = 0, prev_buttons = 0, held_at_entry = 0;
 	uint32_t sel_took = 0;      /* shoulders SELECT's chords took this turn */
+	uint32_t stick_hold = 0;    /* Stick While Held buttons held as one (not a chord's) */
 	uint32_t sty_wait = 0;      /* d-pad and A held as the stylus came on */
 	bool     menu_armed = false, menu_chorded = false;
 	long     fast_frames = 0, fast_unshown = 0;
@@ -2225,11 +2528,25 @@ static int run_session_inner(const diatom_session *sn)
 	 * the power ceiling (power_trouble) */
 	uint64_t power_drops = 0;
 	bool     power_fast = false;
+	/* Refreshes missed with the frame ready (src/flipwatch.h): the watch,
+	 * the clocks it holds at their tops for the rest of the game, and the
+	 * port's count at the game's start, for the summary */
+	flipwatch fw;
+	bool     held = false;
+	unsigned missed0 = 0;
 	long     locked_at = 0;     /* frame the current rect was computed on */
 	/* The sound rate the resampler uses: the announced one, or what the core
 	 * really sends where that is known to differ (sound_rate). */
 	double   audio_rate = 0.0;
+	double   core_sound_rate = 0.0;   /* audio_rate before the display lock scales it */
+	emumeter em;                      /* the overlay's numbers and the now file's counter */
 	bool     sound_paced = false;   /* paced_by_sound: this core's turns last its sound */
+	/* The display lock (src/pace.h): the panel's rate over the core's when
+	 * this game runs at the panel's, one frame a refresh; 0 when it runs at
+	 * its own. t_shown: when the last drawn frame was handed over, for the
+	 * lock's phase. */
+	double   lock = 0;
+	uint64_t t_shown = 0;
 
 	/* Every game starts from identity and from an unknown level, so a launcher
 	 * that sends no map gets no map, and the first poll reports where the
@@ -2237,17 +2554,19 @@ static int run_session_inner(const diatom_session *sn)
 	diatom_input_reset_map();
 	diatom_input_set_stick(sn->dpad_stick);
 	if (sn->dpad_stick)
-		printf("diatom: the d-pad is the left stick; SELECT, then the d-pad, its D-pad\n");
-	g_stick_toggle = !sn->dpad_stick && sn->stick_toggle;
-	if (g_stick_toggle) {
+		printf("diatom: the d-pad is the %s; SELECT, then the d-pad, its D-pad\n",
+		       sn->stick_pad ? "d-pad until a stick button turns it" : "left stick");
+	if (!sn->dpad_stick && sn->stick_toggle) {
 		diatom_input_set_stick_toggle(sn->stick_toggle == 2);
-		printf("diatom: the d-pad is the %s; R2 turns it into the %s\n",
+		printf("diatom: the d-pad is the %s; a Stick On/Off button turns it into the %s\n",
 		       sn->stick_toggle == 2 ? "left stick" : "d-pad",
 		       sn->stick_toggle == 2 ? "d-pad" : "left stick");
 	} else if (!sn->dpad_stick && sn->stick_plain) {
 		stick_set("plain", false);
-		printf("diatom: the d-pad is the left stick and the d-pad, always\n");
+		printf("diatom: the d-pad is the %s\n",
+		       sn->stick_pad ? "d-pad until a stick button turns it" : "left stick and the d-pad");
 	}
+	if (sn->stick_pad && (sn->dpad_stick || sn->stick_plain)) diatom_input_stick_side(true);
 	levels_forget();
 	audio_forget();
 	diatom_levels_invalidate();
@@ -2262,7 +2581,9 @@ static int run_session_inner(const diatom_session *sn)
 
 	/* Per-game state that must not carry over from the previous session. */
 	g_speed_ix = 0;
-	g_sel_live = CHORD_KEYS;
+	g_sel_states = true;
+	hotkeys_set(sn->hotkeys, false);
+	snprintf(g_shots, sizeof g_shots, "%s", sn->shots ? sn->shots : "");
 	diatom_env_core_quit_reset();
 	g_audio_fast = false;
 	g_present_frames = 0;
@@ -2279,7 +2600,16 @@ static int run_session_inner(const diatom_session *sn)
 
 	g_core = diatom_core_resident(sn->core);
 	if (!g_core) {
-		diatom_proto_send("ERROR\tcode=core_missing\tmsg=%s", sn->core);
+		corefail why;
+
+		/* Why, in words the launcher puts on the screen (corefail.h): the
+		 * game went straight back to the shelf with nothing said. The log
+		 * has dlerror's own text. */
+		if (diatom_core_failure(sn->core, &why))
+			diatom_proto_send("ERROR\tcode=core_load\tmsg=%s\twhy=%s\tname=%s\tversion=%s",
+			                  sn->core, corefail_word(why.why), why.name, why.version);
+		else
+			diatom_proto_send("ERROR\tcode=core_missing\tmsg=%s", sn->core);
 		return 3;
 	}
 	diatom_env_bind(g_core, &g_policy, &g_caps);
@@ -2411,6 +2741,20 @@ static int run_session_inner(const diatom_session *sn)
 	if (audio_rate != av.timing.sample_rate)
 		printf("diatom: Super Game Boy timing: resampling from %.0f Hz, "
 		       "not the %.0f Hz announced\n", audio_rate, av.timing.sample_rate);
+	/* Locked to the display: the core's frames come at the panel's rate,
+	 * so its sound comes that much faster too, and is resampled as such -
+	 * 0.59% for a GBA, past rate control's 0.5% */
+	core_sound_rate = audio_rate;   /* as the core announces it, for the meter */
+	sound_paced = paced_by_sound(&si) && audio_rate > 0.0;
+	lock = sound_paced || !sn->pace_smooth ? 0 : pace_lock_ratio(g_caps.refresh_hz, av.timing.fps);
+	if (lock > 0) {
+		audio_rate *= lock;
+		printf("diatom: locked to the display, %.3f Hz for the core's %.4f fps (%+.2f%%), "
+		       "the sound resampled to match\n", g_caps.refresh_hz, av.timing.fps, (lock - 1) * 100);
+	} else if (sn->pace_smooth && g_caps.refresh_hz > 0 && !sound_paced) {
+		printf("diatom: at the core's own %.4f fps, not the display's %.3f Hz "
+		       "(more than 1%% apart)\n", av.timing.fps, g_caps.refresh_hz);
+	}
 	{
 		int cap = diatom_port_audio_start() ? g_caps.audio_buffer_frames : 0;
 
@@ -2422,7 +2766,6 @@ static int run_session_inner(const diatom_session *sn)
 		g_foreign_debug = getenv("DIATOM_AUDIO_DEBUG") != NULL;
 	}
 	diatom_audio_prime();
-	sound_paced = paced_by_sound(&si) && audio_rate > 0.0;
 	if (sound_paced)
 		printf("diatom: each frame paced by the sound it made, not by %.4f fps\n",
 		       av.timing.fps);
@@ -2477,7 +2820,7 @@ static int run_session_inner(const diatom_session *sn)
 	 *
 	 * Audio drift is not this loop's problem. It is handled by rate control,
 	 * because no panel and no core will ever agree on a rate. */
-	frame_us = 1000000.0 / (av.timing.fps > 0 ? av.timing.fps : 60.0);
+	frame_us = 1000000.0 / (lock > 0 ? g_caps.refresh_hz : av.timing.fps > 0 ? av.timing.fps : 60.0);
 
 	/* Idle reporting belongs to this game, and this game has not asked yet.
 	 * The launcher's SETIDLE comes behind SETLEVEL, SETMUTE and SETDISPLAY,
@@ -2499,6 +2842,11 @@ static int run_session_inner(const diatom_session *sn)
 	 * still fetching one sends SETCHEEVOS when it arrives; both paths run the
 	 * same loader. */
 	if (sn->cheevos) diatom_cheevos_load(sn->cheevos);
+	/* The cheats that are on, handed to the core now the game and its state
+	 * are in (a GPU core's state comes after the warmup, and they are handed
+	 * again then). A core that holds the last game's is reset, and while one
+	 * is on the set above is not evaluated (cheats.h). */
+	diatom_cheats_begin(g_core, sn->cheats);
 
 	/* Warm up before starting the clock. The first frames create the texture,
 	 * fault in code paths and prime the audio device; measured on a COLD
@@ -2578,7 +2926,9 @@ static int run_session_inner(const diatom_session *sn)
 		printf("diatom: warmup 3 frames in %.1f ms\n",
 		       (diatom_port_now_us() - w0) / 1000.0);
 	}
-	if (sn->state_load && diatom_hw_active() && !diatom_state_load(g_core, sn->state_load))
+	if (sn->state_load && diatom_hw_active() && diatom_state_load(g_core, sn->state_load))
+		diatom_cheats_apply(g_core);
+	else if (sn->state_load && diatom_hw_active())
 		printf("diatom: no usable state at %s; starting the game normally\n",
 		       sn->state_load);
 	/* A core that keeps no state (FreeJ2ME-Plus, ScummVM) has no quick save
@@ -2586,17 +2936,23 @@ static int run_session_inner(const diatom_session *sn)
 	 * warmup, when a core whose machine runs on a thread (flycast2021) has a
 	 * state to size; once a game, since some cores size it by writing one. */
 	if (!g_core->serialize_size || !g_core->serialize_size()) {
-		g_sel_live &= ~(DIATOM_BIT(DIATOM_BTN_R1) | DIATOM_BIT(DIATOM_BTN_L1));
+		g_sel_states = false;
+		sel_live_update();
 		printf("diatom: this core keeps no state; SELECT+R1 and SELECT+L1 are the game's\n");
 	}
 
 	t_start = diatom_port_now_us();
 	next_us = (double)t_start;
 	step_t0 = t_start;
+	missed0 = diatom_port_refreshes_missed();
+	flipwatch_begin(&fw, missed0, t_start);
 	step_drop0 = diatom_audio_dropped();
 	/* What runs, for a tool on the device (now.h): from here until
 	 * run_session's end, paused or not */
 	diatom_now_begin(sn->core, sn->rom, av.timing.fps);
+	emumeter_begin(&em, av.timing.fps, core_sound_rate, frames,
+	               __atomic_load_n(&g_sound_made, __ATOMIC_RELAXED), g_pictures, 0);
+	hud_hide();
 
 	while (!diatom_port_should_quit() && !g_terminate && !stop && !diatom_env_core_quit() &&
 	       (sn->limit <= 0 || frames < sn->limit)) {
@@ -2618,9 +2974,31 @@ static int run_session_inner(const diatom_session *sn)
 		/* A core that draws with the GPU is held at the top at 1x too, when
 		 * nothing caps its clocks, and so is the CPU under a game that leaves
 		 * its late frames undrawn (a DS game): see diatom_port_fast_clock. */
+		/* And held so, both, after a refresh missed at full power with the
+		 * frame ready (src/flipwatch.h); a miss below full lifts the power
+		 * level first, as a late frame does. Fast forward draws one frame in
+		 * two periods and is not judged. */
+		if (fast) {
+			fw.seen = diatom_port_refreshes_missed();
+		} else {
+			uint64_t t = diatom_port_now_us();
+
+			switch (flipwatch_turn(&fw, diatom_port_refreshes_missed(),
+			                       g_power_level == DIATOM_POWER_FULL, t)) {
+			case FLIPWATCH_LEVEL_UP:
+				power_trouble("a refresh missed with the frame ready", t);
+				break;
+			case FLIPWATCH_HOLD:
+				held = true;
+				printf("diatom: the CPU and the GPU held at their tops after a refresh missed at full power\n");
+				break;
+			case FLIPWATCH_NONE:
+				break;
+			}
+		}
 		{
 			const bool full = g_power_level == DIATOM_POWER_FULL;
-			const bool gpu_top = fast || (diatom_hw_active() && full);
+			const bool gpu_top = fast || (diatom_hw_active() && full) || (held && full);
 
 			diatom_port_fast_clock(gpu_top || (sn->late_skip && full), gpu_top);
 		}
@@ -2689,8 +3067,8 @@ static int run_session_inner(const diatom_session *sn)
 			 * debt rule below still drops a stall of four frames. The idea,
 			 * at 1x and from libretro's audio buffer status callback, is
 			 * nelynes's slotPlus, as plorpOS's Diatom has it too. */
-			/* frameskip=steady, the player's When Slow: Steady 30 on the
-			 * system's menu: once a frame starts late, exactly every second
+			/* frameskip=steady (a RUN word no launcher sends now, see
+			 * diatom.h): once a frame starts late, exactly every second
 			 * frame is drawn, until frames have started on time for half a
 			 * second (STEADY_HOLD). The panel then changes at an even 30 a
 			 * second while the game is slow, where late draws whatever the
@@ -2765,16 +3143,19 @@ static int run_session_inner(const diatom_session *sn)
 		if (turn_short) step_sleep.short_turns++;
 		{
 			const uint64_t t = diatom_port_now_us();
+			const uint64_t run_us = t - t_start > paused_us ? t - t_start - paused_us : 0;
+			const bool closed = emumeter_turn(&em, frames,
+			                                  __atomic_load_n(&g_sound_made, __ATOMIC_RELAXED),
+			                                  g_pictures, run_us);
 
-			diatom_now_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
+			diatom_now_turn(t, emumeter_frames(&em, frames), run_us,
 			                speed_half() / 2.0, diatom_audio_dropped());
 			if (card_due && t - t_start > paused_us && t - t_start - paused_us >= card_after) {
 				card_due = false;
 				if (diatom_hw_active()) card_later = true;
 				else card_frame(sn->card, false);
 			}
-			hud_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
-			         av.timing.fps);
+			hud_turn(&em, closed);
 		}
 
 		if (fast) {
@@ -2857,7 +3238,8 @@ static int run_session_inner(const diatom_session *sn)
 			 * drawn frame's, already on the panel, and presenting them again
 			 * would spend on the upload what skipping saved. */
 			present_frame(g_frame_fresh && last_shown);
-			g_present_us += diatom_port_now_us() - p0;
+			t_shown = diatom_port_now_us();
+			g_present_us += t_shown - p0;
 			g_present_frames++;
 		}
 
@@ -2916,8 +3298,23 @@ static int run_session_inner(const diatom_session *sn)
 			g_sel_acts = 0;
 			sel_took = g_sel_took;
 			g_sel_took = 0;
+			shot_poll();
 			if (acts & (1u << CHORD_SAVE)) quick_ask("save");
 			if (acts & (1u << CHORD_LOAD)) quick_ask("load");
+			/* The five a player gives keys (chord.h): the screenshot here;
+			 * the next shader and display mode are the launcher's to
+			 * step, keep and send back; Reset Game and Quit pause as MENU
+			 * does, for the launcher to ask or to stop */
+			if (acts & (1u << CHORD_SHOT)) shot_take();
+			if ((acts & (1u << CHORD_SHADER)) && diatom_proto_connected())
+				diatom_proto_send("HOTKEY\tkey=shader");
+			if ((acts & (1u << CHORD_DISPLAY)) && diatom_proto_connected())
+				diatom_proto_send("HOTKEY\tkey=display");
+			if ((acts & ((1u << CHORD_RESET) | (1u << CHORD_QUIT))) && diatom_proto_active()) {
+				snprintf(g_pause_for, sizeof g_pause_for, "%s",
+				         (acts & (1u << CHORD_QUIT)) ? "quit" : "reset");
+				g_pause_requested = true;
+			}
 			if (acts & ((1u << CHORD_FASTER) | (1u << CHORD_SLOWER))) {
 				int to = g_speed_ix + step;
 
@@ -2994,17 +3391,29 @@ static int run_session_inner(const diatom_session *sn)
 				}
 			}
 
-			/* A game whose d-pad R2 turns into the stick and back (RUN
-			 * stick=toggle, the PSP's, which has no R2): a press of R2
-			 * turns it, and R2 never reaches the core. Under MENU, R2 is
-			 * MENU's; under SELECT, the speed's (sel_took). */
-			if (g_stick_toggle) {
-				uint32_t down = buttons & ~prev_buttons & ~sel_took;
+			/* The buttons the map gives the stick (`r2:stick`, the PSP's
+			 * R2 by default, which the PSP has no button for; `l2:stickhold`):
+			 * a press of Stick On/Off turns the d-pad into the stick and
+			 * back, and while Stick While Held is held it is on its other
+			 * side; neither reaches the core. Under MENU a button is MENU's;
+			 * under SELECT, a hotkey's (sel_took), and one a chord took
+			 * starts no hold until it is let go. */
+			{
+				uint32_t hold, tog = diatom_input_stick_keys(&hold);
 
-				if ((down & DIATOM_BIT(DIATOM_BTN_R2)) &&
-				    !(buttons & DIATOM_BIT(DIATOM_BTN_MENU)))
-					stick_emit(diatom_input_stick_flip());
-				sty_mask |= DIATOM_BIT(DIATOM_BTN_R2);
+				if (tog | hold) {
+					const bool menu = (buttons & DIATOM_BIT(DIATOM_BTN_MENU)) != 0;
+					uint32_t down = buttons & ~prev_buttons & ~sel_took;
+
+					if ((down & tog) && !menu)
+						stick_emit(diatom_input_stick_flip());
+					if ((down & hold) && !menu) stick_hold |= down & hold;
+					stick_hold &= buttons;
+					diatom_input_stick_hold(stick_hold != 0);
+					sty_mask |= tog | hold;
+				} else {
+					stick_hold = 0;
+				}
 			}
 
 			/* The single writer. Every reason to hide a button from the core
@@ -3059,6 +3468,8 @@ static int run_session_inner(const diatom_session *sn)
 				diatom_port_power(power_fast ? DIATOM_POWER_FULL : g_power_level);
 				g_power_calm_us = diatom_port_now_us() + 1000000;
 				power_drops = diatom_audio_dropped();
+				/* The menu's own frames are not the game's */
+				fw.seen = diatom_port_refreshes_missed();
 				g_paused_preview = NULL;
 
 				/* The summary line divides frames by wall clock, and an open
@@ -3077,6 +3488,17 @@ static int run_session_inner(const diatom_session *sn)
 					 * next second catching up. */
 					next_us = (double)diatom_port_now_us();
 					g_turn_sound = 0;
+					{
+						/* The window's clock restarts where the game's now is
+						 * (the menu's time is in paused_us), and the sound a
+						 * core's thread made meanwhile is not the game's */
+						const uint64_t tn = (uint64_t)next_us;
+
+						emumeter_rebase(&em, frames,
+						                __atomic_load_n(&g_sound_made, __ATOMIC_RELAXED),
+						                g_pictures,
+						                tn - t_start > paused_us ? tn - t_start - paused_us : 0);
+					}
 
 					/* And the device played the sound buffer out meanwhile, so
 					 * it is filled back to target before the first frame. */
@@ -3169,6 +3591,20 @@ static int run_session_inner(const diatom_session *sn)
 			next_us += frame_us * 2.0 * ran / speed_half();
 		} else {
 			next_us += frame_us * periods;
+			/* Locked (src/pace.h): the measured refresh as the period, and
+			 * the next frame handed over half a refresh from the boundary,
+			 * where a millisecond's noise cannot carry it across - only from
+			 * a turn on time, whose start was the schedule's */
+			if (lock > 0 && t_shown >= batch_t0 && (double)diatom_port_now_us() < next_us) {
+				uint64_t vb;
+				double per;
+
+				if (diatom_port_vblank(&vb, &per)) {
+					frame_us = per;
+					next_us += pace_phase_step((double)t_shown, (double)vb, per, per / 2,
+					                           PACE_PHASE_GAIN, per * PACE_PHASE_MAX_FRAC);
+				}
+			}
 		}
 		g_turn_sound = 0;
 		now = diatom_port_now_us();
@@ -3187,7 +3623,10 @@ static int run_session_inner(const diatom_session *sn)
 			 * reaches the step holds it; no more, so a core short of the step
 			 * runs flat out and never sprints past the step later to repay
 			 * a slow stretch. */
-			if ((double)now - next_us > frame_us * periods) next_us = (double)now - frame_us * periods;
+			if ((double)now - next_us > frame_us * periods) {
+					step_sleep.lost_us += (double)now - next_us - frame_us * periods;
+					next_us = (double)now - frame_us * periods;
+				}
 		} else {
 			/* Behind at 1x (pace.h). The debt is kept and the next turns
 			 * repay it, unless it is more than four frames: something stalled
@@ -3284,7 +3723,10 @@ static int run_session_inner(const diatom_session *sn)
 
 		if (secs < 0) secs = 0;
 		printf("diatom: %ld frames in %.2fs = %.2f fps (target %.4f)\n",
-		       paced, secs, secs > 0 ? paced / secs : 0.0, av.timing.fps);
+		       paced, secs, secs > 0 ? paced / secs : 0.0, lock > 0 ? 1e6 / frame_us : av.timing.fps);
+		if (lock > 0)
+			printf("diatom: locked to the display: its refresh measured at %.4f Hz, the core's own %.4f fps\n",
+			       1e6 / frame_us, av.timing.fps);
 		/* Fast forward is kept out of the rate, as the menu is, and said. */
 		if (fast_frames)
 			printf("diatom: %ld more frames fast over %.2fs = %.2fx, "
@@ -3316,6 +3758,10 @@ static int run_session_inner(const diatom_session *sn)
 		printf("diatom: %ld geometry change(s), last rect %dx%d at %d,%d\n",
 		       geom_changes, g_dst.w, g_dst.h, g_dst.x, g_dst.y);
 		printf("diatom: %ld resync(s)\n", resyncs);
+		if (diatom_port_refreshes_missed() != missed0 || held)
+			printf("diatom: %u refresh(es) missed with the frame ready%s\n",
+			       diatom_port_refreshes_missed() - missed0,
+			       held ? "; the CPU and the GPU held at their tops" : "");
 		printf("diatom: %ld debt(s) cut to the sound queue's depth\n", caught_up);
 		if (g_present_frames)
 			printf("diatom: present avg %.2f ms over %ld frames\n",
@@ -3422,10 +3868,12 @@ int main(int argc, char **argv)
 	bool list_options = false, stylus = false;
 	const char *frameskip = "";
 	const char *power = "";
+	const char *pace = "";
 	unsigned controller = 0;
 	bool dpad_stick = false;
 	int  stick_toggle = 0;
 	bool stick_plain = false;
+	bool stick_pad = false;
 	int screens = 1;
 	diatom_filter start_filter;
 	int  start_strength = 100;
@@ -3477,13 +3925,15 @@ int main(int argc, char **argv)
 			screens = (int)strtol(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--frameskip") && i + 1 < argc) frameskip = argv[++i];
 		else if (!strcmp(argv[i], "--power") && i + 1 < argc) power = argv[++i];
+		else if (!strcmp(argv[i], "--pace") && i + 1 < argc) pace = argv[++i];
 		else if (!strcmp(argv[i], "--controller") && i + 1 < argc)
 			controller = (unsigned)strtoul(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--stick") && i + 1 < argc) {
 			const char *v = argv[++i];
 
-			dpad_stick = !strcmp(v, "dpad");
-			stick_plain = !strcmp(v, "plain");
+			dpad_stick = !strcmp(v, "dpad") || !strcmp(v, "dpad-pad");
+			stick_plain = !strcmp(v, "plain") || !strcmp(v, "plain-pad");
+			stick_pad = !strcmp(v, "dpad-pad") || !strcmp(v, "plain-pad");
 			stick_toggle = !strcmp(v, "toggle") ? 1 : !strcmp(v, "toggle-stick") ? 2 : 0;
 		}
 		else if (!strcmp(argv[i], "--layout") && i + 1 < argc) {
@@ -3647,6 +4097,7 @@ int main(int argc, char **argv)
 			sn.preview    = m.preview[0]    ? m.preview    : NULL;
 			sn.card       = m.card[0]       ? m.card       : NULL;
 			sn.cheevos    = m.cheevos[0]    ? m.cheevos    : NULL;
+			sn.cheats     = m.cheats[0]     ? m.cheats     : NULL;
 			sn.console    = m.console;
 			sn.screens    = m.screens;
 			sn.late_skip  = !strcmp(m.frameskip, "late") || !strcmp(m.frameskip, "steady");
@@ -3655,12 +4106,17 @@ int main(int argc, char **argv)
 			              : !strcmp(m.power, "medium") ? DIATOM_POWER_MEDIUM
 			              : DIATOM_POWER_FULL;
 			sn.controller = m.controller;
-			/* The system's share of the core's rumble, this game on */
+			/* The player's Rumble level times the system's share of
+			 * the core's rumble, this game on (0: Off) */
 			diatom_env_rumble_scale(m.rumble);
-			sn.dpad_stick = !strcmp(m.stick, "dpad");
+			sn.dpad_stick = !strcmp(m.stick, "dpad") || !strcmp(m.stick, "dpad-pad");
 			sn.stick_toggle = !strcmp(m.stick, "toggle") ? 1
 			                : !strcmp(m.stick, "toggle-stick") ? 2 : 0;
-			sn.stick_plain = !strcmp(m.stick, "plain");
+			sn.stick_plain = !strcmp(m.stick, "plain") || !strcmp(m.stick, "plain-pad");
+			sn.stick_pad = !strcmp(m.stick, "dpad-pad") || !strcmp(m.stick, "plain-pad");
+			sn.pace_smooth = !strcmp(m.pace, "smooth");
+			sn.hotkeys = m.hotkeys;
+			sn.shots   = m.shots;
 			sn.mode   = start_mode;
 			sn.filter = start_filter;
 			sn.strength = start_strength;
@@ -3693,6 +4149,8 @@ int main(int argc, char **argv)
 			.dpad_stick = dpad_stick,
 			.stick_toggle = stick_toggle,
 			.stick_plain = stick_plain,
+			.stick_pad = stick_pad,
+			.pace_smooth = !strcmp(pace, "smooth"),
 		};
 		int rc = run_session(&sn);
 		if (rc) return rc;

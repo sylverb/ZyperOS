@@ -16,6 +16,11 @@
  * Unknown verbs and unknown keys are ignored rather than refused, so a newer
  * launcher can talk to an older Diatom without a version negotiation.
  *
+ * A core that would not load is `ERROR code=core_load msg=<path> why=<word>
+ * name=<it> version=<it>` (corefail.h): why is machine, library, version,
+ * symbol or other, name the library's file or the function's, so the launcher
+ * can say it on the screen. An older launcher reads the ERROR and no more.
+ *
  * One connection at a time, and THE NEWEST WINS. A connect while one is held
  * displaces it, and the old one is reported as a hangup.
  *
@@ -167,6 +172,7 @@ static void parse_line(char *line, diatom_msg *out)
 	char *save = NULL, *field;
 
 	memset(out, 0, sizeof *out);
+	out->rumble = -1;   /* absent: as the core asks (diatom_env_rumble_scale) */
 	field = strtok_r(line, "\t", &save);
 	if (!field) { out->kind = DIATOM_MSG_NONE; return; }
 
@@ -210,10 +216,14 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "STYLUS"))     out->kind = DIATOM_MSG_STYLUS;
 	else if (!strcmp(field, "SETSTYLUS"))  out->kind = DIATOM_MSG_SETSTYLUS;
 	else if (!strcmp(field, "SETSTICK"))   out->kind = DIATOM_MSG_SETSTICK;
+	else if (!strcmp(field, "SETHOTKEYS")) out->kind = DIATOM_MSG_SETHOTKEYS;
 	else if (!strcmp(field, "PLAYER2"))    out->kind = DIATOM_MSG_PLAYER2;
 	else if (!strcmp(field, "SETPLAYER2")) out->kind = DIATOM_MSG_SETPLAYER2;
 	else if (!strcmp(field, "SETPOWERHOLD")) out->kind = DIATOM_MSG_SETPOWERHOLD;
 	else if (!strcmp(field, "SETHUD"))       out->kind = DIATOM_MSG_SETHUD;
+	else if (!strcmp(field, "SETRUMBLE"))    out->kind = DIATOM_MSG_SETRUMBLE;
+	else if (!strcmp(field, "SETEQ"))        out->kind = DIATOM_MSG_SETEQ;
+	else if (!strcmp(field, "SETCHEATS"))    out->kind = DIATOM_MSG_SETCHEATS;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
 		out->kind = DIATOM_MSG_NONE;
@@ -268,22 +278,34 @@ static void parse_line(char *line, diatom_msg *out)
 		 * the launcher already passes paths for save states. */
 		else if (!strcmp(field, "cheevos"))
 			snprintf(out->cheevos, sizeof out->cheevos, "%s", v);
+		/* `cheats=` is a path for cheevos='s reason: one N64 code alone
+		 * can outrun a line (cheats.h) */
+		else if (!strcmp(field, "cheats"))
+			snprintf(out->cheats, sizeof out->cheats, "%s", v);
 		else if (!strcmp(field, "console")) out->console = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "screens")) out->screens = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "frameskip"))
 			snprintf(out->frameskip, sizeof out->frameskip, "%s", v);
 		else if (!strcmp(field, "power"))
 			snprintf(out->power, sizeof out->power, "%s", v);
+		else if (!strcmp(field, "pace"))
+			snprintf(out->pace, sizeof out->pace, "%s", v);
 		else if (!strcmp(field, "rumble"))
 			out->rumble = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "controller"))
 			out->controller = (unsigned)strtoul(v, NULL, 10);
 		else if (!strcmp(field, "stick"))
 			snprintf(out->stick, sizeof out->stick, "%s", v);
+		/* RUN's hotkeys= and SETHOTKEYS' keys=, one slot */
+		else if (!strcmp(field, "hotkeys") || !strcmp(field, "keys"))
+			snprintf(out->hotkeys, sizeof out->hotkeys, "%s", v);
+		else if (!strcmp(field, "shots"))
+			snprintf(out->shots, sizeof out->shots, "%s", v);
 		else if (!strcmp(field, "layout"))
 			snprintf(out->layout, sizeof out->layout, "%s", v);
 		else if (!strcmp(field, "swap")) snprintf(out->swap, sizeof out->swap, "%s", v);
 		else if (!strcmp(field, "key"))  snprintf(out->key,   sizeof out->key,   "%s", v);
+		else if (!strcmp(field, "bands")) snprintf(out->bands, sizeof out->bands, "%s", v);
 		else if (!strcmp(field, "value"))snprintf(out->value, sizeof out->value, "%s", v);
 		else if (!strcmp(field, "map"))  snprintf(out->map,   sizeof out->map,   "%s", v);
 		else if (!strcmp(field, "kind")) snprintf(out->lkind, sizeof out->lkind, "%s", v);
@@ -447,7 +469,20 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * d-pad is now the stick, on=0 otherwise, and an unknown mode is
 		 * an ERROR with the stick as it was. Additive, so proto stays 14:
 		 * an old Diatom ignores the verb, and the launcher never waits
-		 * for the answer. */
+		 * for the answer. Later (Stick On/Off and Stick While Held as a
+		 * button's choices): dpad-pad and plain-pad are dpad and plain
+		 * starting on the d-pad's side, and what turns the side is a
+		 * button the map gives `stick` or `stickhold`, the PSP's R2
+		 * among them, no longer R2 by itself under toggle. */
+		/* SETHOTKEYS keys= (later, with RUN hotkeys= and shots=): which
+		 * button SELECT is held with for each hotkey, the four the
+		 * shoulders had and five more (shot, shader, display, reset,
+		 * quit), answered HOTKEYS ok=1, or ok=0 with the keys as they
+		 * were. A hotkey of the five says HOTKEY key=shader|display, a
+		 * screenshot SHOT path= once written (or ERROR code=shot_failed),
+		 * and reset and quit pause the game as MENU does, PAUSED for=reset
+		 * or for=quit, for the launcher to ask or to stop. Additive:
+		 * an old Diatom ignores all of it and keeps the shoulders' four. */
 		/* proto=13 moves the speed and adds the quick slot: SELECT+R2 and
 		 * SELECT+L2 step it in halves, so SPEED's x may be "1.5", and MENU+R1
 		 * does nothing; SELECT+R1 and SELECT+L1 send HOTKEY key=save|load,
@@ -473,6 +508,25 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * clock24=: On-Screen Stats over every game until said again
 		 * (diatom_port_hud_style). Additive, so proto stays 14: an old
 		 * Diatom ignores the verb, and nothing is drawn. */
+		/* SETRUMBLE rumble=N: the motor at N percent of what the core
+		 * asks from now (the in-game menu's Rumble row: the player's level
+		 * times the system's share), 0 Off, over a game that runs or is
+		 * paused; RUN rumble= says the same at a start, where 0 is now Off
+		 * too. And PAUSED says rumble=1 when the core asked for the motor,
+		 * so the row is for its games alone. Additive, so proto stays 14:
+		 * an old Diatom ignores the verb, and an old launcher reads PAUSED
+		 * by its first six letters. */
+		/* SETEQ bands=5,2,0,0,1: the equalizer for where the game plays
+		 * (ZyperOS's src/eq.h), all 0 flat, from the sound's next push,
+		 * over a game that runs or is paused. Additive, so proto stays 14:
+		 * an old Diatom ignores the verb and plays as it always did. */
+		/* RUN cheats=<path> and SETCHEATS path=<path>: the cheat codes
+		 * that are on, a file of one a line (cheats.h), handed to the core
+		 * once the game is loaded, at each SETCHEATS (answered CHEATS
+		 * count=N, or ERROR code=bad_cheats), and again after a reset and
+		 * a state load; while one has been on, achievements stop for the
+		 * game and CHEEVOS says paused=cheats. Additive, so proto stays
+		 * 14: an old Diatom ignores both, and a game starts with none. */
 		diatom_proto_send("READY\tproto=14\tstate=%s", running ? "running" : "idle");
 		/* A displaced launcher is a vanished one, and every loop already
 		 * knows what that means - the in-game menu resumes the game. Said

@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "musequeue.h"
 
@@ -68,6 +69,21 @@ bool musec_video(void);
  * and again to a daemon that has just started. */
 void musec_video_show(bool on);
 
+/* Bars on screen (MP4's Player Looks, src/mp4look.h): every frame that
+ * draws them keeps the daemon measuring the sound for MUSEC_BANDS_LEASE
+ * more ms, 30 times a second (BANDS, src/muse/bands.h). A lease and not a
+ * switch, so nothing has to remember to turn it off: a look left behind
+ * another screen, under the lock, paused and still, or on Cover draws no
+ * bars, and a moment later the daemon stops measuring. Sent when it
+ * changes, and again to a daemon that has just started, as
+ * musec_video_show is. */
+#define MUSEC_BANDS 32
+#define MUSEC_BANDS_LEASE 300
+void musec_bands_keep(void);
+/* The last levels the daemon sent, 0-255 from the lowest band up, and how
+ * long ago in `age_ms`; false when none has come since bars were asked for */
+bool musec_bands(uint8_t out[MUSEC_BANDS], unsigned *age_ms);
+
 /* A game's video snap on the shelf (src/muse/snap.h): `path` played from its
  * start and looped, its pictures in their own frames (src/snapview.h); NULL
  * stops it. `vol` is its sound, 0 to 100, 0 muted. `hold` asks for its
@@ -117,6 +133,12 @@ void musec_stop(void);
 
 const mu_now *musec_now(void);
 
+/* Where the song is this moment, between the daemon's reports (POS, once a
+ * second): carried on from the last at the speed it plays. For what moves
+ * with the song every frame - a Player Look's tape and tonearm - where the
+ * clock's whole seconds would step. */
+double musec_at_live(void);
+
 /* The queued track, relative to the music root, or "" - so a list can mark
  * the row that is playing without comparing titles, which tags can change. */
 const char *musec_path(void);
@@ -142,6 +164,10 @@ void musec_sink(const char *device);
  * for where Muse's sound goes (src/audioout.h). Sent only when it changes,
  * and again to a daemon that has just said READY, since it starts in stereo. */
 void musec_channels(const char *mode);
+/* The equalizer's bands for where Muse plays (src/eq.h), dB each, and
+ * whether its page is open (`live`: Muse keeps only about 60 ms queued, so a
+ * step is heard in under a tenth of a second). Sent on a change only. */
+void musec_eq(const int8_t db[5], bool live);
 /* Make the next musec_sink send even if the device has not changed: for a
  * headset that dropped and came back under the same name, which Muse may
  * have fallen back from while it was gone. The daemon ignores a SINK for the
@@ -170,6 +196,12 @@ const char *musec_upcoming(void);
  * caller's. */
 void     musec_set_mode(muq_mode m);
 muq_mode musec_mode(void);
+/* Videos' own mode, MP4's MENU > Repeat (2026-11-19): in order (Off), repeat
+ * all or repeat one, never shuffle. Applied to a queue of videos playing now
+ * and kept for every one after it; music's mode is left as it is. Saving it
+ * is the caller's. */
+void     musec_set_video_mode(muq_mode m);
+muq_mode musec_video_mode(void);
 
 /* Ask for the picture `track` (relative to the music root) carries, written to
  * `base` plus the extension its format has. The daemon answers in a few

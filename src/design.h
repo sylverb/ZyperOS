@@ -117,6 +117,7 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_TYPE_SUPPORT 28
 #define DS_TYPE_GAME_TITLE 37
 #define DS_TYPE_CARD 71
+#define DS_TYPE_CLOCK 120
 #define DS_FONT_REGULAR "menu.ttf"
 #define DS_FONT_SEMIBOLD "title.ttf"
 #define DS_FONT_CJK "zh-menu.otf"
@@ -141,6 +142,7 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_RULE 2
 #define DS_CARET 3
 #define DS_RING 4
+#define DS_RADIUS_BAR 4
 
 /* Elevation. Glows: alpha 0-255 and spread. Shadows: y, blur, ink 0-255. */
 #define DS_GLOW_FOCUS_A 105
@@ -192,9 +194,18 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_MS_TOUR_REWARD 1100
 #define DS_MS_TOUR_PULSE 440
 #define DS_MS_HOLD_UNLOCK 2000
+#define DS_MS_HOLD_POWER 1000
 #define DS_MS_HOLD_LOCK_LIT 4000
 #define DS_MS_HOLD_CONTROLS 3000
+#define DS_MS_PEAK_HOLD 400
+#define DS_MS_BAR_FALL 140
+#define DS_MS_SPIN_UP 360
+#define DS_MS_SPIN_DOWN 520
+#define DS_MS_REWIND 700
+#define DS_MS_WIND 180
+#define DS_MS_ARM_GLIDE 180
 #define DS_MS_HOLD_SNAP 1000
+#define DS_MS_HOLD_BAND 2000
 #define DS_MS_SHEEN 480
 #define DS_MS_SHARPEN 200
 #define DS_MS_HOLD_LOW_BATTERY 6000

@@ -14,15 +14,15 @@ ja = 画像と動画
 it = Copertine e video
 
 [scraper.complete]
-note = MENU > Scraper's value when every game has its box art. A lowercase value.
-en = complete
+note = MENU > Scraper's value when every game has its box art. A value, begun with a capital.
+en = Complete
 zh-Hans = 已齐全
-es = completo
-pt-BR = completo
-fr = complet
-de = vollständig
+es = Completo
+pt-BR = Completo
+fr = Complet
+de = Vollständig
 ja = 取得済み
-it = completo
+it = Completo
 
 [scraper.missing_n]
 note = MENU > Scraper's value: how many games have no box art; also one fact of the run's count ("37 found · 2 missing · 61 already").
@@ -42,37 +42,37 @@ it.one = %d mancante
 it.other = %d mancanti
 
 [scraper.on]
-note = The Videos row of the Scraper page's Settings: on (they play on the shelf), then the room the snaps take ("on · 1.2 GB"). A lowercase value.
-en = on
+note = The Videos row of the Scraper page's Settings: on (they play on the shelf), then the room the snaps take ("on · 1.2 GB"). A value, begun with a capital.
+en = On
 zh-Hans = 开启
-es = activado
-pt-BR = ativado
-fr = activé
-de = an
+es = Activado
+pt-BR = Ativado
+fr = Activé
+de = An
 ja = オン
-it = attivo
+it = Attivo
 
 [scraper.off]
 note = The same, off.
-en = off
+en = Off
 zh-Hans = 关闭
-es = desactivado
-pt-BR = desativado
-fr = désactivé
-de = aus
+es = Desactivado
+pt-BR = Desativado
+fr = Désactivé
+de = Aus
 ja = オフ
-it = disattivo
+it = Disattivo
 
 [scraper.key_refused]
-note = Scraper's SteamGridDB row's value when SteamGridDB refused the key. A lowercase value.
-en = key refused
+note = Scraper's SteamGridDB row's value when SteamGridDB refused the key. A value, begun with a capital.
+en = Key refused
 zh-Hans = 密钥被拒绝
-es = clave rechazada
-pt-BR = chave recusada
-fr = clé refusée
+es = Clave rechazada
+pt-BR = Chave recusada
+fr = Clé refusée
 de = Schlüssel abgelehnt
 ja = キー拒否
-it = chiave rifiutata
+it = Chiave rifiutata
 
 [scraper.systems]
 note = A Box Art run for the whole card: a row label; its value is how many systems are done, "4 / 10".
@@ -97,15 +97,15 @@ ja = 完了
 it = Fatto
 
 [scraper.ss_user]
-note = The keyboard's title when linking a ScreenScraper account: type the user name.
-en = ScreenScraper User
-zh-Hans = ScreenScraper 用户名
-es = Usuario de ScreenScraper
-pt-BR = Usuário do ScreenScraper
-fr = Utilisateur ScreenScraper
-de = ScreenScraper-Benutzer
-ja = ScreenScraper ユーザー名
-it = Utente ScreenScraper
+note = The keyboard's title when linking a ScreenScraper account: type the user name, not the e-mail address. Their website's sign-in takes either one, so a player who signs in there with the e-mail types it here too; the device signs in with the user name. A heading: the keyboard panel's width, about 30 Latin letters, so the account's name is left to the ScreenScraper row it opens from.
+en = User Name, Not Email
+zh-Hans = 用户名（不是邮箱）
+es = Usuario, no el correo
+pt-BR = Usuário, não o e-mail
+fr = Nom d'utilisateur, pas l'e-mail
+de = Benutzername, keine E-Mail
+ja = ユーザー名（メールアドレス不可）
+it = Nome utente, non l'email
 
 [scraper.ss_no_key]
 note = A message: this build of ZyperOS was made without the key ScreenScraper gives developers, so no account can be linked.
@@ -119,32 +119,32 @@ ja = このビルドには ScreenScraper のキーがありません。
 it = Questa versione non ha la chiave di ScreenScraper.
 
 [scraper.ss_left_today]
-note = ScreenScraper's page: the account's status, how many requests it has left today. A lowercase value.
+note = ScreenScraper's page: the account's status, how many requests it has left today. A value, begun with a capital.
 en.one = %d left today
 en.other = %d left today
 zh-Hans = 今天还剩 %d 次
-es.one = queda %d hoy
-es.other = quedan %d hoy
-pt-BR.one = resta %d hoje
-pt-BR.other = restam %d hoje
+es.one = Queda %d hoy
+es.other = Quedan %d hoy
+pt-BR.one = Resta %d hoje
+pt-BR.other = Restam %d hoje
 fr.one = %d restante aujourd'hui
 fr.other = %d restantes aujourd'hui
 de.one = %d heute übrig
 de.other = %d heute übrig
 ja = 本日残り %d 回
-it.one = oggi ne resta %d
-it.other = oggi ne restano %d
+it.one = Oggi ne resta %d
+it.other = Oggi ne restano %d
 
 [scraper.ss_linked]
-note = ScreenScraper's page: the account's status when the count is not known. A lowercase value; the account is feminine in es/pt-BR (cuenta, conta).
-en = linked
+note = ScreenScraper's page: the account's status when the count is not known. A value, begun with a capital; the account is feminine in es/pt-BR (cuenta, conta).
+en = Linked
 zh-Hans = 已关联
-es = vinculada
-pt-BR = vinculada
-fr = associé
-de = verknüpft
+es = Vinculada
+pt-BR = Vinculada
+fr = Associé
+de = Verknüpft
 ja = 連携済み
-it = collegato
+it = Collegato
 
 [scraper.unlink_account_ask]
 note = A yes/no question on ScreenScraper's page.
@@ -191,37 +191,37 @@ ja = SteamGridDB API キー
 it = Chiave API SteamGridDB
 
 [scraper.sgdb_works]
-note = SteamGridDB's page: the key's Status value when SteamGridDB took it. A lowercase value.
-en = works
+note = SteamGridDB's page: the key's Status value when SteamGridDB took it. A value, begun with a capital.
+en = Works
 zh-Hans = 可用
-es = funciona
-pt-BR = funciona
-fr = fonctionne
-de = funktioniert
+es = Funciona
+pt-BR = Funciona
+fr = Fonctionne
+de = Funktioniert
 ja = 有効
-it = funziona
+it = Funziona
 
 [scraper.sgdb_refused]
-note = The key's Status value when SteamGridDB refused it. A lowercase value; the key is feminine in es/pt-BR/fr.
-en = refused
+note = The key's Status value when SteamGridDB refused it. A value, begun with a capital; the key is feminine in es/pt-BR/fr.
+en = Refused
 zh-Hans = 被拒绝
-es = rechazada
-pt-BR = recusada
-fr = refusée
-de = abgelehnt
+es = Rechazada
+pt-BR = Recusada
+fr = Refusée
+de = Abgelehnt
 ja = 拒否
-it = rifiutata
+it = Rifiutata
 
 [scraper.sgdb_not_checked]
 note = The key's Status value before any check.
-en = not checked
+en = Not checked
 zh-Hans = 未检查
-es = sin comprobar
-pt-BR = não verificada
-fr = non vérifiée
-de = nicht geprüft
+es = Sin comprobar
+pt-BR = Não verificada
+fr = Non vérifiée
+de = Nicht geprüft
 ja = 未確認
-it = non verificata
+it = Non verificata
 
 [scraper.unlink_key_ask]
 note = A yes/no question on SteamGridDB's page.
@@ -379,7 +379,7 @@ ja = 閉じる
 it = Chiudi
 
 [scraper.key_stop]
-note = A hint at the page's foot while a run goes: B stops it. One word, capital
+note = A hint at the page's foot while a run goes: Y stops it (B continues it in the background). One word, capital
 en = Stop
 zh-Hans = 停止
 es = Detener

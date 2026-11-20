@@ -36,30 +36,33 @@ ja = 1 分ほどかかる場合があります。
 it = Può volerci un minuto.
 
 # The same screen after a minute, when the port still has not taken the
-# display (tools/portkeys.c shows it): it is still starting, or it hangs, and
-# MENU and START held together end it (zyhome) and bring the shelf back.
+# display (tools/portkeys.c shows it): it is still starting, it hangs, or it
+# is a first start, where PortMaster can install or patch the game for hours
+# before anything draws (Dead Cells: 4 to 8 hours), and its window is not
+# always up. MENU and START held together end it (zyhome) and bring the shelf
+# back. Each of the two sentences takes up to two lines.
 
 [portload.still_go_back]
 note = The line after a minute, on one line: portload.still and portload.go_back together. MENU and START are the handheld's buttons, never translated.
-en = Still starting. Hold MENU and START to go back.
-zh-Hans = 仍在启动。按住 MENU 和 START 可返回。
-es = Sigue iniciando. Mantén MENU y START para volver.
-pt-BR = Ainda iniciando. Segure MENU e START para voltar.
-fr = Toujours en démarrage. Maintenez MENU et START pour revenir.
-de = Startet noch. MENU und START halten, um zurückzugehen.
-ja = まだ起動中です。MENU と START を長押しで戻ります。
-it = Ancora in avvio. Tieni MENU e START per tornare.
+en = A first start can install for hours. Hold MENU and START to go back.
+zh-Hans = 首次安装可能需要数小时。按住 MENU 和 START 可返回。
+es = La primera instalación puede tardar horas. Mantén MENU y START para volver.
+pt-BR = A primeira instalação pode levar horas. Segure MENU e START para voltar.
+fr = La première installation peut durer des heures. Maintenez MENU et START pour revenir.
+de = Die erste Installation kann Stunden dauern. MENU und START halten, um zurückzugehen.
+ja = 初回はインストールに数時間かかる場合があります。MENU と START を長押しで戻ります。
+it = La prima installazione può durare ore. Tieni MENU e START per tornare.
 
 [portload.still]
-note = The first sentence of the line after a minute, on its own line when the two do not fit one
-en = Still starting.
-zh-Hans = 仍在启动。
-es = Sigue iniciando.
-pt-BR = Ainda iniciando.
-fr = Toujours en démarrage.
-de = Startet noch.
-ja = まだ起動中です。
-it = Ancora in avvio.
+note = The first sentence of the line after a minute, in up to two lines of its own when the two do not fit one: the port may still be starting, and its first start can install or patch it for hours (PortMaster's installer, under this screen), so the wait is not a hang. Short: about 46 Latin letters at most.
+en = A first start can install for hours.
+zh-Hans = 首次安装可能需要数小时。
+es = La primera instalación puede tardar horas.
+pt-BR = A primeira instalação pode levar horas.
+fr = La première installation peut durer des heures.
+de = Die erste Installation kann Stunden dauern.
+ja = 初回はインストールに数時間かかる場合があります。
+it = La prima installazione può durare ore.
 
 [portload.go_back]
 note = The second sentence of the line after a minute: how to give up and go back to the shelf. MENU and START never translated.

@@ -11,9 +11,17 @@
 #include "db.h"
 #include "device.h"
 #include "fileio.h"
+#include "nightkeep.h"
+#include "panelgamma.h"
+#include "panelgamma_sunxi.h"
 #include "platform.h"
+#include "screenfx_draw.h"
 #include "stickpad.h"
 #include "thermal.h"
+#include "keymap.h"
+#ifdef ZYPEROS_DESK
+#include "desk.h"
+#endif
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -41,7 +49,7 @@ static SDL_Texture *screen_tex;
 static SDL_Rect     screen_dst;
 /* A video picture under the screen for the next present (plat_video_under),
  * where the screen is screen_tex */
-static struct { bool on; SDL_Texture *tex; SDL_Rect dst; SDL_Color bg; } under;
+static struct { bool on, has_src; SDL_Texture *tex; SDL_Rect src, dst; SDL_Color bg; } under;
 
 #define BITS_PER_LONG   (8 * (int)sizeof(long))
 #define NLONGS(max)     (((max) + BITS_PER_LONG) / BITS_PER_LONG)
@@ -137,11 +145,92 @@ static void signal_splash(int sig)
 	if (proc) closedir(proc);
 }
 
+/* The screens' shader is on this frame already (plat_screen_finish) */
+static bool fx_done;
+
+/* CRT Curved's frame: while the screens' shader bends, ZyperOS draws into
+ * this texture of the screen's size instead of the window, and the bend
+ * draws it onto the window (plat_screen_finish), as the Pixel 2 bends its
+ * screen_tex. Reading the window back instead (sfx_bend_target) stalls a
+ * GPU that draws in tiles, the Brick's PowerVR, for a whole frame's pixels
+ * every frame. Made the first time the curve is on; while it is off ZyperOS
+ * draws straight into the window as before, so a frame without the curve
+ * costs what it did. */
+static SDL_Texture *bend_tex;
+
+static bool bending(void) { return sfx_on() && sfx_curved(); }
+
+/* The window, as a render target: the window itself, screen_tex on a panel
+ * of another shape (show_scaled), or in the host's desk mode the texture its
+ * screen is drawn into, which goes to the window at present
+ * (src/device/desk.h) */
+static SDL_Texture *window_target(void)
+{
+#ifdef ZYPEROS_DESK
+	if (desk_on()) return desk_screen();
+#endif
+	return screen_tex;
+}
+
+/* Where ZyperOS's frame goes: bend_tex while the curve is on, else the
+ * window (also when bend_tex cannot be made: the bend reads back then) */
+static SDL_Texture *screen_target(void)
+{
+	if (!bending()) return window_target();
+	if (!bend_tex) {
+		bend_tex = SDL_CreateTexture(ren, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET,
+		                             ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
+		if (bend_tex) SDL_SetTextureBlendMode(bend_tex, SDL_BLENDMODE_NONE);
+		else fprintf(stderr, "screens' shader: no texture for the curve (%s); "
+		             "it reads the screen back\n", SDL_GetError());
+	}
+	return bend_tex;
+}
+
+/* The shader on the frame where it is: CRT Curved's bend draws bend_tex
+ * onto the window (or, the frame it came on, which went to the window,
+ * reads it back and draws it again), then the mask multiplies it. The
+ * Brick's own rows offer none of the old screens (plat_gpu_shaders), so on
+ * the Brick this is Off and nothing until they do; the host, which shows
+ * the Pixel 2's screens, has them. */
+void plat_screen_finish(void)
+{
+	SDL_Rect all = { 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H };
+	bool in_tex = bend_tex && SDL_GetRenderTarget(ren) == bend_tex;
+
+	if (in_tex && !bending()) {
+		/* The curve went off with this frame in bend_tex: the frame as it is */
+		SDL_SetRenderTarget(ren, window_target());
+		SDL_RenderCopy(ren, bend_tex, NULL, &all);
+		in_tex = false;
+	}
+	if (fx_done || !sfx_on()) return;
+	fx_done = true;
+	if (sfx_curved()) {
+		if (in_tex) {
+			Uint8 cr, cg, cb, ca;
+
+			SDL_SetRenderTarget(ren, window_target());
+			SDL_GetRenderDrawColor(ren, &cr, &cg, &cb, &ca);
+			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+			SDL_RenderClear(ren);
+			SDL_SetRenderDrawColor(ren, cr, cg, cb, ca);
+			sfx_draw_curved(ren, bend_tex, &all, 0.0);
+		} else {
+			sfx_bend_target(ren, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
+		}
+	}
+	sfx_draw_mask(ren, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, &all, 0.0);
+}
+
+bool plat_screen_shader_in_frame(void) { return sfx_on(); }
+
 /* The picture onto a panel of another shape: black, the video under it if
  * there is one (at the panel's own resolution, its rectangle scaled as the
- * picture is), then the picture. Over a video the picture went into a clear
- * texture, which SDL's blend premultiplied, so it goes over with ONE; with
- * none it is copied as it is, alpha ignored, as the Brick's window shows it. */
+ * picture is), then the picture, the screens' shader on it already. Over a
+ * video the picture went into a clear texture, which SDL's blend
+ * premultiplied, so it goes over with ONE; with none it is copied as it is,
+ * alpha ignored, as the Brick's window shows it. */
 static void show_scaled(void)
 {
 	SDL_SetRenderTarget(ren, NULL);
@@ -160,7 +249,7 @@ static void show_scaled(void)
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
 		SDL_SetRenderDrawColor(ren, under.bg.r, under.bg.g, under.bg.b, 255);
 		SDL_RenderFillRect(ren, &bg);
-		if (under.tex) SDL_RenderCopyF(ren, under.tex, NULL, &r);
+		if (under.tex) SDL_RenderCopyF(ren, under.tex, under.has_src ? &under.src : NULL, &r);
 		SDL_SetTextureBlendMode(screen_tex, premul);
 		under.on = false;
 	} else {
@@ -182,6 +271,7 @@ void plat_present(void)
 	Uint8 r, g, b, a;
 
 	plat_overlay_present(ren);
+	plat_screen_finish();
 	if (!shown) {
 		signal_splash(SIGUSR1);
 #ifdef __linux__
@@ -199,34 +289,44 @@ void plat_present(void)
 #endif
 		shown = true;
 	}
-	if (!screen_tex) {
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_present(ren);
+	else
+#endif
+	if (screen_tex) {
+		SDL_GetRenderDrawColor(ren, &r, &g, &b, &a);
+		show_scaled();
+		SDL_SetRenderDrawColor(ren, r, g, b, a);
+	} else {
 		SDL_RenderPresent(ren);
-		return;
 	}
-	SDL_GetRenderDrawColor(ren, &r, &g, &b, &a);
-	show_scaled();
-	SDL_SetRenderDrawColor(ren, r, g, b, a);
+	fx_done = false;
+	/* The next frame into bend_tex while the curve is on */
+	if (bending()) SDL_SetRenderTarget(ren, screen_target());
 }
-/* The window, or screen_tex on a panel of another shape */
-void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, screen_tex); }
+/* The window, or screen_tex on a panel of another shape, or bend_tex */
+void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, screen_target()); }
 
 /* The Brick's screen is its panel: the picture goes straight into the frame,
  * and what is drawn after it lands on top of it. On a panel of another shape
- * the picture waits for the present (show_scaled), and the screen is
- * cleared to nothing, so it shows through wherever this frame draws
- * nothing. */
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
+ * the picture waits for the present (show_scaled), at the panel's own
+ * pixels, and the screen is cleared to nothing, so it shows through wherever
+ * this frame draws nothing; under CRT Curved it goes into the frame as on the
+ * Brick, so the curve bends it with the rest. */
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg)
 {
 	SDL_BlendMode mode;
 
-	if (!screen_tex) {
+	if (!screen_tex || bending()) {
 		SDL_SetRenderDrawColor(ren, bg.r, bg.g, bg.b, 255);
 		SDL_RenderClear(ren);
-		if (tex) SDL_RenderCopy(ren, tex, NULL, dst);
+		if (tex) SDL_RenderCopy(ren, tex, src, dst);
 		return;
 	}
 	under.on = true;
 	under.tex = tex;
+	under.has_src = src != NULL;
+	under.src = src ? *src : (SDL_Rect){ 0, 0, 0, 0 };
 	under.dst = dst ? *dst : (SDL_Rect){ 0, 0, 0, 0 };
 	under.bg = bg;
 	SDL_SetRenderTarget(ren, screen_tex);
@@ -239,7 +339,59 @@ void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
 
 /* No ports on the Brick, and no splash --still to hold a picture */
 bool plat_save_screen(const char *path) { (void)path; return false; }
+
+#ifdef __linux__
+/* Flash Drive's pictures for usbdrive (src/usbdrive_screen.c): the frame
+ * just drawn, never shown, read back and made 640x480, the size usbdrive's
+ * atlas is laid out in on every device, landscape (the Brick's panel is not
+ * turned), as raw XRGB8888. usbdrive's page on the Brick (plastron's
+ * package/usbdrive/src/panel_fb.c) scales it up to the panel again. Each
+ * picture is the average of the 1.6 x 1.6 frame pixels under it, two taps a
+ * way, so text keeps its weight. A few frames at Flash Drive's start: a
+ * read back here costs nothing a game would see. */
+/* usbdrive's pictures' size on every device: src/usbdrive_screen.c's
+ * UD_SAVE_W and UD_SAVE_H, the units its atlas is written in (a file's
+ * format, not a place on this screen) */
+#define SAVE_W 640
+#define SAVE_H 480
+bool plat_save_screen_hidden(const char *path)
+{
+	const int w = ZYPEROS_SCREEN_W, h = ZYPEROS_SCREEN_H;
+	uint32_t *in = malloc((size_t)w * h * 4), *out = malloc((size_t)SAVE_W * SAVE_H * 4);
+	bool ok = false;
+	FILE *f;
+	int x, y;
+
+	if (in && out && SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, in, w * 4) == 0) {
+		for (y = 0; y < SAVE_H; y++) {
+			/* The source rows the picture's row covers: its two edges */
+			int y0 = y * h / SAVE_H, y1 = ((y + 1) * h - 1) / SAVE_H;
+
+			for (x = 0; x < SAVE_W; x++) {
+				int x0 = x * w / SAVE_W, x1 = ((x + 1) * w - 1) / SAVE_W;
+				uint32_t a = in[(size_t)y0 * w + x0], b = in[(size_t)y0 * w + x1];
+				uint32_t c = in[(size_t)y1 * w + x0], d = in[(size_t)y1 * w + x1];
+				uint32_t v = 0;
+				int k;
+
+				for (k = 0; k < 24; k += 8)
+					v |= (((a >> k & 255) + (b >> k & 255) + (c >> k & 255) + (d >> k & 255) + 2) / 4) << k;
+				out[(size_t)y * SAVE_W + x] = v;
+			}
+		}
+		if ((f = fopen(path, "wb"))) {
+			ok = fwrite(out, 4, (size_t)SAVE_W * SAVE_H, f) == (size_t)SAVE_W * SAVE_H;
+			if (fclose(f) != 0) ok = false;
+		}
+	}
+	free(in);
+	free(out);
+	return ok;
+}
+#else
+/* The host has no usbdrive to leave pictures for */
 bool plat_save_screen_hidden(const char *path) { (void)path; return false; }
+#endif
 SDL_Texture *plat_load_screen(const char *path) { (void)path; return NULL; }
 
 bool plat_video_init(void)
@@ -273,10 +425,22 @@ bool plat_video_init(void)
 	 * every window OpenGL by default and fails without an EGL library; dummy
 	 * has no GL at all. The checks draw in software anyway. */
 	bool headless = getenv("ZYPEROS_HEADLESS") != NULL;
+#ifdef ZYPEROS_DESK
+	/* A window on a computer: desk mode, the handheld's panel at a zoom */
+	if (!headless && desk_on()) {
+		if (!desk_video_init(&win, &ren)) return false;
+		SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+		SDL_RendererInfo info;
+		if (SDL_GetRendererInfo(ren, &info) == 0)
+			fprintf(stderr, "renderer: %s, driver: %s, vsync %s\n", info.name, SDL_GetCurrentVideoDriver(),
+			        (info.flags & SDL_RENDERER_PRESENTVSYNC) ? "granted" : "DECLINED (requested)");
+		return true;
+	}
+#endif
 	/* The panel as it is seen, landscape: the screen itself where it is
-	 * the picture's shape; a wider one (the Smart Pro's 1280x720) gets the
-	 * picture scaled to its height, in the middle (show_scaled). Only on
-	 * the host for now: the Smart Pro's own display comes with its board. */
+	 * the picture's shape; a wider one (the Smart Pro's 1280x720, which its
+	 * kernel turns from the 720x1280 panel) gets the picture scaled to its
+	 * height, in the middle (show_scaled). */
 	const device_profile *p = plat_profile();
 	bool wide = p->screen.aspect_w * 3 != p->screen.aspect_h * 4;
 	int ww = wide ? (p->screen.turn % 180 ? p->screen.panel_h : p->screen.panel_w) : ZYPEROS_SCREEN_W;
@@ -334,8 +498,13 @@ bool plat_video_init(void)
 void plat_video_quit(void)
 {
 	plat_osd_forget();
-	if (screen_tex) { SDL_DestroyTexture(screen_tex); screen_tex = NULL; }
+	sfx_forget();
+	if (bend_tex) { SDL_DestroyTexture(bend_tex); bend_tex = NULL; }
+if (screen_tex) { SDL_DestroyTexture(screen_tex); screen_tex = NULL; }
 	under.on = false;
+#ifdef ZYPEROS_DESK
+	desk_video_quit();
+#endif
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -394,8 +563,16 @@ bool plat_input_init(void)
 void plat_input_flush(void)
 {
 	SDL_Event e;
-	SDL_PumpEvents();
-	while (SDL_PollEvent(&e)) { }
+#ifdef ZYPEROS_DESK
+	/* Desk mode keeps what is not a stale press: its socket's commands, the
+	 * window closed, a controller plugged in */
+	if (desk_on()) desk_flush();
+	else
+#endif
+	{
+		SDL_PumpEvents();
+		while (SDL_PollEvent(&e)) { }
+	}
 #ifdef __linux__
 	{
 		struct input_event ev;
@@ -421,6 +598,15 @@ void plat_input_settle(in_state *st)
 
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
+
+/* No motor yet: GPIO 227 on the bldo3 rail waits for the tester's buzz (the
+ * Brick parity plan's item 14), and the profile says none (rumble false) */
+bool plat_rumble_buzz(float scale, int ms)
+{
+	(void)scale;
+	(void)ms;
+	return false;
+}
 
 #ifdef __linux__
 /* The stick where the last report left it: each direction it holds or lets
@@ -481,36 +667,11 @@ static void poll_fd(int fd, in_state *st)
 #endif
 }
 
-/* keyboard fallback so the native dev build is drivable: every button the
- * launcher reads has a key, so the dev build can go wherever the handheld
- * can - out of the tutorial too (docs/building.md lists them) */
-static in_button map_key(SDL_Keycode k)
-{
-	switch (k) {
-	case SDLK_LEFT: return IN_LEFT;
-	case SDLK_RIGHT: return IN_RIGHT;
-	case SDLK_UP: return IN_UP;
-	case SDLK_DOWN: return IN_DOWN;
-	case SDLK_RETURN: return IN_ACCEPT;
-	case SDLK_ESCAPE: return IN_BACK;
-	case SDLK_BACKSPACE: return IN_BACK;
-	case SDLK_x: return IN_X;
-	case SDLK_y: return IN_Y;
-	case SDLK_COMMA: return IN_L1;
-	case SDLK_PERIOD: return IN_R1;
-	case SDLK_k: return IN_L2;
-	case SDLK_l: return IN_R2;
-	case SDLK_s: return IN_START;
-	case SDLK_LSHIFT: case SDLK_RSHIFT: return IN_SELECT;
-	case SDLK_m: return IN_MENU;
-	case SDLK_MINUS: return IN_VOLDN;
-	case SDLK_EQUALS: return IN_VOLUP;
-	case SDLK_LEFTBRACKET: return IN_BRIGHTDN;
-	case SDLK_RIGHTBRACKET: return IN_BRIGHTUP;
-	case SDLK_p: return IN_POWER;
-	default: return IN_NONE;
-	}
-}
+/* A keyboard is the buttons by src/device/keymap.h's one map, the host's desk
+ * mode's and the Simulator's: every button the launcher reads has a key, so a
+ * keyboard can go wherever the handheld can, out of the tutorial too
+ * (docs/building.md lists them) */
+static in_button map_key(SDL_Scancode sc) { return keymap_button(sc); }
 
 void plat_input_wait(unsigned ms)
 {
@@ -521,9 +682,19 @@ void plat_input_wait(unsigned ms)
 	if (fd_keys >= 0)  p[n++] = (struct pollfd){ .fd = fd_keys,  .events = POLLIN };
 	if (fd_power >= 0) p[n++] = (struct pollfd){ .fd = fd_power, .events = POLLIN };
 	/* POWER held in Hold mode: woken for the pill's next segment and the
-	 * hold's end, which no event marks */
-	ms = plat_power_wait(ms);
-	if (!n) { SDL_Delay(ms); return; }
+	 * hold's end, which no event marks; and the work behind every screen
+	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	ms = plat_input_wait_hook(plat_power_wait(ms));
+	if (!n) {
+#ifdef ZYPEROS_DESK
+		/* No input file on a computer: woken by an event (a key, the
+		 * mouse, desk mode's socket), not after the whole wait */
+		desk_wait(ms);
+#else
+		SDL_Delay(ms);
+#endif
+		return;
+	}
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
 }
@@ -544,7 +715,13 @@ void plat_input_poll(in_state *st)
 	/* And the mute switch, for the same reason and on the same frame. */
 	plat_mute_poll(true);
 	SDL_Event e;
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_poll_begin(st);
+#endif
 	while (SDL_PollEvent(&e)) {
+#ifdef ZYPEROS_DESK
+		if (e.type != SDL_QUIT && desk_on() && desk_event(&e, st)) continue;
+#endif
 		switch (e.type) {
 		case SDL_QUIT:
 			st->quit_requested = true;
@@ -552,9 +729,7 @@ void plat_input_poll(in_state *st)
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:
 			if (e.key.repeat) break;
-			plat_set_btn(st, map_key(e.key.keysym.sym), e.type == SDL_KEYDOWN);
-			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_q)
-				st->quit_requested = true;
+			plat_set_btn(st, map_key(e.key.keysym.scancode), e.type == SDL_KEYDOWN);
 			break;
 		}
 	}
@@ -565,9 +740,38 @@ void plat_input_poll(in_state *st)
 }
 
 /* The launcher and Diatom take turns on one framebuffer here, so there is
- * nothing to hand over. */
-void device_display_release(void) { }
-void device_display_take(void) { }
+ * nothing to hand over. The display's gamma table is the kernel's for both,
+ * set again on the way back all the same: a game's Diatom sets it at a
+ * night's start or end, and a game that ended mid-change may have left
+ * another one. */
+#ifdef __linux__
+static void display_gamma(const char *when);
+static void screen_colors_init(void);
+#endif
+/* In the host's desk mode the window shows Diatom's frames while a game
+ * runs (src/device/desk.h); on the Brick, nothing. */
+void device_display_release(void)
+{
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_game_begin();
+#endif
+}
+unsigned device_game_wait(unsigned ms)
+{
+#ifdef ZYPEROS_DESK
+	if (desk_on()) return desk_game_wait(ms);
+#endif
+	return ms;
+}
+void device_display_take(void)
+{
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_game_end();
+#endif
+#ifdef __linux__
+	display_gamma("taking the display back");
+#endif
+}
 
 /* The power key's queue, drained: true if a press was in it. The launcher
  * watches power this way while a child or a game owns the screen, which is
@@ -575,6 +779,15 @@ void device_display_take(void) { }
 bool device_power_pressed(void)
 {
 	bool pressed = false;
+#ifdef ZYPEROS_DESK
+	/* The keyboard's P, the bar's POWER, the window closed: desk mode's */
+	if (desk_on()) {
+		int edge;
+
+		while ((edge = desk_power_edge()) >= 0)
+			if (plat_power_event(edge == 1)) pressed = true;
+	}
+#endif
 #ifdef __linux__
 	struct input_event ev;
 
@@ -885,9 +1098,124 @@ bool plat_cable_link(char *addr, size_t n)
 	return true;
 }
 
-/* The Brick's link is its own usbgadget script's, always on: no question. */
-usb_peer plat_usb_peer(void) { return USB_PEER_UNKNOWN; }
-bool plat_usb_link(int op) { (void)op; return true; }
+/* The cable as on the Pixel 2 (src/usblink.h): charging only until asked.
+ * plastron's usbgadget script makes the network gadget at boot and binds it
+ * only in Developer Mode (a development image's); ZyperOS asks once a plug
+ * when a computer is on the cable, and binds it for File Transfer or
+ * Developer, or hands the card over for Flash Drive.
+ *
+ * Telling a computer from a charger is the Brick's own problem: the
+ * AXP2202's BC1.2 reads a computer's port as a dedicated charger (plastron's
+ * kernel patch 0029, measured on a Mac's USB-A port), and its Type-C CC
+ * says nothing either through a USB-A cable. The one tell is the computer:
+ * it resets the bus and configures a device it sees, which a charger never
+ * does. So each plug is probed: the gadget bound for up to USB_PROBE_MS,
+ * and a reset or a configuration in that time (the controller's state off
+ * "not attached") is a computer, left bound until the player answers
+ * (Charge Only lets it go, as on the Pixel 2); none is a charger, and the
+ * probe let go. The probe is this file's, not the link's: plat_usb_link
+ * answers for what usblink set, and the probe's binding never shows there.
+ * A computer sees the Brick's network device for the probe's moment, or
+ * until the question is answered: no way to ask the computer without it. */
+#define CABLE_GADGET "/sys/kernel/config/usb_gadget/brick/UDC"
+#define CABLE_ONLINE "/sys/class/power_supply/axp2202-usb/online"
+#define USB_PROBE_MS 3000u
+
+enum { PLUG_OUT, PLUG_PROBING, PLUG_COMPUTER, PLUG_CHARGER };
+static int plug_state = PLUG_OUT;
+static unsigned plug_t0;
+static bool link_on;          /* what usblink set: plat_usb_link's answer */
+
+/* The gadget on the controller, or off it: the UDC's name in the gadget's
+ * UDC file, or an empty line. True when it is bound after. */
+static bool gadget_bound(void)
+{
+	char buf[64] = "";
+	int fd = open(CABLE_GADGET, O_RDONLY | O_CLOEXEC);
+
+	if (fd < 0) return false;
+	if (read(fd, buf, sizeof buf - 1) < 0) buf[0] = '\0';
+	close(fd);
+	return buf[0] != '\0' && buf[0] != '\n';
+}
+
+static bool gadget_bind(bool on)
+{
+	const char *udc = strrchr(CABLE_UDC, '/') + 1;
+	int fd;
+
+	if (on == gadget_bound()) return on;
+	if ((fd = open(CABLE_GADGET, O_WRONLY | O_CLOEXEC)) < 0) return false;
+	/* An empty line unbinds; a write of nothing at all is ignored */
+	if (write(fd, on ? udc : "\n", on ? strlen(udc) : 1) < 0) { /* said below */ }
+	close(fd);
+	return gadget_bound();
+}
+
+/* A host on the bus: the controller past "not attached" (reset, addressed,
+ * configured), which only a computer's reset moves it to */
+static bool host_seen(void)
+{
+	return file_starts(CABLE_UDC "/state", "default") ||
+	       file_starts(CABLE_UDC "/state", "addressed") ||
+	       file_starts(CABLE_UDC "/state", "configured");
+}
+
+usb_peer plat_usb_peer(void)
+{
+	if (!file_starts(CABLE_ONLINE, "1")) {
+		/* Out: the probe's binding goes with it (the link's is usblink's
+		 * to let go, which it does when it sees this) */
+		if (plug_state != PLUG_OUT && !link_on) gadget_bind(false);
+		if (plug_state == PLUG_COMPUTER) fprintf(stderr, "usb: the cable came out\n");
+		plug_state = PLUG_OUT;
+		return USB_PEER_NONE;
+	}
+	switch (plug_state) {
+	case PLUG_OUT:
+		/* A new plug, or the cable already in at the start: probed */
+		plug_t0 = plat_now_ms();
+		plug_state = PLUG_PROBING;
+		if (!gadget_bind(true)) fprintf(stderr, "usb: the gadget would not bind to probe the cable\n");
+		return USB_PEER_NONE;
+	case PLUG_PROBING:
+		if (host_seen()) {
+			plug_state = PLUG_COMPUTER;
+			fprintf(stderr, "usb: a computer on the cable (it reset the bus in %u ms)\n",
+			        plat_now_ms() - plug_t0);
+			return USB_PEER_COMPUTER;
+		}
+		if (plat_now_ms() - plug_t0 < USB_PROBE_MS) return USB_PEER_NONE;
+		plug_state = PLUG_CHARGER;
+		if (!link_on) gadget_bind(false);
+		fprintf(stderr, "usb: a charger on the cable (no reset in %u ms)\n", USB_PROBE_MS);
+		return USB_PEER_CHARGER;
+	case PLUG_COMPUTER:
+		return USB_PEER_COMPUTER;
+	default:
+		return USB_PEER_CHARGER;
+	}
+}
+
+/* usblink's link: -1 asks, 0 lets it go (charging only), 1 binds it, 2 a
+ * fresh one (off and on). The answer is the link's state after. */
+bool plat_usb_link(int op)
+{
+	if (op < 0) return link_on;
+	if (op == 2) {
+		gadget_bind(false);
+		op = 1;
+	}
+	if (op == 1) {
+		link_on = gadget_bind(true);
+		if (link_on) fprintf(stderr, "usb: the link to the computer is on\n");
+		return link_on;
+	}
+	link_on = false;
+	gadget_bind(false);
+	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
+	return false;
+}
 bool plat_cable_sense(link_sense *out) { (void)out; return false; }
 bool plat_usb_power(usb_power *out) { (void)out; return false; }
 bool plat_usb_power_grant(unsigned plug) { (void)plug; return false; }
@@ -1048,6 +1376,7 @@ void plat_settings_init(void)
 	cur_bright = b >= 0 ? clampi(b, 0, BRIGHT_MAX) : BRIGHT_MAX / 2;
 	if (cur_vol >= 0) apply_volume(cur_vol);
 	apply_brightness(cur_bright);
+	screen_colors_init();
 }
 
 /* The disp2 engine's LCD commands, beside SET/GET_BRIGHTNESS in the vendor's
@@ -1073,8 +1402,203 @@ void plat_backlight_dim(bool dim)
 	ioctl(disp_fd, DISP_LCD_SET_BRIGHTNESS, a);
 }
 
-/* No gamma table here: the Brick's backlight goes as low as its rungs need */
-void plat_display_plain(void) { }
+/* ---- Screen Colors and Night Mode ---- */
+
+/* MENU > Display > Screen Colors and Night Mode on the display's own gamma
+ * table (src/panelgamma_sunxi.h), which the panel's every frame goes
+ * through: the launcher's, a game's and anything after, at no cost to any
+ * of them. The same keeping as the Pixel 2's (src/device/pixel2.c), with
+ * nothing under a floor: the Brick's rungs are its backlight's own. */
+
+/* What is on the display now, Standard until plat_settings_init reads the
+ * saved ones */
+static panelgamma_color screen_color;
+
+static void display_gamma(const char *when)
+{
+	if (disp_fd < 0) return;
+	if (panelgamma_sunxi_apply(disp_fd, &screen_color) == 0)
+		fprintf(stderr, "video: the display's gamma table %s, %s\n",
+		        panelgamma_color_standard(&screen_color) ? "off" : "set", when);
+	else
+		fprintf(stderr, "video: could not set the display's gamma table, %s\n", when);
+}
+
+/* The kept colors (night 0) and Night Mode as kept, with its nights about
+ * now (src/nightmode.h): what the file says. Night Warmth's list shows its
+ * cursor's warmth meanwhile (night_preview), which nothing else sees. */
+static panelgamma_color screen_kept;
+static night_cfg        night_kept;
+static panelgamma_night night_sched;
+static int              night_preview;
+static time_t           night_looked, night_planned;
+
+/* The colors and Night Mode for Diatom, which reads the file each time it
+ * takes the display (panelgamma.h) and looks at the nights in it once a
+ * second over a game: the kept ones only, never a preview */
+static void screen_colors_share(void)
+{
+	if (panelgamma_screen_write(PANELGAMMA_COLOR_FILE, &screen_kept, &night_sched) != 0)
+		fprintf(stderr, "settings: could not write %s\n", PANELGAMMA_COLOR_FILE);
+}
+
+/* The warmth on the display at `now`: the list's cursor's, or the kept
+ * Night Mode's */
+static int night_now(time_t now)
+{
+	return night_preview > 0 ? night_preview : panelgamma_night_at(&night_sched, (long long)now);
+}
+
+/* Night Mode's nights about `now` in this zone, and the file written again
+ * when they are not the ones it has (or always, with `force`) */
+static void night_plan(time_t now, bool force)
+{
+	panelgamma_night s;
+
+	night_schedule(&night_kept, now, &s);
+	night_planned = now;
+	if (!force && !memcmp(&s, &night_sched, sizeof s)) return;
+	night_sched = s;
+	screen_colors_share();
+}
+
+/* Saturation: the display engine's own color block, in sysfs, at the Pixel
+ * 2's steps (src/panelgamma_sunxi.h) */
+#define SCREEN_SATURATION_FILE PANELGAMMA_SUNXI_SATURATION
+static int screen_saturation_on = 0;   /* the step on the knob now */
+
+bool plat_screen_saturation_here(void)
+{
+	return access(SCREEN_SATURATION_FILE, W_OK) == 0;
+}
+
+static void screen_saturation_apply(int step)
+{
+	char text[8];
+	FILE *f;
+
+	step = clampi(step, -SCREEN_COLORS_RANGE, SCREEN_COLORS_RANGE);
+	if (step == screen_saturation_on || !(f = fopen(SCREEN_SATURATION_FILE, "w"))) return;
+	snprintf(text, sizeof text, "%d\n", panelgamma_sunxi_saturation(step));
+	fputs(text, f);
+	if (fclose(f) == 0) screen_saturation_on = step;
+	else fprintf(stderr, "settings: could not write %s\n", SCREEN_SATURATION_FILE);
+}
+
+/* The table wanted, and when one was last loaded: a load waits out
+ * SCREEN_COLORS_GAP_MS after the last (platform.h) */
+static panelgamma_color screen_want;
+static bool screen_held;
+static Uint32 screen_loaded_at;
+
+static void screen_colors_load(void)
+{
+	screen_color = screen_want;
+	screen_held = false;
+	screen_loaded_at = SDL_GetTicks();
+	display_gamma("Screen Colors");
+}
+
+void plat_screen_colors_tick(bool now)
+{
+	if (screen_held && (now || SDL_GetTicks() - screen_loaded_at >= SCREEN_COLORS_GAP_MS))
+		screen_colors_load();
+}
+
+void plat_screen_colors(const screen_colors *c, bool keep)
+{
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
+
+	panelgamma_color_clamp(&want);
+	if (keep) {
+		screen_kept = want;
+		screen_colors_share();
+	}
+	screen_saturation_apply(c->saturation);
+	want.night = night_now(time(NULL));
+	screen_want = want;
+	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
+	plat_screen_colors_tick(false);
+}
+
+/* The warmth wanted now on the display, loaded at once (`at_once`: a kept
+ * change, or the hour) or after the gap (the list's cursor running) */
+static void night_want(bool at_once)
+{
+	screen_want.night = night_now(time(NULL));
+	screen_held = memcmp(&screen_want, &screen_color, sizeof screen_want) != 0;
+	plat_screen_colors_tick(at_once);
+}
+
+void plat_night(const struct night_cfg *n)
+{
+	night_kept = *n;
+	night_cfg_clamp(&night_kept);
+	night_preview = 0;
+	night_plan(time(NULL), true);
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s, warmth %d, %02d:%02d to %02d:%02d\n",
+	        night_mode_id(night_kept.mode), night_kept.warmth, night_kept.from / 60,
+	        night_kept.from % 60, night_kept.until / 60, night_kept.until % 60);
+}
+
+void plat_night_preview(int warmth)
+{
+	night_preview = warmth < 0 ? 0 : warmth > PANELGAMMA_NIGHT_MAX ? PANELGAMMA_NIGHT_MAX : warmth;
+	night_want(false);
+}
+
+bool plat_night_tick(void)
+{
+	time_t now = time(NULL);
+	int w;
+
+	if (now == night_looked) return false;
+	night_looked = now;
+	/* The nights again each minute, at once when the clock went back or
+	 * the first night in the file ended: a zone chosen in Date & Time, the
+	 * time set by hand, and the next night written for Diatom */
+	if (now - night_planned >= 60 || now < night_planned ||
+	    (night_sched.n > 0 && (long long)now >= night_sched.until[0]))
+		night_plan(now, false);
+	w = night_now(now);
+	if (w == screen_want.night) return false;
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s\n", w ? "on" : "off");
+	return true;
+}
+
+/* Screen Colors and Night Mode as kept, before the launcher's first frame:
+ * the file written even when Standard, so a launcher started again in the
+ * same boot leaves no older line for Diatom to read, and the table set
+ * whatever the last launcher left on the display */
+static void screen_colors_init(void)
+{
+	screen_color.temp = db_get_int(db_dev(), "screen_temp", 0);
+	screen_color.tint = db_get_int(db_dev(), "screen_tint", 0);
+	screen_color.contrast = db_get_int(db_dev(), "screen_contrast", 0);
+	screen_color.gamma = db_get_int(db_dev(), "screen_gamma", 0);
+	panelgamma_color_clamp(&screen_color);
+	screen_kept = screen_color;
+	night_kept = night_load();
+	night_plan(time(NULL), true);
+	screen_color.night = night_now(time(NULL));
+	screen_want = screen_color;
+	/* Written whatever the knob holds: a launcher started again keeps
+	 * nothing of the last one's (screen_saturation_on starts at 0) */
+	screen_saturation_on = SCREEN_COLORS_RANGE + 1;
+	screen_saturation_apply(db_get_int(db_dev(), "screen_saturation", 0));
+	display_gamma("at the start");
+}
+
+/* Before a program of its own that draws (Flash Drive): the panel plain,
+ * saturation too. The next display_gamma puts the player's back. */
+void plat_display_plain(void)
+{
+	screen_saturation_apply(0);
+	if (disp_fd >= 0 && panelgamma_sunxi_apply(disp_fd, NULL) == 0)
+		fprintf(stderr, "video: the display's gamma table off for the program after this one\n");
+}
 
 #else   /* not __linux__ */
 
@@ -1119,6 +1643,13 @@ static void mute_forget(void) { }
 void plat_backlight(bool on) { (void)on; }
 void plat_backlight_dim(bool dim) { (void)dim; }
 void plat_display_plain(void) { }
+void plat_screen_colors(const screen_colors *c, bool keep) { (void)c; (void)keep; }
+void plat_screen_colors_tick(bool now) { (void)now; }
+void plat_night(const struct night_cfg *n) { (void)n; }
+void plat_night_preview(int warmth) { (void)warmth; }
+bool plat_night_tick(void) { return false; }
+/* The host draws the Pixel 2's page whole, Saturation too, for the shots */
+bool plat_screen_saturation_here(void) { return true; }
 
 /* No settings database on the host, so the config defaults are all there is.
  * Taken anyway rather than ignored: a shelf rendered by --shot should show the
@@ -1194,7 +1725,7 @@ bool plat_menu_held(void) { return false; }
 /* L2 and R2 are buttons of their own too. */
 bool plat_tap_held(in_button b) { (void)b; return false; }
 
-side_lights plat_side_lights(void) { return LIGHTS_ALL; }
+side_lights plat_side_lights(void) { return LIGHTS_DEFAULT; }
 void plat_side_lights_set(side_lights on) { (void)on; }
 void plat_side_lights_say(const char *line) { (void)line; }
 
@@ -1336,6 +1867,12 @@ bool plat_charge_read(ch_reading *r)
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
+	/* ZYPEROS_BATTERY_DIR stands in for the gauge's folder: a host shot's
+	 * About with a battery in it (tools/i18n-shots.py's BATTERY_DIRS) */
+	const char *dir = getenv("ZYPEROS_BATTERY_DIR");
+
+	if (dir && *dir)
+		return dir;
 #ifdef __linux__
 	return AXP_BATTERY;
 #else

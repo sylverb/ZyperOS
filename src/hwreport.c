@@ -35,6 +35,26 @@ size_t hwreport_build(const hw_facts *f, char *out, size_t n)
 	PUT("  Wi-Fi: %s\n", or_dash(f->wifi));
 	if (f->closed_total >= 0)
 		PUT("  Closed files: %d of %d\n", f->closed_present, f->closed_total);
+	if (f->leds[0]) PUT("  LEDs: %s\n", f->leds);
+	if (f->motor_rail[0]) PUT("  Motor rail: %s\n", f->motor_rail);
+#ifdef ZYPEROS_KIT_BUILD
+	if (f->pmic_regs[0]) {
+		const char *p = f->pmic_regs;
+
+		/* A test kit's (src/kit.h): eight registers a line, as the regmap
+		 * gives them */
+		PUT("  PMIC registers:");
+		for (int k = 0; *p; k++) {
+			size_t len = strcspn(p, "\n");
+
+			if (len) PUT("%s%.*s", k % 8 ? "  " : "\n    ", (int)len, p);
+			else k--;
+			p += len;
+			if (*p == '\n') p++;
+		}
+		PUT("\n");
+	}
+#endif
 	PUT("Boot times:\n");
 	if (f->boot_times[0]) {
 		const char *p = f->boot_times;

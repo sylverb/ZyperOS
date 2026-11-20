@@ -3,8 +3,10 @@
 
 #include "app.h"
 #include "artsrc.h"
+#include "collect.h"
 #include "gamedel.h"
 #include "panel.h"
+#include "pico8.h"
 #include "portinfo.h"
 #include "shelfbuild.h"
 #include "sys_menu.h"
@@ -114,6 +116,7 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 	const system_cfg *s = &a->sys.systems[owner];
 	char tag[sizeof s->tag], folder[CFG_STR], core[CFG_STR], exts[CFG_STR];
 	char file[LIB_PATH], name[LIB_NAME], card_saves[CFG_STR * 2], card_states[CFG_STR * 2];
+	char card_cheats[CFG_STR * 2];
 	gd_card card;
 	gd_game gg;
 	gd_other *others = NULL;
@@ -133,12 +136,13 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 	said[0] = '\0';
 	if (wait) wait_panel(a, T(S_GAMEMENU_DELETE), T(S_GAMEMENU_DELETING));
 
-	/* Every other game on the card's own shelves - not Favorites', whose
-	 * games are on them too, and not MP4's albums */
-	for (i = 0; i < a->sys.count; i++)
+	/* Every other game on the card's own shelves and the systems off the
+	 * home (app.parked) - not Favorites', whose games are on them too, and
+	 * not MP4's albums */
+	for (i = 0; i < sys_kept(a); i++)
 		if (!a->view[i].owner && !is_muse(&a->sys.systems[i])) cap += sys_games(&a->view[i])->count;
 	if (cap > 0 && !(others = malloc((size_t)cap * sizeof *others))) cap = 0;
-	for (i = 0; i < a->sys.count && others; i++) {
+	for (i = 0; i < sys_kept(a) && others; i++) {
 		const system_cfg *o = &a->sys.systems[i];
 		bool hooked = lib_shelf_hooked(o->exts);
 
@@ -153,7 +157,8 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 		}
 	}
 
-	card = (gd_card){ P_ROMS, card_saves, card_states };
+	snprintf(card_cheats, sizeof card_cheats, "%s/Cheats", P_CARD);
+	card = (gd_card){ P_ROMS, card_saves, card_states, card_cheats };
 	gg = (gd_game){ folder, tag, core, exts, file, name, g->dir };
 	if (!(plan = malloc(sizeof *plan)) || (cap > 0 && !others)) {
 		free(others);
@@ -194,6 +199,9 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 		return false;
 	}
 	fprintf(stderr, "delete: %d library rows\n", gd_forget(folder, tag, file));
+	/* and its lines in the collections (src/collect.h): a list naming a
+	 * game that is gone would be a line nothing can play */
+	fprintf(stderr, "delete: %d collection%s\n", coll_forget(folder, file), "s followed");
 	/* and where its cover and Before's came from (src/artsrc.h) */
 	artsrc_forget(folder, name);
 	shelf_drop_game(a, tag, file);
@@ -218,10 +226,15 @@ bool game_delete(app *a, int owner, const game_entry *g, char *said, size_t n)
 	int nq, lv;
 	bool yes;
 
-	const system_cfg *s = owner >= 0 && owner < a->sys.count ? &a->sys.systems[owner] : NULL;
+	const system_cfg *s = owner >= 0 && owner < sys_kept(a) ? &a->sys.systems[owner] : NULL;
 	bool port = s && !strcmp(s->core, "port");
 
 	said[0] = '\0';
+	/* Splore's entry is your PICO-8's browser, no file on the card */
+	if (s && !strcmp(s->tag, P8_TAG) && splore_file(g->file)) {
+		snprintf(said, n, "%s", T(S_PICO8_SPLORE_STAYS));
+		return false;
+	}
 	if (gd_is_bios(g->file)) {
 		snprintf(said, n, T(S_GAMEMENU_DELETE_BIOS), g->name);
 		return false;

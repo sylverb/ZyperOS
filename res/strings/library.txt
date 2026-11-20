@@ -23,6 +23,17 @@ de = Zuletzt
 ja = 最近
 it = Recenti
 
+[library.collections]
+note = The name of the group of the player's own collections (Collections/<name>.txt on the card), where a system's name goes on the home and over the shelf (after Favorites and Recents); the heading inside one is "Collections / <its name>"
+en = Collections
+zh-Hans = 合集
+es = Colecciones
+pt-BR = Coleções
+fr = Collections
+de = Sammlungen
+ja = コレクション
+it = Raccolte
+
 [library.scanning]
 note = A wait panel under a system's name (or "MP4") while its folder is read again (Rescan Folder)
 en = Scanning...

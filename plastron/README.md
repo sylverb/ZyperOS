@@ -92,15 +92,16 @@ folder, are built from its checkout, mounted into the container (see the
 Makefile).
 
 ```sh
-make                # out/sdcard.img: ZyperOS on the Pixel 2's base system
+make                # out/sdcard.img: ZyperOS on the Pixel 2's base system (DEV=1: a development build; CLEAN=1: from empty)
 make base           # out/sdcard-base.img: the Pixel 2's base system alone
 make qemu           # out/qemu/: ZyperOS on QEMU's virt machine, standing in for the Pixel 2
-make linux-rebuild  # just the Pixel 2's kernel, after changing its config or patches
+make linux-rebuild  # just the Pixel 2's kernel, after changing its config or patches (DEV=1 finds that anyway)
 make bootloader     # U-Boot -> buildroot/board/px2/bootloader/u-boot-px2.bin
 make brick-kernel   # the Brick's kernel and modules, from all its patches
 make brick          # out/brick-sdcard.img: ZyperOS on the Brick's system
 make brick-bootloader  # U-Boot -> buildroot/board/brick/bootloader/
 make release        # both devices' release images and sources -> out/release
+make release-qemu   # QEMU's image for a release -> out/release-qemu
 make third-party    # the package lists, from the last release build
 make sdk            # the last Pixel 2 build's toolchain and libraries, as an SDK volume
 make shell          # a shell in the build container
@@ -113,6 +114,36 @@ gauge, splash, powerkey, usbrole and jackswitch here), so `scripts/build.sh`
 fingerprints each one's source before every build and builds again any whose
 source changed since the last one. A dirclean by hand is only for a kernel
 config or patch change (`make linux-rebuild`).
+
+`DEV=1` (`make DEV=1`, `make brick DEV=1`, ...) makes an output a development
+output, for work that builds the system again and again. Off unless asked
+for: a build without it is the build it always was. Once set, the output
+keeps it (its compiler wrapper goes through ccache) and leaves it only clean,
+`make DEV=0 CLEAN=1`. A development build:
+
+- compiles through ccache (`board/zyperos/dev.config`, the cache in
+  `/work/ccache`, 5 GB at most), so a package built again takes its
+  unchanged objects from the cache;
+- fingerprints by their contents, not their times, every input Buildroot
+  does not watch, and builds again what changed since the output's last
+  build: a local package's source (the same source from another worktree is
+  not built twice); every package of this tree (`buildroot/package/<name>/`:
+  its `.mk`, patches and files) and every package's patches in the global
+  patch folders; the kernel's patches, config and device trees, and
+  busybox's config; and the `.config`, where a package's own option
+  rebuilds that package and a change to the toolchain or the architecture
+  stops the build and asks for `CLEAN=1`;
+- ends by saying what it built again and how many packages it took from the
+  output as they were, kept in `<output>/plastron-reused.txt`.
+
+The first development build of an output builds `host-gcc-final` again for
+its ccache wrapper (about 10 minutes) and records its inputs; it compares
+from the next. `make CLEAN=1` empties the kept output first, with or without
+`DEV`. A clean build is still needed after a toolchain or architecture change
+(a development build says so), when a file was removed from an overlay or a
+package (an incremental build never empties `target/`), and for anything that
+ships: `make release` (ZyperOS's `tools/release.sh`) always builds clean, in
+an output of its own, never as a development build.
 
 The Brick's build needs its two closed parts, which plastron doesn't include:
 Imagination's GPU libraries, in `BRICK_GPU`, and XRadio's XR829 firmware, in
@@ -131,6 +162,12 @@ ZyperOS's USB File Transfer screen starts it while the screen is open, on
 the cable's address alone, with the PIN the screen shows as root's password
 (ZyperOS's `src/sshlink.h` says how). `scripts/release.sh` checks all three:
 no start script, no key, and the program there.
+
+QEMU's image never carries a key, a development build's either: ZyperOS's
+`tools/qemu-run.sh` hands the VM the public key it uses at every start,
+through QEMU's fw_cfg, and `board/qemu/rootfs-overlay/etc/init.d/S49sshkey`
+puts it where `/root/.ssh` points before dropbear starts. So one QEMU image
+lets in whoever starts it, and can be published.
 
 Several people, or several of one person's sessions, can share one build
 volume. Each build takes its output folder's lock first
@@ -163,6 +200,14 @@ simulated (`package/px2sim`). ZyperOS's `tools/qemu-run.sh` boots it on a Mac,
 and its simulator shows it as a Pixel 2 in a window; its docs/qemu.md says
 what that covers and what still needs the device. The first `make qemu` also
 builds LLVM, for llvmpipe.
+
+`make release-qemu` builds the same image as a release is built, from an
+empty output folder of its own (`scripts/release-qemu.sh`), into
+`ZyperOS-v<version>-qemu.tar.xz`, and stops if any key is in it
+(`scripts/qemu-key-check.sh`): no SSH key, no host key, no private key in
+any file. ZyperOS's `tools/release.sh` builds it beside the devices' images
+and puts it on the release, and `tools/qemu-run.sh fetch` downloads it, so
+a developer without this build runs ZyperOS in QEMU too.
 
 ## On the device
 

@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* See ctltab_screen.h. */
 #include "ctltab_screen.h"
+#include "hotkeys_screen.h"
+
+#include "rumble.h"
 
 #include <SDL.h>
 #include <math.h>
@@ -13,8 +16,11 @@
 #include "game_menu.h"
 #include "home.h"
 #include "i18n.h"
+#include "keyhints.h"
 #include "platform.h"
 #include "remapstore.h"
+#include "shots.h"
+#include "uisound.h"
 #include "tourdevice.h"
 #include "tween.h"
 #include "ui.h"
@@ -36,8 +42,9 @@
  * with the rows, tab-move-in the press's way; out with the old tab's name,
  * tab-move-name the press's way */
 
-/* Which screen sets the handheld's lights: the tab, or a button's choices */
-typedef enum { CS_TAB, CS_PICK } cs_mode;
+/* Which screen sets the handheld's lights: the tab, a button's choices, or
+ * Rumble's levels (which light no key, and buzz as the cursor moves) */
+typedef enum { CS_TAB, CS_PICK, CS_RUMBLE } cs_mode;
 
 /* The handheld's lean toward the keys the focused row lights (ct_lean):
  * degrees off the front pose, turned (off its tab pose's) and tilted back */
@@ -49,8 +56,6 @@ static struct {
 	char        key[CFG_STR + LIB_PATH + 8];   /* tag, file and scope it was read for */
 	ct_model    m;
 	char        ext[16], label[64];
-	rm_choice   ch[32];
-	int         nch;
 	/* The rows last built, and whether since the tab was turned to; the
 	 * lines of a quiet row too long for the column */
 	ct_bufs     b;
@@ -77,6 +82,10 @@ static struct {
 	unsigned    press_t0[TD_KEYS];
 	cs_mode     mode;
 	int         pick_button;
+	/* Rumble's levels: the one last felt (-1 none yet: the list opening
+	 * is no step) and the system's share it is felt at */
+	int         rumble_felt;
+	int         rumble_share;
 	/* A button's choices open or close over the tab: the handheld holds
 	 * still over the panels' motion (MENU_SIDE_OVER) until a panel with it
 	 * is at rest */
@@ -150,17 +159,25 @@ static void refresh(const ctlscr_game *g)
 		rms_system(g->s, &m->def);
 	}
 	rms_default(g->s, &m->zdef);
-	m->held = ct_held_of(g->s->tag, g->s->stick);
+	m->held = ct_held_of(g->s->tag);
 	m->stick_offered = rms_stick_offered(g->s);
 	m->stick_on = rms_stick_get(g->s, file);
 	m->stick_default = rms_stick_default(g->s);
 	m->pak = g->pak;
+	/* The scope's level: the system's under Applies To's system, else the
+	 * game's; each falls back as src/rumble.h says */
+	if (g->rumble) {
+		const char *rf = m->scope_all ? NULL : file;
+		rumble_level own_level;
+
+		m->rumble = rumble_level_name(rumble_scope(g->s->tag, rf));
+		m->rumble_own = rumble_own(g->s->tag, rf, &own_level);
+	}
 	m->face_offered = ctl_letter_layout(g->s->tag, &m->letters);
 	/* The N64's SELECT layer is its C buttons; the Dreamcast's stick rule
 	 * (mode dpad) takes SELECT for its own d-pad while it is on */
 	m->select_held_c = ct_select_held_c(&m->cur);
 	m->select_held_dpad = !m->select_held_c && m->stick_on && !strcmp(g->s->stick, "dpad");
-	g_cs.nch = ctl_remap_choices(g->s->tag, g_cs.ext, g->s->map, g_cs.ch, 32);
 	if (g_cs.base_row < 0) g_cs.base = m->cur;
 	m->base = g_cs.base;
 	g_cs.stale = false;
@@ -189,15 +206,49 @@ static void send_map(const ctlscr_game *g)
 	plat_resident_line("SETMAP\tmap=%s", map);
 }
 
+/* The motor's share for the game running, at once: its own level over its
+ * system's over MENU's, times the system's share (src/rumble.h). No answer
+ * to wait for. */
+static void send_rumble(const ctlscr_game *g)
+{
+	const int pct = rumble_run_pct(g->s->rumble, rumble_scope(g->s->tag, g->file));
+
+	if (!g->running) return;
+	fprintf(stderr, "controls: rumble %s %d%%\n", g->s->tag, pct);
+	plat_resident_line("SETRUMBLE\trumble=%d", pct);
+}
+
+/* A level for the scope shown: kept, sent, and felt once at what the game
+ * will run at (its system's share too) */
+static void put_rumble(const ctlscr_game *g, rumble_level l)
+{
+	rumble_put(g->s->tag, g_cs.m.scope_all ? NULL : g->file, l);
+	send_rumble(g);
+	plat_rumble_buzz((float)rumble_run_pct(g->s->rumble, l) / 100.0f, RUMBLE_BUZZ_MS);
+	g_cs.stale = true;
+}
+
+/* The map and, on a system with a stick, the stick after it: a button
+ * given the stick, or taken from it, changes what an off stick is sent as
+ * (rms_run_stick's keys) */
+static void send_stick(const ctlscr_game *g, bool on);
+static void send_all(const ctlscr_game *g)
+{
+	send_map(g);
+	if (rms_stick_offered(g->s)) send_stick(g, rms_stick_get(g->s, g->file));
+}
+
 /* The stick as RUN would start it (rms_run_stick), at once; Diatom's STICK
  * answer is not waited for, and shows no pop-up (the row says it already:
  * plat_resident_set_stick) */
 static void send_stick(const ctlscr_game *g, bool on)
 {
+	rm_table sent;
 	char run[24];
 
 	if (!g->running) return;
-	rms_run_stick(g->s, on, run, sizeof run);
+	rms_sent(g->s, g->file, on, &sent);
+	rms_run_stick(g->s, on, rm_has_stick(&sent), run, sizeof run);
 	fprintf(stderr, "controls: stick %s %s\n", g->s->tag, run[0] ? run : "off");
 	plat_resident_set_stick(!strncmp(run, "stick=", 6) ? run + 6 : "off");
 }
@@ -206,7 +257,7 @@ static void send_stick(const ctlscr_game *g, bool on)
 static void put(const ctlscr_game *g, const rm_table *t)
 {
 	rms_put(g->s, g_cs.m.scope_all ? NULL : g->file, t);
-	send_map(g);
+	send_all(g);
 	g_cs.stale = true;
 }
 
@@ -306,6 +357,17 @@ static bool lights_of(const menu_side *at, unsigned *target)
 	switch (g_cs.mode) {
 	case CS_PICK:
 		*target = ct_lit(&g_cs.m, (ct_row)(CT_BUTTON + g_cs.pick_button));
+		return true;
+	case CS_RUMBLE:
+		/* No key is the motor's; the level under the cursor is felt, once
+		 * a move (the live screen's frame is the list's) */
+		if (at->sel >= 0 && at->sel < RUMBLE_LEVELS && at->sel != g_cs.rumble_felt) {
+			if (g_cs.rumble_felt >= 0)
+				plat_rumble_buzz((float)rumble_run_pct(g_cs.rumble_share, (rumble_level)at->sel) / 100.0f,
+				                 RUMBLE_BUZZ_MS);
+			g_cs.rumble_felt = at->sel;
+		}
+		*target = 0;
 		return true;
 	default:
 		if (at->tab_at >= 0 && at->tab_at != GT_CONTROLS) return false;
@@ -631,6 +693,12 @@ typedef struct {
 	const ctlscr_game *g;
 	int                button;
 	ct_pick_bufs       b;
+	/* the button's choices (ct_choices), as its list shows them */
+	rm_choice          ch[32];
+	int                nch;
+	/* the cursor in the list (menu_style.sel_out), and its foot's lines */
+	int                sel;
+	char               line[2][192];
 } cs_ctx;
 
 static void cs_backdrop(app *a, void *ctx, float k)
@@ -676,42 +744,130 @@ static void back_to_tab(void)
 	g_cs.stale = true;
 }
 
+/* The list's foot, under a rule: what the choice under the cursor does in
+ * two lines, and its keys - "A Swap" and "Y Both" on a choice another button
+ * gives, "A Take" on any other (issue #305; my pick in the Controls lab,
+ * 2026-11-19) - kept still under the choices (pin_foot) */
+static int pick_foot(cs_ctx *c, menu_row *rows, int n, int max, int sel)
+{
+	const rm_choice ch = sel >= 0 && sel < c->nch ? c->ch[sel] : g_cs.m.cur.b[c->button];
+	const bool both = ct_can_share(&g_cs.m, c->button, ch);
+
+	if (n + 4 > max) return n;
+	ct_pick_lines(&g_cs.m, c->button, ch, c->line[0], sizeof c->line[0], c->line[1], sizeof c->line[1]);
+	rows[n++] = MENU_RULE;
+	rows[n++] = MENU_NOTE(c->line[0]);
+	rows[n++] = MENU_NOTE(c->line[1]);
+	rows[n++] = MENU_NOTE(both ? keyhints_legend((key_hint[]){ { "A", T(S_CONTROLS_KEY_SWAP) },
+	                                                           { "Y", T(S_CONTROLS_KEY_BOTH) } }, 2)
+	                           : keyhints_legend((key_hint[]){ { "A", T(S_CONTROLS_KEY_TAKE) } }, 1));
+	return n;
+}
+
 static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	cs_ctx *c = ctx;
 	int sel, n;
 
 	refresh(c->g);
-	n = ct_pick_rows(&g_cs.m, c->button, g_cs.ch, g_cs.nch, rows, &c->b, &sel);
+	c->nch = ct_choices(&g_cs.m, c->button, c->ch, 32);
+	n = ct_pick_rows(&g_cs.m, c->button, c->ch, c->nch, rows, &c->b, &sel);
+	if (n > max) n = max;
 	*heading = c->b.head;
-	return n < max ? n : max;
+	return pick_foot(c, rows, n, max, c->sel >= 0 ? c->sel : sel);
 }
 
 /* A on a choice takes it and goes back: one swap, from the table as it was
- * when the cursor came onto the button's row */
+ * when the cursor came onto the button's row; Y on a choice another button
+ * gives takes it as well, no swap, so both give it */
 static menu_result pick_key(app *a, void *ctx, in_button key, int sel)
 {
 	cs_ctx *c = ctx;
 	rm_table t;
 
 	(void)a;
-	if (key != IN_ACCEPT || sel < 0 || sel >= g_cs.nch) return MENU_STAY;
-	ct_pick(&g_cs.m, c->button, g_cs.ch[sel]);
+	if ((key != IN_ACCEPT && key != IN_Y) || sel < 0 || sel >= c->nch) return MENU_STAY;
+	if (key == IN_Y) {
+		if (!ct_can_share(&g_cs.m, c->button, c->ch[sel])) {
+			uisound_play(DS_SOUND_DENY);
+			return MENU_STAY;
+		}
+		uisound_play(DS_SOUND_ACCEPT);
+		ct_share(&g_cs.m, c->button, c->ch[sel]);
+	} else {
+		ct_pick(&g_cs.m, c->button, c->ch[sel]);
+	}
 	t = g_cs.m.cur;
 	put(c->g, &t);
 	return MENU_DONE;
 }
 
+/* The Rumble row's list: the four levels, a tick on the scope's and
+ * Default on what it falls back to (MENU's, or the system's for a game that
+ * has one); A takes one and goes back. The cursor's level is felt as it
+ * comes onto it. */
+typedef struct {
+	const ctlscr_game *g;
+	char               head[96];
+} cs_rumble_ctx;
+
+static int rumble_pick_build(void *ctx, menu_row *rows, int max, const char **heading)
+{
+	cs_rumble_ctx *c = ctx;
+	const char *rf = g_cs.m.scope_all ? NULL : c->g->file;
+	const rumble_level now = rumble_scope(c->g->s->tag, rf), def = rumble_fallback(c->g->s->tag, rf);
+	int i;
+
+	for (i = 0; i < RUMBLE_LEVELS && i < max; i++)
+		rows[i] = (menu_row){ rumble_level_name((rumble_level)i),
+		                      (rumble_level)i == now ? MENU_TICK
+		                      : (rumble_level)i == def ? T(S_CONTROLS_DEFAULT) : NULL, true };
+	*heading = c->head;
+	return i;
+}
+
+static menu_result rumble_pick_key(app *a, void *ctx, in_button key, int sel)
+{
+	cs_rumble_ctx *c = ctx;
+
+	(void)a;
+	if (key != IN_ACCEPT || sel < 0 || sel >= RUMBLE_LEVELS) return MENU_STAY;
+	put_rumble(c->g, (rumble_level)sel);
+	return MENU_DONE;
+}
+
+static void rumble_pick(app *a, const ctlscr_game *g)
+{
+	cs_rumble_ctx c;
+	menu_style st = cs_style(g, true);
+
+	memset(&c, 0, sizeof c);
+	c.g = g;
+	snprintf(c.head, sizeof c.head, T(S_RUMBLE_PICK_HEADING),
+	         g_cs.m.scope_all ? g->s->name : T(S_GAMEMENU_THIS_GAME));
+	st.start_sel = (int)rumble_scope(g->s->tag, g_cs.m.scope_all ? NULL : g->file);
+	g_cs.mode = CS_RUMBLE;
+	g_cs.rumble_felt = -1;
+	g_cs.rumble_share = g->s->rumble;
+	g_cs.steady = true;
+	menu_run(a, &st, rumble_pick_build, rumble_pick_key, &c);
+	back_to_tab();
+}
+
 static void pick(app *a, const ctlscr_game *g, int button)
 {
 	cs_ctx c;
-	menu_row rows[32];
+	menu_row rows[40];
 	menu_style st = cs_style(g, true);
 
 	memset(&c, 0, sizeof c);
 	c.g = g;
 	c.button = button;
-	ct_pick_rows(&g_cs.m, button, g_cs.ch, g_cs.nch, rows, &c.b, &st.start_sel);
+	c.sel = -1;
+	st.sel_out = &c.sel;
+	st.pin_foot = true;
+	c.nch = ct_choices(&g_cs.m, button, c.ch, 32);
+	ct_pick_rows(&g_cs.m, button, c.ch, c.nch, rows, &c.b, &st.start_sel);
 	g_cs.mode = CS_PICK;
 	g_cs.pick_button = button;
 	g_cs.steady = true;
@@ -719,8 +875,10 @@ static void pick(app *a, const ctlscr_game *g, int button)
 	back_to_tab();
 }
 
-/* The Hotkeys row's pages: the read-only Controls pages, at their own
- * width and with no handheld, less the system's buttons the tab shows */
+/* The Hotkeys row: the hotkeys of this game, its system or every game
+ * (src/hotkeys_screen.h), at their own width and with no handheld; its last
+ * row, All Controls, the read-only pages the row opened before, less the
+ * system's buttons the tab shows */
 static void pages(app *a, const ctlscr_game *g)
 {
 	cs_ctx c;
@@ -728,7 +886,7 @@ static void pages(app *a, const ctlscr_game *g)
 
 	memset(&c, 0, sizeof c);
 	c.g = g;
-	game_controls_pages(a, &st, &c);
+	hotkeys_ingame(a, &st, &c, g->s, g->file, g->title, g->running);
 	g_cs.stale = true;
 }
 
@@ -754,9 +912,8 @@ static void reset(app *a, const ctlscr_game *g)
 	rms_reset(g->s, scope_all(g) ? NULL : g->file);
 	if (!scope_all(g) && rms_stick_offered(g->s) && rms_stick_get(g->s, g->file) != rms_stick_default(g->s)) {
 		rms_stick_put(g->s, g->file, rms_stick_default(g->s));
-		send_stick(g, rms_stick_default(g->s));
 	}
-	send_map(g);
+	send_all(g);
 	g_cs.stale = true;
 	g_cs.base_row = -1;
 }
@@ -796,12 +953,23 @@ menu_result ctlscr_key(app *a, const ctlscr_game *g, in_button key, int id)
 		const bool on = !m->stick_on;
 
 		rms_stick_put(g->s, g->file, on);
-		send_stick(g, on);
 		/* The Dreamcast's SELECT follows the stick (rms_sent) */
-		send_map(g);
+		send_all(g);
 		g_cs.stale = true;
 		break;
 	}
+	case CT_RUMBLE:
+		if (!m->rumble) break;
+		if (side) {
+			const char *rf = m->scope_all ? NULL : g->file;
+			const rumble_level was = rumble_scope(g->s->tag, rf);
+			const rumble_level l = rumble_level_step(was, key == IN_LEFT ? -1 : 1);
+
+			if (l != was) put_rumble(g, l);
+		} else {
+			rumble_pick(a, g);
+		}
+		break;
 	case CT_FACE: {
 		rm_table t = m->cur;
 		int i;
@@ -842,16 +1010,40 @@ menu_result ctlscr_key(app *a, const ctlscr_game *g, in_button key, int id)
 void ctlscr_shot_pick(app *a, const ctlscr_game *g, int id)
 {
 	cs_ctx c;
-	menu_row rows[32];
+	menu_row rows[40];
 	menu_style st = cs_style(g, true);
 	int bt = ct_button_of((ct_row)id), sel, n;
 
 	memset(&c, 0, sizeof c);
 	c.g = g;
-	if (bt < 0) bt = RM_A;
 	refresh(g);
+	/* Rumble's levels, as A on its row opens them */
+	if (id == CT_RUMBLE && g_cs.m.rumble) {
+		cs_rumble_ctx rc;
+		const char *heading;
+
+		memset(&rc, 0, sizeof rc);
+		rc.g = g;
+		snprintf(rc.head, sizeof rc.head, T(S_RUMBLE_PICK_HEADING),
+		         g_cs.m.scope_all ? g->s->name : T(S_GAMEMENU_THIS_GAME));
+		n = rumble_pick_build(&rc, rows, 32, &heading);
+		sel = (int)rumble_scope(g->s->tag, g_cs.m.scope_all ? NULL : g->file);
+		g_cs.mode = CS_RUMBLE;
+		g_cs.rumble_felt = sel;
+		st.backdrop(a, &c, 1.0f);
+		menu_draw_styled(a, &st, heading, rows, n, sel);
+		g_cs.mode = CS_TAB;
+		return;
+	}
+	if (bt < 0) bt = RM_A;
 	track(id);
-	n = ct_pick_rows(&g_cs.m, bt, g_cs.ch, g_cs.nch, rows, &c.b, &sel);
+	c.nch = ct_choices(&g_cs.m, bt, c.ch, 32);
+	n = ct_pick_rows(&g_cs.m, bt, c.ch, c.nch, rows, &c.b, &sel);
+	c.button = bt;
+	/* --gm-pick-at K: the cursor on choice K, as a press would leave it */
+	if (shot_pick_at >= 0 && shot_pick_at < c.nch) sel = shot_pick_at;
+	n = pick_foot(&c, rows, n, 40, sel);
+	st.pin_foot = true;
 	g_cs.mode = CS_PICK;
 	g_cs.pick_button = bt;
 	/* Over the backdrop the choices' runner draws them over (the screen's

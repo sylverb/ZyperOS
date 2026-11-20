@@ -26,6 +26,26 @@ int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char
                       const char *const *labels, const char *const *notes,
                       void (*preview)(void *app, int k, int x, int y, int w, int h),
                       int n, int ticked, int at);
+/* The same with `focus` (menu_choice's): told the choice under the cursor
+ * on every pass, and -1 once the list has closed, so the whole screen can
+ * show it; no picture column */
+int menu_pick_focus(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes,
+                    void (*focus)(void *app, int k), int n, int ticked, int at);
+/* The same with `hover` (menu_choice's, src/ds/hover.h): the choice under
+ * the cursor shown on the whole screen from the frame the cursor reaches
+ * it, and the kept one put back when the list closes, whichever way, before
+ * a choice is applied; no picture column */
+int menu_pick_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes, const struct ds_hover *hover,
+                    int n, int ticked, int at);
+/* Both: the picture column, and the choice under the cursor shown on the
+ * whole screen, for a choice whose look is seen nowhere on the list itself
+ * (Theme's Folder Color: the folders, in a picture of the shelf) */
+int menu_pick_preview_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                            const char *const *labels, const char *const *notes,
+                            void (*preview)(void *app, int k, int x, int y, int w, int h),
+                            const struct ds_hover *hover, int n, int ticked, int at);
 /* The list's width: `base`, the menu it opens from's, or wider with a
  * picture column, to hold the column and the longest choice beside it
  * (`ticked` with its tick); and the column's width into `side_w` (0
@@ -47,13 +67,15 @@ int menu_pick_note_room(const char *const *notes, int n, int side_w);
  * too. */
 int menu_pick_note(const char *note, char out[2][CHV_WRAP_COLS]);
 
-/* A choice's words as its list shows them, begun with a capital: "never" is
- * "Never" there. The shots draw a list with it too. */
+/* A choice's words as its list shows them: the row's value as it is, which
+ * begins with a capital where it is written (res/strings/GLOSSARY.md), a
+ * name in its own case. The shots draw a list with it too. */
 int menu_pick_word(const char *label, char *out, int n);
 
 /* For tools/menu-rows-check.py (--rows-report): each row of `page` on a
  * line, "rows: page, label, value, live, sound class, choices, cur, none,
- * own, the word at cur", the words as a list shows them */
+ * own, the word at cur, every choice", the words as a list shows them and
+ * the choices apart by 0x1f */
 void menu_rows_print(const char *page, const menu_row *rows, int n, const unsigned char *sound,
                      const menu_choice *choices);
 

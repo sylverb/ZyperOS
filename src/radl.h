@@ -48,7 +48,7 @@
  * HASHES are the slow part of a first run, and are kept: Roms/<System>/
  * .cheevos/.hashes, one line a file - its size, its time, its hash and the
  * count its set had when last checked - so a file is hashed once, until it
- * changes. They are made on a thread of their own while the system's two
+ * changes, or the way its system is hashed does (HASHES_HEAD in radl.c). They are made on a thread of their own while the system's two
  * requests are on their way (ra_hash_rom: a PSP .pbp is the whole file).
  *
  * PACE. RetroAchievements throttles dorequest.php per account, 180 a minute
@@ -104,6 +104,9 @@ typedef struct {
  * read and an access() or two a game, for when a page opens - never a
  * frame. Returns how many were written to `out`. */
 int radl_plan(const systems_cfg *sys, const char *roms_dir, radl_sys *out, int max);
+/* One system's line (radl_plan's): false for one with no such games. Its
+ * .cheevos folder is read once, not a look a game. */
+bool radl_plan_one(const system_cfg *s, const char *roms_dir, radl_sys *out);
 
 /* ---- the run --------------------------------------------------------------- */
 

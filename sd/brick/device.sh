@@ -42,8 +42,13 @@ HAS_PORTKEYS=0     # portkeys is built for the Pixel 2 only (plastron's zyperos.
 HAS_PORT_STILL=0   # the Brick's splash (splash-fb.c) has no --still
 HAS_PORT_TURN=0    # its panel is not turned, and its SDL2 is pvrfb's, not kmsdrm's
 HAS_ZYHOME=0       # zyhome is built for the Pixel 2 only (plastron's zyperos.mk)
-HAS_USBDRIVE=0     # the Brick's image has no usbdrive
+HAS_USBDRIVE=1     # Flash Drive: the image's usbdrive (plastron's package, the Brick's build)
 HAS_OFF_PENDING=0  # its power-off has no last step (lastoff) to start it for a charger
+
+# The boot partition, which the Brick's system keeps read-only at /boot for
+# its closed files: what ZyperOS Installer left there for a card's first
+# start (launch.sh: your PICO-8), already there
+device_boot_mount() { [ -d /boot ] && BOOT_DIR=/boot; }
 
 WIFI_DOWN="the radio did not come up"
 

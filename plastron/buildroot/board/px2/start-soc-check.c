@@ -3,7 +3,8 @@
  * Host checks for the GKD Pixel 2's battery level at a start: rk817_rest_uv,
  * rk817_start_from and RK817_START_CHARGING_UA, taken out of the kernel
  * patch as they stand (patches/linux/9-px2-rk817-start-soc.patch) into
- * rule.c, and the Pixel 2's OCV table and internal resistance, taken out of
+ * rule.c, with the full charge a start measures (rk817_learn_fcc and
+ * RK817_LEARN_MAX_SOC, patches/linux/9-px2-rk817-wear.patch), and the Pixel 2's OCV table and internal resistance, taken out of
  * its device tree (dts/rk3326s-gkd-pixel2.dts) into battery.h. plastron's
  * `make start-soc-check` makes both and runs this; no Docker, no kernel, no
  * device. Every check states the rule it holds, so a failure says which one
@@ -162,6 +163,54 @@ int main(void)
 	      ocv2cap(s));
 	CHECK(rk817_start_from(false, 120, 1500000) == RK817_START_CHARGER,
 	      "so a charger's start keeps the counter instead");
+
+	printf("start-soc-check: the full charge a start measures (9-px2-rk817-wear.patch)\n");
+	CHECK(RK817_LEARN_MAX_SOC == 50000, "a start measures at 50%% or under at rest (%d)",
+	      RK817_LEARN_MAX_SOC);
+	CHECK(rk817_learn_fcc(1730, 1730 - 980, 30000, 1730) == 1565,
+	      "980 mAh out since full, to 30%% at rest, measures 1400 mAh; the full charge goes half way to it, 1565 (%d)",
+	      rk817_learn_fcc(1730, 1730 - 980, 30000, 1730));
+	CHECK(rk817_learn_fcc(1730, 1730 - 1211, 30000, 1730) == 1730,
+	      "a battery as new, 1211 mAh out to 30%%, measures 1730: no change (%d)",
+	      rk817_learn_fcc(1730, 1730 - 1211, 30000, 1730));
+	CHECK(rk817_learn_fcc(1565, 1565 - 1300, 30000, 1730) == 1648,
+	      "a measure over the design's (1857 mAh) counts as the design's: 1565 goes half way to 1730 (%d)",
+	      rk817_learn_fcc(1565, 1565 - 1300, 30000, 1730));
+	CHECK(rk817_learn_fcc(1730, 1730 - 1500, 30000, 1730) == 0,
+	      "a measure over 6/5 of the design's (2142 mAh) is not taken");
+	CHECK(rk817_learn_fcc(1730, 1730 - 500, 30000, 1730) == 0,
+	      "a measure under half the design's (714 mAh) is not taken");
+	CHECK(rk817_learn_fcc(1730, 1730 - 700, 50000, 1730) == 1565,
+	      "50%% at rest, the limit itself: 700 mAh out measures 1400 (%d)",
+	      rk817_learn_fcc(1730, 1730 - 700, 50000, 1730));
+	CHECK(rk817_learn_fcc(1730, 1730 - 700, 51000, 1730) == 0,
+	      "51%% at rest: too little out to measure");
+	CHECK(rk817_learn_fcc(1730, 100, 0, 1730) == 0,
+	      "0%% at rest: the table cannot see the end, not measured");
+	CHECK(rk817_learn_fcc(1730, 1800, 30000, 1730) == 0 &&
+	      rk817_learn_fcc(1730, 1730, 30000, 1730) == 0,
+	      "nothing out since full, or more left than full: not measured");
+	CHECK(rk817_learn_fcc(1730, -1, 30000, 1730) == 0,
+	      "no remaining capacity read: not measured");
+	{
+		/* A worn battery that holds 1400 mAh, measured at 30% at rest
+		 * after each full charge, from the design's 1730 */
+		int fcc = 1730, n;
+
+		for (n = 0; n < 5; n++)
+			fcc = rk817_learn_fcc(fcc, fcc - 980, 30000, 1730);
+		CHECK(fcc >= 1400 && fcc <= 1415,
+		      "five measures of a battery that holds 1400 mAh settle within 1%% of it (%d)", fcc);
+	}
+	{
+		/* The level at rest as the start reads it: a battery that holds
+		 * 1400 mAh, 980 out, rests at the table's 30% */
+		int rest = ocv2cap(rest_at(30)) * 1000;
+
+		CHECK(rest == 30000 && rk817_learn_fcc(1730, 1730 - 980, rest, 1730) == 1565,
+		      "the OCV table's 30%% (%d uV) gives the same measure (%d)",
+		      rest_at(30), rk817_learn_fcc(1730, 1730 - 980, rest, 1730));
+	}
 
 	printf("start-soc-check: %d checks, %d failed\n", checks, fails);
 	return fails ? 1 : 0;

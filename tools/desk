@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""desk: ZyperOS's launcher in a window, as a handheld, for working on the UI
+without one (docs/building.md, "Work on the UI without a device").
+
+    tools/desk [run] [--device pixel2|brick] [--zoom N] [--fresh] [--roms DIR]
+                     [--tour] [--lang CODE] [--no-frame] [--hz N] [--no-build]
+
+builds the host launcher (make native), makes a sample card once in
+build-native/desk/DEVICE/ (the README's demonstration library, a game on each
+of the systems, ZyperOS Test.nes), and opens it in a window as the handheld
+itself, drawn to its measurements around its screen: the Pixel 2's 640x480
+panel (the default) or the Brick's 1024x768, one panel pixel a display pixel,
+which on a Retina display is about its real size (--zoom 2 twice that,
+--no-frame the screen alone). Settings made in it stay on that card; --fresh
+makes a new one.
+--roms DIR shows your own Roms folder (Roms/NES/..., as on a card) instead.
+A new card skips the tutorial; --tour starts in it.
+
+The keyboard is the buttons, one map for desk mode and the Simulator: the
+arrows the d-pad, X Z S A for A B X Y, Q W E R for L1 R1 L2 R2, Return
+START, Right Shift or Delete SELECT, Esc or M MENU, - and = the volume, P
+POWER. Click and hold the drawn keys with the mouse; the wheel is Up and
+Down. A key names its keyboard key when the pointer is over it, and every key
+does while Option is held. A game controller is the buttons by their place.
+F1 in the window lists the rest: Cmd 1 2 3 zoom, Cmd 0 the panel's real size,
+Cmd B the handheld around the screen or not, Cmd S a screenshot.
+
+Games run in the same window, on Diatom's desktop build (make -C diatom)
+with libretro cores built for this computer: `tools/desk cores` fetches each
+one's source at the commit the handheld's own build is from, checks it by its
+sha256 and builds it into build-native/desk/cores (FCEUmm, the NES's, about
+30 seconds; run does it once if there are none, --no-cores skips that). MENU
+in a game opens the in-game menu over it, Core Settings and all.
+
+A running window is driven from a shell, as simulator/simctl drives the
+Simulator: one command, its JSON answer.
+
+    tools/desk state                     the handheld, the zoom, frames a second,
+                                         the shelf's screen, cursor and focus
+    tools/desk press|release BUTTON[+BUTTON]
+    tools/desk tap BUTTON[+BUTTON] [MS]  (80 ms)
+    tools/desk latency BUTTON            a tap, and ms from it to its frame
+    tools/desk shot FILE.png             the panel, at its own pixels
+    tools/desk shot FILE.png window      the whole window, the drawn handheld too
+    tools/desk wait-frames N
+    tools/desk stats                     frames a second, the last presses' ms
+    tools/desk zoom N | frame 0|1 | hints 0|1 | help [0|1] | quit
+    tools/desk open GAME [--fresh] [--core NAME]
+                                         a game by its path under Roms/ (NES/ZyperOS
+                                         Test.nes), as A on it in its shelf opens it
+    tools/desk close | status            the game's in-game Quit; what runs
+    tools/desk cores [--rebuild]         the cores for this computer
+
+Buttons: up down left right a b x y l1 r1 l2 r2 select start menu volup
+voldown brightup brightdown power. -d DEVICE picks the window when two run.
+"""
+import argparse
+import hashlib
+import importlib.util
+import os
+import platform
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+DESK = ROOT / 'build-native/desk'
+DEVICES = ('pixel2', 'brick', 'desktop')
+CLIENT = ('state', 'press', 'release', 'tap', 'latency', 'shot', 'wait-frames', 'stats',
+          'zoom', 'frame', 'bar', 'hints', 'help', 'quit')
+PANEL = {'pixel2': (640, 480), 'brick': (1024, 768), 'desktop': (1024, 768)}
+CORES = DESK / 'cores'
+# Cores for desk mode, built here for this computer from the source the
+# handheld's own build is from (mk/fetch-vendor.sh names each one's commit):
+# name, GitHub repository, commit, the source archive's sha256, Makefile
+DESK_CORES = [
+    ('fceumm', 'libretro/libretro-fceumm', '236ccdfc911e84c60fea6b9d0699c2d440a8de14',
+     'dd002cde9b5271979e0394bb9e696bd37e149ced473ff1e3629cc7fed502381f', 'Makefile.libretro'),
+]
+
+
+def die(msg):
+    print(f'desk: {msg}', file=sys.stderr)
+    sys.exit(1)
+
+
+def sock_path(device):
+    return DESK / f'{device}.sock'
+
+
+LAUNCHER = ('open', 'close', 'status')
+
+
+def ctl_dir(device):
+    """The launcher's own command channel (src/ctl.h, px2-open's on a card)"""
+    d = DESK / f'{device}-ctl'
+    if len(str(d)) > 90:
+        d = Path(tempfile.gettempdir()) / f'zyperos-desk-{os.getuid()}-{device}-ctl'
+    return d
+
+
+def live_device(device):
+    if device:
+        return device
+    live = [d for d in DEVICES if sock_path(d).exists()]
+    if not live:
+        die('no desk window is running (tools/desk run)')
+    if len(live) > 1:
+        die(f'windows for {" and ".join(live)}: say which with -d DEVICE')
+    return live[0]
+
+
+def launcher_cmd(device, argv):
+    """open, close, status: one line to the launcher's channel, as px2-open"""
+    device = live_device(device)
+    if argv[0] == 'open':
+        if len(argv) < 2:
+            die('open GAME: a path under Roms/, as NES/ZyperOS Test.nes')
+        game = argv[1]
+        roms = DESK / device / 'Roms'
+        path = Path(game) if game.startswith('/') else roms / game
+        line = f'open\tpath={path}'
+        rest = argv[2:]
+        if '--fresh' in rest:
+            line += '\tfresh=1'
+        if '--core' in rest:
+            line += '\tcore=' + rest[rest.index('--core') + 1]
+    else:
+        line = 'quit' if argv[0] == 'close' else 'status'
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(ctl_dir(device) / 'ctl.sock'))
+    except OSError as e:
+        die(f'the launcher of {device} does not answer ({e})')
+    s.sendall((line + '\n').encode())
+    out = s.makefile().readline().strip()
+    print(out)
+    return 0 if out.startswith('ok') else 1
+
+
+def client(argv):
+    device = None
+    if len(argv) >= 2 and argv[0] == '-d':
+        device, argv = argv[1], argv[2:]
+    if not argv:
+        die('a command: ' + ' '.join(CLIENT + LAUNCHER))
+    if argv[0] in LAUNCHER:
+        return launcher_cmd(device, argv)
+    device = live_device(device)
+    if argv[0] == 'shot' and len(argv) > 1:
+        argv = [argv[0], str(Path(argv[1]).resolve())] + argv[2:]
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(sock_path(device)))
+    except OSError as e:
+        die(f'no desk window for {device} ({e})')
+    s.sendall((' '.join(argv) + '\n').encode())
+    s.shutdown(socket.SHUT_WR)
+    out = b''
+    while True:
+        b = s.recv(4096)
+        if not b:
+            break
+        out += b
+    sys.stdout.write(out.decode())
+    return 0 if b'"ok":true' in out else 1
+
+
+def short_sock(name):
+    """A socket's path, under sun_path's 104 bytes even from a deep checkout"""
+    path = DESK / name
+    if len(str(path)) < 100:
+        return path
+    return Path(tempfile.gettempdir()) / f'zyperos-desk-{os.getuid()}-{name}'
+
+
+def build_cores(force=False):
+    """Each of DESK_CORES, fetched, checked, built: CORES/NAME_libretro.so (a
+    Mach-O library on a Mac, which dlopen takes under the name the launcher
+    asks for)"""
+    CORES.mkdir(parents=True, exist_ok=True)
+    plat = 'osx' if platform.system() == 'Darwin' else 'unix'
+    ext = 'dylib' if plat == 'osx' else 'so'
+    for name, repo, commit, sha, makefile in DESK_CORES:
+        out = CORES / f'{name}_libretro.so'
+        if out.exists() and not force:
+            continue
+        src = DESK / 'src'
+        src.mkdir(parents=True, exist_ok=True)
+        tgz = src / f'{name}-{commit[:7]}.tar.gz'
+        if not tgz.exists() or hashlib.sha256(tgz.read_bytes()).hexdigest() != sha:
+            url = f'https://codeload.github.com/{repo}/tar.gz/{commit}'
+            print(f'desk: {name}: fetching {repo} at {commit[:7]}', file=sys.stderr)
+            with urllib.request.urlopen(url, timeout=120) as r:
+                data = r.read()
+            got = hashlib.sha256(data).hexdigest()
+            if got != sha:
+                die(f'{name}: the source is not the one pinned (sha256 {got}, want {sha})')
+            tgz.write_bytes(data)
+        tree = src / f'{name}-{commit[:7]}'
+        if tree.exists():
+            shutil.rmtree(tree)
+        tree.mkdir()
+        with tarfile.open(tgz) as t:
+            t.extractall(tree, filter='data')
+        top = next(tree.iterdir())
+        print(f'desk: {name}: building ({plat})', file=sys.stderr)
+        log = DESK / f'{name}-build.log'
+        with open(log, 'w') as f:
+            if subprocess.run(['make', '-f', makefile, f'platform={plat}', f'-j{os.cpu_count() or 4}'],
+                              cwd=top, stdout=f, stderr=subprocess.STDOUT).returncode != 0:
+                die(f'{name}: the build failed, see {log}')
+        shutil.copyfile(top / f'{name}_libretro.{ext}', out)
+        print(f'desk: {name}: {out.relative_to(ROOT)}', file=sys.stderr)
+
+
+def make_card(card, device, tour):
+    """The demonstration card of tools/readme-shots.py, and ZyperOS Test.nes:
+    a game that runs, ZyperOS's own"""
+    spec = importlib.util.spec_from_file_location('readme_shots', ROOT / 'tools/readme-shots.py')
+    rs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rs)
+    rs.systems_card(card)
+    nes = card / 'Roms/NES/ZyperOS Test.nes'
+    subprocess.run([sys.executable, str(ROOT / 'tools/qemu/make-test-nes.py'), str(nes)], check=True,
+                   stdout=subprocess.DEVNULL)
+    card_sounds(card)
+    (card / '.desk').write_text(f'device {device}\n')
+    if not tour:
+        subprocess.run([str(ROOT / 'build-native/zyperos'), '--set', 'tour.done=1'], env=card_env(card, None),
+                       check=True, stdout=subprocess.DEVNULL)
+
+
+def card_sounds(card):
+    """The interface sounds (src/uisound.h), which mk/payload.sh puts on a
+    card: the launcher reads res/sounds/<voice>/ and plays nothing without
+    them. A link to this repository's, so a changed sound is heard on the next
+    run, and a card made before it had them gets it too."""
+    link = card / 'ZyperOS/res/sounds'
+    if link.exists() and not link.is_symlink():
+        return
+    if link.is_symlink():
+        link.unlink()
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(ROOT / 'res/sounds')
+
+
+def card_env(card, roms):
+    return dict(os.environ,
+                ZYPEROS_ROOT=str(card / 'ZyperOS'), ZYPEROS_CARD=str(card),
+                ZYPEROS_ROMS=str(Path(roms).resolve() if roms else card / 'Roms'),
+                ZYPEROS_USERDATA=str(card / 'userdata'), ZYPEROS_SHARED=str(card / 'shared'),
+                ZYPEROS_WEB=str(card / 'web'), ZYPEROS_FONT=str(ROOT / 'res/fonts/menu.ttf'))
+
+
+def run(args):
+    if not args.no_build:
+        print('desk: make native', file=sys.stderr)
+        if subprocess.run(['make', '-C', str(ROOT), '--no-print-directory', 'native'],
+                          stdout=subprocess.DEVNULL).returncode != 0:
+            die('make native failed (run it to see why)')
+    binary = ROOT / 'build-native/zyperos'
+    if not binary.is_file():
+        die('no build-native/zyperos: run make native')
+    card = DESK / args.device
+    if args.fresh and card.exists():
+        shutil.rmtree(card)
+    if not (card / '.desk').exists():
+        if card.exists():
+            shutil.rmtree(card)
+        print(f'desk: a sample card in {card.relative_to(ROOT)}', file=sys.stderr)
+        make_card(card, args.device, args.tour)
+    card_sounds(card)
+    env = card_env(card, args.roms)
+    diatom = start_diatom(args, card, env)
+    sock = sock_path(args.device)
+    cdir = ctl_dir(args.device)
+    cdir.mkdir(parents=True, exist_ok=True)
+    os.chmod(cdir, 0o700)
+    # Its own flags (power off, restart, home): every launcher on the computer
+    # shares /tmp, and a check's shot of the power-off writes one there
+    flags = DESK / f'{args.device}-flags'
+    if flags.exists():
+        shutil.rmtree(flags)
+    flags.mkdir(parents=True)
+    env.update(ZYPEROS_FLAG_DIR=str(flags), ZYPEROS_CTL_DIR=str(cdir), ZYPEROS_DESK_SOCK=str(sock), ZYPEROS_DESK_ZOOM=str(args.zoom),
+               ZYPEROS_DESK_FRAME='0' if args.no_frame else '1', ZYPEROS_DESK_HZ=str(args.hz))
+    env.pop('ZYPEROS_HEADLESS', None)
+    if env.get('SDL_VIDEODRIVER') in ('dummy', 'offscreen'):
+        env.pop('SDL_VIDEODRIVER')
+    if args.lang:
+        # MENU > Language's setting, on this card: it stays until changed
+        if subprocess.run([str(binary), '--set', f'language={args.lang}'], env=env,
+                          stdout=subprocess.DEVNULL).returncode != 0:
+            die(f'--lang {args.lang}: the launcher took no such language')
+    cmd = [str(binary), '--device', args.device]
+    try:
+        return subprocess.run(cmd, env=env).returncode
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        try:
+            sock.unlink()
+        except FileNotFoundError:
+            pass
+        if diatom and diatom.poll() is None:
+            diatom.send_signal(signal.SIGTERM)
+            try:
+                diatom.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                diatom.kill()
+
+
+def start_diatom(args, card, env):
+    """The resident emulator, as launch.sh starts it on a card: Diatom's
+    desktop build, its frames into a file the window shows
+    (diatom/include/diatom_deskfb.h). The launcher starts it again itself if
+    it goes (src/launch_screen.c), from the card's ZyperOS/diatom."""
+    binary = ROOT / 'diatom/build/desktop/diatom'
+    if not args.no_build:
+        if subprocess.run(['make', '-C', str(ROOT / 'diatom'), '--no-print-directory', f'-j{os.cpu_count() or 4}'],
+                          stdout=subprocess.DEVNULL).returncode != 0:
+            print('desk: Diatom did not build (make -C diatom): no games', file=sys.stderr)
+    if not binary.is_file():
+        return None
+    if not args.no_cores and not any(CORES.glob('*_libretro.so')):
+        print('desk: no cores for this computer yet: building them once (tools/desk cores)', file=sys.stderr)
+        build_cores()
+    CORES.mkdir(parents=True, exist_ok=True)
+    for link, to in ((card / 'ZyperOS/diatom', binary), (card / 'ZyperOS/cores', CORES)):
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(to)
+    for d in ('Saves', 'Bios'):
+        (card / d).mkdir(exist_ok=True)
+    w, h = PANEL[args.device]
+    fb = DESK / f'{args.device}.fb'
+    dsock = short_sock(f'{args.device}-diatom.sock')
+    pidfile = DESK / f'{args.device}-diatom.pid'
+    for f in (fb, dsock):
+        if f.exists() or f.is_symlink():
+            f.unlink()
+    env.update(ZYPEROS_DIATOM_SOCKET=str(dsock), ZYPEROS_DIATOM_PIDFILE=str(pidfile),
+               ZYPEROS_DESK_FB=str(fb), DIATOM_DESKFB=str(fb), DIATOM_SURFACE=f'{w}x{h}')
+    log = open(DESK / f'{args.device}-diatom.log', 'w')
+    p = subprocess.Popen([str(binary), '--socket', str(dsock), '--cores', str(CORES),
+                          '--save', str(card / 'Saves'), '--system', str(card / 'Bios')],
+                         env=env, stdout=log, stderr=subprocess.STDOUT)
+    pidfile.write_text(f'{p.pid}\n')
+    return p
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv and (argv[0] in CLIENT or argv[0] in LAUNCHER or argv[0] == '-d'):
+        return client(argv)
+    if argv and argv[0] == 'cores':
+        build_cores(force='--rebuild' in argv)
+        return 0
+    if argv and argv[0] == 'run':
+        argv = argv[1:]
+    ap = argparse.ArgumentParser(prog='tools/desk', description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--device', choices=DEVICES, default='pixel2', help='the handheld (pixel2)')
+    ap.add_argument('--zoom', type=float, default=0, help="the display's pixels a panel pixel (1, as fits)")
+    ap.add_argument('--fresh', action='store_true', help='a new sample card')
+    ap.add_argument('--roms', help='your own Roms folder, laid out as on a card')
+    ap.add_argument('--tour', action='store_true', help='a new card starts in the tutorial')
+    ap.add_argument('--lang', help="MENU > Language on this card: en, de, pt-BR... or xx, the pseudo-locale's longer words")
+    ap.add_argument('--no-frame', action='store_true', help='the screen alone, no handheld around it')
+    ap.add_argument('--hz', type=float, default=60, help="frames a second (60, the panel's; 0 the display's)")
+    ap.add_argument('--no-build', action='store_true', help='run build-native/zyperos and Diatom as they are')
+    ap.add_argument('--no-cores', action='store_true', help='never build the cores (no games without them)')
+    return run(ap.parse_args(argv))
+
+
+if __name__ == '__main__':
+    sys.exit(main())

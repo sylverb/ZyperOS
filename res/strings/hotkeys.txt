@@ -1,0 +1,281 @@
+# The hotkeys a player sets (src/hotkeys.h, src/hotkeys_screen.c): MENU >
+# System > Hotkeys and a game's Controls tab > Hotkeys, the capture screen,
+# the swap question, Reset Game's question over the game and the pop-ups of
+# the hotkeys while a game runs. Every hotkey is SELECT held and one more
+# button; the buttons are as printed (SELECT, R1), never translated. A row's
+# name is in Title Case where English writes one, as every menu row.
+
+[hotkeys.quick_save]
+note = A row of the Hotkeys list: SELECT and a button save the game to its quick slot. The row's value is the keys, drawn as the buttons (SELECT+R1). Title Case where English writes one; controls.quick_save says the same on the Controls pages.
+en = Quick Save
+zh-Hans = 快速存档
+es = Guardado rápido
+pt-BR = Salvar rápido
+fr = Sauvegarde rapide
+de = Schnell speichern
+ja = クイックセーブ
+it = Salvataggio rapido
+
+[hotkeys.quick_load]
+note = A row of the Hotkeys list: SELECT and a button load the quick slot. As hotkeys.quick_save.
+en = Quick Load
+zh-Hans = 快速读档
+es = Carga rápida
+pt-BR = Carregar rápido
+fr = Chargement rapide
+de = Schnell laden
+ja = クイックロード
+it = Caricamento rapido
+
+[hotkeys.shot]
+note = A row of the Hotkeys list: SELECT and a button save a picture of the game (a screenshot) to the card, in Screenshots/. None until the player sets it. A row's name, beside its keys or hotkeys.none.
+en = Screenshot
+zh-Hans = 截图
+es = Captura
+pt-BR = Captura
+fr = Capture
+de = Bildschirmfoto
+ja = スクショ
+it = Screenshot
+
+[hotkeys.shader]
+note = A row of the Hotkeys list: SELECT and a button turn on the system's next shader (the in-game menu's Shader row), and a pop-up names it. None until set.
+en = Next Shader
+zh-Hans = 下一个着色器
+es = Shader siguiente
+pt-BR = Próximo shader
+fr = Shader suivant
+de = Nächster Shader
+ja = 次のシェーダー
+it = Shader successivo
+
+[hotkeys.display]
+note = A row of the Hotkeys list: SELECT and a button turn on the system's next display mode (the in-game menu's Display row), and a pop-up names it. None until set.
+en = Next Display
+zh-Hans = 下一个画面
+es = Pantalla siguiente
+pt-BR = Próxima tela
+fr = Affichage suivant
+de = Nächste Anzeige
+ja = 次の画面
+it = Schermo successivo
+
+[hotkeys.reset]
+note = A row of the Hotkeys list: SELECT and a button reset the game, after a question (hotkeys.reset_ask). None until set.
+en = Reset Game
+zh-Hans = 重置游戏
+es = Reiniciar juego
+pt-BR = Reiniciar jogo
+fr = Réinitialiser le jeu
+de = Spiel neu starten
+ja = ゲームをリセット
+it = Riavvia gioco
+
+[hotkeys.none]
+note = A hotkey row's value when it has no keys: nothing does it. Short, a value, begun with a capital.
+en = None
+zh-Hans = 无
+es = Ninguno
+pt-BR = Nenhum
+fr = Aucun
+de = Keine
+ja = なし
+it = Nessuno
+
+[hotkeys.home_note]
+note = A quiet line under the Hotkeys list's Home row (MENU+START, drawn as the buttons): held a second it goes home from anywhere, and no player can change it. One line at the menu's size in the widest panel, about 750 units: keep it as short as English's.
+en = Held 1 s. It never changes.
+zh-Hans = 按住 1 秒。不可更改。
+es = Mantén 1 s. No cambia.
+pt-BR = Segure 1 s. Não muda.
+fr = Maintenir 1 s. Ne change pas.
+de = 1 s halten. Ändert sich nie.
+ja = 1秒長押し。変更できません。
+it = Tieni 1 s. Non cambia.
+
+[hotkeys.reset_all]
+note = The last row of the Hotkeys list: puts back the hotkeys of the scope shown, after a question. As gamemenu.reset_buttons.
+en = Reset Hotkeys
+zh-Hans = 重置快捷键
+es = Restablecer atajos
+pt-BR = Restaurar atalhos
+fr = Rétablir les raccourcis
+de = Schnelltasten zurücksetzen
+ja = ホットキーをリセット
+it = Ripristina scorciatoie
+
+[hotkeys.reset_every]
+note = The question Reset Hotkeys asks on MENU > System > Hotkeys, or with Applies To on Every Game. Wrapped to the panel.
+en = Put back ZyperOS's hotkeys for every game?
+zh-Hans = 恢复所有游戏的 ZyperOS 默认快捷键？
+es = ¿Volver a los atajos de ZyperOS en todos los juegos?
+pt-BR = Voltar aos atalhos do ZyperOS em todos os jogos?
+fr = Remettre les raccourcis de ZyperOS pour tous les jeux ?
+de = Die Schnelltasten von ZyperOS für alle Spiele zurückholen?
+ja = すべてのゲームのホットキーを ZyperOS の初期設定に戻しますか？
+it = Ripristinare le scorciatoie di ZyperOS per tutti i giochi?
+
+[hotkeys.reset_system]
+note = The question Reset Hotkeys asks with Applies To on a system: %s is the system's name (PlayStation). Its games go back to the hotkeys of every game. Wrapped to the panel.
+en = Put back every game's hotkeys for %s?
+zh-Hans = 将 %s 恢复为所有游戏的快捷键？
+es = ¿Volver a los atajos de todos los juegos en %s?
+pt-BR = Voltar aos atalhos de todos os jogos em %s?
+fr = Remettre les raccourcis de tous les jeux pour %s ?
+de = Für %s die Schnelltasten aller Spiele zurückholen?
+ja = %s をすべてのゲームのホットキーに戻しますか？
+it = Ripristinare per %s le scorciatoie di tutti i giochi?
+
+[hotkeys.reset_game]
+note = The question Reset Hotkeys asks with Applies To on This Game: the first %s is the game's system (PlayStation), the second the game's name. Wrapped to the panel.
+en = Put back the %s hotkeys in %s?
+zh-Hans = 恢复 %s 的快捷键到 %s？
+es = ¿Volver a los atajos de %s en %s?
+pt-BR = Voltar aos atalhos de %s em %s?
+fr = Remettre les raccourcis %s dans %s ?
+de = Die %s-Schnelltasten in %s zurückholen?
+ja = %s のホットキーを %s に戻しますか？
+it = Ripristinare le scorciatoie %s in %s?
+
+[hotkeys.every_game]
+note = The value of Applies To on a game's Hotkeys list: the hotkeys of every game (MENU > System > Hotkeys), beside the system's name and gamemenu.this_game.
+en = Every Game
+zh-Hans = 所有游戏
+es = Todos los juegos
+pt-BR = Todos os jogos
+fr = Tous les jeux
+de = Alle Spiele
+ja = すべてのゲーム
+it = Tutti i giochi
+
+[hotkeys.all_controls]
+note = The last row of a game's Hotkeys list: A opens the read-only Controls pages (what the system adds, the hotkeys, In a game), which the Controls tab's Hotkeys row opened before the list. A row's name.
+en = All Controls
+zh-Hans = 全部按键说明
+es = Todos los controles
+pt-BR = Todos os controles
+fr = Toutes les commandes
+de = Alle Steuerungen
+ja = すべての操作方法
+it = Tutti i comandi
+
+[hotkeys.capture_wait]
+note = The capture screen after A on a hotkey row, before any key: big, where the keys will be drawn as the player presses them.
+en = Waiting for the keys
+zh-Hans = 等待按键
+es = Esperando las teclas
+pt-BR = Esperando os botões
+fr = En attente des touches
+de = Warte auf die Tasten
+ja = ボタンを待っています
+it = In attesa dei tasti
+
+[hotkeys.capture_hint]
+note = The capture screen's first line under the keys: hold SELECT, then press one more button. SELECT is the button's printed name, drawn as its key. One line, about 760 units.
+en = Hold SELECT, then press a button.
+zh-Hans = 按住 SELECT，再按一个键。
+es = Mantén SELECT y pulsa un botón.
+pt-BR = Segure SELECT e aperte um botão.
+fr = Maintenez SELECT, puis un bouton.
+de = SELECT halten, dann eine Taste.
+ja = SELECT を押したまま、ボタンを押す。
+it = Tieni SELECT e premi un tasto.
+
+[hotkeys.capture_keep]
+note = The capture screen's second line once SELECT and a button are down: letting go keeps them as the hotkey's keys.
+en = Let go to keep them.
+zh-Hans = 松开即保存。
+es = Suelta para guardarlas.
+pt-BR = Solte para guardar.
+fr = Relâchez pour les garder.
+de = Loslassen zum Behalten.
+ja = 離すと決定します。
+it = Rilascia per tenerli.
+
+[hotkeys.capture_back]
+note = The capture screen's second line before the keys: B with nothing held leaves with no change.
+en = B with nothing held goes back.
+zh-Hans = 未按住时按 B 返回。
+es = B sin nada pulsado vuelve.
+pt-BR = B sem nada apertado volta.
+fr = B sans rien d'autre : retour.
+de = B ohne gehaltene Taste: zurück.
+ja = 何も押さずに B で戻る。
+it = B senza altri tasti: indietro.
+
+[hotkeys.swap_q]
+note = The question when the keys pressed are already another hotkey's: it says they are taken and by which, then what Swap does. The first %s the keys (SELECT+R2), the second that hotkey's name (Faster), the third its name again, the fourth where it goes on Swap (the keys the row had, or hotkeys.none). Swap and Cancel under it, the cursor on Cancel. Wrapped to the panel.
+en = %s is already taken by %s. Swap them, and %s moves to %s.
+zh-Hans = %s 已被 %s 占用。交换后，%s 将改为 %s。
+es = %s ya está ocupado por %s. Al cambiarlos, %s pasa a %s.
+pt-BR = %s já está ocupado por %s. Ao trocar, %s passa para %s.
+fr = %s est déjà pris par %s. En échangeant, %s passe sur %s.
+de = %s ist schon mit %s belegt. Beim Tauschen wandert %s zu %s.
+ja = %s はすでに %s で使われています。入れ替えると %s は %s になります。
+it = %s è già occupato da %s. Scambiandoli, %s passa a %s.
+
+[hotkeys.swap]
+note = The yes of the swap question (hotkeys.swap_q): the two hotkeys trade keys. A button's word, short.
+en = Swap
+zh-Hans = 交换
+es = Cambiar
+pt-BR = Trocar
+fr = Échanger
+de = Tauschen
+ja = 入れ替え
+it = Scambia
+
+[hotkeys.reset_ask]
+note = Reset Game's hotkey pauses the game and asks this over it, in the yes/cancel panel, the cursor on Cancel; the yes is gamemenu.reset. A heading.
+en = Reset the game?
+zh-Hans = 重置游戏？
+es = ¿Reiniciar el juego?
+pt-BR = Reiniciar o jogo?
+fr = Réinitialiser le jeu ?
+de = Spiel neu starten?
+ja = ゲームをリセットしますか？
+it = Riavviare il gioco?
+
+[hotkeys.reset_lost]
+note = Under hotkeys.reset_ask: what a reset loses. Wrapped to the panel.
+en = Play since the last save is lost.
+zh-Hans = 上次存档后的进度将会丢失。
+es = Se pierde lo jugado desde el último guardado.
+pt-BR = O que jogou desde o último save se perde.
+fr = La partie depuis la dernière sauvegarde est perdue.
+de = Alles seit dem letzten Speichern geht verloren.
+ja = 最後のセーブ以降の進行は失われます。
+it = Si perde quanto giocato dall'ultimo salvataggio.
+
+[hotkeys.shot_saved]
+note = The pop-up over the game as the screenshot hotkey saves a picture, first line, beside the picture itself, small; under it where it went (Screenshots/Nintendo 64, a folder's name, never translated).
+en = Screenshot saved
+zh-Hans = 截图已保存
+es = Captura guardada
+pt-BR = Captura salva
+fr = Capture enregistrée
+de = Bildschirmfoto gespeichert
+ja = スクショを保存しました
+it = Screenshot salvato
+
+[hotkeys.popup_shader]
+note = The pop-up over the game as Next Shader's hotkey turns on the next shader, first line; under it the shader's name (CRT Curved). As popup.speed.
+en = Shader
+zh-Hans = 着色器
+es = Shader
+pt-BR = Shader
+fr = Shader
+de = Shader
+ja = シェーダー
+it = Shader
+
+[hotkeys.popup_display]
+note = The pop-up over the game as Next Display's hotkey turns on the next display mode, first line; under it the mode's name. As popup.speed.
+en = Display
+zh-Hans = 画面
+es = Pantalla
+pt-BR = Tela
+fr = Affichage
+de = Anzeige
+ja = 画面
+it = Schermo

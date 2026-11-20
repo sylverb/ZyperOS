@@ -11,6 +11,7 @@ the boot loader and the closed parts.
 | bash | 5.2.37 | GPL-3.0+ | https://ftpmirror.gnu.org/bash |
 | busybox | 1.37.0 | GPL-2.0, bzip2-1.0.4 | https://www.busybox.net/downloads |
 | ca-certificates | 20260223 | GPL-2.0+ (script), MPL-2.0 (data) | https://snapshot.debian.org/archive/debian/20260223T202245Z/pool/main/c/ca-certificates |
+| dav1d | 1.5.3 | BSD-2-Clause | https://download.videolan.org/pub/videolan/dav1d/1.5.3 |
 | diatom | from its repository | MPL-2.0 | Diatom, https://github.com/tarikbc/ZyperOS (diatom/) |
 | dropbear | 2026.91 | MIT, BSD-2-Clause, Public domain, Unlicense, WTFPL | https://matt.ucc.asn.au/dropbear/releases |
 | exfatprogs | 1.2.9 | GPL-2.0+ | https://github.com/exfatprogs/exfatprogs/releases/download/1.2.9 |

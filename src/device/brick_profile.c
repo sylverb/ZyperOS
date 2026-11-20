@@ -5,6 +5,9 @@
 #include "profile.h"
 #include "brick_buttons.h"
 
+/* Its core options (src/device/brick_coreopts.c), linked in its build alone */
+extern const dev_default dev_coreopts_brick[];
+
 /* The A133's sensors as its device tree names their zones
  * (plastron/buildroot/board/brick/dts/sun50iw10p1-trimui-brick.dts): the
  * CPU's, whose trips slow the CPU at 58 and 63 C and power the Brick off at
@@ -30,14 +33,27 @@ const device_profile device_profile_brick = {
 	.n_buttons = (int)(sizeof brick_buttons / sizeof brick_buttons[0]),
 	.model = &td_model_brick,
 	.bluetooth = true,
+#ifdef ZYPEROS_KIT_BUILD
+	/* A test kit (src/kit.h): the old screens' shaders and the GPU consoles
+	 * on the GPU path (#312), for its tester to try on a real Brick before
+	 * a release turns them on */
+	.gpu_shaders = true,
+	.gpu_frames = true,
+#else
 	.gpu_shaders = false,
 	/* Off until a GPU core runs on its PowerVR (the spec's section 6) */
 	.gpu_frames = false,
-	/* None measured on it yet: every device's alone */
-	.coreopts = NULL,
+#endif
+	/* The Pixel 2's, but its rumble, until a Brick's own are measured
+	 * (src/device/brick_coreopts.c) */
+	.coreopts = dev_coreopts_brick,
 	.speaker_mono = false,
+	.rumble = false,   /* GPIO 227 on bldo3, not run until the tester's buzz (Brick parity item 14) */
 	.player2 = false,
 	.usb_shared_port = false,
+	/* The A133's TCON has a gamma table, set through /dev/disp
+	 * (src/panelgamma_sunxi.h), and its display engine a saturation */
+	.screen_colors = true,
 	.wifi = DEV_WIFI_BUILTIN,
 	.thermal_zones = brick_zones,
 };

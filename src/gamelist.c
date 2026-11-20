@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "gamelist.h"
 
+#include "artbadge_draw.h"
+
 #include "design.h"
 #include "folderart.h"
 #include "games.h"        /* games_frame: the shelf's line and keys */
@@ -12,6 +14,8 @@
 #include "ds/flex.h"     /* the list and its panel, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
+#include "ds/focus.h"
+#include "look.h"
 #include "zyperdraw.h"
 
 #include <math.h>
@@ -163,14 +167,16 @@ static void game_mark(SDL_Renderer *r, int cx, int cy, unsigned accent, const ch
 /* One row: its plate when focused, its mark, its name, and at its end a
  * folder's count or a favorite's heart */
 static void gl_row(SDL_Renderer *r, const gl_info *in, void *ctx, int i, int y,
-                   bool focus, uint32_t phase, uint32_t *wait)
+                   bool focus, bool on_fill, uint32_t phase, uint32_t *wait)
 {
 	TTF_Font *f = ui_font(UI_F_META), *small = page_font(PAGE_CHROME);
 	const char *name = in->title_of(ctx, i);
 	int games = in->folder_of ? in->folder_of(ctx, i) : 0;
 	int cy = y + GL_ROW_H / 2, end = GL_END_X, room;
-	SDL_Color ink = focus ? ui_col(theme()->on_accent, 255) : UI_TEXT_SOFT;
-	SDL_Color dim = focus ? ui_col(theme()->on_accent, 255) : UI_TEXT_DIM;
+	/* On the fill (Highlight's Bar) the focused row's words are on-accent;
+	 * on a ring, a raised plate or nothing, **text** (src/ds/focus.h) */
+	SDL_Color ink = focus ? (on_fill ? ui_col(theme()->on_accent, 255) : UI_TEXT) : UI_TEXT_SOFT;
+	SDL_Color dim = focus && on_fill ? ui_col(theme()->on_accent, 255) : UI_TEXT_DIM;
 
 	if (games > 0) {
 		char num[16];
@@ -183,28 +189,35 @@ static void gl_row(SDL_Renderer *r, const gl_info *in, void *ctx, int i, int y,
 		snprintf(num, sizeof num, "%d", games);
 		end -= ui_text_tabular_width(small, num) + 24;
 		ui_text_tabular(r, small, num, GL_END_X, ui_cap_y(small, cy), 1, dim);
+	} else if (in->badge_of && in->badge_of(ctx, i) != AB_NONE) {
+		/* What it is, in the mark's place (MP4's All): the row's badge */
+		ab_draw(r, (ab_kind)in->badge_of(ctx, i), GL_MARK_X, cy, 1.0f, 255);
 	} else {
 		game_mark(r, GL_MARK_X, cy, in->accent_of ? in->accent_of(ctx, i) : in->accent, name);
 		if (in->fav_of && in->fav_of(ctx, i)) {
 			float hr = 11;
 
 			draw_heart(r, GL_END_X - hr, (float)cy, hr,
-			           focus ? ui_col(theme()->on_accent, 255) : ui_col(theme()->favorite, 255));
+			           focus && on_fill ? ui_col(theme()->on_accent, 255) : ui_col(theme()->favorite, 255));
 			end -= (int)(hr * 2) + 16;
 		}
 	}
-	room = end - GL_NAME_X;
+	/* None (Highlight): no plate, so the focused name stands in a little,
+	 * in **text** */
+	const int nx = GL_NAME_X + (focus && look_focus() == LOOK_FOCUS_NONE ? 12 : 0);
+
+	room = end - nx;
 	if (focus && ui_text_width(f, name) > room) {
 		unsigned next;
 
-		ui_text_marquee(r, f, name, GL_NAME_X, ui_cap_y(f, cy), room, phase, ink);
+		ui_text_marquee(r, f, name, nx, ui_cap_y(f, cy), room, phase, ink);
 		next = ui_pingpong_wait(ui_text_width(f, name) - room, phase);
 		if (next < *wait) *wait = next;
 	} else {
 		char fit[512];
 
 		ui_fit_text(f, name, fit, sizeof fit, room);
-		ui_text(r, f, fit, GL_NAME_X, ui_cap_y(f, cy), -1, ink);
+		ui_text(r, f, fit, nx, ui_cap_y(f, cy), -1, ink);
 	}
 }
 
@@ -230,6 +243,7 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 	uint32_t wait = UINT32_MAX;
 	float top, plate;
 	int countw, sw, room, first, i;
+	const ds_focus_marks mk = ds_focus_marks_of(DS_FOCUS_COVER);
 
 	SDL_GetRenderDrawBlendMode(r, &blend);
 	SDL_GetRenderDrawColor(r, &red, &green, &blue, &alpha);
@@ -259,17 +273,27 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 
 	/* The rows, in a window the list scrolls through */
 	SDL_RenderSetClipRect(r, &(SDL_Rect){ 0, GL_TOP, GL_PANEL_X - 16, GL_ROWS * GL_ROW_H });
-	if (in->count > 0) {
+	/* The focus, gliding (Highlight, src/ds/focus.h): Bar's is the fill as
+	 * it always was; Border's a ring of the row's corners inside its plate;
+	 * Lift's a plate of **surface** on a soft lift; None's nothing, the name
+	 * in **text** */
+	if (in->count > 0 && mk.focus != LOOK_FOCUS_NONE) {
 		SDL_Rect pl = { GL_X, GL_TOP + (int)lroundf((plate - top) * GL_ROW_H), GL_W, GL_ROW_H };
 
-		ui_round_rect(r, &pl, 14, ui_col(theme()->accent, 255));
+		if (mk.focus == LOOK_FOCUS_BORDER)
+			ds_focus_ring_in(r, (SDL_FRect){ (float)pl.x, (float)pl.y, (float)pl.w, (float)pl.h }, 14, 255);
+		else if (mk.focus == LOOK_FOCUS_LIFT) {
+			ui_lift_focus(r, &pl, false, 1);
+			ui_round_rect(r, &pl, 14, ui_col(theme()->surface, 255));
+		} else
+			ui_round_rect(r, &pl, 14, ui_col(theme()->accent, 255));
 	}
 	first = (int)floorf(top);
 	for (i = first; i <= first + GL_ROWS && i < in->count; i++) {
 		int y = GL_TOP + (int)lroundf((i - top) * GL_ROW_H);
 
 		if (i < 0) continue;
-		gl_row(r, in, ctx, i, y, i == in->cursor, phase, &wait);
+		gl_row(r, in, ctx, i, y, i == in->cursor, mk.focus == LOOK_FOCUS_BAR, phase, &wait);
 	}
 	SDL_RenderSetClipRect(r, NULL);
 	/* More above, more below: the menus' small triangles */
@@ -334,7 +358,7 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 			y = gl_fact(r, line, y);
 		} else {
 			y = gl_fact(r, in->origin, y);
-			if (in->install) y = gl_fact(r, T(S_PORTMASTER_NOT_INSTALLED), y);
+			if (in->install || in->howto) y = gl_fact(r, T(S_PORTMASTER_NOT_INSTALLED), y);
 			if (in->played && *in->played) {
 				snprintf(line, sizeof line, T(S_GAMES_PLAYED), in->played);
 				y = gl_fact(r, line, y);
@@ -344,8 +368,10 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 				y = gl_fact(r, line, y);
 			}
 		}
-		page_hint(r, "A", T(games > 0 ? S_GAMES_OPEN : in->install ? S_PORTMASTER_INSTALL
-		                    : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY),
+		page_hint(r, "A", in->a_word ? in->a_word
+		                  : T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD
+		                      : in->install ? S_PORTMASTER_INSTALL
+		                      : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY),
 		          GL_PANEL_X, GL_A_Y, true, false);
 	}
 	/* The foot, as the cover row's (DESIGN.md 11.4): B, START back to the
@@ -355,11 +381,13 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 		int nf = 0, games = in->count > 0 && in->folder_of ? in->folder_of(ctx, in->cursor) : 0;
 
 		foot[nf++] = (key_hint){ "B", T(in->inside ? S_GAMES_BACK : S_GAMES_SYSTEMS) };
-		if (in->count > 0) foot[nf++] = (key_hint){ "START", T(S_GAMES_TO_COVERS) };
-		if (in->count > 0 && in->resumable && !in->install && !games)
+		/* START on to the Video view, the fourth (DESIGN.md 11.57) */
+		if (in->count > 0) foot[nf++] = (key_hint){ "START", T(S_GAMES_TO_VIDEO) };
+		if (in->count > 0 && in->resumable && !in->install && !in->howto && !in->opens && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
-		keyhints_draw(r, foot, nf, sf.keys.x, sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2,
+		keyhints_draw(r, in->foot ? in->foot : foot, in->foot ? in->nfoot : nf, sf.keys.x,
+		              sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2,
 		              KEYHINTS_SPREAD, true, 255);   /* as the shelf's */
 	}
 	SDL_SetRenderDrawColor(r, red, green, blue, alpha);

@@ -21,10 +21,12 @@
 #include "device.h"
 #include "displayback.h"
 #include "fileio.h"
+#include "nightkeep.h"
 #include "panelgamma.h"
 #include "phonelink.h"
 #include "platform.h"
 #include "portmenu.h"
+#include "screenfx_draw.h"
 #include "spawn.h"
 #include "thermal.h"
 
@@ -233,16 +235,18 @@ static bool take_back(unsigned max_ms, int *err)
 static struct {
 	bool         on;
 	SDL_Texture *tex;
+	SDL_Rect     src;                  /* the part of tex to draw; w 0 for all of it */
 	SDL_Rect     dst;                  /* in screen coordinates */
 	SDL_Color    bg;
 } under;
 
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg)
 {
 	SDL_BlendMode mode;
 
 	under.on = true;
 	under.tex = tex;
+	under.src = src ? *src : (SDL_Rect){ 0, 0, 0, 0 };
 	under.dst = dst ? *dst : (SDL_Rect){ 0, 0, 0, 0 };
 	under.bg = bg;
 	/* The screen clear, so the picture shows through wherever this frame
@@ -273,8 +277,27 @@ static void show_under(void)
 
 	SDL_SetRenderDrawColor(ren, under.bg.r, under.bg.g, under.bg.b, 255);
 	SDL_RenderClear(ren);
-	if (under.tex) SDL_RenderCopyExF(ren, under.tex, NULL, &r, panel_turn, NULL, SDL_FLIP_NONE);
+	if (under.tex)
+		SDL_RenderCopyExF(ren, under.tex, under.src.w > 0 ? &under.src : NULL, &r, panel_turn,
+		                  NULL, SDL_FLIP_NONE);
 }
+
+/* screen_tex at dest, 1024x768 down to 640x480 and turned onto the panel,
+ * through the screens' shader when one is on (src/screenfx.h): CRT Curved's
+ * bend in place of the plain copy, then the mask over it at the panel's own
+ * pixels, one more pass. Off is the plain copy alone, as it always was. */
+static void draw_picture(const SDL_Rect *dest, bool fx)
+{
+	fx = fx && sfx_on();
+	if (fx && sfx_curved()) sfx_draw_curved(ren, screen_tex, dest, panel_turn);
+	else SDL_RenderCopyEx(ren, screen_tex, NULL, dest, panel_turn, NULL, SDL_FLIP_NONE);
+	if (fx) sfx_draw_mask(ren, dest->w, dest->h, dest, panel_turn);
+}
+
+/* The shader goes on at the panel, in show_screen: a frame read back before
+ * it (a shot) is read from screen_tex, which has none */
+void plat_screen_finish(void) { }
+bool plat_screen_shader_in_frame(void) { return false; }
 
 /* Black around the picture, then the picture: 1024x768 down to 640x480 and a
  * quarter turn counter-clockwise, which on this panel ("Left Side Up") is the
@@ -298,13 +321,22 @@ static void show_screen(void)
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
 		show_under();
 		SDL_SetTextureBlendMode(screen_tex, premul);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
-		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_BLEND);
+		/* A video plays as it is, at the panel's pixels: no shader */
+		draw_picture(&dest, false);
+		/* ...and back to opaque, as it was made (below), for every frame
+		 * without a video. It was left blending: after the first MP4 video
+		 * every frame went over the black with its alpha, and whatever the
+		 * screen held at alpha 0 - an RGB texture's pixels, which this SDL
+		 * writes so, the Shader list's picture and the paused game's - came
+		 * out black until the launcher started again (2026-11-19, on the
+		 * 1.1.0 test build: "Shaders preview box is not working. It's
+		 * rendering black", after MP4's videos) */
+		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 		under.on = false;
 	} else {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderClear(ren);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+		draw_picture(&dest, true);
 	}
 	SDL_RenderPresent(ren);
 	SDL_SetRenderTarget(ren, screen_tex);
@@ -374,7 +406,7 @@ bool plat_save_screen_hidden(const char *path)
 	if (t && px && SDL_SetRenderTarget(ren, t) == 0) {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderClear(ren);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+		draw_picture(&dest, true);
 		if (SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, px, panel_w * 4) == 0 &&
 		    (f = fopen(path, "wb"))) {
 			ok = fwrite(px, 1, n, f) == n;
@@ -401,7 +433,7 @@ bool plat_save_screen(const char *path)
 	SDL_SetRenderTarget(ren, NULL);
 	SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 	SDL_RenderClear(ren);
-	SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+	draw_picture(&dest, true);
 	if (px && SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, px, panel_w * 4) == 0 &&
 	    (f = fopen(path, "wb"))) {
 		ok = fwrite(px, 1, n, f) == n;
@@ -506,6 +538,9 @@ bool plat_video_init(void)
 		fprintf(stderr, "screen texture: %s\n", SDL_GetError());
 		return false;
 	}
+	/* Onto the panel opaque, whatever its alpha says (show_screen); a
+	 * video's frame alone goes over its picture blended */
+	SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 	SDL_SetRenderTarget(ren, screen_tex);
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 
@@ -542,6 +577,7 @@ void plat_video_quit(void)
 {
 	if (screen_tex) { SDL_DestroyTexture(screen_tex); screen_tex = NULL; }
 	plat_osd_forget();
+	sfx_forget();
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	drm_fd = -1;
@@ -554,6 +590,9 @@ void plat_video_quit(void)
 }
 
 /* Diatom is about to present: it cannot while this process holds master. */
+/* Diatom draws on the panel itself: the launcher waits as long as it likes */
+unsigned device_game_wait(unsigned ms) { return ms; }
+
 void device_display_release(void)
 {
 	if (drm_fd >= 0) ioctl(drm_fd, PX_DRM_IOCTL_DROP_MASTER, 0);
@@ -593,6 +632,7 @@ void device_display_take(void)
 #define BIT_IS_SET(a,b) (((a)[(b) / BITS_PER_LONG] >> ((b) % BITS_PER_LONG)) & 1UL)
 
 static int fd_pad = -1;     /* "gkd_pixel2_joypad": the face, d-pad, shoulders, FUNCTION */
+static int pad_node = -1;   /* its N in /dev/input/eventN, for the motor (plat_rumble_buzz) */
 static int fd_keys = -1;    /* "gpio-keys": volume */
 static int fd_power = -1;   /* "rk805 pwrkey" */
 static int jack_fd = -1;    /* "rk817_int Headphones": the jack switch, for the settings */
@@ -642,7 +682,7 @@ static void input_scan(void)
 		memset(sw, 0, sizeof sw);
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
-		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           fd_pad = fd;
+		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           { fd_pad = fd; pad_node = i; }
 		else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
 		else if (fd_power < 0 && BIT_IS_SET(keys, KEY_POWER))           fd_power = fd;
 		else if (jack_fd < 0  && BIT_IS_SET(sw, SW_HEADPHONE_INSERT))   jack_fd = fd;
@@ -697,6 +737,56 @@ void plat_input_settle(in_state *st)
 
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
+
+/* ---------- the motor: a step's buzz -------------------------------------- */
+
+/* The joypad again, opened to write: the motor is its force feedback (PWM0,
+ * the joypad driver's; diatom/port/rumble_evdev.c says how). Opened at the
+ * first buzz and kept, so a step costs one upload and one write, never an
+ * open or a close (a close waits out an RCU grace period, input_scan). Our
+ * effect is ours alone: Diatom's, on its own descriptor, plays beside it,
+ * held still while its game is paused. */
+static int rumble_fd = -1;
+static int rumble_id = -1;
+
+bool plat_rumble_buzz(float scale, int ms)
+{
+	struct ff_effect e;
+	struct input_event ev;
+	uint16_t v;
+	char path[32];
+
+	if (scale <= 0.0f || ms <= 0) return true;      /* Off: nothing to feel */
+	if (rumble_fd < 0) {
+		if (pad_node < 0) return false;
+		snprintf(path, sizeof path, "/dev/input/event%d", pad_node);
+		if ((rumble_fd = open(path, O_RDWR | O_NONBLOCK | O_CLOEXEC)) < 0) {
+			fprintf(stderr, "rumble: %s: %s\n", path, strerror(errno));
+			return false;
+		}
+	}
+	v = scale >= 1.0f ? 0xFFFF : (uint16_t)((float)0xFFFF * scale + 0.5f);
+	memset(&e, 0, sizeof e);
+	e.type = FF_RUMBLE;
+	e.id = (int16_t)rumble_id;
+	/* The driver runs the motor from the strong one; both, as SDL sends */
+	e.u.rumble.strong_magnitude = v;
+	e.u.rumble.weak_magnitude = v;
+	/* ff-memless ends it after this long and tells the driver 0: a buzz
+	 * stops itself, whatever the launcher does next */
+	e.replay.length = (uint16_t)(ms > 2000 ? 2000 : ms);
+	if (ioctl(rumble_fd, EVIOCSFF, &e) < 0) {
+		fprintf(stderr, "rumble: upload: %s\n", strerror(errno));
+		rumble_id = -1;
+		return false;
+	}
+	rumble_id = e.id;
+	memset(&ev, 0, sizeof ev);
+	ev.type = EV_FF;
+	ev.code = (uint16_t)rumble_id;
+	ev.value = 1;
+	return write(rumble_fd, &ev, sizeof ev) == (ssize_t)sizeof ev;
+}
 
 /* FUNCTION is MENU, and also the modifier that makes the volume keys
  * brightness: this device has no brightness keys, and MENU plus volume is
@@ -837,8 +927,9 @@ void plat_input_wait(unsigned ms)
 	if (fd_keys >= 0)  p[n++] = (struct pollfd){ .fd = fd_keys,  .events = POLLIN };
 	if (fd_power >= 0) p[n++] = (struct pollfd){ .fd = fd_power, .events = POLLIN };
 	/* POWER held in Hold mode: woken for the pill's next segment and the
-	 * hold's end, which no event marks */
-	ms = plat_power_wait(ms);
+	 * hold's end, which no event marks; and the work behind every screen
+	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
@@ -1050,21 +1141,175 @@ static void usb_volume_create(void)
 	ctl_write(USB_CTL, px2_usb_raw(VOL_MAX / 2));
 }
 
-/* The table for the backlight's value now (panelgamma.h): the dimming one
- * at 9 and 13, none from 17 up. Only while this process holds the display -
- * at the start the splash still does, and take_from_splash sets it then. */
+/* MENU > Display > Screen Colors as the table carries them (panelgamma.h),
+ * Standard until plat_settings_init reads the saved ones */
+static panelgamma_color screen_color;
+
+/* The table for the backlight's value now and the Screen Colors
+ * (panelgamma.h): the dimming one at 9 and 13, none from 17 up in Standard.
+ * Only while this process holds the display - at the start the splash still
+ * does, and take_from_splash sets it then. */
 static void display_gamma(const char *when)
 {
 	int raw, n;
 
 	if (drm_fd < 0 || !display_held || (raw = read_int(BACKLIGHT)) < 0) return;
-	n = panelgamma_apply(drm_fd, raw);
+	n = panelgamma_apply_color(drm_fd, raw, &screen_color);
 	if (n > 0)
 		fprintf(stderr, "video: the display's gamma table set for brightness %d, %s\n",
 		        raw, when);
 	else if (n < 0)
 		fprintf(stderr, "video: could not set the display's gamma table for brightness %d, "
 		        "%s\n", raw, when);
+}
+
+/* The kept colors (night 0) and Night Mode as kept, with its nights about
+ * now (src/nightmode.h): what the file says. Night Warmth's list shows its
+ * cursor's warmth meanwhile (night_preview), which nothing else sees. */
+static panelgamma_color screen_kept;
+static night_cfg        night_kept;
+static panelgamma_night night_sched;
+static int              night_preview;
+static time_t           night_looked, night_planned;
+
+/* The colors and Night Mode for the other two writers, Diatom and portkeys,
+ * which read the file each time they take the display (panelgamma.h), and
+ * look at the nights in it once a second: the kept ones only, never a
+ * preview */
+static void screen_colors_share(void)
+{
+	if (panelgamma_screen_write(PANELGAMMA_COLOR_FILE, &screen_kept, &night_sched) != 0)
+		fprintf(stderr, "settings: could not write %s\n", PANELGAMMA_COLOR_FILE);
+}
+
+/* The warmth on the display at `now`: the list's cursor's, or the kept
+ * Night Mode's */
+static int night_now(time_t now)
+{
+	return night_preview > 0 ? night_preview : panelgamma_night_at(&night_sched, (long long)now);
+}
+
+/* Night Mode's nights about `now` in this zone, and the file written again
+ * when they are not the ones it has (or always, with `force`) */
+static void night_plan(time_t now, bool force)
+{
+	panelgamma_night s;
+
+	night_schedule(&night_kept, now, &s);
+	night_planned = now;
+	if (!force && !memcmp(&s, &night_sched, sizeof s)) return;
+	night_sched = s;
+	screen_colors_share();
+}
+
+/* Saturation: the BCSH block's knob on each of the PX30's two display
+ * controllers (plastron's kernel patch 9-px2-px30-vop-bcsh-saturation),
+ * 256 the picture as drawn: 5% a step, 128 (half) at -10 to 384 (one and a
+ * half) at +10. The panel's is the VOP-B; the VOP-L, where it is bound (not
+ * on the Pixel 2, seen 2026-11-16), takes the same value in its own units.
+ * Kept by the kernel for every program after. A register write: no blink. */
+#define SCREEN_SATURATION_FILE "/sys/devices/platform/ff460000.vop/saturation"
+#define SCREEN_SATURATION_LIT  "/sys/devices/platform/ff470000.vop/saturation"
+static int screen_saturation_on = 0;   /* the step on the knob now */
+
+bool plat_screen_saturation_here(void)
+{
+	return access(SCREEN_SATURATION_FILE, W_OK) == 0;
+}
+
+static void screen_saturation_apply(int step)
+{
+	char text[8];
+
+	step = clampi(step, -SCREEN_COLORS_RANGE, SCREEN_COLORS_RANGE);
+	if (step == screen_saturation_on || access(SCREEN_SATURATION_FILE, W_OK) != 0) return;
+	snprintf(text, sizeof text, "%d\n", 256 + 256 * 5 * step / 100);
+	write_file(SCREEN_SATURATION_FILE, text);
+	write_file(SCREEN_SATURATION_LIT, text);
+	screen_saturation_on = step;
+}
+
+/* The table wanted, and when one was last loaded: a load waits out
+ * SCREEN_COLORS_GAP_MS after the last (platform.h) */
+static panelgamma_color screen_want;
+static bool screen_held;
+static Uint32 screen_loaded_at;
+
+static void screen_colors_load(void)
+{
+	screen_color = screen_want;
+	screen_held = false;
+	screen_loaded_at = SDL_GetTicks();
+	display_gamma("Screen Colors");
+}
+
+void plat_screen_colors_tick(bool now)
+{
+	if (screen_held && (now || SDL_GetTicks() - screen_loaded_at >= SCREEN_COLORS_GAP_MS))
+		screen_colors_load();
+}
+
+void plat_screen_colors(const screen_colors *c, bool keep)
+{
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
+
+	panelgamma_color_clamp(&want);
+	if (keep) {
+		screen_kept = want;
+		screen_colors_share();
+	}
+	screen_saturation_apply(c->saturation);
+	want.night = night_now(time(NULL));
+	screen_want = want;
+	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
+	plat_screen_colors_tick(false);
+}
+
+/* The warmth wanted now on the display, loaded at once (`at_once`: a kept
+ * change, or the hour) or after the gap (the list's cursor running) */
+static void night_want(bool at_once)
+{
+	screen_want.night = night_now(time(NULL));
+	screen_held = memcmp(&screen_want, &screen_color, sizeof screen_want) != 0;
+	plat_screen_colors_tick(at_once);
+}
+
+void plat_night(const struct night_cfg *n)
+{
+	night_kept = *n;
+	night_cfg_clamp(&night_kept);
+	night_preview = 0;
+	night_plan(time(NULL), true);
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s, warmth %d, %02d:%02d to %02d:%02d\n",
+	        night_mode_id(night_kept.mode), night_kept.warmth, night_kept.from / 60,
+	        night_kept.from % 60, night_kept.until / 60, night_kept.until % 60);
+}
+
+void plat_night_preview(int warmth)
+{
+	night_preview = warmth < 0 ? 0 : warmth > PANELGAMMA_NIGHT_MAX ? PANELGAMMA_NIGHT_MAX : warmth;
+	night_want(false);
+}
+
+bool plat_night_tick(void)
+{
+	time_t now = time(NULL);
+	int w;
+
+	if (now == night_looked) return false;
+	night_looked = now;
+	/* The nights again each minute, at once when the clock went back or
+	 * the first night in the file ended: a zone chosen in Date & Time, the
+	 * time set by hand, and the next night written for the other two */
+	if (now - night_planned >= 60 || now < night_planned ||
+	    (night_sched.n > 0 && (long long)now >= night_sched.until[0]))
+		night_plan(now, false);
+	w = night_now(now);
+	if (w == screen_want.night) return false;
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s\n", w ? "on" : "off");
+	return true;
 }
 
 static void apply_brightness(int b)
@@ -1120,6 +1365,24 @@ void plat_settings_init(void)
 	}
 	cur_vol    = v >= 0 ? clampi(v, 0, VOL_MAX)    : -1;
 	cur_bright = b >= 0 ? clampi(b, 0, BRIGHT_MAX) : BRIGHT_MAX / 2;
+	/* Screen Colors before the first table: written to the file even when
+	 * Standard, so a launcher started again in the same boot leaves no
+	 * older line for Diatom to read */
+	screen_color.temp = db_get_int(db_dev(), "screen_temp", 0);
+	screen_color.tint = db_get_int(db_dev(), "screen_tint", 0);
+	screen_color.contrast = db_get_int(db_dev(), "screen_contrast", 0);
+	screen_color.gamma = db_get_int(db_dev(), "screen_gamma", 0);
+	panelgamma_color_clamp(&screen_color);
+	screen_kept = screen_color;
+	/* Night Mode's, and the file with both, before the first table */
+	night_kept = night_load();
+	night_plan(time(NULL), true);
+	screen_color.night = night_now(time(NULL));
+	screen_want = screen_color;
+	/* Written whatever the knob holds: a launcher started again keeps
+	 * nothing of the last one's (screen_saturation_on starts at 0) */
+	screen_saturation_on = SCREEN_COLORS_RANGE + 1;
+	screen_saturation_apply(db_get_int(db_dev(), "screen_saturation", 0));
 	usb_volume_create();
 	if (cur_vol >= 0) apply_volume(cur_vol);
 	apply_brightness(cur_bright);
@@ -1154,6 +1417,8 @@ void plat_display_plain(void)
 	int n;
 
 	if (drm_fd < 0 || !display_held) return;
+	/* Saturation too: the program after this one sees the panel plain */
+	screen_saturation_apply(0);
 	n = panelgamma_clear(drm_fd);
 	if (n > 0)
 		fprintf(stderr, "video: the display's gamma table emptied for the program after this one\n");
@@ -1718,7 +1983,7 @@ side_lights plat_side_lights(void)
 	int fd = open(SIDE_LIGHTS_FILE, O_RDONLY | O_CLOEXEC);
 	ssize_t n;
 
-	if (fd < 0) return LIGHTS_ALL;
+	if (fd < 0) return LIGHTS_DEFAULT;
 	n = read(fd, text, sizeof text - 1);
 	close(fd);
 	text[n > 0 ? n : 0] = '\0';
@@ -1962,7 +2227,11 @@ void plat_charge_limit_set(int pct)
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
-	return "/sys/class/power_supply/battery";
+	/* ZYPEROS_BATTERY_DIR stands in for the gauge's folder: a host shot's
+	 * About with a battery in it (tools/i18n-shots.py's BATTERY_DIRS) */
+	const char *dir = getenv("ZYPEROS_BATTERY_DIR");
+
+	return dir && *dir ? dir : "/sys/class/power_supply/battery";
 }
 
 bool plat_battery(int *pct, bool *charging)

@@ -60,13 +60,9 @@ void ct_sent(const ct_model *m, rm_table *out)
 		out->b[RM_SELECT] = m->zdef.b[RM_SELECT];
 }
 
-unsigned ct_held_of(const char *tag, const char *stick_mode)
+unsigned ct_held_of(const char *tag)
 {
-	unsigned k = 0;
-
-	if (stick_mode && !strcmp(stick_mode, "toggle")) k |= 1u << RM_R2;
-	if (tag && !strcmp(tag, "NDS")) k |= 1u << RM_L2 | 1u << RM_R2;
-	return k;
+	return tag && !strcmp(tag, "NDS") ? (1u << RM_L2 | 1u << RM_R2) : 0u;
 }
 
 /* A dead SELECT row: the stick's rule or the N64's C buttons hold it */
@@ -82,13 +78,10 @@ bool ct_dead(const ct_model *m, int button)
 }
 
 /* What a button Diatom keeps does, as the pages say it (controls.c): a DS
- * game's L2 the other screen and R2 the stylus; the PSP's R2 the d-pad as
- * the stick */
-static str_id held_says(const ct_model *m, int button)
+ * game's L2 the other screen and R2 the stylus */
+static str_id held_says(int button)
 {
-	if (m->tag && !strcmp(m->tag, "NDS"))
-		return button == RM_L2 ? S_CONTROLS_OTHER_SCREEN : S_CONTROLS_STYLUS;
-	return S_CONTROLS_DPAD_STICK;
+	return button == RM_L2 ? S_CONTROLS_OTHER_SCREEN : S_CONTROLS_STYLUS;
 }
 
 /* ---- the faces ------------------------------------------------------------- */
@@ -147,7 +140,8 @@ bool ct_reset_live(const ct_model *m)
 
 /* Whether button `i` can be what lost a game button: a changed one that
  * gives no game button plainly in what is sent - Nothing, a turbo, one its
- * core names nothing - or a SELECT the stick's rule sends as SELECT. A
+ * core names nothing, the stick's two - or a SELECT the stick's rule sends
+ * as SELECT. A
  * plain choice swaps, so it loses nothing, and a button as its default has
  * it lost nothing. */
 static bool lossy(const ct_model *m, const rm_table *sent, int i)
@@ -155,7 +149,7 @@ static bool lossy(const ct_model *m, const rm_table *sent, int i)
 	const rm_choice c = sent->b[i];
 
 	if (!rm_changed(&m->def, &m->cur, i)) return false;
-	return c.turbo || ct_says_nothing(m, c) || !same(c, m->cur.b[i]);
+	return c.turbo || ct_says_nothing(m, c) || RM_IS_STICK(c.to) || !same(c, m->cur.b[i]);
 }
 
 /* The row each lost game button's warning goes under: the button whose
@@ -214,6 +208,9 @@ int ct_rows(const ct_model *m, ct_row *ids, menu_row *out, unsigned *vcol, ct_bu
 		                           T(m->stick_on ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE), true }),
 		    m->stick_on != m->stick_default ? 1u : 0u);
 	if (m->pak) ROW(CT_PAK, ((menu_row){ T(S_GAMEMENU_PAK), m->pak, true }), 0u);
+	/* How hard the motor runs for this game or its system (src/rumble.h) */
+	if (m->rumble) ROW(CT_RUMBLE, ((menu_row){ T(S_SYSMENU_RUMBLE), m->rumble, true }),
+	                   m->rumble_own ? 1u : 0u);
 	if (m->face_offered) {
 		const int f = ct_faces(m, &m->cur);
 
@@ -233,13 +230,29 @@ int ct_rows(const ct_model *m, ct_row *ids, menu_row *out, unsigned *vcol, ct_bu
 		const rm_choice c = m->cur.b[i];
 
 		if (m->held >> i & 1u) {
-			ROW(CT_BUTTON + i, ((menu_row){ NAME[i], T(held_says(m, i)), false }), 0u);
+			ROW(CT_BUTTON + i, ((menu_row){ NAME[i], T(held_says(i)), false }), 0u);
 		} else if (i == RM_SELECT && (m->select_held_c || m->select_held_dpad)) {
 			ROW(CT_BUTTON + i, ((menu_row){ NAME[i], T(m->select_held_c ? S_CONTROLS_SELECT_C_BUTTONS
 			                                                       : S_CONTROLS_HELD_DPAD), false }), 0u);
 		} else {
+			const unsigned with = ct_partners(m, i);
+
 			if (ct_says_nothing(m, c)) snprintf(b->val[i], sizeof b->val[i], "%s", T(S_CONTROLS_NOTHING));
 			else ctl_remap_say(m->tag, m->ext, c, b->val[i], sizeof b->val[i]);
+			/* A game button another button gives too: its glyph after the
+			 * value, dim (MENU_PARTNER_MARK; my pick in the Controls lab,
+			 * 2026-11-19) */
+			if (with) {
+				char names[48] = "";
+				int j;
+
+				for (j = 0; j < RM_BUTTONS; j++)
+					if (with >> j & 1u)
+						snprintf(names + strlen(names), sizeof names - strlen(names), "%s%s",
+						         names[0] ? " " : "", NAME[j]);
+				snprintf(b->val[i] + strlen(b->val[i]), sizeof b->val[i] - strlen(b->val[i]),
+				         "%s%s", MENU_PARTNER_MARK, names);
+			}
 			ROW(CT_BUTTON + i, ((menu_row){ NAME[i], b->val[i], true }),
 			    rm_changed(&m->def, &m->cur, i) ? 1u : 0u);
 		}
@@ -272,7 +285,8 @@ unsigned ct_lit(const ct_model *m, ct_row id)
 		 * gave its old value to */
 		k = 1u << KEY[bt];
 		for (i = 0; i < RM_BUTTONS; i++)
-			if (i != bt && !same(m->cur.b[i], m->base.b[i])) k |= 1u << KEY[i];
+			if (i != bt && (!same(m->cur.b[i], m->base.b[i]) || (ct_partners(m, bt) >> i & 1u)))
+				k |= 1u << KEY[i];
 		return k;
 	}
 	switch (id) {
@@ -395,6 +409,78 @@ void ct_pick(ct_model *m, int button, rm_choice c)
 		if (i != button && ct_dead(m, i)) m->cur.b[i] = m->base.b[i];
 }
 
+int ct_choices(const ct_model *m, int button, rm_choice *out, int max)
+{
+	int n = ctl_remap_choices(m->tag, m->ext, m->map, out, max);
+
+	if (n <= 0 || !m->stick_offered || button == RM_SELECT) return n;
+	if (n < max) out[n++] = (rm_choice){ RM_STICK_TOGGLE, 0 };
+	if (n < max) out[n++] = (rm_choice){ RM_STICK_HOLD, 0 };
+	return n;
+}
+
+void ct_share(ct_model *m, int button, rm_choice c)
+{
+	if (button < 0 || button >= RM_BUTTONS || ct_dead(m, button)) return;
+	rm_share(&m->cur, &m->base, button, ct_taken(m, button, c));
+}
+
+unsigned ct_partners(const ct_model *m, int button)
+{
+	const rm_choice c = button >= 0 && button < RM_BUTTONS ? m->cur.b[button] : (rm_choice){ RM_NONE, 0 };
+	unsigned k = 0;
+	int i;
+
+	if (c.to == RM_NONE || ct_dead(m, button) || ct_says_nothing(m, c)) return 0;
+	for (i = 0; i < RM_BUTTONS; i++)
+		if (i != button && !ct_dead(m, i) && same(m->cur.b[i], c)) k |= 1u << i;
+	return k;
+}
+
+/* The live buttons other than `button` that give `c` in base */
+static unsigned givers(const ct_model *m, int button, rm_choice c)
+{
+	unsigned k = 0;
+	int i;
+
+	for (i = 0; i < RM_BUTTONS; i++)
+		if (i != button && !ct_dead(m, i) && same(m->base.b[i], c)) k |= 1u << i;
+	return k;
+}
+
+bool ct_can_share(const ct_model *m, int button, rm_choice c)
+{
+	if (c.to == RM_NONE || c.turbo || ct_says_nothing(m, c)) return false;
+	if (button < 0 || button >= RM_BUTTONS || same(m->base.b[button], c)) return false;
+	return givers(m, button, c) != 0;
+}
+
+void ct_pick_lines(const ct_model *m, int button, rm_choice c, char *a, size_t an, char *b, size_t bn)
+{
+	char said[64], now[64], with[96] = "";
+	unsigned g;
+	int i, first = -1;
+
+	if (c.to == RM_NONE) snprintf(said, sizeof said, "%s", T(S_CONTROLS_NOTHING));
+	else ctl_remap_say(m->tag, m->ext, c, said, sizeof said);
+	b[0] = '\0';
+	if (!ct_can_share(m, button, c)) {
+		snprintf(a, an, T(S_CONTROLS_PICK_GIVES), ct_button_name(button), said);
+		return;
+	}
+	g = givers(m, button, c);
+	for (i = 0; i < RM_BUTTONS; i++) {
+		if (!(g >> i & 1u)) continue;
+		if (first < 0) first = i;
+		snprintf(with + strlen(with), sizeof with - strlen(with), "%s%s", with[0] ? "/" : "", NAME[i]);
+	}
+	if (ct_says_nothing(m, m->base.b[button])) snprintf(now, sizeof now, "%s", T(S_CONTROLS_NOTHING));
+	else ctl_remap_say(m->tag, m->ext, m->base.b[button], now, sizeof now);
+	/* A: the swap, its partner taking this button's; Y: both */
+	snprintf(a, an, T(S_CONTROLS_PICK_SWAP), NAME[first], now);
+	snprintf(b, bn, T(S_CONTROLS_PICK_BOTH), ct_button_name(button), with, said);
+}
+
 bool ct_step(ct_model *m, ct_row id, int dir)
 {
 	const int bt = ct_button_of(id);
@@ -402,7 +488,7 @@ bool ct_step(ct_model *m, ct_row id, int dir)
 	int n;
 
 	if (bt < 0 || ct_dead(m, bt)) return false;
-	n = ctl_remap_choices(m->tag, m->ext, m->map, ch, 32);
+	n = ct_choices(m, bt, ch, 32);
 	if (n <= 0) return false;
 	ct_pick(m, bt, ct_next(m, ch, n, bt, dir));
 	return true;

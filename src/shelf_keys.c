@@ -78,6 +78,20 @@ static void load_ahead(app *a)
 	prime_toward(a, a->sys_cursor, a->view[a->sys_cursor].cursor);
 }
 
+/* The focused system's shelf, its covers asked for ahead of A, once the
+ * home's cursor has rested on it HOME_PRIME_REST ms, not on every step
+ * (2026-11-19: on each step the paths, file checks and MP4's cover asks of
+ * seven games ran on the frame the step was drawn on, and their uploads on
+ * the frames after, while the home showed none of them; on the Pixel 2 the
+ * home's frames stalled to 50 ms and more as the cursor crossed systems). A
+ * shelf opened sooner asks for its own covers as it draws. */
+#define HOME_PRIME_REST 400
+static void load_later(app *a)
+{
+	a->home_prime_at = (plat_now_ms() + HOME_PRIME_REST) | 1;
+	redraw_at(a->home_prime_at);
+}
+
 /* Where up (-1) or down (+1) goes on the home with the order on A to Z */
 static int home_letter_at(const app *a, int dir)
 {
@@ -98,6 +112,20 @@ void update_systems(app *a)
 	 * the first press of left or right took the launcher down with SIGFPE
 	 * the moment empty systems started being hidden. */
 	if (no_games(a)) { empty_keys(a); return; }
+	if (a->home_prime_at && (Sint32)(plat_now_ms() - a->home_prime_at) >= 0) {
+		a->home_prime_at = 0;
+		load_ahead(a);
+	}
+
+	/* START turns the home's layout on, Spotlight to Gallery to Grid and
+	 * round, as MENU > Home Screen's row does and as START turns a shelf's
+	 * View (2026-11-17). Not with MENU or SELECT held, as on the shelf:
+	 * MENU + START is the way out (tools/zyhome.c). */
+	if (a->in.pressed[IN_START] && !a->in.down[IN_MENU] && !a->in.down[IN_SELECT]) {
+		uisound_play(DS_SOUND_MOVE);
+		home_turn(a, 1);
+		return;
+	}
 
 	/* The direction is carried through, not inferred from the cursor: on a
 	 * shelf of two, moving from either card to the other is one step in BOTH
@@ -107,26 +135,56 @@ void update_systems(app *a)
 	in_button sb = IN_NONE;              /* the step's button, for its sound */
 	int dir = 0, was = a->sys_cursor;
 
-	if (in_repeat(&a->in, back)) { a->sys_cursor = (a->sys_cursor - 1 + n) % n; dir = -1; sb = back; }
-	if (in_repeat(&a->in, fwd))  { a->sys_cursor = (a->sys_cursor + 1) % n; dir = +1; sb = fwd; }
-	/* The Grid home (DESIGN.md 11.1): Up and Down a row, stopping at the top
-	 * and the foot (the edge sound), Down over a short last row onto its
-	 * last system; L1 and R1 a screenful, or to the end, then round
-	 * (gg_page, as the shelf grid's) */
-	if (a->home_layout == HOME_GRID) {
-		int cols = home_grid_cols(), page = cols * HOME_GRID_ROWS, to = a->sys_cursor;
+	/* On the Grid a held Left or Right stops at the first or the last
+	 * system with the edge sound once, as a list's does, and a new press
+	 * goes round (2026-11-19, from the home grid lab); a press goes round
+	 * on every layout */
+	bool grid = a->home_layout == HOME_GRID;
 
-		if (in_repeat(&a->in, IN_UP)) { if (to >= cols) to -= cols; sb = IN_UP; }
-		if (in_repeat(&a->in, IN_DOWN)) {
-			if (to / cols < (n - 1) / cols) to = to + cols < n ? to + cols : n - 1;
-			sb = IN_DOWN;
+	if (in_repeat(&a->in, back)) {
+		sb = back;
+		if (!grid || a->sys_cursor > 0 || a->in.pressed[back]) {
+			a->sys_cursor = (a->sys_cursor - 1 + n) % n; dir = -1;
 		}
-		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1); sb = IN_L1; }
-		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1); sb = IN_R1; }
+	}
+	if (in_repeat(&a->in, fwd)) {
+		sb = fwd;
+		if (!grid || a->sys_cursor < n - 1 || a->in.pressed[fwd]) {
+			a->sys_cursor = (a->sys_cursor + 1) % n; dir = +1;
+		}
+	}
+	/* The Grid home (DESIGN.md 11.1): Up and Down a row, to the system
+	 * nearest where the column started (Down then Up comes back), stopping
+	 * at the top and the foot (the edge sound); L1 and R1 a screenful, or to
+	 * the end, then round (gg_page, as the shelf grid's) */
+	if (grid) {
+		gh_geom g = home_grid_geom(n);
+		int page = g.cols * g.win, to = a->sys_cursor;
+
+		if (sb != IN_NONE) a->home.grid_ax = -1;
+		/* Each button read once: a repeat is true once a frame, so a
+		 * second read of a held Down was false and turned it round */
+		int d = in_repeat_axis(&a->in, IN_UP, IN_DOWN);
+
+		if (d) {
+			int step;
+
+			if (a->home.grid_ax < 0) {
+				int x, y;
+
+				gh_cell(&g, to, &x, &y);
+				a->home.grid_ax = x + g.cw / 2;
+			}
+			step = gh_row_step(&g, to, d, a->home.grid_ax);
+			if (step >= 0) to = step;
+			sb = d > 0 ? IN_DOWN : IN_UP;
+		}
+		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1); sb = IN_L1; a->home.grid_ax = -1; }
+		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1); sb = IN_R1; a->home.grid_ax = -1; }
 		if (to != a->sys_cursor) dir = to > a->sys_cursor ? 1 : -1;
 		a->sys_cursor = to;
 		if (a->sys_cursor == was) dir = 0;
-		if (dir) load_ahead(a);
+		if (dir) load_later(a);
 		if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
 		if (a->in.pressed[IN_ACCEPT]) {
 			if (is_muse(&a->sys.systems[a->sys_cursor])) muse_open(a, NULL, NULL);
@@ -142,15 +200,17 @@ void update_systems(app *a)
 	/* Up and down do the same, one group at a time: three systems by release
 	 * date, and an initial by A to Z (home_letter_jump). Built on the press,
 	 * from the names in memory - nothing is read. */
-	if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) {
-		int d = in_repeat(&a->in, IN_DOWN) ? +1 : -1;
+	int ud = in_repeat_axis(&a->in, IN_UP, IN_DOWN);
+
+	if (ud) {
+		int d = ud;
 
 		a->sys_cursor = g_order_release ? home_jump(a->sys_cursor, n, d)
 		                                : home_letter_at(a, d);
 		dir = d; sb = d > 0 ? IN_DOWN : IN_UP;
 	}
 	if (a->sys_cursor == was) dir = 0;
-	if (dir) load_ahead(a);
+	if (dir) load_later(a);
 	if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
 	/* Muse's card opens Muse, the one SELECT opens - see update_games. */
 	if (a->in.pressed[IN_ACCEPT]) {
@@ -229,23 +289,16 @@ int shelf_letter_jump(sysview *v, int dir)
 	return shelf_group_start(v, i);
 }
 
-void update_games(app *a)
+/* A shelf's cursor moved by this pass's presses, in its View: along the row
+ * of covers, the list or the grid (DESIGN.md 11.39, 11.47), with the step's
+ * sound. The direction a step took, -1 or +1, and 0 for a jump or none. The
+ * games shelf's and MP4's (src/muse_screen.c, 11.67), so MP4's shelf moves
+ * in each View exactly as a games shelf does. */
+int shelf_move(app *a, sysview *v)
 {
-	sysview *v = &a->view[a->sys_cursor];
 	int n = v->list.count;
-	if (n <= 0) { a->screen = SCREEN_SYSTEMS; return; }
-	/* MUSE HAS ONE DOOR. Its card used to open its shelf HERE, in the main
-	 * loop, as if it were a console: a second Muse beside the one SELECT
-	 * opens, so SELECT on it opened that one on top, and the two looked
-	 * alike. Eric's call, 2026-09-23: the card opens the same Muse SELECT
-	 * does. Whatever lands the main loop on Muse's shelf - A on its card, a
-	 * jump to it, a screen put back at boot - hands over to muse_open, which
-	 * comes back to the card on the systems row. */
-	if (is_muse(&a->sys.systems[a->sys_cursor])) {
-		a->screen = SCREEN_SYSTEMS;
-		muse_open(a, NULL, NULL);
-		return;
-	}
+
+	if (n <= 0) return 0;
 	/* The two axes trade roles with the shelf rather than one of them being
 	 * reassigned onto the other: stepping always runs along the row, and the
 	 * letter jump always runs across it. Turning the shelf turns the d-pad
@@ -300,6 +353,37 @@ void update_games(app *a)
 	}
 	if (sb != IN_NONE)
 		step_sound(a, sb, was, v->cursor);
+	return dir;
+}
+
+void update_games(app *a)
+{
+	sysview *v = &a->view[a->sys_cursor];
+	int n = v->list.count;
+	if (n <= 0) { a->screen = SCREEN_SYSTEMS; return; }
+	/* MUSE HAS ONE DOOR. Its card used to open its shelf HERE, in the main
+	 * loop, as if it were a console: a second Muse beside the one SELECT
+	 * opens, so SELECT on it opened that one on top, and the two looked
+	 * alike. Eric's call, 2026-09-23: the card opens the same Muse SELECT
+	 * does. Whatever lands the main loop on Muse's shelf - A on its card, a
+	 * jump to it, a screen put back at boot - hands over to muse_open, which
+	 * comes back to the card on the systems row. */
+	if (is_muse(&a->sys.systems[a->sys_cursor])) {
+		a->screen = SCREEN_SYSTEMS;
+		muse_open(a, NULL, NULL);
+		return;
+	}
+	/* The Video view's band (src/videoview.h): any press, or a button
+	 * held, brings it back up and starts its rest again, and then does
+	 * what it does */
+	if (v->video) {
+		bool any = false;
+
+		for (int b = 0; b < IN_COUNT && !any; b++) any = a->in.pressed[b] || a->in.down[b];
+		if (any) vv_touch(&v->vm, plat_now_ms());
+	}
+	int dir = shelf_move(a, v);
+
 	/* HERE, AND NOT AT THE END OF THE PASS, because four of the handlers below
 	 * return without reaching the end.
 	 *

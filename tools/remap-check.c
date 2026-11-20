@@ -122,6 +122,73 @@ static void none_warns(void)
 	report(ok && n == 1 && targets[0] == RT_Y, "none_warns");
 }
 
+/* Stick On/Off and Stick While Held: `stick` and `stickhold` in the map,
+ * never a turbo, a swap as a game button's, and no game button to lose */
+static void stick_choices(void)
+{
+	rm_table def, t;
+	int targets[RT_COUNT], n;
+	char out[100];
+	bool ok;
+
+	t = parsed("r2:stick,l2:stickhold");
+	ok = t.b[RM_R2].to == RM_STICK_TOGGLE && t.b[RM_L2].to == RM_STICK_HOLD && rm_has_stick(&t);
+	rm_format(&t, out, sizeof out);
+	ok = ok && !strcmp(out, "l2:stickhold,r2:stick");
+	ok = ok && !rm_parse("r2:stick~3", &t) && !rm_parse("r2:stickhold~3", &t) && !rm_parse("r2:sticks", &t);
+	rm_identity(&t);
+	ok = ok && !rm_has_stick(&t);
+	/* given to Y while R2 has it: R2 takes Y's, one button turns the stick */
+	def = parsed("r2:stick");
+	rm_set(&t, &def, RM_Y, (rm_choice){ RM_STICK_TOGGLE, 0 });
+	ok = ok && t.b[RM_Y].to == RM_STICK_TOGGLE && t.b[RM_R2].to == RT_Y;
+	/* R2 given Nothing loses no game button: the stick is none of the game's */
+	rm_set(&t, &def, RM_R2, (rm_choice){ RM_NONE, 0 });
+	n = rm_unreached(&def, &t, targets, RT_COUNT);
+	ok = ok && n == 0;
+	/* and kept as pairs over the default, read back */
+	rm_set(&t, &def, RM_L2, (rm_choice){ RM_STICK_HOLD, 0 });
+	rm_store(&def, &t, out, sizeof out);
+	ok = ok && !strcmp(out, "1;l2:stickhold");
+	report(ok && rm_load(&def, out, &t) && t.b[RM_L2].to == RM_STICK_HOLD && t.b[RM_R2].to == RM_STICK_TOGGLE,
+	       "stick_choices");
+}
+
+/* Two buttons on one game button (issue #305): rm_share gives a button a
+ * target with no swap, a step off a shared row swaps as ever, and a game
+ * button no button gives still warns */
+static void share_rules(void)
+{
+	rm_table def, t, u;
+	int targets[RT_COUNT], n;
+	char out[100];
+	bool ok;
+
+	rm_identity(&def);
+	/* Y given B as well: both give B, and Y's own Y has no button now */
+	rm_share(&t, &def, RM_Y, (rm_choice){ RT_B, 0 });
+	ok = t.b[RM_Y].to == RT_B && t.b[RM_B].to == RT_B;
+	n = rm_unreached(&def, &t, targets, RT_COUNT);
+	ok = ok && n == 1 && targets[0] == RT_Y;
+	/* kept as the pair it is, and read back */
+	rm_store(&def, &t, out, sizeof out);
+	ok = ok && !strcmp(out, "1;y:b") && rm_load(&def, out, &u) && rm_equal(&t, &u);
+	/* X given A as well, the issue's own: A+X give A, B+Y give B */
+	rm_share(&t, &t, RM_X, (rm_choice){ RT_A, 0 });
+	ok = ok && t.b[RM_X].to == RT_A && t.b[RM_A].to == RT_A && t.b[RM_B].to == RT_B;
+	/* the shared row unshared: B steps to X, and A, which gives... nothing
+	 * gives X now but the swap's partner: X (the handheld's) keeps A, and
+	 * the swap finds no one with X, so B gives X alone */
+	rm_set(&u, &t, RM_B, (rm_choice){ RT_X, 0 });
+	ok = ok && u.b[RM_B].to == RT_X && u.b[RM_Y].to == RT_B;
+	/* a swap from a shared row hands its old value to the other button,
+	 * which then shares it: Y (B, shared with B) given A swaps with A, so A
+	 * gives B beside the B button */
+	rm_set(&u, &t, RM_Y, (rm_choice){ RT_A, 0 });
+	ok = ok && u.b[RM_Y].to == RT_A && u.b[RM_A].to == RT_B && u.b[RM_B].to == RT_B;
+	report(ok, "share_rules");
+}
+
 static void store_equal_is_empty(void)
 {
 	rm_table def = parsed(DC_MAP);
@@ -471,19 +538,27 @@ static void run_stick_keys(void)
 	char k[32];
 	bool ok;
 
-	rms_run_stick(&dc, true, k, sizeof k);
+	rms_run_stick(&dc, true, false, k, sizeof k);
 	ok = !strcmp(k, "stick=dpad");
-	rms_run_stick(&ps1, true, k, sizeof k);
+	rms_run_stick(&ps1, true, false, k, sizeof k);
 	ok = ok && !strcmp(k, "stick=plain");
-	rms_run_stick(&psp, true, k, sizeof k);
+	rms_run_stick(&psp, true, true, k, sizeof k);
 	ok = ok && !strcmp(k, "stick=toggle-stick");
-	/* the PSP with the d-pad as the d-pad still has R2's turn */
-	rms_run_stick(&psp, false, k, sizeof k);
+	/* the PSP with the d-pad as the d-pad still has its R2's turn */
+	rms_run_stick(&psp, false, true, k, sizeof k);
 	ok = ok && !strcmp(k, "stick=toggle");
-	rms_run_stick(&n64, false, k, sizeof k);
+	rms_run_stick(&n64, false, false, k, sizeof k);
 	ok = ok && k[0] == '\0';
-	rms_run_stick(&dc, false, k, sizeof k);
-	report(ok && k[0] == '\0', "run_stick_keys");
+	rms_run_stick(&dc, false, false, k, sizeof k);
+	ok = ok && k[0] == '\0';
+	/* a stick that is off, with a button that turns it: the d-pad's side */
+	rms_run_stick(&n64, false, true, k, sizeof k);
+	ok = ok && !strcmp(k, "stick=dpad-pad");
+	rms_run_stick(&ps1, false, true, k, sizeof k);
+	ok = ok && !strcmp(k, "stick=plain-pad");
+	/* and one that is on is as before, a button or not */
+	rms_run_stick(&n64, true, true, k, sizeof k);
+	report(ok && !strcmp(k, "stick=dpad"), "run_stick_keys");
 }
 
 static void select_rule_keeps_default(void)
@@ -635,10 +710,17 @@ static void systems_stick_lines(void)
 		if (!strcmp(s->tag, "PS1")) ps1 = s;
 		if (!strcmp(s->tag, "PSP")) psp = s;
 	}
-	report(n64 && dc && ps1 && psp &&
-	       rms_stick_default(n64) && !rms_stick_default(dc) && !rms_stick_default(ps1) &&
-	       !rms_stick_default(psp) && rms_stick_offered(psp) &&
-	       !strcmp(dc->stick, "dpad") && !strcmp(ps1->stick, "plain"), "systems_stick_lines");
+	{
+		rm_table pspd;
+
+		/* the PSP's R2 is Stick On/Off by default (map|PSP|r2:stick) */
+		if (psp) rms_default(psp, &pspd);
+		report(n64 && dc && ps1 && psp &&
+		       rms_stick_default(n64) && !rms_stick_default(dc) && !rms_stick_default(ps1) &&
+		       !rms_stick_default(psp) && rms_stick_offered(psp) &&
+		       !strcmp(dc->stick, "dpad") && !strcmp(ps1->stick, "plain") &&
+		       pspd.b[RM_R2].to == RM_STICK_TOGGLE && rm_has_stick(&pspd), "systems_stick_lines");
+	}
 }
 
 static int store_checks(void)
@@ -681,6 +763,8 @@ int main(void)
 	turbo_never_swaps();
 	steps_do_not_pile();
 	none_warns();
+	stick_choices();
+	share_rules();
 	store_equal_is_empty();
 	store_load_roundtrip();
 	stored_bad_version_falls_back();

@@ -73,8 +73,10 @@ public struct Rumble: Equatable {
     }
 }
 
-/// The Pixel 2's buttons, by px2-input's and px2sim's names
+/// A handheld's buttons, by px2-input's and px2sim's names; brightdown and
+/// brightup are the keys of a handheld that has them (the Brick's F1 and
+/// F2), none on the Pixel 2
 public enum PadButton: String, CaseIterable, Codable {
     case up, down, left, right, a, b, x, y, l1, r1, l2, r2, select, start, menu
-    case volup, voldown, power
+    case volup, voldown, power, brightdown, brightup
 }

@@ -10,25 +10,6 @@
 # about: no shot draws it yet
 about.no_address_yet
 about.battery_charging
-about.health_estimate
-about.thanks_handhelds  # About > Thanks: the heading over the people who help with other handhelds, drawn only once src/about_screen.c's ABOUT_HANDHELD_THANKS has a row; none yet
-
-# art: no shot draws it yet
-art.now_catalog
-art.now_no_art
-art.now_checksums
-art.why_no_folder
-art.why_not_in_table
-art.why_no_curl
-art.why_index_failed
-art.why_index_bad
-art.ss_quota
-art.ss_too_many
-art.ss_busy
-art.ss_no_answer
-art.sg_refused
-art.sg_busy
-art.sg_no_answer
 
 # audio: no shot draws it yet
 audio.wired
@@ -84,13 +65,7 @@ charging.to_full_almost
 charging.to_full_h
 
 # cheevolist: no shot draws it yet
-cheevolist.no_description
-cheevolist.points
-cheevolist.status
-cheevolist.earned
-cheevolist.not_earned
 cheevolist.unlocked
-cheevolist.earned_waiting
 
 # cheevos: no shot draws it yet
 cheevos.to_earn
@@ -100,34 +75,12 @@ cheevos.unlocked
 cheevos.progress
 cheevos.ra_user
 
-# clock: no shot draws it yet
-clock.month_jan
-clock.month_feb
-clock.month_mar
-clock.month_apr
-clock.month_may
-clock.month_jun
-clock.month_jul
-clock.month_aug
-clock.month_sep
-clock.month_nov
-clock.month_dec
-clock.short_jan
-clock.short_feb
-clock.short_mar
-clock.short_apr
-clock.short_may
-clock.short_jun
-clock.short_jul
-clock.short_aug
-clock.short_sep
-clock.short_oct
-clock.short_nov
-clock.short_dec
-clock.am
-clock.pm
-
 # controls: no shot draws it yet
+controls.key.left_right  # drawn as the d-pad's glyph, its left and right arms, on every Controls page (ctl_glyph_rows, DESIGN.md 11.9); the word is the row's data, which check-controls reads
+controls.key.up_down  # drawn as the d-pad's glyph, its up and down arms, as controls.key.left_right
+controls.key.dpad  # drawn as the whole d-pad's glyph, as controls.key.left_right
+controls.select_dpad  # drawn as SELECT's and the d-pad's glyphs, as controls.key.left_right
+controls.key.volume  # drawn as the volume keys' rocker glyph, as controls.key.left_right
 controls.show_keypad
 controls.disk_side
 controls.eject_disk
@@ -172,7 +125,6 @@ gamemenu.delete_outside
 gamemenu.delete_runtime
 gamemenu.delete_port_unknown
 gamemenu.delete_bios
-gamemenu.rename_invalid
 gamemenu.rename_taken
 gamemenu.rename_failed
 gamemenu.rename_partly
@@ -280,15 +232,14 @@ launch.bios_bytes.other  # a piece of launch.bios_size's line
 launch.couldnt_start
 launch.game_empty  # wrapped onto balanced lines, as launch.bios_size
 launch.game_short  # wrapped onto balanced lines, as launch.bios_size
+launch.core_machine  # wrapped onto balanced lines, as launch.bios_size
+launch.core_library  # wrapped onto balanced lines, as launch.bios_size
+launch.core_version  # wrapped onto balanced lines, as launch.bios_size
+launch.core_symbol  # wrapped onto balanced lines, as launch.bios_size
+launch.core_failed  # wrapped onto balanced lines, as launch.bios_size
 
 # library: no shot draws it yet
 library.scanning
-
-# lights: no shot draws it yet
-lights.bar
-lights.low
-lights.level
-lights.done
 
 # lowbatt: no shot draws it yet
 lowbatt.charging
@@ -305,6 +256,7 @@ muse.hint_chapter
 muse.row_playing
 muse.row_paused
 muse.paused_note
+muse.art_starting  # Album Art's line before the first album is asked about, and no shot draws a run that has not begun; it was counted before only because the Phones row's "starting" had the same words, which row values now begin with a capital
 muse.art_all_crisp
 muse.art_albums
 muse.art_counts
@@ -332,12 +284,8 @@ playtime.lost.one
 playtime.lost.other
 
 # portload: no shot draws it yet
-portload.starting_a_minute
-portload.starting
-portload.a_minute
-portload.still_go_back
-portload.still
-portload.go_back
+portload.starting_a_minute  # the start's line on one line, drawn only where it fits the column, which it does in no language; portload draws its two sentences
+portload.still_go_back  # the line after a minute on one line, which never fits the column; portload-later draws its two sentences
 
 # portmaster: no shot draws it yet
 portmaster.err_internal
@@ -388,24 +336,6 @@ shelf.albums.one
 shelf.books.one
 shelf.list_sep
 
-# slots: no shot draws it yet
-slots.save_to
-slots.empty
-slots.am
-slots.pm
-slots.jan
-slots.feb
-slots.mar
-slots.apr
-slots.may
-slots.jun
-slots.jul
-slots.aug
-slots.sep
-slots.oct
-slots.nov
-slots.dec
-
 # snaps: no shot draws it yet
 snaps.delete_ask
 snaps.given_back
@@ -432,6 +362,7 @@ ssh.locked
 
 # stats: no shot draws it yet
 stats.all_time
+stats.never  # a time or a last-played day for a game never played, inside Play Time's line and Storage's captions, and no shot's game is unplayed there; it was counted before only because Auto Off's "never" had the same words, which row values now begin with a capital
 stats.this_year
 stats.this_month
 stats.this_week
@@ -460,9 +391,6 @@ sysmenu.wifi_connecting
 sysmenu.hotspot
 sysmenu.charge_limit
 sysmenu.dslang
-sysmenu.dsslow
-sysmenu.dsslow_keep
-sysmenu.dsslow_steady
 sysmenu.muse_books
 sysmenu.muse_albums
 sysmenu.muse_author
@@ -600,3 +528,41 @@ xfer.scanning
 xfer.key_removed
 xfer.err_memory
 xfer.err_could_not_say
+
+# downloads: the questions and messages over the page, asked live (dl_screen.c's panels)
+downloads.sign_out_ask
+downloads.sign_out_body
+downloads.cover_where
+downloads.names_stay
+downloads.delete_videos_ask
+downloads.delete_videos_body
+downloads.delete_sys_videos_ask
+downloads.delete_sets_ask
+downloads.delete_sys_sets_ask
+downloads.delete_sets_body
+downloads.key_delete
+
+# downloads: Zyper's bubble on the shelf after a download that ended behind the screens
+downloads.done_news
+downloads.n_covers.one
+downloads.n_covers.other
+downloads.n_sets.one
+downloads.n_sets.other
+downloads.n_videos.one
+downloads.n_videos.other
+downloads.n_names.one
+downloads.n_names.other
+
+# downloads: a game's panel while its file comes, and a game, a tile or a row in a state no fixture has
+downloads.getting
+downloads.none
+downloads.none_yet
+downloads.all_off
+downloads.has_names
+downloads.w_video
+downloads.no_achievements
+downloads.from_ra
+downloads.for_on_n.one
+downloads.for_on_n.other
+downloads.names_requests.one
+downloads.n_games.one

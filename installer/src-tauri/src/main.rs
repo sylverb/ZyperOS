@@ -11,6 +11,7 @@ mod closed;
 mod device;
 mod image;
 mod install;
+mod pico8;
 mod release;
 mod selfupdate;
 mod writer;
@@ -336,6 +337,38 @@ async fn pick_image(app: AppHandle) -> Result<Option<LocalImage>, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// The player's PICO-8 zip, from a path the page has: one dropped on the
+/// window. Reads it, never keeps it.
+#[tauri::command]
+async fn check_pico8(path: String) -> Result<pico8::Chosen, String> {
+    tauri::async_runtime::spawn_blocking(move || pico8::look(Path::new(&path)))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The system's own file chooser, for the player's PICO-8 zip: its path,
+/// for check_pico8 next (the page says "Checking the zip" meanwhile). None
+/// when it is closed without one.
+#[tauri::command]
+async fn pick_pico8(app: AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || {
+        let picked = app
+            .dialog()
+            .file()
+            .set_title("Choose your PICO-8 for Raspberry Pi zip")
+            .add_filter("PICO-8 for Raspberry Pi", &["zip"])
+            .blocking_pick_file();
+        match picked.map(|p| p.into_path()) {
+            None => Ok(None),
+            Some(Ok(path)) => Ok(Some(path.to_string_lossy().into_owned())),
+            Some(Err(e)) => Err(format!("Opening that file: {e}")),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// A card image to use instead of downloading one, for trying out a build
 /// before it is published: ZYPEROS_BRICK_IMAGE for the Brick,
 /// ZYPEROS_SMARTPRO_IMAGE for the Smart Pro, ZYPEROS_IMAGE for the Pixel. Its
@@ -434,11 +467,24 @@ fn device_name(d: cards::Device) -> &'static str {
     }
 }
 
+/// What the PICO-8 row says when the card's games partition can't be
+/// copied to
+const NOT_MOUNTED: &str = "The card's ZYPEROS volume is not mounted.";
+
+/// Where a started card's PICO-8 goes: its mounted games partition
+fn games_volume(card: &cards::Card) -> Result<PathBuf, String> {
+    card.volume.as_ref().map(PathBuf::from).ok_or_else(|| format!("{NOT_MOUNTED} Nothing was written."))
+}
+
 /// The write, once the card is found again: it must still be there, the
 /// size the player confirmed, and an update must be onto that device's
-/// system. For the Brick its closed files come first (closed.rs), into
-/// `cache`, so a failed download writes nothing; then the image; a download
-/// is removed after, with its folder.
+/// system. The player's PICO-8 zip is checked first, so a zip that changed
+/// writes nothing. For the Brick its closed files come next (closed.rs),
+/// into `cache`, so a failed download writes nothing; then the image, with
+/// PICO-8 copied to a started card's games partition just before it (the
+/// system write unmounts it), or riding along in the image's boot partition
+/// for a card that never started, as every fresh install is; a download is
+/// removed after, with its folder.
 #[allow(clippy::too_many_arguments)]
 fn write(
     card_id: &str,
@@ -446,6 +492,7 @@ fn write(
     device: cards::Device,
     action: install::Action,
     local: Option<PathBuf>,
+    zip: Option<PathBuf>,
     cache: Option<&Path>,
     progress: &mut dyn FnMut(writer::Progress),
     cancel: &AtomicBool,
@@ -453,6 +500,13 @@ fn write(
     let card = find(card_id, card_size)?;
     if action == install::Action::Update && card.device != Some(device) {
         return Err(format!("This card doesn't have ZyperOS for {} on it to update.", device_name(device)));
+    }
+    let p8 = zip.as_deref().map(pico8::load).transpose()?;
+    // A started card being updated keeps its games partition: PICO-8 goes
+    // there. Everything else is a card whose first start is still to come
+    let into_volume = p8.is_some() && action == install::Action::Update && card.started;
+    if into_volume {
+        games_volume(&card)?;
     }
     let closed = if device.on_brick_system() {
         let cancelled = || cancel.load(Ordering::Relaxed);
@@ -471,12 +525,21 @@ fn write(
     let (path, folder) = source(device, local, progress, cancel)?;
     // Found again after the download, which can take minutes: still there,
     // still the same card
-    let result = find(card_id, card_size).and_then(|_| {
+    let result = find(card_id, card_size).and_then(|card| {
         let action = match action {
             install::Action::Update if device.on_brick_system() => install::Action::BrickUpdate,
             a => a,
         };
-        install::run(card_id, action, &path, card_size, &closed, progress, cancel)
+        let cancelled = || cancel.load(Ordering::Relaxed);
+        let rides = match &p8 {
+            Some(p) if into_volume => {
+                pico8::copy_to(&games_volume(&card)?, p, progress, &cancelled)?;
+                None
+            }
+            Some(_) => zip.as_deref(),
+            None => None,
+        };
+        install::run(card_id, action, &path, card_size, &closed, rides, progress, cancel)
     });
     if let Some(dir) = folder {
         let _ = std::fs::remove_dir_all(dir);
@@ -484,19 +547,53 @@ fn write(
     result
 }
 
+/// Add PICO-8: the player's PICO-8 into Bios/PICO-8 on a started card's
+/// mounted games partition, and nothing else. No system is written, so no
+/// disk is opened and no password asked.
+fn add_pico8(
+    card_id: &str,
+    card_size: u64,
+    zip: &Path,
+    progress: &mut dyn FnMut(writer::Progress),
+    cancel: &AtomicBool,
+) -> Result<(), String> {
+    let card = find(card_id, card_size)?;
+    if card.device.is_none() || !card.started {
+        return Err("This card has no ZYPEROS volume for PICO-8 to go in yet. Nothing was written.".into());
+    }
+    let volume = games_volume(&card)?;
+    let p8 = pico8::load(zip)?;
+    pico8::copy_to(&volume, &p8, progress, &|| cancel.load(Ordering::Relaxed))
+}
+
+/// What start does: a write (update, fresh), or Add PICO-8 alone
+#[derive(Clone, Copy, PartialEq)]
+enum Job {
+    Write(install::Action),
+    AddPico8,
+}
+
 /// Starts a job; progress and the end arrive as "progress" and "finished"
-/// events. `action` is update or fresh; `size` is the card's size as the
-/// player confirmed it; `image` a local card image, or none to download the
-/// latest release.
+/// events. `action` is update, fresh or pico8 (Add PICO-8); `size` is the
+/// card's size as the player confirmed it; `image` a local card image, or
+/// none to download the latest release; `pico8` the player's PICO-8 zip, to
+/// go on the card too (Add PICO-8's own).
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 fn start(app: AppHandle, running: State<Running>, card: String, size: u64, device: String, action: String,
-         image: Option<String>) -> Result<(), String> {
+         image: Option<String>, pico8: Option<String>) -> Result<(), String> {
+    let zip = pico8;
     let device = cards::Device::from_id(&device).ok_or("Unknown device")?;
-    let action = match install::Action::parse(&action) {
-        Some(a @ (install::Action::Update | install::Action::Fresh)) => a,
+    let job = match (action.as_str(), install::Action::parse(&action)) {
+        ("pico8", _) => Job::AddPico8,
+        (_, Some(a @ (install::Action::Update | install::Action::Fresh))) => Job::Write(a),
         _ => return Err("Unknown action".into()),
     };
     let local = image.filter(|p| !p.is_empty()).map(PathBuf::from);
+    let zip = zip.filter(|p| !p.is_empty()).map(PathBuf::from);
+    if job == Job::AddPico8 && zip.is_none() {
+        return Err("Choose your PICO-8 zip first.".into());
+    }
     let cancel = Arc::new(AtomicBool::new(false));
     {
         let mut slot = running.0.lock().unwrap();
@@ -519,6 +616,8 @@ fn start(app: AppHandle, running: State<Running>, card: String, size: u64, devic
                 writer::Progress::Fetching { done, total } => ("fetching", done, total),
                 writer::Progress::Writing { done, total } => ("writing", done, total),
                 writer::Progress::Checking { done, total } => ("checking", done, total),
+                writer::Progress::Pico8 { done, total } => ("pico8", done, total),
+                writer::Progress::Pico8Check { done, total } => ("pico8check", done, total),
             };
             // A new phase always gets through: the screen tells a stop before
             // anything was written from one after
@@ -534,7 +633,11 @@ fn start(app: AppHandle, running: State<Running>, card: String, size: u64, devic
         // own cache folder, so a second card needs no download; never a
         // shared one
         let cache = app.path().app_cache_dir().ok();
-        let result = write(&card, size, device, action, local, cache.as_deref(), &mut progress, &cancel);
+        let result = match (job, &zip) {
+            (Job::AddPico8, Some(zip)) => add_pico8(&card, size, zip, &mut progress, &cancel),
+            (Job::Write(action), _) => write(&card, size, device, action, local, zip, cache.as_deref(), &mut progress, &cancel),
+            (Job::AddPico8, None) => Err("Choose your PICO-8 zip first.".into()),
+        };
         // A card that finished well is ejected, ready to take out; one that
         // didn't stays, to be written again
         let eject = result.is_ok().then(|| {
@@ -601,7 +704,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![list_cards, latest_zyperos, installer_update, download_update,
                                                  restart_to_update, open_installer_releases, check_image, pick_image,
-                                                 start, cancel])
+                                                 check_pico8, pick_pico8, start, cancel])
         .run(tauri::generate_context!())
         .expect("ZyperOS Installer could not start");
 }

@@ -157,6 +157,44 @@ with ThreadPoolExecutor(4) as pool:
 assert sum(n for _, n, _ in swept) >= 300, 'too few animation tiles found in systemart_data.h'
 assert not any(fell for _, _, fell in swept), \
     'whole frames, not focus frames, for ' + ', '.join(t for t, _, fell in swept if fell)
+# The same under every Highlight (src/ds/focus.h, DESIGN.md 11.47): Border's
+# ring round the row's focused still, Lift's raised still and its shadow,
+# None's step back of the others. A focus frame drew the row's sprites plain
+# over a ground cut to their old rects, so on the machines whose frames reach
+# the row the ring lost a corner, the lifted still dropped and lost its
+# shadow, and the stepped-back stills lit up, a frame each (2026-11-19, on
+# the 1.1.0 test build: "glitching on spotlight view mode"). Bar is the
+# sweep above. Machines whose frames reach the row, two poses each.
+import sqlite3
+def highlight(f):
+    tag = f[4]
+    base, envs = fixture(f'focus-hl-{tag}', {g[4] for g in ALL})
+    (base/'root/.last').write_text(tag+'\n')
+    out = []
+    def one(name, *args):
+        file = base/(name+'.png')
+        r = subprocess.run([str(BIN),'--shot',str(file),'--screen','systems','--status',STATUS,
+                            '--home','spotlight',*args],env=envs,cwd=ROOT,capture_output=True,text=True)
+        assert r.returncode == 0, (tag, args, r.stderr[-1500:])
+        return Image.open(file).convert('RGBA'), r.stderr
+    one('first')
+    for style in ('border','lift','none'):
+        db = sqlite3.connect(str(base/'userdata/zyperos.db'))
+        db.execute("insert or replace into settings(key,value) values('look.focus',?)", (style,))
+        db.commit(); db.close()
+        for theme in ('light','dark'):
+            for ph in tile_phases(tag)[1:3]:
+                whole, _ = one(f'{style}-{theme}-whole-{ph}','--theme',theme,'--phase',str(ph))
+                part, said = one(f'{style}-{theme}-part-{ph}','--theme',theme,'--phase',str(ph),'--focus-from','0')
+                if not same(whole,part): out.append(f'{tag} {style} {theme} {ph} ms: the focus frame is not the whole frame')
+                if 'focus: not for this sprite' in said: out.append(f'{tag} {style} {theme} {ph} ms: a whole frame')
+    shutil.rmtree(base)
+    return out
+REACH = [f for f in ALL if f[4] in ('NDS','NAOMI','AW','PICO8')]
+assert len(REACH) == 4, 'a machine whose frames reach the row is gone from systems.cfg'
+with ThreadPoolExecutor(4) as pool:
+    wrong = [w for ws in pool.map(highlight, REACH) for w in ws]
+assert not wrong, 'Highlight on Spotlight: ' + '; '.join(wrong)
 # Zyper's song pop-up (DESIGN.md 11.22): under the header, its slab inside the
 # standard panel's 800 centered, nothing it draws above y 40 and only the
 # panel's faint shadow in the header row; nothing at its first instant, nor
@@ -196,9 +234,12 @@ assert same(saved,Image.open(OUT/'gallery-light.png').convert('RGBA'))
 shot(env,'setting-spotlight','--menu','Home Screen','--press','left','--theme','light')
 saved=shot(env,'restored-spotlight','--theme','light')
 assert same(saved,Image.open(OUT/'spotlight-light.png').convert('RGBA'))
-# Appearance still offers Auto through the real row handler.
-shot(env,'setting-auto','--menu','Appearance','--press','left')
-assert re.search(r'^\s+appearance\s+Auto$',run(env,'--dump'),re.M|re.I)
+# Appearance is Light or Dark through the real row handler (1.0.6: Auto
+# went, its hours became Night Mode's): Left turns it over, and over again.
+shot(env,'setting-dark','--menu','Appearance','--press','left')
+assert re.search(r'^\s+appearance\s+dark$',run(env,'--dump'),re.M|re.I)
+shot(env,'setting-light','--menu','Appearance','--press','left')
+assert re.search(r'^\s+appearance\s+light$',run(env,'--dump'),re.M|re.I)
 # MENU > Battery Icon: Percentage writes the charge left of the mark and
 # changes nothing else; the real row handler saves it and Bars comes back.
 shot(env,'setting-battery','--menu','Battery Icon','--press','right','--theme','light')
@@ -311,5 +352,5 @@ result=subprocess.run([str(BIN),'--home','vertical'],env=env,capture_output=True
 assert result.returncode==2
 result=subprocess.run([str(BIN),'--home'],env=env,capture_output=True)
 assert result.returncode==2
-print('ok: native home shots, settings persistence, appearance, music header, song pop-up, theme flips, focus frames, small libraries, missing/corrupt art')
+print('ok: native home shots, settings persistence, appearance, music header, song pop-up, theme flips, focus frames (every Highlight), small libraries, missing/corrupt art')
 print(OUT)

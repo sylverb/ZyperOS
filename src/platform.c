@@ -239,6 +239,15 @@ unsigned plat_power_wait(unsigned ms)
 	return left >= 0 && (unsigned)left < ms ? (unsigned)left : ms;
 }
 
+static unsigned (*g_wait_hook)(unsigned ms);
+
+void plat_on_input_wait(unsigned (*hook)(unsigned ms)) { g_wait_hook = hook; }
+
+unsigned plat_input_wait_hook(unsigned ms)
+{
+	return g_wait_hook ? g_wait_hook(ms) : ms;
+}
+
 void plat_set_btn(in_state *st, in_button b, bool down)
 {
 	if (b == IN_NONE) return;
@@ -281,6 +290,13 @@ bool in_repeat(in_state *st, in_button b)
 	if (now - st->last_repeat[b] < REPEAT_RATE_MS) return false;
 	st->last_repeat[b] = now;
 	return true;
+}
+
+int in_repeat_axis(in_state *st, in_button neg, in_button pos)
+{
+	bool n = in_repeat(st, neg), p = in_repeat(st, pos);
+
+	return p ? 1 : n ? -1 : 0;
 }
 
 /* Whether the last game ended because the player hit power rather than because
@@ -426,15 +442,28 @@ bool plat_spawn_detached(char *const argv[], const char *const envkv[],
 	return plat_spawn_detached_pid(argv, envkv, workdir) > 0;
 }
 
+const char *plat_flag(const char *path)
+{
+	static char buf[4][512];
+	static unsigned n;
+	const char *dir = getenv("ZYPEROS_FLAG_DIR"), *base = strrchr(path, '/');
+	char *b;
+
+	if (!dir || !*dir) return path;
+	b = buf[n++ % 4];
+	snprintf(b, sizeof buf[0], "%s/%s", dir, base ? base + 1 : path);
+	return b;
+}
+
 void plat_request_poweroff(void)
 {
-	FILE *f = fopen(ZYPEROS_POWEROFF_FLAG, "w");
+	FILE *f = fopen(plat_flag(ZYPEROS_POWEROFF_FLAG), "w");
 	if (f) fclose(f);
 }
 
 void plat_request_reboot(void)
 {
-	FILE *f = fopen(ZYPEROS_REBOOT_FLAG, "w");
+	FILE *f = fopen(plat_flag(ZYPEROS_REBOOT_FLAG), "w");
 	if (f) fclose(f);
 }
 

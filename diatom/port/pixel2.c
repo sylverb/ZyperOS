@@ -95,186 +95,20 @@ static bool                g_have_master;
  * after another program had the display. */
 static int                 g_gamma_want = -1;
 static int                 g_gamma_have = -2;
+/* The player's Screen Colors, as the launcher left them in
+ * PANELGAMMA_COLOR_FILE: read again each time the display comes back
+ * (g_gamma_have -2), since they change only in the launcher's MENU. And
+ * Night Mode's warmth and nights there: the clock looked at once a second,
+ * and the table loaded at a night's start and end (g_gamma_color.night). */
+static panelgamma_color    g_gamma_color;
+static panelgamma_night    g_gamma_night;
+static time_t              g_night_looked;
 
-static EGLDisplay g_egl_display = EGL_NO_DISPLAY;
-static EGLContext g_egl_context = EGL_NO_CONTEXT;
-static EGLSurface g_egl_surface = EGL_NO_SURFACE;
-static EGLConfig  g_egl_config;
+/* The port's name, as the shared GL code's log lines start with it
+ * (port/gles_state.h, port/gles_draw.h) */
+#define PORT_NAME "pixel2"
 
-/* The panel in its own terms, and the surface as the host sees it. On this
- * device the panel is 480x640 and the surface 640x480; g_turned says the two
- * differ. */
-static int  g_panel_w, g_panel_h;
-static int  g_surface_w, g_surface_h;
-static bool g_turned;
-
-/* Frames handed over by present(). Three, with the Brick's roles: front is
- * the last one drawn (kept for a capture), inflight is being drawn now,
- * pending is published and waiting. present() writes into whichever holds no
- * role and steals pending when all three are taken. Latest wins. */
-#define MAILBOX_FRAMES 3
-typedef struct {
-	uint8_t      *pixels;
-	size_t        cap;
-	int           w, h;
-	size_t        pitch;
-	diatom_pixfmt fmt;
-	diatom_rect   dst;
-	diatom_filter filter;
-	int           strength;     /* diatom_port_strength's when presented, percent */
-	/* The planes in force when this frame was presented, so a layout change
-	 * and the frame it was made for reach the panel together. */
-	diatom_plane  planes[DIATOM_PLANES_MAX];
-	int           nplanes;
-	/* A GPU frame (present_gpu) is no pixels at all: the slot's texture,
-	 * which the core drew into on its own context, tex_w x tex_h with the
-	 * frame at its bottom-left, and the fence that says the drawing is done.
-	 * The thread waits on the fence before it samples. */
-	bool          gpu;
-	bool          top_down;     /* a GPU frame drawn first row at the top */
-	GLuint        gpu_tex;
-	int           tex_w, tex_h;
-	EGLSyncKHR    fence;
-	unsigned      seq;          /* present_gpu's count, for the turn-taking */
-} mailbox_frame;
-
-static mailbox_frame    g_frames[MAILBOX_FRAMES];
-static pthread_t        g_thread;
-static pthread_mutex_t  g_mx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t   g_cv = PTHREAD_COND_INITIALIZER;     /* work for the thread */
-static pthread_cond_t   g_idle = PTHREAD_COND_INITIALIZER;   /* the thread went idle */
-static int              g_front = -1, g_inflight = -1, g_pending = -1;
-static bool             g_thread_running, g_thread_stop;
-static bool             g_want_blank;       /* present_stop(BLANK) asked for black */
-static bool             g_blanking;
-static const char      *g_capture_path;     /* a capture asked for, and its answer */
-static bool             g_capture_ok;
-static bool             g_presented;        /* anything presented since the last stop */
-
-/* Startup handshake: the EGL context belongs to the thread, so the thread
- * builds it and init waits to hear whether that worked. */
-static int              g_thread_ready;     /* 0 waiting, 1 ok, -1 failed */
-
-static bool g_present_debug;
-
-/* GL objects, all owned by the thread. */
-static GLuint g_prog_plain, g_prog_solid;
-/* The final pass's program for each filter but nearest (g_prog_plain),
- * linked the first time a frame asks for it (filter_prog); 0 until then, and
- * after a link that failed, which g_prog_failed keeps from being tried every
- * frame. */
-static GLuint g_prog_filter[DIATOM_FILTER_COUNT];
-static bool   g_prog_failed[DIATOM_FILTER_COUNT];
-/* The same for an old screen drawn under 100% strength (diatom_port_strength):
- * its program with a u_strength, linked the first time a frame asks for it,
- * so a frame at 100% draws with the program above and nothing more. */
-static GLuint g_prog_soft[DIATOM_FILTER_COUNT];
-static bool   g_soft_failed[DIATOM_FILTER_COUNT];
-static GLuint g_frame_tex, g_overlay_tex, g_osdbar_tex, g_hud_tex;
-static int    g_tex_w = -1, g_tex_h = -1;
-static diatom_pixfmt g_tex_fmt;
-
-/* ---------- GPU frames ------------------------------------------------------- */
-
-/* A core that draws with the GPU (diatom_port_gpu_begin) gets a context of its
- * own on the host's thread, sharing textures with the thread's, and one
- * texture per mailbox slot: slot i draws into texture g_gpu_tex[i], so a GPU
- * frame takes the same roles a pixel frame does (front, inflight, pending),
- * and the texture of a slot holding a role is never drawn into.
- *
- * ONE framebuffer for all of them, its texture swapped under it as the slots
- * turn. A core may read the framebuffer's name once and keep it: libretro's
- * GL state manager (glsm, which flycast2021 uses) takes it at context_reset
- * and binds that name every frame after. With a framebuffer per slot that
- * core drew every frame into slot 0's and the panel showed the others, black
- * (2026-11-04). Framebuffers are the core context's own; only the textures
- * are shared.
- *
- * Two fences keep the two contexts apart. present_gpu leaves one after the
- * core's drawing, which the thread waits on before sampling (the frame's
- * `fence`); the thread leaves one after sampling (g_gpu_done), which
- * gpu_target waits on before the core draws into that texture again. By then
- * it has nearly always passed: the slot was free, so the thread is two frames
- * on. */
-static EGLContext g_gpu_ctx = EGL_NO_CONTEXT;
-static GLuint     g_gpu_tex[MAILBOX_FRAMES], g_gpu_depth;
-static GLuint     g_gpu_fb;                      /* the core draws into this one */
-static GLuint     g_gpu_read_fb;                 /* gpu_read's, for any slot */
-static int        g_gpu_attached = -1;           /* the slot whose texture g_gpu_fb holds */
-static EGLSyncKHR g_gpu_done[MAILBOX_FRAMES];    /* under g_mx */
-static int        g_gpu_w, g_gpu_h;
-static bool       g_gpu_top_down;                /* the core draws its first row at the top */
-static int        g_gpu_drawing = -1;            /* the slot the core draws into; under g_mx */
-static int        g_gpu_last = -1;               /* the slot of the last GPU frame presented */
-/* The end of the core's last frame on the GPU, for present_gpu's throttle */
-static EGLSyncKHR g_gpu_throttle = EGL_NO_SYNC_KHR;
-/* Turn-taking on the GPU (gpu_target): the last GPU frame presented, and the
- * last one the thread has drawn to the panel, by present_gpu's count. Under
- * g_mx. */
-static unsigned   g_gpu_seq, g_gpu_blitted;
-
-static PFNEGLCREATESYNCKHRPROC     p_create_sync;
-static PFNEGLDESTROYSYNCKHRPROC    p_destroy_sync;
-static PFNEGLCLIENTWAITSYNCKHRPROC p_client_wait;
-static PFNEGLWAITSYNCKHRPROC       p_server_wait;   /* NULL without EGL_KHR_wait_sync */
-
-static bool sync_procs(void)
-{
-	if (!p_create_sync) {
-		const char *ext = eglQueryString(g_egl_display, EGL_EXTENSIONS);
-
-		p_create_sync  = (PFNEGLCREATESYNCKHRPROC)eglGetProcAddress("eglCreateSyncKHR");
-		p_destroy_sync = (PFNEGLDESTROYSYNCKHRPROC)eglGetProcAddress("eglDestroySyncKHR");
-		p_client_wait  = (PFNEGLCLIENTWAITSYNCKHRPROC)eglGetProcAddress("eglClientWaitSyncKHR");
-		if (ext && strstr(ext, "EGL_KHR_wait_sync"))
-			p_server_wait = (PFNEGLWAITSYNCKHRPROC)eglGetProcAddress("eglWaitSyncKHR");
-	}
-	return p_create_sync && p_destroy_sync && p_client_wait;
-}
-
-static void wait_sync(EGLSyncKHR s)
-{
-	if (s == EGL_NO_SYNC_KHR) return;
-	p_client_wait(g_egl_display, s, 0, EGL_FOREVER_KHR);
-	p_destroy_sync(g_egl_display, s);
-}
-
-/* A frame dropped unseen (stolen from pending) leaves its fence unwaited. */
-static void drop_fence(int slot)
-{
-	mailbox_frame *f;
-
-	if (slot < 0) return;
-	f = &g_frames[slot];
-	if (f->gpu && f->fence != EGL_NO_SYNC_KHR) {
-		p_destroy_sync(g_egl_display, f->fence);
-		f->fence = EGL_NO_SYNC_KHR;
-	}
-}
-
-/* The thread, before it samples a GPU frame: the core's drawing is done.
- *
- * Done on the GPU, which is where it has to be: the thread's commands wait
- * for the fence there (eglWaitSyncKHR), and the thread goes on to queue its
- * drawing at once. Waiting on the CPU instead held the thread, and through
- * the turn-taking in diatom_port_gpu_target the core with it, until the GPU
- * had finished the frame: the CPU and the GPU took turns, and a frame cost
- * the two together. Dr. Mario 64 drew one in 30 ms, 15 of them the thread
- * waiting here (2026-11-04). The order on the GPU is unchanged - the core's
- * frame, this thread's blit of it, the core's next frame - as the core starts
- * its next only once this thread has flushed. A client wait where the
- * extension is missing. */
-static void gpu_frame_ready(mailbox_frame *f)
-{
-	if (!f->gpu || f->fence == EGL_NO_SYNC_KHR) return;
-	if (p_server_wait) {
-		p_server_wait(g_egl_display, f->fence, 0);
-		p_destroy_sync(g_egl_display, f->fence);
-	} else {
-		wait_sync(f->fence);
-	}
-	f->fence = EGL_NO_SYNC_KHR;
-}
+#include "gles_state.h"
 
 /* ---------- the overlay and the level bar ----------------------------------- */
 
@@ -707,654 +541,7 @@ static void backlight_write(int raw)
 
 /* ==================== GL ==================================================== */
 
-static const char *VERTEX_SHADER =
-	"#version 300 es\n"
-	"in vec2 a_pos;\n"
-	"in vec2 a_src;\n"
-	"out vec2 v_src;\n"
-	"void main() { v_src = a_src; gl_Position = vec4(a_pos, 0.0, 1.0); }\n";
-
-/* Every program draws the frame's colors as the core made them: no color
- * matrix, no curve. Up to 1.0.4 they went through the panel's color matrix
- * from plastron's /etc/panel-color (blue gained a tenth of green, in linear
- * light), set by eye against a TrimUI Brick, which with the splash's gamma
- * table made games darker and cooler than the stock firmware shows them
- * (port/panelgamma.h). */
-
-/* Nearest: the sampler's own, which picks the source pixel under the
- * destination pixel's centre - floor((i + 0.5) / scale), the same pixel
- * brick.c's map picks. */
-static const char *PLAIN_SHADER =
-	"#version 300 es\n"
-	"precision highp float;\n"
-	"uniform sampler2D u_tex;\n"
-	"uniform vec2 u_size;\n"
-	"in vec2 v_src;\n"
-	"out vec4 o_color;\n"
-	"void main() { o_color = texture(u_tex, v_src / u_size); }\n";
-
-/* Sharp-bilinear, brick.c's build_map in a shader: the bilinear weight,
- * steepened by the scale so the blend spans one destination pixel. Interior
- * pixels sample a texel centre exactly; only the pixel straddling a source
- * boundary mixes. At an integer factor every weight is 0 or 1, so it equals
- * nearest. The edges need no clamp of their own: CLAMP_TO_EDGE blends the
- * border texel with itself, which is brick.c's clamp. UNVERIFIED against
- * brick.c's output until a capture comparison. */
-static const char *SHARP_SHADER =
-	"#version 300 es\n"
-	"precision highp float;\n"
-	"uniform sampler2D u_tex;\n"
-	"uniform vec2 u_size;\n"
-	"uniform vec2 u_scale;\n"
-	"in vec2 v_src;\n"
-	"out vec4 o_color;\n"
-	"void main() {\n"
-	"	vec2 c = v_src - 0.5;\n"
-	"	vec2 p = floor(c);\n"
-	"	vec2 f = clamp((c - p - 0.5) * u_scale + 0.5, 0.0, 1.0);\n"
-	"	o_color = texture(u_tex, (p + 0.5 + f) / u_size);\n"
-	"}\n";
-
-/* Sharp-Shimmerless, zadpos's box filter (public domain; THIRD-PARTY.md),
- * from its shaders_glsl/shaders/sharp-shimmerless.glsl at 2a74e7a, in GLES
- * 3.0 and in this pass's terms: v_src is in texels already, so the
- * destination pixel is (v_src - u_origin) * u_scale, measured from the
- * quad's first texel, and the original's per-vertex `pixel`, `scale` and
- * `invscale` are that, u_scale and u_inv. The rest is its main(): the
- * texels under the pixel's two edges, and where they differ, the point
- * between them whose bilinear weights are the areas each covers - one
- * texture read, the sampler doing the mix. Measured from v_src rather than
- * gl_FragCoord so that neither the panel's turn nor a GPU frame read
- * bottom-up changes the arithmetic: the box filter is the same both ways
- * along an axis.
- *
- * A pixel inside one texel lands on that texel's centre, so with LINEAR the
- * neighbour's weight is 0 and nothing bleeds past a DS screen's edge or a
- * GPU frame's last row, which sharp's comment below warns of. */
-static const char *SHIMMERLESS_SHADER =
-	"#version 300 es\n"
-	"precision highp float;\n"
-	"uniform sampler2D u_tex;\n"
-	"uniform vec2 u_size;\n"
-	"uniform vec2 u_scale;\n"
-	"uniform vec2 u_inv;\n"
-	"uniform vec2 u_origin;\n"
-	"in vec2 v_src;\n"
-	"out vec4 o_color;\n"
-	"void main() {\n"
-	"	vec2 px = (v_src - u_origin) * u_scale;\n"
-	"	vec2 tl = floor(px), br = ceil(px);\n"
-	"	vec2 t_tl = floor(u_inv * tl), t_br = floor(u_inv * br);\n"
-	"	vec2 t = t_br + 0.5 - (1.0 - step(t_br, t_tl)) * (u_scale * t_br - tl);\n"
-	"	o_color = texture(u_tex, (t + u_origin) / u_size);\n"
-	"}\n";
-
-/* What the shaders below work from, the same as Sharp-Shimmerless's, and
- * u_quad: the quad's source size in texels, which the CRT clamps its reads
- * to and warps over (quad_scale). */
-#define QUAD_UNIFORMS \
-	"uniform sampler2D u_tex;\n" \
-	"uniform vec2 u_size;\n" \
-	"uniform vec2 u_scale;\n" \
-	"uniform vec2 u_inv;\n" \
-	"uniform vec2 u_origin;\n" \
-	"uniform vec2 u_quad;\n" \
-	"in vec2 v_src;\n" \
-	"out vec4 o_color;\n"
-
-/* Sharp-Shimmerless with gaps: zadpos's sharp-shimmerless-grid and
- * -scanlines (CC0, the same repository at 2a74e7a), whose main() this is in
- * this pass's terms. Each game pixel is a rectangle with a dark band along
- * its right and bottom edges, RATIO of it wide and OPACITY dark, and a
- * screen pixel is what it covers, by area: the band stays the same width
- * however the picture is scaled, and nothing shimmers. One texture read.
- * `ratio` and `opacity` are vec2s, across and down: with nothing across it is
- * scanlines; with both, an LCD's grid. */
-#define GRID_SHADER_SRC(ratio, alpha) \
-	"#version 300 es\n" \
-	"precision highp float;\n" \
-	QUAD_UNIFORMS \
-	"const vec2 RATIO = 1.0 - " ratio ";\n" \
-	alpha \
-	"void main() {\n" \
-	"	vec2 px = (v_src - u_origin) * u_scale;\n" \
-	"	vec2 tl = u_inv * floor(px), br = u_inv * ceil(px);\n" \
-	"	vec2 t_tl = floor(tl), t_br = floor(br);\n" \
-	"	vec2 ftl = fract(tl), fbr = fract(br);\n" \
-	"	vec2 a_tl = mix(RATIO - ftl + ALPHA * (1.0 - RATIO), ALPHA * (1.0 - RATIO), step(RATIO, ftl));\n" \
-	"	vec2 a_br = mix(fbr, RATIO + ALPHA * (fbr - RATIO), step(RATIO, fbr));\n" \
-	"	vec2 w = mix(a_br / (a_tl + a_br), vec2(1.0), step(t_br, t_tl));\n" \
-	"	vec2 f = (fbr + clamp(RATIO - ftl, 0.0, 1.0)) * u_scale;\n" \
-	"	f = mix(f, RATIO * u_scale, step(RATIO, fbr));\n" \
-	"	f = mix(f, clamp((RATIO - ftl) * u_scale, 0.0, 1.0), step(t_br, t_tl));\n" \
-	"	f = ALPHA + (1.0 - ALPHA) * f;\n" \
-	"	vec2 t = t_br - 0.5 + w;\n" \
-	"	o_color = vec4(f.x * f.y * texture(u_tex, (t + u_origin) / u_size).rgb, 1.0);\n" \
-	"}\n"
-#define GRID_SHADER(ratio, opacity) \
-	GRID_SHADER_SRC(ratio, "const vec2 ALPHA = 1.0 - " opacity ";\n")
-/* Under 100% strength the band is that much as dark: OPACITY times
- * u_strength, 0 to 1. The band's width stays, so nothing shimmers at any
- * strength, and at 0 nothing is dark and the weights are the box filter's -
- * Sharp-Shimmerless, but for a pixel that starts inside a band, where the
- * original counts the band's whole width. Still one texture read. */
-#define GRID_SHADER_SOFT(ratio, opacity) \
-	GRID_SHADER_SRC(ratio, "uniform float u_strength;\n" \
-	                "#define ALPHA (1.0 - " opacity " * u_strength)\n")
-
-/* A handheld's LCD: the grid both ways, the original's defaults */
-static const char *LCD_SHADER = GRID_SHADER("vec2(0.3, 0.3)", "vec2(0.3, 0.3)");
-/* Scanlines: the band only down, the -scanlines variant's defaults */
-static const char *SCANLINES_SHADER = GRID_SHADER("vec2(0.0, 0.3)", "vec2(0.0, 0.3)");
-static const char *LCD_SOFT_SHADER = GRID_SHADER_SOFT("vec2(0.3, 0.3)", "vec2(0.3, 0.3)");
-static const char *SCANLINES_SOFT_SHADER = GRID_SHADER_SOFT("vec2(0.0, 0.3)", "vec2(0.0, 0.3)");
-
-/* A CRT: Timothy Lottes's CRTS (public domain; libretro glsl-shaders'
- * crt/shaders/crt-lottes-fast.glsl, its 20180120b), its 2-tap filter: two
- * reads a pixel, one on each of the two scanlines nearest, each bilinear at
- * a point Inigo Quilez's quintic moves so the pixel stays sharp across. The
- * scanlines are its windowed cosines, the phosphors its brighter aperture
- * grille (one channel of every three screen columns down to DARK), and its
- * tone curve gives back the light the two take. Its parameters' defaults,
- * fixed: thin 0.75, mask 0.5, and TONE is CrtsTone(1, 0, 0.75, 0.5) for
- * that grille.
- *
- * Changed for this GPU: gamma 2 (a square in, a square root out) where it
- * has 2.4 and pow() on every read, so the pass takes no pow() at all.
- * The mask goes by the screen column within the picture, so it stays
- * upright on the turned panel. With WARP, its curvature and corners, the
- * original's defaults: warp 0.02 across and 0.015 down (a 4:3 screen),
- * corner 3. Reads stay inside the quad, so nothing comes from the
- * other DS screen or past a GPU frame's last row. */
-#define CRT_SHADER_SRC(warp, soft, mix) \
-	"#version 300 es\n" \
-	"precision highp float;\n" \
-	warp \
-	QUAD_UNIFORMS \
-	soft \
-	"const float THIN = 0.75;\n" \
-	"const float DARK = 0.5;\n" \
-	"const vec2 TONE = vec2(0.419207, 0.580793);\n" \
-	"vec3 fetch(vec2 p) {\n" \
-	"	vec3 c = texture(u_tex, (clamp(p, vec2(0.5), u_quad - 0.5) + u_origin) / u_size).rgb;\n" \
-	"	return c * c;\n" \
-	"}\n" \
-	"void main() {\n" \
-	"	vec2 px = (v_src - u_origin) * u_scale;\n" \
-	"	vec2 pos = px * u_inv;\n" \
-	"	float vin = 1.0;\n" \
-	"#ifdef WARP\n" \
-	"	vec2 q = px / (u_quad * u_scale) * 2.0 - 1.0;\n" \
-	"	q *= vec2(1.0 + q.y * q.y * 0.02, 1.0 + q.x * q.x * 0.015);\n" \
-	"	vin = (1.0 - (1.0 - clamp(q.x * q.x, 0.0, 1.0)) * (1.0 - clamp(q.y * q.y, 0.0, 1.0))) * 1.001;\n" \
-	"	vin = clamp(u_quad.y - vin * u_quad.y, 0.0, 1.0);\n" \
-	"	pos = (q + 1.0) * 0.5 * u_quad;\n" \
-	"#endif\n" \
-	"	float y0 = floor(pos.y - 0.5) + 0.5;\n" \
-	"	float x = pos.x + 0.5, xi = floor(x), xf = x - xi;\n" \
-	"	xf = xf * xf * xf * (xf * (xf * 6.0 - 15.0) + 10.0);\n" \
-	"	vec2 p = vec2(xi + xf - 0.5, y0);\n" \
-	"	vec3 a = fetch(p), b = fetch(p + vec2(0.0, 1.0));\n" \
-	"	float off = pos.y - y0;\n" \
-	"	float sa = cos(min(0.5, off * THIN) * 6.2831853) * 0.5 + 0.5;\n" \
-	"	float sb = cos(min(0.5, (1.0 - off) * THIN) * 6.2831853) * 0.5 + 0.5;\n" \
-	"	vec3 c = (a * sa + b * sb) * vin;\n" \
-	"	float m = fract(px.x * (1.0 / 3.0));\n" \
-	"	c *= m < 1.0 / 3.0 ? vec3(DARK, 1.0, 1.0) : m < 2.0 / 3.0 ? vec3(1.0, DARK, 1.0) : vec3(1.0, 1.0, DARK);\n" \
-	"	float peak = max(1.0 / (256.0 * 65536.0), max(c.r, max(c.g, c.b)));\n" \
-	"	c = c / peak * (peak / (peak * TONE.x + TONE.y));\n" \
-	mix \
-	"	o_color = vec4(sqrt(c), 1.0);\n" \
-	"}\n"
-
-/* Under 100% strength: the CRT mixed, in its linear light, toward its own
- * plain picture, the same two reads with the quintic down as well as across
- * and no scanlines, grille or tone; u_strength 0 to 1. The curve and the
- * round corners are the glass's shape, not its lines, and stay. */
-#define CRT_SOFT \
-	"uniform float u_strength;\n"
-#define CRT_SOFT_MIX \
-	"	float qy = off * off * off * (off * (off * 6.0 - 15.0) + 10.0);\n" \
-	"	c = mix(mix(a, b, qy) * vin, c, u_strength);\n"
-
-static const char *CRT_SHADER = CRT_SHADER_SRC("", "", "");
-static const char *CRT_CURVED_SHADER = CRT_SHADER_SRC("#define WARP 1\n", "", "");
-static const char *CRT_SOFT_SHADER = CRT_SHADER_SRC("", CRT_SOFT, CRT_SOFT_MIX);
-static const char *CRT_CURVED_SOFT_SHADER = CRT_SHADER_SRC("#define WARP 1\n", CRT_SOFT, CRT_SOFT_MIX);
-
-static const char *SOLID_SHADER =
-	"#version 300 es\n"
-	"precision mediump float;\n"
-	"uniform vec4 u_color;\n"
-	"out vec4 o_color;\n"
-	"void main() { o_color = u_color; }\n";
-
-static GLuint compile(GLenum type, const char *src)
-{
-	GLuint s = glCreateShader(type);
-	GLint ok = 0;
-
-	glShaderSource(s, 1, &src, NULL);
-	glCompileShader(s);
-	glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
-	if (!ok) {
-		char log[512];
-		glGetShaderInfoLog(s, sizeof log, NULL, log);
-		port_logf(DIATOM_LOG_ERROR, "pixel2: shader: %s", log);
-		glDeleteShader(s);
-		return 0;
-	}
-	return s;
-}
-
-/* A uniform's location, asked of the driver once a program and kept: by name
- * it is a string lookup in the driver, and the frame asked for ten or more
- * on every flip (u_tex, u_size, u_scale, the bar's and
- * the disc's). Emptied when a program is linked and when the context goes,
- * so a new program that gets an old one's id is asked again. The present
- * thread's GL alone calls this. */
-#define ULOCS 64
-static struct {
-	GLuint prog;
-	char   name[16];
-	GLint  loc;
-} g_uloc[ULOCS];
-static int g_nuloc;
-
-static GLint uloc(GLuint prog, const char *name)
-{
-	GLint loc;
-	int i;
-
-	for (i = 0; i < g_nuloc; i++)
-		if (g_uloc[i].prog == prog && !strcmp(g_uloc[i].name, name)) return g_uloc[i].loc;
-	loc = glGetUniformLocation(prog, name);
-	if (g_nuloc < ULOCS && strlen(name) < sizeof g_uloc[0].name) {
-		g_uloc[g_nuloc].prog = prog;
-		snprintf(g_uloc[g_nuloc].name, sizeof g_uloc[g_nuloc].name, "%s", name);
-		g_uloc[g_nuloc].loc = loc;
-		g_nuloc++;
-	}
-	return loc;
-}
-
-static GLuint link_program(const char *fragment)
-{
-	GLuint vs = compile(GL_VERTEX_SHADER, VERTEX_SHADER);
-	GLuint fs = compile(GL_FRAGMENT_SHADER, fragment);
-	GLuint p;
-	GLint ok = 0;
-
-	if (!vs || !fs) return 0;
-	g_nuloc = 0;
-	p = glCreateProgram();
-	glAttachShader(p, vs);
-	glAttachShader(p, fs);
-	glBindAttribLocation(p, 0, "a_pos");
-	glBindAttribLocation(p, 1, "a_src");
-	glLinkProgram(p);
-	glDeleteShader(vs);
-	glDeleteShader(fs);
-	glGetProgramiv(p, GL_LINK_STATUS, &ok);
-	if (!ok) {
-		diatom_port_log(DIATOM_LOG_ERROR, "pixel2: program did not link");
-		glDeleteProgram(p);
-		return 0;
-	}
-	return p;
-}
-
-/* A rect in SURFACE coordinates (landscape, y down) to clip space on the
- * target being drawn. On glass the panel is portrait and the picture turns
- * 90 degrees counter-clockwise, which on this panel ("Left Side Up") is the
- * right way up - checked by eye 2026-10-01 with a marker drawn top-left.
- * Landscape (x, y) lands on portrait (y, W - x). For a capture the target is
- * the surface itself and nothing turns. */
-static void to_clip(float x, float y, bool turned, float *out)
-{
-	if (turned) {
-		float px = y, py = (float)g_surface_w - x;
-		out[0] = px / (float)g_panel_w * 2.0f - 1.0f;
-		out[1] = 1.0f - py / (float)g_panel_h * 2.0f;
-	} else {
-		out[0] = x / (float)g_surface_w * 2.0f - 1.0f;
-		out[1] = 1.0f - y / (float)g_surface_h * 2.0f;
-	}
-}
-
-/* One textured or solid quad. `src` is in texels, matching the rect's corners:
- * top-left, top-right, bottom-left, bottom-right. */
-static void draw_quad_from(float x, float y, float w, float h,
-                           float sx, float sy, float sw, float sh, bool turned)
-{
-	float pos[8], src[8] = { sx, sy, sx + sw, sy, sx, sy + sh, sx + sw, sy + sh };
-
-	to_clip(x,     y,     turned, &pos[0]);
-	to_clip(x + w, y,     turned, &pos[2]);
-	to_clip(x,     y + h, turned, &pos[4]);
-	to_clip(x + w, y + h, turned, &pos[6]);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, pos);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, src);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
-
-static void draw_quad(float x, float y, float w, float h,
-                      float sw, float sh, bool turned)
-{
-	draw_quad_from(x, y, w, h, 0, 0, sw, sh, turned);
-}
-
-static void solid(float x, float y, float w, float h,
-                  float r, float g, float b, float a, bool turned)
-{
-	glUseProgram(g_prog_solid);
-	glUniform4f(uloc(g_prog_solid, "u_color"), r, g, b, a);
-	draw_quad(x, y, w, h, 0, 0, turned);
-}
-
-/* Upload a mailbox frame into the frame texture. RGB565 goes up as is;
- * XRGB8888 goes up as bytes and the texture's swizzle puts B and R back and
- * pins alpha, so no shader needs to know which format it is drawing. */
-static void upload_frame(const mailbox_frame *f)
-{
-	size_t bpp = (f->fmt == DIATOM_PIX_RGB565) ? 2 : 4;
-	bool realloc_tex = f->w != g_tex_w || f->h != g_tex_h || f->fmt != g_tex_fmt;
-
-	if (f->gpu) return;             /* already a texture: the core drew it */
-	glBindTexture(GL_TEXTURE_2D, g_frame_tex);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(f->pitch / bpp));
-	if (f->fmt == DIATOM_PIX_RGB565) {
-		if (realloc_tex)
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, f->w, f->h, 0,
-			             GL_RGB, GL_UNSIGNED_SHORT_5_6_5, f->pixels);
-		else
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, f->w, f->h,
-			                GL_RGB, GL_UNSIGNED_SHORT_5_6_5, f->pixels);
-	} else {
-		if (realloc_tex) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, f->w, f->h, 0,
-			             GL_RGBA, GL_UNSIGNED_BYTE, f->pixels);
-		} else {
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, f->w, f->h,
-			                GL_RGBA, GL_UNSIGNED_BYTE, f->pixels);
-		}
-	}
-	if (realloc_tex) {
-		bool xrgb = f->fmt == DIATOM_PIX_XRGB8888;
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, xrgb ? GL_BLUE : GL_RED);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, xrgb ? GL_RED : GL_BLUE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_ONE);
-		g_tex_w = f->w;
-		g_tex_h = f->h;
-		g_tex_fmt = f->fmt;
-	}
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-}
-
-/* The level bar: the launcher's own pill, from the same code (osdbar.c, which
- * is ZyperOS's src/osdbar.c), so a volume press looks the same in a game as on
- * the shelf and over a port. Drawn into pixels at the surface's scale - 0.625
- * of the launcher's 1024 on the 640x480 panel - and redrawn only when the
- * level, the fade or the theme moves; the slide is the quad's place. BGRA
- * with straight alpha, the overlay's own layout, so it goes up the overlay's
- * way. */
-/* The look's colors as last handed to osdbar_colors, for draw_level_bar to
- * paint again when they move (render thread) */
-static unsigned g_osd_colors_seen;
-
-static void draw_level_bar(int kind, int level, int max, int theme, float alpha,
-                           float rise, bool turned)
-{
-	static uint32_t px[OSDBAR_W * OSDBAR_H];
-	static int drawn_kind = -1, drawn_level, drawn_max, drawn_theme, drawn_a, w, h;
-	static unsigned drawn_gen;
-	const float s = (float)g_surface_w / 1024.0f;
-	int a = (int)(alpha * 255 + 0.5f);
-
-	if (s <= 0 || s > 1) return;
-	if (kind != drawn_kind || level != drawn_level || max != drawn_max ||
-	    theme != drawn_theme || a != drawn_a || drawn_gen != g_osd_colors_seen) {
-		osdbar_size(s, &w, &h);
-		osdbar_render(px, w, h, w, s, theme,
-		              kind == 2 ? OSDBAR_POWER : kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME,
-		              level, max, alpha, false);
-		glBindTexture(GL_TEXTURE_2D, g_osdbar_tex);
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
-		drawn_kind = kind; drawn_level = level; drawn_max = max;
-		drawn_theme = theme; drawn_a = a; drawn_gen = g_osd_colors_seen;
-	}
-	glBindTexture(GL_TEXTURE_2D, g_osdbar_tex);
-	glUseProgram(g_prog_plain);
-	glUniform1i(uloc(g_prog_plain, "u_tex"), 0);
-	glUniform2f(uloc(g_prog_plain, "u_size"), (float)w, (float)h);
-	draw_quad(roundf(OSDBAR_X * s), roundf((OSDBAR_Y - rise) * s), (float)w, (float)h,
-	          (float)w, (float)h, turned);
-}
-
-/* On-Screen Stats (hud.c, ZyperOS's src/hud.c): painted into pixels at the
- * surface's scale, 0.625 on the 640x480 panel, only when its line, style or
- * the look's colors moved (twice a second at most), and drawn as one quad
- * where hud_place puts it on every frame while it is on. BGRA with straight
- * alpha, the level bar's way. */
-static void draw_hud(bool repaint, const char *text, const hud_style *st,
-                     const ds_theme *colors, bool turned)
-{
-	static uint32_t px[1024 * 128];
-	static int w, h, x, y;
-	const float s = (float)g_surface_w / 1024.0f;
-
-	if (s <= 0 || s > 1) return;
-	if (repaint) {
-		hud_size(text, s, st, &w, &h);
-		if (!w || w > 1024 || h > 128) { w = h = 0; return; }
-		hud_render(px, w, h, w, s, text, st, colors, false);
-		hud_place(st, s, w, h, g_surface_w, g_surface_h, &x, &y);
-		glBindTexture(GL_TEXTURE_2D, g_hud_tex);
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
-	}
-	if (!w || !h) return;
-	glBindTexture(GL_TEXTURE_2D, g_hud_tex);
-	glUseProgram(g_prog_plain);
-	glUniform1i(uloc(g_prog_plain, "u_tex"), 0);
-	glUniform2f(uloc(g_prog_plain, "u_size"), (float)w, (float)h);
-	draw_quad((float)x, (float)y, (float)w, (float)h, (float)w, (float)h, turned);
-}
-
-/* The low-battery disc: the one the launcher drew on the shelf until its
- * status corner replaced it (ZyperOS 87db5aa, which took out
- * draw_low_battery_dot), in its place and color, as horizontal spans so it
- * matches that disc to the pixel: radius 9, centered 34 px from the top and
- * right edges of the surface. */
-static void draw_low_battery(bool turned)
-{
-	const int r = 9, cx = g_surface_w - 34, cy = 34;
-	int dy;
-
-	for (dy = -r; dy <= r; dy++) {
-		const int v = r * r - dy * dy;
-		int dx = 0;
-
-		/* sqrt(v) rounded, as the launcher's span is: the largest dx with
-		 * (2dx - 1)^2 <= 4v. */
-		while ((2 * (dx + 1) - 1) * (2 * (dx + 1) - 1) <= 4 * v) dx++;
-		solid((float)(cx - dx), (float)(cy + dy), (float)(2 * dx + 1), 1,
-		      224 / 255.f, 72 / 255.f, 72 / 255.f, 1, turned);
-	}
-}
-
-/* Each filter's shader, in diatom_filter's order; nearest is the sampler's
- * own (PLAIN_SHADER), the rest are shaders over a LINEAR sampler. A shader
- * to come is a row here and in diatom_filters. */
-static const char *const *const FILTER_SHADER[DIATOM_FILTER_COUNT] = {
-	[DIATOM_FILTER_NEAREST]     = &PLAIN_SHADER,
-	[DIATOM_FILTER_SHARP]       = &SHARP_SHADER,
-	[DIATOM_FILTER_SHIMMERLESS] = &SHIMMERLESS_SHADER,
-	[DIATOM_FILTER_CRT]         = &CRT_SHADER,
-	[DIATOM_FILTER_CRT_CURVED]  = &CRT_CURVED_SHADER,
-	[DIATOM_FILTER_SCANLINES]   = &SCANLINES_SHADER,
-	[DIATOM_FILTER_LCD]         = &LCD_SHADER,
-};
-/* And under 100% strength, for the filters that have an effect to weaken */
-static const char *const *const SOFT_SHADER[DIATOM_FILTER_COUNT] = {
-	[DIATOM_FILTER_CRT]         = &CRT_SOFT_SHADER,
-	[DIATOM_FILTER_CRT_CURVED]  = &CRT_CURVED_SOFT_SHADER,
-	[DIATOM_FILTER_SCANLINES]   = &SCANLINES_SOFT_SHADER,
-	[DIATOM_FILTER_LCD]         = &LCD_SOFT_SHADER,
-};
-
-/* The final pass's program for a filter, linked the first time it is asked
- * for rather than at start: Diatom starts with the device, and six programs
- * nobody may choose are time spent then, where one link as the game the
- * player chose it for continues is a frame. Nearest's, the one the overlay
- * and the level bar use too, at start (gl_start). A link that fails draws
- * nearest, and says so once. */
-static GLuint filter_prog(diatom_filter f, int strength, bool *soft)
-{
-	*soft = false;
-	if (f <= DIATOM_FILTER_NEAREST || f >= DIATOM_FILTER_COUNT) return g_prog_plain;
-	/* Under 100%: the soft program, linked the same way. One that fails
-	 * draws the filter at full, which is closer than nearest. */
-	if (strength < 100 && SOFT_SHADER[f]) {
-		if (!g_prog_soft[f] && !g_soft_failed[f]) {
-			g_prog_soft[f] = link_program(*SOFT_SHADER[f]);
-			g_soft_failed[f] = !g_prog_soft[f];
-			if (g_soft_failed[f])
-				port_logf(DIATOM_LOG_ERROR, "pixel2: filter %d's strength did not link; full", (int)f);
-		}
-		if (g_prog_soft[f]) {
-			*soft = true;
-			return g_prog_soft[f];
-		}
-	}
-	if (!g_prog_filter[f] && !g_prog_failed[f]) {
-		g_prog_filter[f] = link_program(*FILTER_SHADER[f]);
-		g_prog_failed[f] = !g_prog_filter[f];
-		if (g_prog_failed[f])
-			port_logf(DIATOM_LOG_ERROR, "pixel2: filter %d did not link; nearest", (int)f);
-	}
-	return g_prog_filter[f] ? g_prog_filter[f] : g_prog_plain;
-}
-
-/* A quad's scale, for the programs that read one: destination pixels per
- * source texel on each axis; and for the shaders that work in destination
- * pixels (Sharp-Shimmerless, the grid, the scanlines, the CRT) its inverse,
- * the quad's first texel, the low corner of its source whichever way the
- * rows are read (sh < 0: a GPU frame, bottom-up), and its size in texels.
- * Nearest reads none of it and is not asked; a uniform a program does not
- * have is location -1, which GL ignores. */
-static void quad_scale(diatom_filter filter, GLuint prog, float dw, float dh,
-                       float sx, float sy, float sw, float sh)
-{
-	sh = fabsf(sh);
-	if (prog == g_prog_plain || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
-	glUniform2f(uloc(prog, "u_scale"), dw / sw, dh / sh);
-	if (filter == DIATOM_FILTER_SHARP) return;
-	glUniform2f(uloc(prog, "u_inv"), sw / dw, sh / dh);
-	glUniform2f(uloc(prog, "u_origin"), sx, sy);
-	glUniform2f(uloc(prog, "u_quad"), sw, sh);
-}
-
-/* Draw one frame and whatever is over it, onto the current target. */
-static void draw_scene(const mailbox_frame *f, bool overlay_live, bool osd_live,
-                       int osd_kind, int osd_level, int osd_max, int osd_theme,
-                       float osd_alpha, float osd_rise, bool lowbat,
-                       bool hud_live, bool hud_repaint, const char *hud_text_now,
-                       const hud_style *hud_st, const ds_theme *hud_colors, bool turned)
-{
-	bool   soft;
-	GLuint prog = filter_prog(f->filter, f->strength, &soft);
-	GLint  filter = prog == g_prog_plain ? GL_NEAREST : GL_LINEAR;
-	/* A GPU frame is GL's way up, its first row at the bottom of a texture
-	 * larger than it: sampled from row h down to row 0, so the same quads
-	 * draw it upright. Unless its core draws the first row at the top. */
-	bool   flip = f->gpu && !f->top_down;
-	float  top  = flip ? (float)f->h : 0.0f;
-	float  down = flip ? -1.0f : 1.0f;
-
-	glClearColor(0, 0, 0, 1);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	glBindTexture(GL_TEXTURE_2D, f->gpu ? f->gpu_tex : g_frame_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-	/* Whatever alpha the core left in it, the panel gets 1 (see below) */
-	if (f->gpu) glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_ONE);
-	glUseProgram(prog);
-	glUniform1i(uloc(prog, "u_tex"), 0);
-	glUniform2f(uloc(prog, "u_size"),
-	            (float)(f->gpu ? f->tex_w : f->w), (float)(f->gpu ? f->tex_h : f->h));
-	if (soft) glUniform1f(uloc(prog, "u_strength"), (float)f->strength / 100.0f);
-	if (f->nplanes) {
-		/* A DS frame's two screens, each its own quad out of the one
-		 * texture (diatom_port_planes). Sharp's steepness is per quad: the
-		 * two screens of a focus layout are at 2x and 0.5x. The sampler
-		 * clamps only at the texture's edge, so with sharp a screen's last
-		 * row can take a little of the other screen's first, where the two
-		 * meet in the middle of the texture; nearest never reaches past its
-		 * own texel, and Sharp-Shimmerless reads a screen's last texel at
-		 * its centre (SHIMMERLESS_SHADER). */
-		int i;
-
-		for (i = 0; i < f->nplanes; i++) {
-			const diatom_plane *p = &f->planes[i];
-			const float sy = top + down * (float)p->src.y;
-
-			quad_scale(f->filter, prog, (float)p->dst.w, (float)p->dst.h, (float)p->src.x,
-			           flip ? sy - (float)p->src.h : sy,
-			           (float)p->src.w, (float)p->src.h);
-			draw_quad_from((float)p->dst.x, (float)p->dst.y,
-			               (float)p->dst.w, (float)p->dst.h,
-			               (float)p->src.x, top + down * (float)p->src.y,
-			               (float)p->src.w, down * (float)p->src.h, turned);
-		}
-	} else {
-		quad_scale(f->filter, prog, (float)f->dst.w, (float)f->dst.h,
-		           0.0f, 0.0f, (float)f->w, (float)f->h);
-		/* dst may reach past the surface (fill, overscale): GL clips it. */
-		draw_quad_from((float)f->dst.x, (float)f->dst.y, (float)f->dst.w, (float)f->dst.h,
-		               0.0f, top, (float)f->w, down * (float)f->h, turned);
-	}
-
-	/* Alpha in the target stays 1 whatever is blended over it: the scanout
-	 * format carries alpha, and this display controller is not trusted to
-	 * ignore it (the Brick's composited per pixel - see brick.c, g_opaque). */
-	glEnable(GL_BLEND);
-	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
-	/* On-Screen Stats under the rest: an achievement's notice draws over a
-	 * line in a bottom corner, the level bar and the disc are clear of it */
-	if (hud_live)
-		draw_hud(hud_repaint, hud_text_now, hud_st, hud_colors, turned);
-	if (overlay_live) {
-		/* The launcher draws a notice in its 1024-unit screen, as the level
-		 * bar is drawn (draw_level_bar), so it is scaled to the surface the
-		 * same way: 640 wide on this panel. Drawn at the surface's size
-		 * instead, a notice over 640 units wide - most achievements, "Getting
-		 * hot" - was refused, and a narrower one came out 1.6 times too
-		 * large (2026-11-06). */
-		const float s = ov_scale();
-		float ow = roundf(g_ov_w * s), oh = roundf(g_ov_h * s);
-		float x0 = roundf((g_surface_w - ow) / 2.0f);
-		float y0 = roundf(g_surface_h - oh - g_surface_h / 24.0f);
-
-		glBindTexture(GL_TEXTURE_2D, g_overlay_tex);
-		glUseProgram(g_prog_plain);
-		glUniform1i(uloc(g_prog_plain, "u_tex"), 0);
-		glUniform2f(uloc(g_prog_plain, "u_size"),
-		            (float)g_ov_w, (float)g_ov_h);
-		draw_quad(x0, y0, ow, oh, (float)g_ov_w, (float)g_ov_h, turned);
-	}
-	if (osd_live)
-		draw_level_bar(osd_kind, osd_level, osd_max, osd_theme, osd_alpha, osd_rise,
-		               turned);
-	if (lowbat)
-		draw_low_battery(turned);
-	glDisable(GL_BLEND);
-}
+#include "gles_draw.h"
 
 /* ==================== KMS =================================================== */
 
@@ -1444,9 +631,52 @@ static void give_display(void)
 	g_have_master = false;
 }
 
+/* The refreshes, for the frame loop's display lock (diatom_port_vblank):
+ * the last flip's, in diatom_port_now_us's time, and the period measured from
+ * the flips, which start at the mode's own and move a thirty-second of each
+ * flip's difference. Written by the presenting thread, read by the loop: a
+ * word each, a read a frame old at worst. */
+static volatile uint64_t g_vbl_at;
+static volatile double   g_vbl_period, g_vbl_nominal;
+
 static void flip_done(int fd, unsigned seq, unsigned sec, unsigned usec, void *data)
 {
+	static uint64_t prev;
+	struct timespec mono;
+	uint64_t flip, mono_us, now, at;
+
 	*(bool *)data = true;
+	/* The event's time is the kernel's CLOCK_MONOTONIC at the refresh; the
+	 * loop's is SDL's counter, so the refresh is put in it by its distance
+	 * from now on each */
+	clock_gettime(CLOCK_MONOTONIC, &mono);
+	now = diatom_port_now_us();
+	flip = (uint64_t)sec * 1000000u + usec;
+	mono_us = (uint64_t)mono.tv_sec * 1000000u + (uint64_t)mono.tv_nsec / 1000u;
+	at = mono_us >= flip && mono_us - flip < 1000000u ? now - (mono_us - flip) : now;
+	if (prev && g_vbl_nominal > 0 && at > prev) {
+		double d = (double)(at - prev);
+		long k = lround(d / g_vbl_nominal);
+
+		if (k >= 1 && k <= 4) {
+			double one = d / (double)k;
+
+			if (fabs(one - g_vbl_nominal) < g_vbl_nominal * 0.02)
+				g_vbl_period += (one - g_vbl_period) / 32;
+		}
+	}
+	prev = at;
+	g_vbl_at = at;
+}
+
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	uint64_t at = g_vbl_at;
+
+	if (!at || g_vbl_period <= 0) return false;
+	*at_us = at;
+	*period_us = g_vbl_period;
+	return true;
 }
 
 static void wait_vblank(void)
@@ -1509,8 +739,9 @@ static int put_on_glass(uint32_t fb, bool *done)
 	return flip_err;
 }
 
-/* The gamma table the backlight's value asks for (port/panelgamma.h): the
- * dimming one at 9 and 13, none from 17 up. Present thread, before a flip,
+/* The gamma table the backlight's value and the Screen Colors ask for
+ * (port/panelgamma.h): the dimming one at 9 and 13, none from 17 up in
+ * Standard. Present thread, before a flip,
  * with no flip pending: loading it is an atomic commit, which waits a
  * refresh or two, at a brightness step or when the display comes back. */
 static void display_gamma(void)
@@ -1525,15 +756,46 @@ static void display_gamma(void)
 		want = __atomic_compare_exchange_n(&g_gamma_want, &unset, now, false,
 		                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED) ? now : unset;
 	}
+	if (g_gamma_have == -2) {
+		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
+		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)time(NULL));
+		g_night_looked = 0;
+	}
+	/* Night Mode's hour, once a second: the table again at once when the
+	 * warmth due now is not the one on (src/nightmode.h: one blink, no
+	 * fade) */
+	{
+		time_t now = time(NULL);
+
+		if (now != g_night_looked) {
+			int w = panelgamma_night_at(&g_gamma_night, (long long)now);
+
+			g_night_looked = now;
+			if (w != g_gamma_color.night) {
+				g_gamma_color.night = w;
+				port_logf(DIATOM_LOG_INFO, "pixel2: Night Mode %s", w ? "on" : "off");
+				if (want == g_gamma_have) g_gamma_have = -1;
+			}
+		}
+	}
 	if (want == g_gamma_have) return;
-	n = panelgamma_apply(g_drm_fd, want);
+	n = panelgamma_apply_color(g_drm_fd, want, &g_gamma_color);
 	if (n > 0)
-		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d",
-		          want);
+		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d%s",
+		          want, g_gamma_color.night ? ", Night Mode on" : "");
 	else if (n < 0)
 		port_logf(DIATOM_LOG_WARN, "pixel2: could not set the display's gamma table for "
 		          "brightness %d", want);
 	g_gamma_have = want;               /* once, even refused: not at every frame */
+}
+
+/* Refreshes missed with the frame ready (diatom_port_refreshes_missed):
+ * counted by the presenting thread, read by the loop */
+static volatile unsigned g_refreshes_missed;
+
+unsigned diatom_port_refreshes_missed(void)
+{
+	return __atomic_load_n(&g_refreshes_missed, __ATOMIC_RELAXED);
 }
 
 /* Put what was just swapped on glass, and wait until it is. */
@@ -1541,8 +803,10 @@ static void show_frame(void)
 {
 	struct gbm_bo *bo = gbm_surface_lock_front_buffer(g_gbm_surface);
 	uint32_t fb;
-	bool done = false;
+	bool done = false, flipped;
 	int ret;
+	uint64_t asked = 0;
+	static double refresh_us;
 
 	if (!bo) {
 		diatom_port_log(DIATOM_LOG_ERROR, "pixel2: no front buffer after swap");
@@ -1567,6 +831,12 @@ static void show_frame(void)
 		gbm_surface_release_buffer(g_gbm_surface, bo);
 		return;
 	}
+	/* A flip asked for (not a mode-set, which is done at once): when, and
+	 * the mode's refresh period, to tell a missed refresh by */
+	flipped = !done;
+	if (flipped) asked = diatom_port_now_us();
+	if (!refresh_us && g_mode.clock)
+		refresh_us = (double)g_mode.htotal * g_mode.vtotal * 1000.0 / g_mode.clock;
 
 	while (!done) {
 		struct pollfd p = { .fd = g_drm_fd, .events = POLLIN };
@@ -1580,6 +850,12 @@ static void show_frame(void)
 		}
 		drmHandleEvent(g_drm_fd, &ev);
 	}
+	/* Shown more than a refresh and a quarter after it was asked for: the
+	 * flip waited past the refresh it was in time for, on the GPU's drawing
+	 * or the kernel's */
+	if (flipped && done && refresh_us > 0 &&
+	    (double)(diatom_port_now_us() - asked) > refresh_us * 1.25)
+		__atomic_add_fetch(&g_refreshes_missed, 1, __ATOMIC_RELAXED);
 
 	if (g_shown_bo) gbm_surface_release_buffer(g_gbm_surface, g_shown_bo);
 	g_shown_bo = bo;
@@ -1641,44 +917,7 @@ static bool gl_start(void)
 		return false;
 	}
 
-	g_prog_plain = link_program(PLAIN_SHADER);
-	g_prog_solid = link_program(SOLID_SHADER);
-	if (!g_prog_plain || !g_prog_solid) return false;
-
-	glGenTextures(1, &g_frame_tex);
-	glGenTextures(1, &g_overlay_tex);
-	glGenTextures(1, &g_osdbar_tex);
-	glGenTextures(1, &g_hud_tex);
-	glBindTexture(GL_TEXTURE_2D, g_frame_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	/* The overlay is BGRA straight alpha, uploaded as bytes: swizzled back. */
-	glBindTexture(GL_TEXTURE_2D, g_overlay_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	/* Linear going down (ov_scale, 0.625 here), as the launcher's own text
-	 * is scaled to this panel; at 1, on whole pixels, it is the same */
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-	/* The level bar: the same, BGRA straight alpha (draw_level_bar). */
-	glBindTexture(GL_TEXTURE_2D, g_osdbar_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-	/* The FPS readout: the same, BGRA straight alpha (draw_hud) */
-	glBindTexture(GL_TEXTURE_2D, g_hud_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-	glViewport(0, 0, g_panel_w, g_panel_h);
+#include "gles_objects.h"
 	return true;
 }
 
@@ -1701,721 +940,13 @@ static void gl_stop(void)
 /* A capture: the front frame drawn again, unturned, into an offscreen target
  * the size of the surface, and read back. What the host asked for is the
  * picture as the player sees it, which is landscape. */
-static bool capture_front(int front, const char *path)
-{
-	GLuint fbo, rb;
-	uint8_t *rgba, *flipped;
-	SDL_Surface *s, *rgb;
-	size_t row = (size_t)g_surface_w * 4;
-	bool ok = false;
-	int y;
-
-	if (front < 0) return false;
-	rgba = malloc(row * (size_t)g_surface_h);
-	flipped = malloc(row * (size_t)g_surface_h);
-	if (!rgba || !flipped) { free(rgba); free(flipped); return false; }
-
-	glGenFramebuffers(1, &fbo);
-	glGenRenderbuffers(1, &rb);
-	glBindRenderbuffer(GL_RENDERBUFFER, rb);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, g_surface_w, g_surface_h);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rb);
-	glViewport(0, 0, g_surface_w, g_surface_h);
-
-	upload_frame(&g_frames[front]);
-	draw_scene(&g_frames[front], false, false, 0, 0, 0, 0, 0, 0, false,
-	           false, false, NULL, NULL, NULL, false);
-	glReadPixels(0, 0, g_surface_w, g_surface_h, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glViewport(0, 0, g_panel_w, g_panel_h);
-	glDeleteRenderbuffers(1, &rb);
-	glDeleteFramebuffers(1, &fbo);
-
-	/* GL reads bottom row first. */
-	for (y = 0; y < g_surface_h; y++)
-		memcpy(flipped + (size_t)y * row, rgba + (size_t)(g_surface_h - 1 - y) * row, row);
-
-	s = SDL_CreateRGBSurfaceWithFormatFrom(flipped, g_surface_w, g_surface_h, 32,
-	                                       (int)row, SDL_PIXELFORMAT_ABGR8888);
-	if (s) {
-		/* Plain 24-bit, as on the Brick: readers refuse 32-bit BMP headers. */
-		rgb = SDL_ConvertSurfaceFormat(s, SDL_PIXELFORMAT_RGB24, 0);
-		if (rgb) { ok = SDL_SaveBMP(rgb, path) == 0; SDL_FreeSurface(rgb); }
-		SDL_FreeSurface(s);
-	}
-	free(rgba);
-	free(flipped);
-	return ok;
-}
-
-static void *present_thread(void *arg)
-{
-	bool ok = gl_start();
-
-	pthread_mutex_lock(&g_mx);
-	g_thread_ready = ok ? 1 : -1;
-	pthread_cond_broadcast(&g_idle);
-	if (!ok) { pthread_mutex_unlock(&g_mx); gl_stop(); return arg; }
-
-	while (!g_thread_stop) {
-		int frame;
-		bool ov_live, osd_live, lowbat, hud_live, hud_repaint;
-		int osd_kind, osd_level, osd_max, osd_theme;
-		float osd_alpha = 0, osd_rise = 0;
-		uint64_t now, t0 = 0;
-		EGLSyncKHR done;
-		char hud_text_now[sizeof g_hud_text];
-		ds_theme hud_colors;
-		hud_style hud_st;
-
-		if (g_pending < 0 && !g_want_blank && !g_capture_path) {
-			pthread_cond_wait(&g_cv, &g_mx);
-			continue;
-		}
-
-		if (g_capture_path) {
-			const char *path = g_capture_path;
-			int front = g_front;
-
-			pthread_mutex_unlock(&g_mx);
-			ok = capture_front(front, path);
-			pthread_mutex_lock(&g_mx);
-			g_capture_ok = ok;
-			g_capture_path = NULL;
-			pthread_cond_broadcast(&g_idle);
-			continue;
-		}
-
-		if (g_want_blank) {
-			g_want_blank = false;
-			g_blanking = true;
-			pthread_mutex_unlock(&g_mx);
-			glClearColor(0, 0, 0, 1);
-			glClear(GL_COLOR_BUFFER_BIT);
-			eglSwapBuffers(g_egl_display, g_egl_surface);
-			show_frame();
-			pthread_mutex_lock(&g_mx);
-			g_blanking = false;
-			pthread_cond_broadcast(&g_idle);
-			continue;
-		}
-
-		frame = g_pending;
-		g_pending  = -1;
-		g_inflight = frame;
-
-		/* The overlay is read here, under the lock the host's next
-		 * diatom_port_overlay takes, so the borrowed pointer is never read
-		 * after the host has moved on. */
-		now = diatom_port_now_us();
-		ov_live = g_ov && now < g_ov_until;
-		if (ov_live && g_ov_dirty) {
-			glBindTexture(GL_TEXTURE_2D, g_overlay_tex);
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, g_ov_w, g_ov_h, 0,
-			             GL_RGBA, GL_UNSIGNED_BYTE, g_ov);
-			g_ov_dirty = false;
-		}
-		hold_tick(now);
-		osd_live  = g_osd_on &&
-		            osdbar_envelope((uint32_t)((now - g_osd_shown) / 1000),
-		                            (uint32_t)((now - g_osd_changed) / 1000),
-		                            &osd_alpha, &osd_rise);
-		if (!osd_live) g_osd_on = false;
-		osd_kind  = g_osd_kind;
-		osd_level = g_osd_level;
-		osd_max   = g_osd_max;
-		osd_theme = g_osd_theme;
-		/* The look's colors for the bar, handed over once each time they
-		 * move, on this thread, which is the one that paints the bar */
-		if (g_osd_colors_gen != g_osd_colors_seen) {
-			osdbar_colors(osd_theme, &g_osd_colors);
-			g_osd_colors_seen = g_osd_colors_gen;
-		}
-		/* Blinking: the even seconds, the launcher's rhythm. */
-		lowbat    = g_lowbat && (!g_lowbat_blink || (now / 1000000u) % 2 == 0);
-		/* On-Screen Stats' line, style and colors, copied when they
-		 * moved, for draw_hud to paint again outside the lock */
-		hud_live = g_hud_on;
-		hud_repaint = hud_live && g_hud_dirty;
-		if (hud_repaint) {
-			memcpy(hud_text_now, g_hud_text, sizeof hud_text_now);
-			hud_colors = g_hud_colors;
-			hud_st = g_hud_style;
-			g_hud_dirty = false;
-		}
-		pthread_mutex_unlock(&g_mx);
-
-		if (g_present_debug) t0 = diatom_port_now_us();
-		gpu_frame_ready(&g_frames[frame]);
-		if (g_present_debug && g_frames[frame].gpu) {
-			static uint64_t waited, last;
-			static int n;
-			uint64_t t = diatom_port_now_us();
-
-			waited += t - t0;
-			if (++n >= 60) {
-				port_logf(DIATOM_LOG_INFO, "present: 60 GPU frames in %llu ms, %llu ms of it "
-				          "waiting for the core's drawing",
-				          (unsigned long long)((t - last) / 1000),
-				          (unsigned long long)(waited / 1000));
-				n = 0;
-				waited = 0;
-				last = t;
-			}
-		}
-		upload_frame(&g_frames[frame]);
-		draw_scene(&g_frames[frame], ov_live, osd_live, osd_kind, osd_level,
-		           osd_max, osd_theme, osd_alpha, osd_rise, lowbat,
-		           hud_live, hud_repaint, hud_text_now, &hud_st, &hud_colors, g_turned);
-		/* The core may draw into this texture again once the GPU has read
-		 * it: a fence for diatom_port_gpu_target to wait on. */
-		done = g_frames[frame].gpu
-		     ? p_create_sync(g_egl_display, EGL_SYNC_FENCE_KHR, NULL) : EGL_NO_SYNC_KHR;
-		if (g_frames[frame].gpu) {
-			/* Drawn and on its way: the core may start its next frame */
-			glFlush();
-			pthread_mutex_lock(&g_mx);
-			g_gpu_blitted = g_frames[frame].seq;
-			pthread_cond_broadcast(&g_idle);
-			pthread_mutex_unlock(&g_mx);
-		}
-		eglSwapBuffers(g_egl_display, g_egl_surface);
-		if (g_present_debug) {
-			static int n;
-			uint64_t t1 = diatom_port_now_us();
-			if (++n >= 60) {
-				n = 0;
-				port_logf(DIATOM_LOG_DEBUG, "present: upload+draw+swap %llu us",
-				          (unsigned long long)(t1 - t0));
-			}
-		}
-		show_frame();
-
-		pthread_mutex_lock(&g_mx);
-		g_front    = frame;
-		g_inflight = -1;
-		if (done != EGL_NO_SYNC_KHR) {
-			if (g_gpu_done[frame] != EGL_NO_SYNC_KHR)
-				p_destroy_sync(g_egl_display, g_gpu_done[frame]);
-			g_gpu_done[frame] = done;
-		}
-		pthread_cond_broadcast(&g_idle);
-	}
-	pthread_mutex_unlock(&g_mx);
-	gl_stop();
-	return arg;
-}
-
-/* Until nothing is pending, nothing is being drawn and no request is open.
- * The thread keeps running: callers want quiescence, not teardown. */
-static void drain(void)
-{
-	pthread_mutex_lock(&g_mx);
-	while (g_thread_running &&
-	       (g_pending >= 0 || g_inflight >= 0 || g_want_blank || g_blanking ||
-	        g_capture_path))
-		pthread_cond_wait(&g_idle, &g_mx);
-	pthread_mutex_unlock(&g_mx);
-}
-
-/* ==================== the port interface ==================================== */
-
-/* Set from the host's thread and read only there, by present, which copies
- * them into the frame it fills: the flip thread never sees these. */
-static diatom_plane g_planes[DIATOM_PLANES_MAX];
-static int          g_nplanes;
-
-void diatom_port_planes(const diatom_plane *planes, int n)
-{
-	if (!planes || n < 0) n = 0;
-	if (n > DIATOM_PLANES_MAX) n = DIATOM_PLANES_MAX;
-	if (n) memcpy(g_planes, planes, sizeof *planes * (size_t)n);
-	g_nplanes = n;
-	port_logf(DIATOM_LOG_INFO, "present: %d plane(s)%s", n, n ? "" : ", the whole frame");
-}
-
-/* The old screens' strength, held like the planes and copied into each frame
- * present fills: host's thread only */
-static int g_strength = 100;
-
-void diatom_port_strength(int percent)
-{
-	if (percent < 0) percent = 0;
-	if (percent > 100) percent = 100;
-	if (percent != g_strength)
-		port_logf(DIATOM_LOG_INFO, "present: strength %d%%", percent);
-	g_strength = percent;
-}
-
-void diatom_port_present(const void *src, int w, int h, size_t pitch,
-                         diatom_pixfmt fmt, diatom_rect dst, diatom_filter filter)
-{
-	mailbox_frame *f;
-	size_t need;
-	int i;
-
-	/* Dupe frame: the panel already shows it. */
-	if (!src || w <= 0 || h <= 0 || !g_thread_running) return;
-
-	pthread_mutex_lock(&g_mx);
-	for (i = 0; i < MAILBOX_FRAMES; i++)
-		if (i != g_front && i != g_inflight && i != g_pending && i != g_gpu_drawing) break;
-	if (i == MAILBOX_FRAMES) {
-		i = g_pending;
-		g_pending = -1;
-		drop_fence(i);
-	}
-	pthread_mutex_unlock(&g_mx);
-	/* Every slot busy and none pending: the core holds one to draw into. A
-	 * GPU core's session presents no pixels, so this is never its frame. */
-	if (i < 0) return;
-
-	f = &g_frames[i];
-	f->gpu = false;
-	need = pitch * (size_t)h;
-	if (need > f->cap) {
-		/* Grows only, and only when a core's geometry outgrows every frame so
-		 * far: a few times per game at most, never per frame. */
-		uint8_t *p = realloc(f->pixels, need);
-		if (!p) {
-			diatom_port_log(DIATOM_LOG_WARN, "present: no memory for the frame; dropped");
-			return;
-		}
-		f->pixels = p;
-		f->cap = need;
-	}
-	/* What the port was handed, once per change, as brick.c logs it. Against
-	 * the last frame logged, not the slot's old contents: the slots rotate. */
-	{
-		static int lw = -1, lh = -1;
-		static size_t lpitch;
-		static diatom_rect ldst;
-		static diatom_filter lfilter;
-
-		if (w != lw || h != lh || pitch != lpitch || filter != lfilter ||
-		    memcmp(&dst, &ldst, sizeof dst) != 0) {
-			lw = w; lh = h; lpitch = pitch; ldst = dst; lfilter = filter;
-			port_logf(DIATOM_LOG_INFO,
-			          "present: src %dx%d pitch %zu fmt %d -> dst %dx%d at %d,%d "
-			          "(surface %dx%d) %s",
-			          w, h, pitch, (int)fmt, dst.w, dst.h, dst.x, dst.y,
-			          g_surface_w, g_surface_h,
-			          filter == DIATOM_FILTER_SHARP ? "sharp" : "nearest");
-		}
-	}
-	memcpy(f->pixels, src, need);
-	f->w = w;
-	f->h = h;
-	f->pitch = pitch;
-	f->fmt = fmt;
-	f->dst = dst;
-	f->filter = filter;
-	f->strength = g_strength;
-	f->nplanes = g_nplanes;
-	if (g_nplanes) memcpy(f->planes, g_planes, sizeof g_planes[0] * (size_t)g_nplanes);
-
-	pthread_mutex_lock(&g_mx);
-	g_presented = true;
-	g_pending = i;
-	pthread_cond_signal(&g_cv);
-	pthread_mutex_unlock(&g_mx);
-}
-
-/* ---------- GPU frames: the port interface ------------------------------------
- * See the GPU frames section near the top for the slots and the fences. */
-
-bool diatom_port_gpu_begin(const diatom_gpu_spec *spec)
-{
-	EGLint attribs[] = { EGL_CONTEXT_MAJOR_VERSION, spec->major >= 3 ? 3 : 2, EGL_NONE };
-	GLint max_tex = 0;
-	int i;
-
-	if (g_gpu_ctx != EGL_NO_CONTEXT) diatom_port_gpu_end();
-	if (!g_thread_running || g_egl_context == EGL_NO_CONTEXT || !sync_procs()) {
-		diatom_port_log(DIATOM_LOG_ERROR, "pixel2: no GPU for the core (no display or no fences)");
-		return false;
-	}
-	/* Sharing the thread's context: its textures are the core's targets */
-	g_gpu_ctx = eglCreateContext(g_egl_display, g_egl_config, g_egl_context, attribs);
-	if (g_gpu_ctx == EGL_NO_CONTEXT && attribs[1] == 2) {
-		attribs[1] = 3;                 /* OpenGL ES 3 runs an ES 2 core as well */
-		g_gpu_ctx = eglCreateContext(g_egl_display, g_egl_config, g_egl_context, attribs);
-	}
-	if (g_gpu_ctx == EGL_NO_CONTEXT ||
-	    !eglMakeCurrent(g_egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, g_gpu_ctx)) {
-		port_logf(DIATOM_LOG_ERROR, "pixel2: no OpenGL ES %d context for the core (0x%x)",
-		          attribs[1], eglGetError());
-		if (g_gpu_ctx != EGL_NO_CONTEXT) eglDestroyContext(g_egl_display, g_gpu_ctx);
-		g_gpu_ctx = EGL_NO_CONTEXT;
-		return false;
-	}
-
-	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_tex);
-	g_gpu_top_down = spec->top_down;
-	g_gpu_w = spec->max_w > 0 ? spec->max_w : g_surface_w;
-	g_gpu_h = spec->max_h > 0 ? spec->max_h : g_surface_h;
-	if (max_tex > 0 && g_gpu_w > max_tex) g_gpu_w = max_tex;
-	if (max_tex > 0 && g_gpu_h > max_tex) g_gpu_h = max_tex;
-
-	/* One depth and stencil buffer for every slot: the core draws one frame
-	 * at a time, and nothing of a frame's depth outlives it. */
-	g_gpu_depth = 0;
-	if (spec->depth || spec->stencil) {
-		glGenRenderbuffers(1, &g_gpu_depth);
-		glBindRenderbuffer(GL_RENDERBUFFER, g_gpu_depth);
-		glRenderbufferStorage(GL_RENDERBUFFER,
-		                      spec->stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT16,
-		                      g_gpu_w, g_gpu_h);
-	}
-	glGenTextures(MAILBOX_FRAMES, g_gpu_tex);
-	for (i = 0; i < MAILBOX_FRAMES; i++) {
-		glBindTexture(GL_TEXTURE_2D, g_gpu_tex[i]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_gpu_w, g_gpu_h, 0,
-		             GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	}
-	glGenFramebuffers(1, &g_gpu_read_fb);
-	glGenFramebuffers(1, &g_gpu_fb);
-	glBindFramebuffer(GL_FRAMEBUFFER, g_gpu_fb);
-	/* Depth and stencil apart, which OpenGL ES 2 takes as well as 3 */
-	if (g_gpu_depth)
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-		                          GL_RENDERBUFFER, g_gpu_depth);
-	if (g_gpu_depth && spec->stencil)
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
-		                          GL_RENDERBUFFER, g_gpu_depth);
-	/* Each slot's texture through it once: cleared, and checked complete */
-	for (i = 0; i < MAILBOX_FRAMES; i++) {
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-		                       g_gpu_tex[i], 0);
-		glClearColor(0, 0, 0, 1);
-		glClear(GL_COLOR_BUFFER_BIT);
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			diatom_port_log(DIATOM_LOG_ERROR, "pixel2: the core's framebuffer is incomplete");
-			diatom_port_gpu_end();
-			return false;
-		}
-	}
-	g_gpu_attached = MAILBOX_FRAMES - 1;
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glFinish();
-
-	pthread_mutex_lock(&g_mx);
-	g_gpu_drawing = -1;
-	g_gpu_seq = g_gpu_blitted = 0;
-	pthread_mutex_unlock(&g_mx);
-	g_gpu_last = -1;
-	port_logf(DIATOM_LOG_INFO, "pixel2: GPU frames on OpenGL ES %d, up to %dx%d%s%s",
-	          attribs[1], g_gpu_w, g_gpu_h, spec->depth ? ", depth" : "",
-	          spec->stencil ? ", stencil" : "");
-	return true;
-}
-
-void diatom_port_gpu_end(void)
-{
-	int i;
-
-	if (g_gpu_ctx == EGL_NO_CONTEXT) return;
-	/* Nothing of the core's may still be on its way to the panel, and the
-	 * front frame, once its texture is gone, may never be drawn again. */
-	drain();
-	pthread_mutex_lock(&g_mx);
-	for (i = 0; i < MAILBOX_FRAMES; i++) {
-		drop_fence(i);
-		if (g_gpu_done[i] != EGL_NO_SYNC_KHR) {
-			p_destroy_sync(g_egl_display, g_gpu_done[i]);
-			g_gpu_done[i] = EGL_NO_SYNC_KHR;
-		}
-	}
-	if (g_front >= 0 && g_frames[g_front].gpu) g_front = -1;
-	for (i = 0; i < MAILBOX_FRAMES; i++) g_frames[i].gpu = false;
-	g_gpu_drawing = -1;
-	pthread_mutex_unlock(&g_mx);
-	g_gpu_last = -1;
-	if (g_gpu_throttle != EGL_NO_SYNC_KHR) {
-		p_destroy_sync(g_egl_display, g_gpu_throttle);
-		g_gpu_throttle = EGL_NO_SYNC_KHR;
-	}
-
-	eglMakeCurrent(g_egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, g_gpu_ctx);
-	glDeleteFramebuffers(1, &g_gpu_fb);
-	glDeleteFramebuffers(1, &g_gpu_read_fb);
-	glDeleteTextures(MAILBOX_FRAMES, g_gpu_tex);
-	if (g_gpu_depth) glDeleteRenderbuffers(1, &g_gpu_depth);
-	memset(g_gpu_tex, 0, sizeof g_gpu_tex);
-	g_gpu_fb = g_gpu_read_fb = g_gpu_depth = 0;
-	g_gpu_attached = -1;
-	eglMakeCurrent(g_egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-	eglDestroyContext(g_egl_display, g_gpu_ctx);
-	g_gpu_ctx = EGL_NO_CONTEXT;
-}
-
-uintptr_t diatom_port_gpu_target(void)
-{
-	EGLSyncKHR done = EGL_NO_SYNC_KHR;
-	int i;
-
-	if (g_gpu_ctx == EGL_NO_CONTEXT) return 0;
-	pthread_mutex_lock(&g_mx);
-	if (g_gpu_drawing < 0) {
-		/* Turn-taking: the next frame starts once the thread has drawn the
-		 * last one to the panel. The GPU runs one job after another, so a
-		 * frame begun earlier went ahead of the thread's small one, and the
-		 * panel waited behind the core: Crazy Taxi 2's 27 frames a second
-		 * reached it as 11 (2026-11-04). Bounded, so a thread that stopped
-		 * drawing cannot hold the core for good. */
-		struct timespec until;
-
-		clock_gettime(CLOCK_MONOTONIC, &until);   /* g_idle's clock, set at init */
-		until.tv_nsec += 200 * 1000000L;
-		if (until.tv_nsec >= 1000000000L) { until.tv_sec++; until.tv_nsec -= 1000000000L; }
-		while (g_thread_running && g_gpu_blitted != g_gpu_seq)
-			if (pthread_cond_timedwait(&g_idle, &g_mx, &until) == ETIMEDOUT) break;
-
-		for (i = 0; i < MAILBOX_FRAMES; i++)
-			if (i != g_front && i != g_inflight && i != g_pending) break;
-		if (i == MAILBOX_FRAMES) {      /* all three taken: the newest wins */
-			i = g_pending;
-			g_pending = -1;
-			drop_fence(i);
-		}
-		g_gpu_drawing = i;
-		done = g_gpu_done[i];
-		g_gpu_done[i] = EGL_NO_SYNC_KHR;
-	}
-	i = g_gpu_drawing;
-	pthread_mutex_unlock(&g_mx);
-	wait_sync(done);
-	if (i != g_gpu_attached) {
-		/* The core's own binding put back: its state cache expects it */
-		GLint prev = 0;
-
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev);
-		glBindFramebuffer(GL_FRAMEBUFFER, g_gpu_fb);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-		                       g_gpu_tex[i], 0);
-		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev);
-		g_gpu_attached = i;
-	}
-	return g_gpu_fb;
-}
-
-void *diatom_port_gpu_proc(const char *name)
-{
-	return (void *)eglGetProcAddress(name);
-}
-
-void diatom_port_present_gpu(int w, int h, diatom_rect dst, diatom_filter filter)
-{
-	mailbox_frame *f;
-	EGLSyncKHR fence, throttle;
-	int i;
-
-	if (g_gpu_ctx == EGL_NO_CONTEXT || w <= 0 || h <= 0 || !g_thread_running) return;
-	pthread_mutex_lock(&g_mx);
-	i = g_gpu_drawing;
-	pthread_mutex_unlock(&g_mx);
-	if (i < 0) return;              /* nothing drawn since the last one */
-	if (w > g_gpu_w) w = g_gpu_w;
-	if (h > g_gpu_h) h = g_gpu_h;
-
-	/* Into the core's command stream after its drawing, and flushed: the
-	 * thread's wait flushes only its own context. */
-	fence = p_create_sync(g_egl_display, EGL_SYNC_FENCE_KHR, NULL);
-	throttle = p_create_sync(g_egl_display, EGL_SYNC_FENCE_KHR, NULL);
-	glFlush();
-	/* And no further ahead of the GPU than one frame: the previous frame
-	 * must be done before the core starts the next. Nothing else holds it
-	 * back - RetroArch's swap does that there - and a core that queued
-	 * frames faster than the GPU drew them had every frame drawn and only
-	 * the newest shown, behind all the rest: Crazy Taxi 2 queued about 37 a
-	 * second and the panel showed 6 (2026-11-04). */
-	if (g_present_debug) {
-		static uint64_t waited, last;
-		static int n;
-		uint64_t t0 = diatom_port_now_us(), t1;
-
-		wait_sync(g_gpu_throttle);
-		t1 = diatom_port_now_us();
-		waited += t1 - t0;
-		if (++n >= 60) {
-			port_logf(DIATOM_LOG_INFO, "present: the core drew 60 frames in %llu ms, "
-			          "%llu ms of it waiting for the GPU",
-			          (unsigned long long)((t1 - last) / 1000),
-			          (unsigned long long)(waited / 1000));
-			n = 0;
-			waited = 0;
-			last = t1;
-		}
-	} else {
-		wait_sync(g_gpu_throttle);
-	}
-	g_gpu_throttle = throttle;
-
-	{
-		static int lw = -1, lh = -1;
-
-		if (w != lw || h != lh) {
-			lw = w; lh = h;
-			port_logf(DIATOM_LOG_INFO,
-			          "present: GPU frame %dx%d of %dx%d -> dst %dx%d at %d,%d %s",
-			          w, h, g_gpu_w, g_gpu_h, dst.w, dst.h, dst.x, dst.y,
-			          filter == DIATOM_FILTER_SHARP ? "sharp" : "nearest");
-		}
-	}
-	f = &g_frames[i];
-	f->gpu = true;
-	f->top_down = g_gpu_top_down;
-	f->gpu_tex = g_gpu_tex[i];
-	f->tex_w = g_gpu_w;
-	f->tex_h = g_gpu_h;
-	f->w = w;
-	f->h = h;
-	f->fmt = DIATOM_PIX_XRGB8888;
-	f->dst = dst;
-	f->filter = filter;
-	f->strength = g_strength;
-	f->fence = fence;
-	f->seq = g_gpu_seq + 1;         /* g_gpu_seq is this thread's alone to change */
-	f->nplanes = g_nplanes;
-	if (g_nplanes) memcpy(f->planes, g_planes, sizeof g_planes[0] * (size_t)g_nplanes);
-	g_gpu_last = i;
-
-	pthread_mutex_lock(&g_mx);
-	if (g_pending >= 0 && g_pending != i) drop_fence(g_pending);
-	g_presented = true;
-	g_pending = i;
-	g_gpu_drawing = -1;
-	g_gpu_seq++;
-	pthread_cond_signal(&g_cv);
-	pthread_mutex_unlock(&g_mx);
-}
-
-bool diatom_port_gpu_read(void *xrgb, int *w, int *h, size_t cap)
-{
-	const mailbox_frame *f;
-	GLint prev_fb = 0, prev_align = 4;
-	uint8_t *rgba;
-	uint32_t *out = xrgb;
-	int x, y, fw, fh;
-
-	if (g_gpu_ctx == EGL_NO_CONTEXT || g_gpu_last < 0 || !xrgb) return false;
-	f = &g_frames[g_gpu_last];
-	fw = f->w;
-	fh = f->h;
-	if ((size_t)fw * (size_t)fh * 4 > cap) return false;
-	rgba = malloc((size_t)fw * (size_t)fh * 4);
-	if (!rgba) return false;
-
-	/* The core's own bindings are put back: its state cache (glsm) does not
-	 * expect them to move between frames. */
-	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fb);
-	glGetIntegerv(GL_PACK_ALIGNMENT, &prev_align);
-	glBindFramebuffer(GL_FRAMEBUFFER, g_gpu_read_fb);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-	                       g_gpu_tex[g_gpu_last], 0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glReadPixels(0, 0, fw, fh, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
-	glPixelStorei(GL_PACK_ALIGNMENT, prev_align);
-	glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fb);
-
-	/* Bottom row first in GL (unless the core drew top down), top row first
-	 * out; RGBA bytes to 0x00RRGGBB */
-	for (y = 0; y < fh; y++) {
-		int row = g_gpu_top_down ? y : fh - 1 - y;
-		const uint8_t *s = rgba + (size_t)row * (size_t)fw * 4;
-		uint32_t *d = out + (size_t)y * (size_t)fw;
-
-		for (x = 0; x < fw; x++, s += 4)
-			d[x] = (uint32_t)s[0] << 16 | (uint32_t)s[1] << 8 | s[2];
-	}
-	free(rgba);
-	*w = fw;
-	*h = fh;
-	return true;
-}
-
-static float ov_scale(void)
-{
-	return g_surface_w > 0 && g_surface_w < 1024 ? (float)g_surface_w / 1024.0f : 1.0f;
-}
-
-void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms)
-{
-	pthread_mutex_lock(&g_mx);
-	if (!bgra || ms == 0 || w <= 0 || h <= 0) {
-		g_ov = NULL;
-		g_ov_until = 0;
-	} else if (roundf(w * ov_scale()) > g_surface_w || roundf(h * ov_scale()) > g_surface_h) {
-		/* Refused, not clipped: see diatom_port.h. */
-		diatom_port_log(DIATOM_LOG_WARN, "overlay larger than the surface; ignored");
-	} else {
-		g_ov = bgra;
-		g_ov_w = w;
-		g_ov_h = h;
-		g_ov_until = diatom_port_now_us() + (uint64_t)ms * 1000ull;
-		g_ov_dirty = true;
-	}
-	pthread_mutex_unlock(&g_mx);
-}
-
-/* The pixels of the frames that are not on glass: copies the flip thread has
- * already uploaded, each as large as the largest frame the game drew (two of
- * them are 2.5 MB after a 640x480 XRGB8888 game), which nothing reads until a
- * present fills them again and grows them back. Let go when a game stops
- * presenting rather than kept through the launcher's whole stay. The front
- * one stays: a capture of what is on glass uploads it again. */
-static void release_frames(void)
-{
-	int i;
-
-	pthread_mutex_lock(&g_mx);
-	for (i = 0; i < MAILBOX_FRAMES; i++)
-		if (i != g_front && i != g_pending && i != g_inflight && i != g_gpu_drawing) {
-			free(g_frames[i].pixels);
-			g_frames[i].pixels = NULL;
-			g_frames[i].cap = 0;
-		}
-	pthread_mutex_unlock(&g_mx);
-}
-
-void diatom_port_present_stop(diatom_park park)
-{
-	bool was_presenting;
-
-	if (!g_thread_running) return;
-	drain();
-
-	pthread_mutex_lock(&g_mx);
-	was_presenting = g_presented;
-	g_presented = false;
-	pthread_mutex_unlock(&g_mx);
-
-	/* Nothing presented since the last stop: the launcher has the display,
-	 * and parking would take it (the Brick learned this the hard way, see
-	 * brick.c). */
-	if (!was_presenting) return;
-
-	if (park == DIATOM_PARK_BLANK) {
-		pthread_mutex_lock(&g_mx);
-		g_want_blank = true;
-		pthread_cond_signal(&g_cv);
-		pthread_mutex_unlock(&g_mx);
-		drain();
-	}
-	/* KEEP leaves the last frame on glass, and the buffer behind it stays
-	 * allocated: removing a framebuffer that is on glass blanks the panel.
-	 * The launcher's first flip replaces it. */
-	release_frames();
-	give_display();
-}
+/* Where the shared presenting code (port/gles_present.h) differs by
+ * device: the Pixel 2 draws into its window surface and swaps it */
+#define PRESENT_TARGET() do { } while (0)
+#define PRESENT_SWAP()   eglSwapBuffers(g_egl_display, g_egl_surface)
+#define PORT_FN(n)       diatom_port_##n
+
+#include "gles_present.h"
 
 /* ---------- audio, as on the Brick ------------------------------------------ */
 
@@ -2650,9 +1181,21 @@ uint32_t diatom_port_input_state(void) { return g_buttons; }
 /* No sticks on the GKD Pixel 2 */
 bool diatom_port_input_axes(int16_t axes[4]) { (void)axes; return false; }
 
-bool diatom_port_rumble(uint16_t strong, uint16_t weak)
+/* The force feedback's strength is the motor's: the scale multiplies it,
+ * rounded, so Full (1) is the core's own number as it always was */
+static uint16_t rumble_times(uint16_t v, float scale)
 {
-	return evdev_rumble_set(strong, weak);
+	float f;
+
+	if (scale >= 1.0f) return v;
+	if (scale <= 0.0f) return 0;
+	f = (float)v * scale + 0.5f;
+	return (uint16_t)(f > 65535.0f ? 65535.0f : f);
+}
+
+bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
+{
+	return evdev_rumble_set(rumble_times(strong, scale), rumble_times(weak, scale));
 }
 
 void diatom_port_input_reset(void)
@@ -2762,149 +1305,11 @@ void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 	osd_show(kind == DIATOM_LEVEL_BRIGHTNESS ? 1 : 0, pos, positions - 1);
 }
 
-/* On-Screen Stats' style from the host (SETHUD), on the emulation thread:
- * the words read into a style once, here, and kept for the line it makes
- * next; a word this does not know keeps the default's */
-static hud_style g_hud_style_now;
-static bool      g_hud_clock24 = true;
-
-void diatom_port_hud_style(const diatom_hud_words *w)
-{
-	static const char *const EDGE[HUD_EDGES] = { "close", "normal", "far" };
-	static const char *const OPACITY[HUD_OPACITIES] = { "100", "75", "50" };
-	hud_style st = hud_default;
-	int k;
-
-	st.items = hud_items_parse(w->items);
-	if ((k = hud_find(hud_corner_id, HUD_CORNERS, w->corner)) >= 0) st.corner = (uint8_t)k;
-	if ((k = hud_find(EDGE, HUD_EDGES, w->edge)) >= 0) st.edge = (uint8_t)k;
-	if ((k = hud_find(hud_background_id, HUD_BACKGROUNDS, w->bg)) >= 0) st.background = (uint8_t)k;
-	if ((k = hud_find(OPACITY, HUD_OPACITIES, w->opacity)) >= 0) st.opacity = (uint8_t)k;
-	if ((k = hud_find(hud_color_id, HUD_COLORS, w->color)) >= 0) st.color = (uint8_t)k;
-	if ((k = hud_find(hud_size_id, HUD_SIZES, w->size)) >= 0) st.size = (uint8_t)k;
-	hud_clamp(&st);
-	g_hud_style_now = st;
-	g_hud_clock24 = w->clock24 != 0;
-	pthread_mutex_lock(&g_mx);
-	g_hud_style = st;
-	g_hud_dirty = true;
-	pthread_mutex_unlock(&g_mx);
-}
-
-static int read_int(const char *path)
-{
-	char b[32];
-	int fd = open(path, O_RDONLY | O_CLOEXEC), v = -1;
-	ssize_t n;
-
-	if (fd < 0) return -1;
-	n = read(fd, b, sizeof b - 1);
-	close(fd);
-	if (n > 0) {
-		b[n] = 0;
-		v = atoi(b);
-	}
-	return v;
-}
-
-/* The chip's hotter zone, in degrees: the SoC's and the GPU's thermal
- * zones, found by their names once, as the launcher's plat_chip_temp */
-static int hud_temp_c(void)
-{
-	static char zone[2][48];
-	static int nzones = -1;
-	int best = -1, v, i;
-
-	if (nzones < 0) {
-		nzones = 0;
-		for (i = 0; i < 8 && nzones < 2; i++) {
-			char path[64], type[32] = "";
-			int fd;
-			ssize_t n;
-
-			snprintf(path, sizeof path, "/sys/class/thermal/thermal_zone%d/type", i);
-			if ((fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) continue;
-			n = read(fd, type, sizeof type - 1);
-			close(fd);
-			type[n > 0 ? n : 0] = 0;
-			if (strncmp(type, "soc-thermal", 11) && strncmp(type, "gpu-thermal", 11)) continue;
-			snprintf(zone[nzones++], sizeof zone[0], "/sys/class/thermal/thermal_zone%d/temp", i);
-		}
-	}
-	for (i = 0; i < nzones; i++)
-		if ((v = read_int(zone[i])) > best) best = v;
-	return best < 0 ? -1 : (best + 500) / 1000;
-}
-
-/* Busy against idle since the last time it was asked, from /proc/stat's
- * first line; -1 the first time */
-static int hud_cpu_pct(void)
-{
-	static unsigned long long last_busy, last_all;
-	unsigned long long v[10] = { 0 }, all = 0, idle, busy;
-	char line[256];
-	FILE *f = fopen("/proc/stat", "re");
-	int i, pct = -1;
-
-	if (!f) return -1;
-	if (!fgets(line, sizeof line, f)) line[0] = 0;
-	fclose(f);
-	if (sscanf(line, "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu", &v[0], &v[1], &v[2],
-	           &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]) < 4)
-		return -1;
-	for (i = 0; i < 8; i++) all += v[i];   /* guest time is in user's already */
-	idle = v[3] + v[4];
-	busy = all - idle;
-	if (last_all && all > last_all)
-		pct = (int)((busy - last_busy) * 100 / (all - last_all));
-	last_busy = busy;
-	last_all = all;
-	return pct;
-}
-
-/* On-Screen Stats' numbers from the host (diatom_port.h), twice a second:
- * the line made here, on the emulation thread, before g_mx, with what else
- * its items say read now and only those, and the look's colors read as
- * osd_show reads the theme; painted by the render thread */
-void diatom_port_hud(bool on, double fps, double speed)
-{
-	char text[sizeof g_hud_text] = "";
-	ds_theme colors;
-	const uint8_t items = g_hud_style_now.items ? g_hud_style_now.items : hud_default.items;
-
-	memset(&colors, 0, sizeof colors);
-	if (on) {
-		hud_values v = { fps, speed, -1, -1, -1, -1, -1, -1, g_hud_clock24 };
-
-		if (items & (1u << HUD_TEMP)) v.temp_c = hud_temp_c();
-		if (items & (1u << HUD_CPU)) v.cpu_pct = hud_cpu_pct();
-		if (items & (1u << HUD_CLOCK)) {
-			int khz = read_int(DIATOM_CPUFREQ "scaling_cur_freq");
-			v.cpu_mhz = khz > 0 ? (khz + 500) / 1000 : -1;
-		}
-		if (items & (1u << HUD_BATTERY)) v.battery_pct = read_int("/sys/class/power_supply/battery/capacity");
-		if (items & (1u << HUD_TIME)) {
-			time_t t = time(NULL);
-			struct tm tm;
-
-			if (localtime_r(&t, &tm)) {
-				v.hour = tm.tm_hour;
-				v.min = tm.tm_min;
-			}
-		}
-		hud_text(text, sizeof text, &v, items);
-		themefile_read_bar(THEME_FILE, &colors);
-	}
-	pthread_mutex_lock(&g_mx);
-	if (on && (!g_hud_on || strcmp(text, g_hud_text) ||
-	           memcmp(&colors.ground, &g_hud_colors.ground, sizeof colors.ground * 18))) {
-		snprintf(g_hud_text, sizeof g_hud_text, "%s", text);
-		g_hud_colors = colors;
-		g_hud_dirty = true;
-	}
-	g_hud_on = on && text[0];
-	pthread_mutex_unlock(&g_mx);
-}
+/* On-Screen Stats' host side (port/hud_host.h), on the Pixel 2's sensors */
+#define HUD_ZONE_A       "soc-thermal"
+#define HUD_ZONE_B       "gpu-thermal"
+#define HUD_BATTERY_FILE "/sys/class/power_supply/battery/capacity"
+#include "hud_host.h"
 
 void diatom_port_low_battery(bool on, bool blink)
 {
@@ -3116,6 +1521,13 @@ bool diatom_port_init(diatom_port_caps *out)
 	out->audio_buffer_frames = AUDIO_BUFFER_FRAMES;   /* open or not yet */
 	out->present_blocks      = false;
 	out->gpu                 = true;
+	/* The mode's own rate: 25 MHz over 570 x 730 on the Pixel 2, 60.08 Hz */
+	out->refresh_hz          = g_mode.htotal && g_mode.vtotal
+	                         ? g_mode.clock * 1000.0 / ((double)g_mode.htotal * g_mode.vtotal) : 0;
+	if (out->refresh_hz > 0 && g_vbl_nominal <= 0) {
+		g_vbl_nominal = 1e6 / out->refresh_hz;
+		g_vbl_period = g_vbl_nominal;
+	}
 	return true;
 }
 

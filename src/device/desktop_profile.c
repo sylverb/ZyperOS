@@ -62,8 +62,10 @@ const device_profile device_profile_desktop = {
 	.gpu_frames = true,
 	.coreopts = dev_coreopts_pixel2,
 	.speaker_mono = false,
+	.rumble = true,   /* none, but the host shows the rows the Pixel 2 has */
 	.player2 = false,
 	.usb_shared_port = false,
+	.screen_colors = false,
 	.wifi = DEV_WIFI_BUILTIN,
 	/* None: the computer's chip is not the launcher's to warn of, and the
 	 * host's plat_chip_temp reads only the test file */

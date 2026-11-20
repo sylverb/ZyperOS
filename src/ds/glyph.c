@@ -270,6 +270,37 @@ static void g_build(ui_glyph g, g_shape *s)
 		g_line(s, 0.50f, 0.50f, 0.68f, 0.60f, G_W);
 		return;
 	}
+	if (g == UI_GLYPH_TROPHY) {
+		/* A cup on a stem and a foot, a handle each side - achievements */
+		g_line(s, 0.31f, 0.17f, 0.69f, 0.17f, G_W);
+		g_line(s, 0.31f, 0.17f, 0.31f, 0.36f, G_W);
+		g_line(s, 0.69f, 0.17f, 0.69f, 0.36f, G_W);
+		g_arc(s, 0.50f, 0.36f, 0.19f, 0.0f, pi);
+		g_line(s, 0.31f, 0.25f, 0.19f, 0.25f, G_W);
+		g_arc(s, 0.25f, 0.31f, 0.06f, 0.5f * pi, 1.5f * pi);
+		g_line(s, 0.69f, 0.25f, 0.81f, 0.25f, G_W);
+		g_arc(s, 0.75f, 0.31f, 0.06f, -0.5f * pi, 0.5f * pi);
+		g_line(s, 0.50f, 0.55f, 0.50f, 0.70f, G_W);
+		g_line(s, 0.36f, 0.83f, 0.64f, 0.83f, G_W);
+		g_line(s, 0.40f, 0.70f, 0.60f, 0.70f, G_W);
+		return;
+	}
+	if (g == UI_GLYPH_SHELF) {
+		/* Two books upright and one leaning on them - libretro's catalog */
+		g_line(s, 0.14f, 0.20f, 0.30f, 0.20f, G_W);
+		g_line(s, 0.30f, 0.20f, 0.30f, 0.80f, G_W);
+		g_line(s, 0.30f, 0.80f, 0.14f, 0.80f, G_W);
+		g_line(s, 0.14f, 0.80f, 0.14f, 0.20f, G_W);
+		g_line(s, 0.38f, 0.20f, 0.54f, 0.20f, G_W);
+		g_line(s, 0.54f, 0.20f, 0.54f, 0.80f, G_W);
+		g_line(s, 0.54f, 0.80f, 0.38f, 0.80f, G_W);
+		g_line(s, 0.38f, 0.80f, 0.38f, 0.20f, G_W);
+		g_line(s, 0.60f, 0.27f, 0.75f, 0.23f, G_W);
+		g_line(s, 0.75f, 0.23f, 0.89f, 0.77f, G_W);
+		g_line(s, 0.89f, 0.77f, 0.74f, 0.81f, G_W);
+		g_line(s, 0.74f, 0.81f, 0.60f, 0.27f, G_W);
+		return;
+	}
 	if (g == UI_GLYPH_GRID) {
 		/* Four squares, two by two - SteamGridDB */
 		static const float o[4][2] = { { 0.14f, 0.14f }, { 0.56f, 0.14f }, { 0.14f, 0.56f }, { 0.56f, 0.56f } };
@@ -302,10 +333,14 @@ static void g_build(ui_glyph g, g_shape *s)
 		return;
 	}
 	if (g == UI_GLYPH_PLAY) {
-		/* A play triangle, outlined, its point to the right */
-		g_line(s, 0.27f, 0.14f, 0.27f, 0.86f, G_W);
-		g_line(s, 0.27f, 0.86f, 0.84f, 0.50f, G_W);
-		g_line(s, 0.84f, 0.50f, 0.27f, 0.14f, G_W);
+		/* A play triangle, outlined, its point to the right, its centroid
+		 * ((0.31 + 0.31 + 0.88) / 3) on the cell's middle: centered by its
+		 * box, a triangle looks pushed toward its flat side, so every disc
+		 * that held one moved it right by eye, and too far (2026-11-19, a
+		 * report from the Pixel 2: the paused video's play mark sat right) */
+		g_line(s, 0.31f, 0.14f, 0.31f, 0.86f, G_W);
+		g_line(s, 0.31f, 0.86f, 0.88f, 0.50f, G_W);
+		g_line(s, 0.88f, 0.50f, 0.31f, 0.14f, G_W);
 		return;
 	}
 	if (g == UI_GLYPH_WIFI) {

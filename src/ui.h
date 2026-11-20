@@ -97,6 +97,11 @@ typedef enum {
  * says why. In the language that is on: Lexend, or in 简体中文 the cut of
  * Noto Sans SC (DESIGN.md 4). */
 TTF_Font *ui_font(ui_font_role role);
+/* Lexend at a size no role is, SemiBold or Regular: the button glyphs'
+ * letters, MP4's Classic clock (DS_TYPE_CLOCK). Opened the first time and
+ * kept until ui_quit, as the button letters' faces are; NULL if it would
+ * not open. */
+TTF_Font *ui_face_at(int pt, bool semibold);
 /* The faces ui_font answers with from now: `l`'s (src/i18n.h). Called with
  * i18n_set. The Chinese set opens the first time and is kept. */
 void ui_fonts_for(lang l);
@@ -107,6 +112,9 @@ int ui_font_set(void);
 /* The face's file of the set that is on (Chinese's while Lexend's is),
  * beside menu.ttf: the title's or the rest's */
 const char *ui_cjk_font_path(bool title, char *out, size_t n);
+/* The Regular face's file of the set that is on: menu.ttf, or 简体中文's or
+ * 日本語's cut beside it; "" before ui_init */
+const char *ui_regular_font_path(char *out, size_t n);
 /* `role`'s face for `l`'s words, whatever language is on: each language's
  * own name in the picker and in MENU > Language's panel */
 TTF_Font *ui_font_lang(ui_font_role role, lang l);
@@ -220,6 +228,13 @@ void ui_fit_text(TTF_Font *f, const char *src, char *dst, size_t dstn,
 int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
                      char lines[][LB_LINE]);
 
+/* The same, filled: each line with as many words as fit (lb_fill), for a
+ * sentence set left in a list's place, which should reach the panel's right
+ * margin rather than stand in a narrow column (the in-game menu's
+ * Achievements tab) */
+int ui_fill_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                  char lines[][LB_LINE]);
+
 /* Forget the widths, fits and balances remembered on the main thread (ui.c
  * keeps the last 64, as each is a pure function of the face, the text and the
  * box). Called wherever a face the main thread measures with is closed: a new
@@ -233,6 +248,10 @@ void ui_fit_frame(void);
  * Diatom to show): said as drawn to the host's check, which holds it to its
  * box where it is cut (ui_fit_text) */
 void ui_fit_drawn(const char *s);
+/* A menu row's value drawn (src/menu_panel.c), said to the host's check:
+ * one of the table's strings that begins with a small letter fails it
+ * (tools/i18n-shots.py). Nothing on the device. */
+void ui_fit_value(const char *s);
 /* A menu row's value `s`, `w` wide, in `room` of a row `row_w` wide: said
  * on a host when it fits by less than 2% of the row (see ui.c) */
 void ui_fit_tight(const char *s, int w, int room, int row_w);
@@ -241,6 +260,11 @@ void ui_fit_tight(const char *s, int w, int room, int row_w);
  * keys and the marks"), as the keys of a foot met a caption over them on
  * Cover and Video (1.0.6). Nothing on the device. */
 void ui_fit_mark(const SDL_Rect *q);
+/* Drawing a picture of a screen into a texture (MP4's Player Look list):
+ * on, nothing drawn is held against the screen it will be shown on or said
+ * to the host's check, and a clear does not start a new frame for it; off
+ * again after. That screen's own shots hold its words. */
+void ui_fit_away(bool on);
 #ifdef I18N_PSEUDO
 /* A cleared screen is a new frame for it too */
 #define SDL_RenderClear(r) (ui_fit_frame(), SDL_RenderClear(r))
@@ -337,6 +361,10 @@ void ui_lift(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind);
  * into focus and leaves it by degrees as the row moves, and takes its lift
  * with it (cf_draw's lift). ui_lift is this at 1, at full strength. */
 void ui_lift_k(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind, float k);
+/* Highlight's lift under the item in focus on the home and the shelves
+ * (DESIGN.md 7, 11.47): `high` for Lift's, deeper, else Bar's and Border's;
+ * at `k` of its strength, the item's weight in the focus's glide */
+void ui_lift_focus(SDL_Renderer *r, const SDL_Rect *q, bool high, float k);
 /* The same lift as theme `theme_ix` (DS_LIGHT or DS_DARK) lifts, whichever
  * theme is on: for what is drawn straight on scrim.game, which is dark in
  * both themes, where Beard's ink shadow would fall on ink and lift nothing
@@ -401,6 +429,19 @@ void ui_rail(SDL_Renderer *r, int screen_w, int screen_h, float index, int count
  * one rect and the two caps as one inset row each, so a panel costs a few
  * dozen fills rather than one per scanline. */
 void ui_round_rect(SDL_Renderer *r, const SDL_Rect *q, int radius, SDL_Color col);
+
+/* A part made of many small primitives - a graded bar's colored columns, the
+ * hue band - drawn once into a texture of its own and copied from then on
+ * (ui.c says why). `draw` paints it at (0, 0), `w` by `h`, opaque wherever it
+ * paints; the texture is kept for `what` (a string literal), `k`, `w` and `h`
+ * on renderer `r` until ui_quit. NULL when ui_bake_on is false or no texture
+ * could be made: the caller then draws the part in place, as before. */
+SDL_Texture *ui_bake(SDL_Renderer *r, const char *what, int k, int w, int h,
+                     void (*draw)(SDL_Renderer *r, int k, int w, int h));
+extern bool ui_bake_on;
+/* The drawing calls the design system's parts made (src/ds/), for a check's
+ * budget: each SDL draw, fill or copy and each ui_* drawing call is one */
+extern unsigned long ui_calls;
 
 /* A menu slab, DESIGN.md 11.3: the theme's **surface**, opaque, so a list
  * drawn on it reads against a paused game frame or a lit shelf without either

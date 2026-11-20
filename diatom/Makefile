@@ -22,11 +22,18 @@ CFLAGS  += -Iinclude -Isrc -Ivendor/rcheevos/include -Ivendor/lz4
 CFLAGS  += -MMD -MP
 # zlib for zipped ROMs (src/zip.c), on every port
 LDFLAGS += -lz
+# liblzma, for a zip's LZMA entries (src/zip.c): the system's own, which
+# plastron has for the CHD reader; pkg-config answers for the device's
+# sysroot in a device build, for Homebrew's xz on a Mac
+LZMA_CFLAGS := $(shell $(or $(PKG_CONFIG),pkg-config) --cflags liblzma 2>/dev/null)
+LZMA_LIBS   := $(or $(shell $(or $(PKG_CONFIG),pkg-config) --libs liblzma 2>/dev/null),-llzma)
+CFLAGS  += $(LZMA_CFLAGS)
+LDFLAGS += $(LZMA_LIBS)
 
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
 BUILD := build/$(PORT)
-SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/player2.c src/statefile.c src/pace.c port/$(PORT).c
+SRC   := src/main.c src/cheevos.c src/cheats.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/corefail.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c port/$(PORT).c
 # Expanded where it is used, not here: a port's block below adds its own files
 # to SRC (the Pixel 2's bar, port/osdbar.c), and := took the list before they
 # were in it, so they were never built and the link failed.
@@ -98,10 +105,16 @@ ifeq ($(PORT),brick)
   # controls, which need no library.
   PKG_CONFIG ?= pkg-config
   # The level bar, ZyperOS's own drawing of it (port/osdbar.c), and the theme
-  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2
-  SRC += port/osdbar.c port/themefile.c
-  CFLAGS  += $(shell $(PKG_CONFIG) --cflags sdl2)
-  LDFLAGS += $(shell $(PKG_CONFIG) --libs sdl2) -lm -ldl -lpthread
+  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2;
+  # the Screen Colors' table math, which port/panelgamma_sunxi.h puts on the
+  # display (port/panelgamma.c); the FPS readout's drawing (port/hud.c), which
+  # the GPU path's shared drawing links. The GPU path draws with the
+  # PowerVR's EGL and GLES, whose headers and pkg-config files plastron's
+  # pvr-ge8300 package puts in the sysroot.
+  BRICK_PKGS := sdl2 egl glesv2
+  SRC += port/osdbar.c port/themefile.c port/panelgamma.c port/hud.c
+  CFLAGS  += $(shell $(PKG_CONFIG) --cflags $(BRICK_PKGS))
+  LDFLAGS += $(shell $(PKG_CONFIG) --libs $(BRICK_PKGS)) -lm -ldl -lpthread
 endif
 
 ifeq ($(PORT),pixel2)
@@ -155,7 +168,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states check-statereads
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-zipmethods check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-rtc check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -217,7 +230,58 @@ check-pace: $(PACE_TEST)
 $(PACE_TEST): test/pace_test.c src/pace.c src/pace.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
-	      -Isrc -o $@ test/pace_test.c src/pace.c
+	      -Isrc -o $@ test/pace_test.c src/pace.c -lm
+
+# The frames a game emulated, and the pictures it drew, from the calls to
+# retro_run and the sound the core made (src/emumeter.h): Speed is the
+# emulation's, not the pictures'. Offline: src/emumeter.c alone. The frame
+# loop's side, end to end, is check-hudspeed.
+EMUMETER_TEST := $(BUILD)/emumeter-test
+
+check-emumeter: $(EMUMETER_TEST)
+	@./$(EMUMETER_TEST)
+
+$(EMUMETER_TEST): test/emumeter_test.c src/emumeter.c src/emumeter.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/emumeter_test.c src/emumeter.c -lm
+
+# Why a core would not load, in words the launcher can say (src/corefail.h):
+# the file's ELF header and dlerror's text as glibc, musl and macOS write it.
+# Offline: src/corefail.c alone. The real dlopen, end to end, is
+# check-corefail-e2e.
+COREFAIL_TEST := $(BUILD)/corefail-test
+
+check-corefail: $(COREFAIL_TEST)
+	@./$(COREFAIL_TEST)
+
+$(COREFAIL_TEST): test/corefail_test.c src/corefail.c src/corefail.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/corefail_test.c src/corefail.c
+
+# A core that would not load says why, end to end: cores built here (another
+# machine's ELF header, a library that is gone, a function nothing has) refused
+# by the real dlopen, each with its ERROR line's why= and name= (src/corefail.h).
+# On check-stateplane's terms: the stub core, a few seconds, skipped unbuilt.
+check-corefail-e2e:
+	$(FRESH_IF_BUILT)
+	@python3 test/corefail.py
+.PHONY: check-corefail-e2e
+
+# Refreshes missed with the frame ready (src/flipwatch.h): each climbs the
+# clocks one step, the power level, then the CPU and the GPU held at their
+# tops, a second apart at least and never in a game's first two. Offline: the rule
+# alone. The frame loop's side, end to end, is check-flipwatch-e2e.
+FLIPWATCH_TEST := $(BUILD)/flipwatch-test
+
+check-flipwatch: $(FLIPWATCH_TEST)
+	@./$(FLIPWATCH_TEST)
+
+$(FLIPWATCH_TEST): test/flipwatch_test.c src/flipwatch.c src/flipwatch.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/flipwatch_test.c src/flipwatch.c
 
 # The d-pad as the left analog stick (src/stick.h), for the N64: each
 # direction's axes, a diagonal as long as a straight push, and the SELECT rule
@@ -270,7 +334,21 @@ check-bounds: $(BOUNDS_TEST)
 $(BOUNDS_TEST): test/bounds_test.c src/zip.c src/proto.c src/diatom.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g $(BOUNDS_SAN) \
-	      -Iinclude -Isrc -o $@ test/bounds_test.c src/zip.c src/proto.c -lz
+	      -Iinclude -Isrc $(LZMA_CFLAGS) -o $@ test/bounds_test.c src/zip.c src/proto.c -lz $(LZMA_LIBS)
+
+# Zipped games by each method a zip tool offers (src/zip.c): stored, Deflate
+# and LZMA read whole, bzip2 refused rather than its readme handed over.
+# Python's zipfile writes the zips, so it needs no file from anywhere.
+ZIPLOAD := $(BUILD)/zipload
+
+check-zipmethods: $(ZIPLOAD)
+	@python3 test/zipmethods.py $(ZIPLOAD)
+.PHONY: check-zipmethods
+
+$(ZIPLOAD): test/zipload.c src/zip.c src/diatom.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g -Iinclude -Isrc $(LZMA_CFLAGS) \
+	      -o $@ test/zipload.c src/zip.c -lz $(LZMA_LIBS)
 
 # A save state's file (src/statefile.h): packed and read back byte for byte,
 # with its achievement trailer; a version 1 state, unpacked, as every Diatom
@@ -346,6 +424,23 @@ check-now:
 	@python3 test/now.py
 .PHONY: check-now
 
+# On-Screen Stats' FPS and Speed end to end (src/emumeter.h): the stub core that
+# repeats every second picture, or whose call is two frames long, is at 1.00x
+# and 30 fps; a slow one is under 1x, and fast forward at its step. On
+# check-stateplane's terms: the stub core, about a minute, skipped unbuilt.
+check-hudspeed:
+	$(FRESH_IF_BUILT)
+	@python3 test/hudspeed.py
+.PHONY: check-hudspeed
+
+# The display lock end to end (src/pace.h): the stub at a GBA's 59.7275 fps
+# with a 60 Hz display runs at 60 and says so; pace=core, no display rate or
+# a 50 Hz one keep the core's own rate
+check-displaylock:
+	$(FRESH_IF_BUILT)
+	@python3 test/displaylock.py
+.PHONY: check-displaylock
+
 # The motor end to end, against the stub core asking as an N64 Rumble Pak
 # game does (STUBCORE_RUMBLE) and a pretend motor in the desktop port
 # (DIATOM_RUMBLE_LOG): it stops when the game stops it, under MENU, at a
@@ -367,7 +462,8 @@ check-states:
 # States a newer build of a core reads from an older one (src/save.c,
 # STATE_READS), end to end: the stub core as DSperate v3.4.1 resumes a
 # v3.0.5 state and refuses another version's, v3.0.5 refuses a v3.4.1 state,
-# and another core with the same versions refuses it. On check-stateplane's
+# and another core with the same versions refuses it; Snes9x 2010 and Genesis
+# Plus GX the same for their builds before 2026-11-16. On check-stateplane's
 # terms: a few seconds, skipped unbuilt.
 check-statereads:
 	$(FRESH_IF_BUILT)
@@ -377,19 +473,34 @@ check-statereads:
 # SELECT's hotkeys end to end (src/chord.h): the pad by script, what the stub
 # core read written down, the quick slot's SAVE and LOAD answered while the
 # game runs. On check-stateplane's terms: about eight seconds, skipped unbuilt.
+# Cheats, end to end against the stub core (test/cheats.py): what the core is
+# handed and when, never in a frame, and achievements paused while one is on.
+# Needs build/desktop, as check-proto does, and skips without it.
+check-cheats:
+	@python3 test/cheats.py
+
 check-hotkeys:
 	$(FRESH_IF_BUILT)
 	@python3 test/hotkeys.py
 .PHONY: check-hotkeys
 
 # How a core's life ends, end to end (test/coreend.py): PrBoom opened afresh
-# for each game (core.c, one_game_per_load), and a core's own quit
+# for each game (core.c, one_game_per_load), and so is every core ZyperOS did
+# not ship, by the card's index (core_is_shipped), while a shipped one stays
+# open: no extra dlopen or retro_init. And a core's own quit
 # (RETRO_ENVIRONMENT_SHUTDOWN) ending its game as the player's would. On
 # check-stateplane's terms: a few seconds, skipped unbuilt.
 check-coreend:
 	$(FRESH_IF_BUILT)
 	@python3 test/coreend.py
 .PHONY: check-coreend
+
+# A cartridge's clock kept apart from its battery (RETRO_MEMORY_RTC, Gambatte's
+# MBC3): <rom>.rtc written on the way out and read in at the next start
+check-rtc:
+	$(FRESH_IF_BUILT)
+	@python3 test/rtc.py
+.PHONY: check-rtc
 
 # The frame for the launcher's card of a game with no art: written once, a
 # minute into play, never over one already there, and not before the minute
@@ -446,6 +557,17 @@ check-power-e2e:
 	$(FRESH_IF_BUILT)
 	@python3 test/power.py
 .PHONY: check-power-e2e
+
+# Refreshes missed with the frame ready, end to end: the desktop port counts
+# every frame after the N-th as a miss (DIATOM_TEST_MISSED) and writes the
+# clock holds into a scratch folder, as the Pixel 2 writes its CPU's and GPU's
+# lowest clocks. At full power the CPU and the GPU are held, said once, the
+# summary counts the misses and the holds let go at the end; without misses,
+# nothing. On check-stateplane's terms: the stub core, seconds, skipped unbuilt.
+check-flipwatch-e2e:
+	$(FRESH_IF_BUILT)
+	@python3 test/flipwatch.py
+.PHONY: check-flipwatch-e2e
 
 # Fast forward's speed, end to end: the stub core as slow as a DS game on the
 # Pixel 2 (STUBCORE_FRAME_US) runs flat out at a step it cannot reach, and a

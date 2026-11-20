@@ -12,6 +12,7 @@
 #include "linebreak.h" /* where a name too wide for its box breaks or is cut */
 #include "look.h"      /* Corners: Square */
 #include "padglyph.h"
+#include "platform.h"  /* PLAT_TARGET_FORMAT, a render target's format */
 #include "ds/button.h"  /* which glyph a button name draws on this handheld */
 #include "folderart.h" /* a folder's card and row, in pixel art */  /* the PlayStation's shapes, drawn in running text */
 
@@ -88,13 +89,18 @@ static char title_path_kept[512];
 /* See ui_face_open. Made by the first ui_init and kept for the life of the
  * process, never destroyed by ui_quit: a worker can be waiting on one then. */
 static SDL_mutex *face_lock;
-/* The generated card's faces on the art workers (ui_card_paint's `away`): a
- * set of their own, so a face of the frame thread's is only ever the frame
- * thread's. Opened the first time a worker draws a card and closed by
- * ui_quit, both under away_lock, which a worker holds for the whole of a
- * card: two workers drawing at once take turns, a card being a fraction of
- * what a decode is. `away_up` is from ui_init to ui_quit, the stretch the
- * font library is up in: outside it nothing opens them and nothing draws. */
+/* The generated card's faces on the art workers (ui_card_paint's `away`):
+ * sets of their own, so a face of the frame thread's is only ever the frame
+ * thread's. One set for each of texload's two workers, so they draw two
+ * cards at once as they decode two covers at once: a game's card (src/
+ * cardart.h) is 40-50 ms on the Pixel 2, as much as a decode, and with one
+ * set for both, a Grid of games with no art filled at half the rate of one
+ * with art, and the rows a press brought into sight slid in empty. A set is
+ * opened the first time a card is drawn in it and closed by ui_quit, both
+ * under its own away_lock, which is held for the whole of a card.
+ * `away_up` is from ui_init to ui_quit, the stretch the font library is up
+ * in: outside it nothing opens them and nothing draws. */
+#define AWAY_SETS 2                 /* src/texload.c's NWORKERS */
 #define NAME_FACES (CA_SIZES * 2)   /* a game card's name: its sizes, then its rest's */
 typedef struct {
 	TTF_Font *title[SETS];      /* UI_F_CARD's face in each set */
@@ -108,11 +114,21 @@ typedef struct {
 	char      art_path[UI_CARD_PATH];
 	SDL_Surface *art;
 } card_faces;
-static SDL_mutex *away_lock;
-static card_faces away_faces;
+static SDL_mutex *away_lock[AWAY_SETS];
+static card_faces away_faces[AWAY_SETS];
 /* The frame thread's own copies of a game card's name faces and art (the
  * rest of a frame card is font_sets' and f_mark, as it always was) */
 static card_faces frame_faces;
+/* Every away_lock, in order, or let go of: ui_init and ui_quit change what
+ * all the sets stand on, and wait out a card being drawn in any of them */
+static void away_hold(bool hold)
+{
+	for (int i = 0; i < AWAY_SETS; i++) {
+		if (!away_lock[i]) continue;
+		if (hold) SDL_LockMutex(away_lock[i]);
+		else SDL_UnlockMutex(away_lock[i]);
+	}
+}
 static bool away_up;
 static void card_faces_close(card_faces *k);
 static SDL_Texture *glow_tex;
@@ -199,7 +215,7 @@ static void title_path_beside(const char *menu, char *out, size_t n)
 #define MEMO_TEXT  256
 #define MEMO_LINES 3
 
-enum { MEMO_FREE, MEMO_WIDTH, MEMO_FIT, MEMO_BALANCE };
+enum { MEMO_FREE, MEMO_WIDTH, MEMO_FIT, MEMO_BALANCE, MEMO_FILL };
 
 typedef struct {
 	unsigned char kind;
@@ -285,7 +301,8 @@ bool ui_init(SDL_Renderer *r, const char *font_path)
 	/* Granted, not asked for: a driver may decline PRESENTVSYNC in silence */
 	vsync_on = SDL_GetRendererInfo(r, &ri) == 0 && (ri.flags & SDL_RENDERER_PRESENTVSYNC);
 	if (!face_lock) face_lock = SDL_CreateMutex();
-	if (!away_lock) away_lock = SDL_CreateMutex();
+	for (i = 0; i < AWAY_SETS; i++)
+		if (!away_lock[i]) away_lock[i] = SDL_CreateMutex();
 
 	/* No worker is in the library here: away_up is down until the end */
 	if (TTF_Init() != 0) {
@@ -326,9 +343,9 @@ bool ui_init(SDL_Renderer *r, const char *font_path)
 	}
 	/* Up for the workers' card faces too, which open from font_path_kept,
 	 * set above: the lock is what makes it theirs to read */
-	if (away_lock) SDL_LockMutex(away_lock);
+	away_hold(true);
 	away_up = true;
-	if (away_lock) SDL_UnlockMutex(away_lock);
+	away_hold(false);
 	/* The title is a file of its own, so it opening says nothing of the
 	 * others: menu.ttf missing, with title.ttf there, is a launcher with no
 	 * menus, labels or counts. */
@@ -355,6 +372,7 @@ void ui_face_close(TTF_Font *f)
 
 static void digits_free(void);
 static void button_fonts_free(void);
+static void bakes_free(void);
 
 void ui_quit(void)
 {
@@ -363,14 +381,15 @@ void ui_quit(void)
 	 * the card is done, so this waits out that card, and the next one finds
 	 * away_up false and leaves the card to the frame. Nothing draws text
 	 * from here to the next ui_init, and nothing is left holding a face. */
-	if (away_lock) SDL_LockMutex(away_lock);
+	away_hold(true);
 	away_up = false;
-	card_faces_close(&away_faces);
-	if (away_lock) SDL_UnlockMutex(away_lock);
+	for (int i = 0; i < AWAY_SETS; i++) card_faces_close(&away_faces[i]);
+	away_hold(false);
 	card_faces_close(&frame_faces);
 	memo_clear();
 	ds_glyphs_free();
 	digits_free();
+	bakes_free();
 	shadows_free();
 	for (int i = 0; i < TEXT_CACHE; i++)
 		if (cache[i].tex) { SDL_DestroyTexture(cache[i].tex); cache[i].tex = NULL; }
@@ -450,6 +469,13 @@ int ui_font_set(void)
 const char *ui_cjk_font_path(bool title, char *out, size_t n)
 {
 	set_path(set_on == SET_LATIN ? SET_SC : set_on, title, out, n);
+	return out;
+}
+
+const char *ui_regular_font_path(char *out, size_t n)
+{
+	if (set_on == SET_LATIN || !font_path_kept[0]) snprintf(out, n, "%s", font_path_kept);
+	else set_path(set_on, false, out, n);
 	return out;
 }
 
@@ -904,6 +930,13 @@ SDL_Surface *ui_text_surface(TTF_Font *f, const char *s, SDL_Color col)
  * looks. A table string is known by where it lives (i18n_owns); in the
  * pseudo-locale, whose every string ends "·]", by that too, so a line
  * formatted from one is caught as well. */
+/* Drawing a picture of a screen into a texture, not the screen (ui_fit_away):
+ * its words are that screen's, which its own shots hold, and are not held
+ * against the screen it is drawn on */
+static int fit_away;
+
+void ui_fit_away(bool on) { fit_away += on ? 1 : -1; }
+
 #ifdef I18N_PSEUDO
 static bool i18n_watched(const char *s)
 {
@@ -912,6 +945,7 @@ static bool i18n_watched(const char *s)
 
 static void i18n_note(const char *what, const char *s)
 {
+	if (fit_away) return;
 	static unsigned said[256];
 	unsigned h = 5381;
 
@@ -971,7 +1005,11 @@ static int fit_marks;
 static struct { SDL_Rect r, dst; TTF_Font *f; char s[256]; char text[32]; } fit_ink[FIT_RECTS];
 static int fit_inks, fit_quiet;
 
-void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0; }
+void ui_fit_frame(void)
+{
+	if (fit_away) return;
+	fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0;
+}
 
 /* Do `a` and `b` come within `m` of each other? How far, top to bottom */
 static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
@@ -988,12 +1026,14 @@ static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
 
 static void fit_box(const SDL_Rect *q)
 {
+	if (fit_away) return;
 	if (fit_n < FIT_RECTS) fit_rect[fit_n++] = *q;
 }
 
 /* The text with its line ends as \n, on one line of the log */
 static void fit_say(const char *what, const char *head, const char *s)
 {
+	if (fit_away) return;
 	static unsigned said[4096];
 	char line[1100], *o = line;
 	unsigned h = 5381;
@@ -1018,6 +1058,14 @@ static void fit_say(const char *what, const char *head, const char *s)
 void ui_fit_drawn(const char *s)
 {
 	if (s && *s) fit_say("drawn", "", s);
+}
+
+/* A menu row's value, "fit: value: TEXT" once a string: tools/i18n-shots.py
+ * fails on one of the table's that begins with a small letter (a row's value
+ * begins with a capital, res/strings/GLOSSARY.md) */
+void ui_fit_value(const char *s)
+{
+	if (s && *s) fit_say("value", "", s);
 }
 
 /* Where the rough boxes come close, the string's own ink: rendered as
@@ -1061,6 +1109,7 @@ void ui_fit_mark(const SDL_Rect *q)
 	char head[96];
 	int i, px, rows;
 
+	if (fit_away) return;
 	for (i = 0; i < fit_inks; i++)
 		if (fit_meet(&fit_ink[i].r, q, FIT_MARGIN, &px) &&
 		    (rows = fit_ink_rows(fit_ink[i].f, fit_ink[i].s, &fit_ink[i].dst, q, FIT_MARGIN)) > 0) {
@@ -1077,6 +1126,7 @@ static void fit_ink_check(TTF_Font *f, const char *s, const SDL_Rect *dst, const
 	char head[96];
 	int i, px, rows;
 
+	if (fit_away) return;
 	for (i = 0; i < fit_marks; i++)
 		if (fit_meet(ink, &fit_mark[i], FIT_MARGIN, &px) &&
 		    (rows = fit_ink_rows(f, s, dst, &fit_mark[i], FIT_MARGIN)) > 0) {
@@ -1103,6 +1153,7 @@ static void fit_check(SDL_Renderer *r, const char *s, const SDL_Rect *dst, int a
 	int i, cy = dst->y + dst->h / 2, over;
 	long best = 0;
 
+	if (fit_away) return;
 	for (const char *p = s; *p; p++) hash = hash * 33 + (unsigned char)*p;
 
 	fit_say("drawn", "", s);
@@ -1171,6 +1222,7 @@ static void i18n_fit_seen(const char *src, const char *dst)
 void ui_fit_frame(void) {}
 void ui_fit_tight(const char *s, int w, int room, int row_w) { (void)s; (void)w; (void)room; (void)row_w; }
 void ui_fit_drawn(const char *s) { (void)s; }
+void ui_fit_value(const char *s) { (void)s; }
 void ui_fit_mark(const SDL_Rect *q) { (void)q; }
 #endif
 
@@ -1275,6 +1327,88 @@ static struct {
 	int          w[10], h;
 	bool         tried[10];          /* asked for: made, or failed for good */
 } digits[DIGIT_FONTS];
+
+/* ---- parts drawn once -------------------------------------------------
+ * The Pixel 2's GPU takes each one-pixel line in a new color as a draw call of
+ * its own (panfrost): the five graded bars of Screen Colors, a line for each
+ * half of each column, made the page draw 13 frames a second while Down was
+ * held, 66.6 ms a frame against the Display tab's 22 (2026-11-16). So such a
+ * part is drawn once into a texture and copied, one draw a frame. Only what is
+ * opaque and the same in both themes goes in, and it is copied 1:1 where it was
+ * drawn, so the copy puts the very pixels the drawing did and leaves the rest
+ * (tools/scale-check.c compares the two). Everything the renderer had - its
+ * target, viewport, clip, scale, blend and color - is put back after. */
+#define BAKES 32
+static struct {
+	SDL_Renderer *r;
+	const char   *what;
+	int           k, w, h;
+	SDL_Texture  *t;
+} bakes[BAKES];
+static int bake_next;
+bool ui_bake_on = true;
+unsigned long ui_calls;
+
+SDL_Texture *ui_bake(SDL_Renderer *r, const char *what, int k, int w, int h,
+                     void (*draw)(SDL_Renderer *r, int k, int w, int h))
+{
+	SDL_Texture *t, *was;
+	SDL_Rect view, clip;
+	SDL_bool clipped;
+	SDL_BlendMode mode;
+	Uint8 cr, cg, cb, ca;
+	float sx, sy;
+	int i;
+
+	if (!ui_bake_on || !r || w <= 0 || h <= 0) return NULL;
+	for (i = 0; i < BAKES; i++)
+		if (bakes[i].t && bakes[i].r == r && bakes[i].what == what && bakes[i].k == k &&
+		    bakes[i].w == w && bakes[i].h == h)
+			return bakes[i].t;
+	if (!(t = SDL_CreateTexture(r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, w, h)))
+		return NULL;
+	was = SDL_GetRenderTarget(r);
+	SDL_RenderGetViewport(r, &view);
+	clipped = SDL_RenderIsClipEnabled(r);
+	SDL_RenderGetClipRect(r, &clip);
+	SDL_RenderGetScale(r, &sx, &sy);
+	SDL_GetRenderDrawBlendMode(r, &mode);
+	SDL_GetRenderDrawColor(r, &cr, &cg, &cb, &ca);
+	if (SDL_SetRenderTarget(r, t) != 0) {
+		SDL_DestroyTexture(t);
+		return NULL;
+	}
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(r, 0, 0, 0, 0);
+	SDL_RenderClear(r);
+	draw(r, k, w, h);
+	SDL_SetRenderTarget(r, was);
+	SDL_RenderSetScale(r, sx, sy);
+	SDL_RenderSetViewport(r, &view);
+	SDL_RenderSetClipRect(r, clipped ? &clip : NULL);
+	SDL_SetRenderDrawBlendMode(r, mode);
+	SDL_SetRenderDrawColor(r, cr, cg, cb, ca);
+	SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+	SDL_SetTextureScaleMode(t, SDL_ScaleModeNearest);
+	if (bakes[bake_next].t) SDL_DestroyTexture(bakes[bake_next].t);
+	bakes[bake_next].r = r;
+	bakes[bake_next].what = what;
+	bakes[bake_next].k = k;
+	bakes[bake_next].w = w;
+	bakes[bake_next].h = h;
+	bakes[bake_next].t = t;
+	bake_next = (bake_next + 1) % BAKES;
+	return t;
+}
+
+static void bakes_free(void)
+{
+	for (int i = 0; i < BAKES; i++) {
+		if (bakes[i].t) SDL_DestroyTexture(bakes[i].t);
+		bakes[i].t = NULL;
+	}
+	bake_next = 0;
+}
 
 static void digits_free(void)
 {
@@ -1735,33 +1869,50 @@ static void balance_cut_note(const char *text, char lines[][LB_LINE], int n)
 }
 #endif
 
-int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
-                     char lines[][LB_LINE])
+/* `text` broken by `brk` (lb_balance or lb_fill), measured in `f`, and
+ * remembered under `kind` when it is short enough to keep */
+typedef int (*lines_fn)(const char *text, int maxw, int cap, lb_width_fn width,
+                        void *ctx, char lines[][LB_LINE]);
+
+static int break_lines(int kind, lines_fn brk, TTF_Font *f, const char *text, int maxw,
+                       int cap, char lines[][LB_LINE])
 {
 	memo_entry *e;
 	int n;
 
 	if (!f) return 0;
 	if (cap < 1 || cap > MEMO_LINES || !memo_usable(text)) {
-		n = lb_balance(text, maxw, cap, ttf_width, f, lines);
+		n = brk(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
 		balance_cut_note(text, lines, n);
 #endif
 		return n;
 	}
-	if ((e = memo_find(MEMO_BALANCE, f, text, maxw, cap, 0))) {
+	if ((e = memo_find(kind, f, text, maxw, cap, 0))) {
 		memcpy(lines, e->out, (size_t)e->n * LB_LINE);
 		return e->n;
 	}
-	n = lb_balance(text, maxw, cap, ttf_width, f, lines);
+	n = brk(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
 	balance_cut_note(text, lines, n);
 #endif
 	if (n < 0 || n > cap) return n;
-	e = memo_slot(MEMO_BALANCE, f, text, maxw, cap, 0);
+	e = memo_slot(kind, f, text, maxw, cap, 0);
 	e->n = n;
 	memcpy(e->out, lines, (size_t)n * LB_LINE);
 	return n;
+}
+
+int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                     char lines[][LB_LINE])
+{
+	return break_lines(MEMO_BALANCE, lb_balance, f, text, maxw, cap, lines);
+}
+
+int ui_fill_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                  char lines[][LB_LINE])
+{
+	return break_lines(MEMO_FILL, lb_fill, f, text, maxw, cap, lines);
 }
 
 void ui_text_memo_clear(void)
@@ -1941,10 +2092,18 @@ static void shadows_make(SDL_Renderer *r)
 /* The shadow under `q`, dropped by the kind's y: nine pieces of its texture
  * (see `shadow`) over `q` grown by blur_pad, cut by blur_slice, which says
  * what a rect too small for two whole corners each way gets. */
+static void shadow_tint(SDL_Renderer *r, const SDL_Rect *q, int kind, ds_rgb ink, int alpha);
+
 static void shadow_draw(SDL_Renderer *r, const SDL_Rect *q, int kind,
                         const ds_theme *th, int alpha)
 {
-	const ds_rgb ink = th->ink;
+	shadow_tint(r, q, kind, th->ink, alpha);
+}
+
+/* A shadow of `kind` in any color: Highlight's lift leans toward the accent's
+ * ink in Beard, and is ink black under Salt & Pepper's light */
+static void shadow_tint(SDL_Renderer *r, const SDL_Rect *q, int kind, ds_rgb ink, int alpha)
+{
 	const blur_shadow *size = &shadow[kind].size;
 	const int pad = blur_pad(size);
 	blur_rect src[9], dst[9];
@@ -2001,6 +2160,40 @@ void ui_lift(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind)
 void ui_lift_k(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind, float k)
 {
 	lift_draw(r, q, sys_rgb, kind, theme_index(), k);
+}
+
+/* See ui.h. Highlight's lift (the focus lab, 2026-11-19): soft and tinted,
+ * never grey haze on Beard's light ground and never gone on Salt & Pepper's
+ * dark one. Beard: a short shadow of ink under the item, and for a high lift
+ * a long one leaning a third of the way to the accent's ink; Salt & Pepper:
+ * a light in the accent and an ink-black shadow under it. The shadows are
+ * the lift's own textures (UI_LIFT_FOCUS_SMALL's and UI_LIFT_FOCUS's),
+ * tinted: nothing is made for it. */
+void ui_lift_focus(SDL_Renderer *r, const SDL_Rect *q, bool high, float k)
+{
+	const ds_theme *t = theme();
+
+	if (!(k > 0.0f) || q->w <= 0 || q->h <= 0) return;
+	if (k > 1.0f) k = 1.0f;
+	if (theme_index() == DS_DARK) {
+		glow_draw(r, q, ui_rgb(t->accent), (int)((high ? 96 : 66) * k + 0.5f),
+		          high ? DS_GLOW_FOCUS_SPREAD : DS_GLOW_FOCUS_SMALL_SPREAD, SDL_BLENDMODE_ADD, t);
+		shadow_tint(r, q, high ? UI_LIFT_FOCUS : UI_LIFT_FOCUS_SMALL, (ds_rgb){ 0, 0, 0 },
+		            (int)((high ? 150 : 120) * k + 0.5f));
+		return;
+	}
+	{
+		const ds_rgb a = t->ink, b = t->accent_ink;
+		const ds_rgb tint = { (Uint8)(a.r + (b.r - a.r) * 2 / 5), (Uint8)(a.g + (b.g - a.g) * 2 / 5),
+		                      (Uint8)(a.b + (b.b - a.b) * 2 / 5) };
+
+		if (high) {
+			shadow_tint(r, q, UI_LIFT_FOCUS_SMALL, a, (int)(36 * k + 0.5f));
+			shadow_tint(r, q, UI_LIFT_FOCUS, tint, (int)(76 * k + 0.5f));
+		} else {
+			shadow_tint(r, q, UI_LIFT_FOCUS_SMALL, tint, (int)(62 * k + 0.5f));
+		}
+	}
 }
 
 void ui_scrim_k(SDL_Renderer *r, int game, float k)
@@ -2373,6 +2566,11 @@ static TTF_Font *button_font(int pt, bool semibold)
 	return best < 0 ? NULL : button_fonts[best].f;
 }
 
+TTF_Font *ui_face_at(int pt, bool semibold)
+{
+	return button_font(pt, semibold);
+}
+
 static void button_fonts_free(void)
 {
 	int i;
@@ -2403,7 +2601,7 @@ static void button_fonts_free(void)
  * 1 left and right, 2 up and down, 0 for any other glyph. */
 static int key_dpad(ds_key k)
 {
-	return k.shape == DS_KEY_DPAD_LR ? 1 : k.shape == DS_KEY_DPAD_UD ? 2 : 0;
+	return k.shape == DS_KEY_DPAD_LR ? 1 : k.shape == DS_KEY_DPAD_UD ? 2 : k.shape == DS_KEY_DPAD ? 3 : 0;
 }
 
 static void dpad_key(SDL_Renderer *r, float cx, float cy, float size, int arms, SDL_Color edge,
@@ -2488,11 +2686,12 @@ static int button_pad(int size)
 	                 / (BUTTON_PILL_H - BUTTON_KEY_H);
 }
 
-/* A chord: buttons named with "/" between them for either (L1/R1) and "+"
- * for together (SELECT+START), each its own glyph with the sign between
- * them (DESIGN.md 11.9), as the device-modular spec's seam says. A sign with
- * nothing on one side is part of a name (VOL+). Up to CHORD_MAX names; the
- * pieces into `part`, the signs into `sign`; the count, 1 for no chord. */
+/* A chord: buttons named with "/" between them for either (L1/R1), "+"
+ * for together (SELECT+START) and ", " for one after the other (MENU, X),
+ * each its own glyph with the sign between them (DESIGN.md 11.9), as the
+ * device-modular spec's seam says. A sign with nothing on one side is part
+ * of a name (VOL+). Up to CHORD_MAX names; the pieces into `part`, the signs
+ * into `sign`; the count, 1 for no chord. */
 #define CHORD_MAX  4
 #define CHORD_NAME 16
 static int chord_split(const char *label, char part[CHORD_MAX][CHORD_NAME], char sign[CHORD_MAX])
@@ -2506,6 +2705,13 @@ static int chord_split(const char *label, char part[CHORD_MAX][CHORD_NAME], char
 			part[n][len] = '\0';
 			sign[n++] = *p;
 			len = 0;
+			continue;
+		}
+		if (*p == ',' && p[1] == ' ' && p[2] && len > 0 && n < CHORD_MAX - 1) {
+			part[n][len] = '\0';
+			sign[n++] = ',';
+			len = 0;
+			p++;                      /* and its space */
 			continue;
 		}
 		if (len >= CHORD_NAME - 1) return 1;
@@ -2529,6 +2735,12 @@ static TTF_Font *chord_font(void)
 	return ui_font(UI_F_META);
 }
 
+/* The air before and after sign `s`: a chord's own either side, and a
+ * comma close to the press before it and twice as far from the next, as a
+ * comma sits in a sentence */
+static int sign_before(char s, int size) { return s == ',' ? chord_gap(size) / 2 : chord_gap(size); }
+static int sign_after(char s, int size)  { return s == ',' ? chord_gap(size) * 2 : chord_gap(size); }
+
 static int chord_width(char part[CHORD_MAX][CHORD_NAME], const char sign[CHORD_MAX], int n, int size)
 {
 	int w = 0, i;
@@ -2538,7 +2750,7 @@ static int chord_width(char part[CHORD_MAX][CHORD_NAME], const char sign[CHORD_M
 		if (i + 1 < n) {
 			const char s[2] = { sign[i], '\0' };
 
-			w += chord_gap(size) * 2 + ui_text_width(chord_font(), s);
+			w += sign_before(sign[i], size) + sign_after(sign[i], size) + ui_text_width(chord_font(), s);
 		}
 	}
 	return w;
@@ -2552,6 +2764,7 @@ int ui_button_width(const char *label, int size)
 	bool round = key_round(k);
 
 	if (n > 1) return chord_width(part, sign, n, size);
+	if (k.shape == DS_KEY_ROCKER) return ui_rocker_width(size);
 	if (round) return size;
 	if (key_dpad(k)) return (int)((float)size * DPAD_KEY_K + 0.5f);
 	return ui_text_width(button_letter(round, size), k.text)
@@ -2579,9 +2792,9 @@ static void chord_draw(SDL_Renderer *r, char part[CHORD_MAX][CHORD_NAME], const 
 			                                          : ui_col(theme()->text_dim, 255);
 
 			if (pressed) c.a = (Uint8)(255.0f * (op < 0.0f ? 0.0f : op > 1.0f ? 1.0f : op) + 0.5f);
-			x += chord_gap(size);
+			x += sign_before(sign[i], size);
 			ui_text(r, f, s, x + ui_text_width(f, s) / 2, ui_cap_y(f, cy), 0, c);
-			x += ui_text_width(f, s) + chord_gap(size);
+			x += ui_text_width(f, s) + sign_after(sign[i], size);
 		}
 	}
 }
@@ -2607,6 +2820,10 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	if (!label || size <= 0) return;
 	if ((parts = chord_split(label, part, sign)) > 1) {
 		chord_draw(r, part, sign, parts, cx, cy, size, style, false, 0.0f, 1.0f, 1.0f);
+		return;
+	}
+	if (k.shape == DS_KEY_ROCKER) {
+		ui_rocker(r, cx, cy, size, 0.0f, 0.0f, 1.0f, 1.0f);
 		return;
 	}
 	if (key_dpad(k)) {
@@ -2968,6 +3185,10 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 	if (!label || size <= 0 || op <= 0.0f) return;
 	if ((parts = chord_split(label, part, sign)) > 1) {
 		chord_draw(r, part, sign, parts, cx, cy, size, style, true, press, scale, op);
+		return;
+	}
+	if (g.shape == DS_KEY_ROCKER) {
+		ui_rocker(r, cx, cy, size, press, press, scale, op);
 		return;
 	}
 	if (press <= 0.0f && (scale == 1.0f || scale <= 0.0f) && op >= 1.0f) {
@@ -3739,7 +3960,10 @@ static void card_cost(int kind, Uint64 t0)
 static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 {
 	Uint64 t0 = SDL_GetPerformanceCounter();
-	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, CARD_W, CARD_H, 32, SDL_PIXELFORMAT_ARGB8888);
+	/* An album's is square, as its cover is (MP4's shelf, DESIGN.md 11.67):
+	 * the same ground and name, the name's place by the card's height */
+	const int ch = o->album ? CARD_W : CARD_H;
+	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, CARD_W, ch, 32, SDL_PIXELFORMAT_ARGB8888);
 	/* a system with no color: its marks' text-dim, of the dark theme the
 	 * card always is */
 	unsigned rgb = o->rgb == CFG_NO_COLOR ? ui_rgb(theme_at(DS_DARK)->text_dim) : o->rgb;
@@ -3757,7 +3981,7 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 		/* painted at half the size and stretched: on the Pixel 2 a whole
 		 * one took 134 ms on the worker, and shown at a third of its size
 		 * nothing of it is lost */
-		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, CARD_H / 2, 32,
+		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, ch / 2, 32,
 		                                                   SDL_PIXELFORMAT_ARGB8888);
 		ca_ground g;
 
@@ -3858,8 +4082,10 @@ static SDL_Surface *game_card_surface(card_faces *k, const ui_card_order *o)
 static SDL_Surface *card_surface(card_faces *k, const ui_card_order *o)
 {
 	if (o->folder > 0) return folder_card_surface(k, o);
-	/* a game's is its own (game_art_card); an album's is today's */
-	return o->album ? game_card_surface(k, o) : game_art_card(k ? k : &frame_faces, o);
+	/* a game's is its own (game_art_card); an album's too, square, when its
+	 * order names its system (MP4's shelf, ui_card_order_game), and
+	 * otherwise today's */
+	return o->album && !o->tag[0] ? game_card_surface(k, o) : game_art_card(k ? k : &frame_faces, o);
 }
 
 void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,
@@ -3895,18 +4121,25 @@ void ui_card_order_folder(ui_card_order *o, const char *title, unsigned rgb,
 SDL_Surface *ui_card_paint(const ui_card_order *o, bool away)
 {
 	SDL_Surface *s = NULL;
+	card_faces *k;
+	int i;
 
 	if (!away) return card_surface(NULL, o);
-	if (!away_lock) return NULL;
-	SDL_LockMutex(away_lock);
+	for (i = 0; i < AWAY_SETS; i++)
+		if (!away_lock[i]) return NULL;
+	/* A set no one is drawing in, or, with both in use (the frame's card
+	 * beside two workers'), the first, when it is done */
+	for (i = 0; i < AWAY_SETS && SDL_TryLockMutex(away_lock[i]) != 0; i++)
+		;
+	if (i == AWAY_SETS) SDL_LockMutex(away_lock[i = 0]);
+	k = &away_faces[i];
 	/* Both faces open before a pixel is drawn, or none of it: a card drawn
 	 * here without a face the frame would have drawn it with would be
 	 * another card, so a face that will not open leaves every card to the
 	 * frame, which draws it as it always did, with or without. */
-	if (away_up && card_title_face(&away_faces, SET_LATIN) &&
-	    card_mark_face(&away_faces))
-		s = card_surface(&away_faces, o);
-	SDL_UnlockMutex(away_lock);
+	if (away_up && card_title_face(k, SET_LATIN) && card_mark_face(k))
+		s = card_surface(k, o);
+	SDL_UnlockMutex(away_lock[i]);
 	return s;
 }
 
@@ -3917,10 +4150,13 @@ SDL_Surface *ui_card_paint(const ui_card_order *o, bool away)
  * into slots that are allocated, reordered, moved and freed in a dozen places
  * in src/main.c, and a mark that lives with the texture cannot be left behind
  * by any of them. */
-/* And by the look it was made in (src/look.h): a card made before the
- * player's look changed is made again, in its new colors, as one of the
- * other theme is. Four looks round is enough to tell the last from this. */
-#define CARD_LOOKS 4
+/* And by the look it was made in (src/look.h's look_id): a card made in
+ * another look is made again, in its new colors, as one of the other theme
+ * is. By the look itself and not a count of changes, so a list's cursor
+ * going through accents (src/ds/hover.h) and back leaves the kept look's
+ * cards current and no other: a count kept in four could come round to a
+ * shown look's cards. */
+#define CARD_LOOKS LOOK_IDS
 static char card_made_for[DS_THEMES][CARD_LOOKS];
 
 SDL_Texture *ui_card_upload(SDL_Renderer *r, SDL_Surface *s, int theme_ix)
@@ -3929,7 +4165,7 @@ SDL_Texture *ui_card_upload(SDL_Renderer *r, SDL_Surface *s, int theme_ix)
 
 	if (!t) return NULL;
 	SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
-	SDL_SetTextureUserData(t, &card_made_for[theme_clamp(theme_ix)][look_gen() % CARD_LOOKS]);
+	SDL_SetTextureUserData(t, &card_made_for[theme_clamp(theme_ix)][look_id()]);
 	return t;
 }
 
@@ -3956,16 +4192,18 @@ static SDL_Texture *make_card(SDL_Renderer *r, const char *title, unsigned rgb,
 
 int ui_card_theme(SDL_Texture *t)
 {
-	void *p = t ? SDL_GetTextureUserData(t) : NULL;
+	uintptr_t p = (uintptr_t)(t ? SDL_GetTextureUserData(t) : NULL);
+	uintptr_t base = (uintptr_t)&card_made_for[0][0];
 	int i, g;
 
+	/* One of the marks, by its place among them (a table of every look
+	 * since Folder Color, too long to walk for each card a frame) */
+	if (p < base || p >= base + sizeof card_made_for) return -1;
+	i = (int)((p - base) / CARD_LOOKS);
+	g = (int)((p - base) % CARD_LOOKS);
 	/* A card of an older look reads as made for the other theme, which is
 	 * what makes it stale (tex_stale) and made again */
-	for (i = 0; i < DS_THEMES; i++)
-		for (g = 0; g < CARD_LOOKS; g++)
-			if (p == &card_made_for[i][g])
-				return g == (int)(look_gen() % CARD_LOOKS) ? i : (i == DS_DARK ? DS_LIGHT : DS_DARK);
-	return -1;
+	return g == look_id() ? i : (i == DS_DARK ? DS_LIGHT : DS_DARK);
 }
 
 SDL_Texture *ui_make_card_for(SDL_Renderer *r, const ui_card_order *o, int *w, int *h,

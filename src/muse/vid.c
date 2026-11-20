@@ -12,9 +12,17 @@
  *
  * So H.264 plays at full rate up to 720p, and 480p is the size worth making
  * for a 640x480 panel; HEVC and VP9 up to about 480p; 1080p only just keeps
- * up, and leans on the frame skipping below. AV1 does not play: this FFmpeg
- * has no software AV1 decoder. */
+ * up, and leans on the frame skipping below.
+ *
+ * AV1 is dav1d's (FFmpeg's own AV1 decoder only drives a GPU's, which this
+ * one has not). Measured on the Pixel 2 2026-11-19, playing, with sound:
+ * 640x480, 960x720, 1280x720 and 1440x1080 at 23.976 fps all shown whole
+ * (one or two pictures dropped as each starts), 1440x1080 with dav1d on about
+ * two of the four cores; 1280x720 at 60 fps whole; 1920x1080 at 30 fps with
+ * 0 to 4 of every 30 dropped; 1920x1080 at 60 fps not: 4 a second shown, and
+ * the picture falling behind the sound, which MP4 says (vidtry.h). */
 #include "vid.h"
+#include "vidtry.h"
 #include "../mp4frame.h"
 
 #include <fcntl.h>
@@ -51,6 +59,19 @@
 
 static mpf_head *g_shm;
 static uint32_t  g_serial;
+
+/* mpf_head.trouble, after what it is about (format, rate_milli) */
+static void set_trouble(uint32_t t)
+{
+	if (__atomic_load_n(&g_shm->trouble, __ATOMIC_RELAXED) != t)
+		__atomic_store_n(&g_shm->trouble, t, __ATOMIC_RELEASE);
+}
+
+/* Whether the file is too big for this CPU, from the pictures shown and
+ * dropped (vidtry.h has the rule and what it was measured on) */
+static vidtry g_try;
+
+static void try_restart(void) { vidtry_restart(&g_try); }
 
 /* MUSE_VIDEO_DEBUG=1: every two seconds, how many pictures went out and were
  * dropped, and how far from their time they went out (the clock minus the
@@ -115,6 +136,8 @@ typedef struct {
 	double           skip_before; /* after a seek: frames before this are not shown */
 	double           pos;         /* the newest frame's time */
 	bool             flushed, eof;
+	bool             decoded;     /* the decoder has given a picture */
+	int              refused;     /* packets it refused before that */
 } vdec;
 
 static void say(const char *what, const char *path)
@@ -166,11 +189,16 @@ static vdec *vdec_open(const char *path)
 	    (d->si = video_stream(d->fmt)) < 0)
 		goto fail;
 	st = d->fmt->streams[d->si];
+	/* What it is, for MP4's words should it not play (mpf_head.trouble) */
+	snprintf(g_shm->format, sizeof g_shm->format, "%s", avcodec_get_name(st->codecpar->codec_id));
+	g_shm->rate_milli = st->avg_frame_rate.num > 0 && st->avg_frame_rate.den > 0
+	                    ? (uint32_t)(av_q2d(st->avg_frame_rate) * 1000 + 0.5) : 0;
 	/* Only the picture's packets: the sound has its own demuxer. */
 	for (i = 0; i < d->fmt->nb_streams; i++)
 		if ((int)i != d->si) d->fmt->streams[i]->discard = AVDISCARD_ALL;
 	if (!(codec = avcodec_find_decoder(st->codecpar->codec_id))) {
 		say("no decoder for", path);
+		set_trouble(MPF_NO_PICTURE);
 		goto fail;
 	}
 	if (!(d->cc = avcodec_alloc_context3(codec)) ||
@@ -181,7 +209,11 @@ static vdec *vdec_open(const char *path)
 	 * each frame thread holds a frame of delay and its own buffers. */
 	d->cc->thread_count = st->codecpar->width * st->codecpar->height <= 640 * 480 ? 2 : 4;
 	d->cc->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
-	if (avcodec_open2(d->cc, codec, NULL) < 0) goto fail;
+	if (avcodec_open2(d->cc, codec, NULL) < 0) {
+		say("cannot decode", path);
+		set_trouble(MPF_NO_PICTURE);
+		goto fail;
+	}
 	d->pkt = av_packet_alloc();
 	d->fr = av_frame_alloc();
 	if (!d->pkt || !d->fr) goto fail;
@@ -203,6 +235,7 @@ static void vdec_seek(vdec *d, double at)
 	d->flushed = d->eof = false;
 	d->skip_before = at;
 	d->pos = at;
+	try_restart();
 }
 
 /* The next frame into d->fr: 1, or 0 at the end, <0 on an error. Frames
@@ -214,6 +247,8 @@ static int vdec_next(vdec *d, double *pts)
 
 		if (r == 0) {
 			int64_t ts = d->fr->best_effort_timestamp;
+
+			d->decoded = true;
 			double t = ts == AV_NOPTS_VALUE ? d->pos + d->fdur : ts * d->tb;
 
 			d->pos = t;
@@ -233,7 +268,14 @@ static int vdec_next(vdec *d, double *pts)
 			d->flushed = true;
 			continue;
 		}
-		if (d->pkt->stream_index == d->si) avcodec_send_packet(d->cc, d->pkt);
+		/* A decoder that refuses every packet and gives nothing - the
+		 * GPU-only AV1 decoder of an FFmpeg without dav1d - decodes
+		 * nothing: said at once, not after reading the whole file */
+		if (d->pkt->stream_index == d->si && avcodec_send_packet(d->cc, d->pkt) < 0 &&
+		    !d->decoded && ++d->refused >= 8) {
+			av_packet_unref(d->pkt);
+			return -1;
+		}
 		av_packet_unref(d->pkt);
 	}
 }
@@ -248,18 +290,39 @@ static uint32_t color_of(const AVFrame *f)
 	return MPF_BT601;
 }
 
-static void copy_plane(uint8_t *dst, uint32_t w, uint32_t h, const uint8_t *src, int pitch)
+/* A plane's rows `stride` apart, each one's last pixel copied to its end:
+ * the texture is drawn from the picture's own width, and filtering at the
+ * right edge then meets the picture, not stale bytes (mpf_stride) */
+static void pad_plane(uint8_t *dst, uint32_t stride, uint32_t w, uint32_t h)
 {
 	uint32_t y;
 
-	for (y = 0; y < h; y++) memcpy(dst + (size_t)y * w, src + (size_t)y * pitch, w);
+	if (stride > w)
+		for (y = 0; y < h; y++) {
+			uint8_t *row = dst + (size_t)y * stride;
+
+			memset(row + w, row[w - 1], stride - w);
+		}
+}
+
+static void copy_plane(uint8_t *dst, uint32_t stride, uint32_t w, uint32_t h,
+                       const uint8_t *src, int pitch)
+{
+	uint32_t y;
+
+	for (y = 0; y < h; y++) {
+		uint8_t *row = dst + (size_t)y * stride;
+
+		memcpy(row, src + (size_t)y * pitch, w);
+		if (stride > w) memset(row + w, row[w - 1], stride - w);
+	}
 }
 
 /* d->fr into the next slot, and the launcher told. */
 static void publish(vdec *d, double pts)
 {
 	AVFrame *f = d->fr;
-	uint32_t w = (uint32_t)f->width, h = (uint32_t)f->height, ow = w, oh = h;
+	uint32_t w = (uint32_t)f->width, h = (uint32_t)f->height, ow = w, oh = h, st, cst;
 	bool direct = (f->format == AV_PIX_FMT_YUV420P || f->format == AV_PIX_FMT_YUVJ420P) &&
 	              w <= MPF_MAX_W && h <= MPF_MAX_H;
 	int s = mpf_begin(g_shm);
@@ -271,25 +334,31 @@ static void publish(vdec *d, double pts)
 		ow = (uint32_t)(w * k) & ~1u;
 		oh = (uint32_t)(h * k) & ~1u;
 	}
-	u = y + (size_t)ow * oh;
-	v = u + (size_t)mpf_chroma(ow) * mpf_chroma(oh);
+	st = mpf_stride(ow);
+	cst = mpf_chroma(st);
+	u = y + (size_t)st * oh;
+	v = u + (size_t)cst * mpf_chroma(oh);
 	if (direct) {
-		copy_plane(y, w, h, f->data[0], f->linesize[0]);
-		copy_plane(u, mpf_chroma(w), mpf_chroma(h), f->data[1], f->linesize[1]);
-		copy_plane(v, mpf_chroma(w), mpf_chroma(h), f->data[2], f->linesize[2]);
+		copy_plane(y, st, w, h, f->data[0], f->linesize[0]);
+		copy_plane(u, cst, mpf_chroma(w), mpf_chroma(h), f->data[1], f->linesize[1]);
+		copy_plane(v, cst, mpf_chroma(w), mpf_chroma(h), f->data[2], f->linesize[2]);
 	} else {
 		/* 10-bit HEVC, 4:2:2, NV12 and the rest: once through swscale. */
 		uint8_t *dst[4] = { y, u, v, NULL };
-		int pitch[4] = { (int)ow, (int)mpf_chroma(ow), (int)mpf_chroma(ow), 0 };
+		int pitch[4] = { (int)st, (int)cst, (int)cst, 0 };
 
 		d->sws = sws_getCachedContext(d->sws, (int)w, (int)h, (enum AVPixelFormat)f->format,
 		                              (int)ow, (int)oh, AV_PIX_FMT_YUV420P,
 		                              SWS_BILINEAR, NULL, NULL, NULL);
 		if (d->sws) sws_scale(d->sws, (const uint8_t *const *)f->data, f->linesize, 0,
 		                      (int)h, dst, pitch);
+		pad_plane(y, st, ow, oh);
+		pad_plane(u, cst, mpf_chroma(ow), mpf_chroma(oh));
+		pad_plane(v, cst, mpf_chroma(ow), mpf_chroma(oh));
 	}
 	g_shm->slot[s].w = ow;
 	g_shm->slot[s].h = oh;
+	g_shm->slot[s].stride = st;
 	g_shm->slot[s].color = color_of(f);
 	g_shm->slot[s].serial = ++g_serial ? g_serial : ++g_serial;
 	g_shm->slot[s].file = g_shm->file;
@@ -326,6 +395,19 @@ static double mono(void)
 
 	clock_gettime(CLOCK_MONOTONIC, &n);
 	return (double)n.tv_sec + n.tv_nsec / 1e9;
+}
+
+/* A file opened, or closed: nothing known against it */
+static void try_reset(void)
+{
+	vidtry_reset(&g_try);
+	set_trouble(MPF_FINE);
+}
+
+/* A picture shown or dropped while playing */
+static void try_note(bool shown)
+{
+	set_trouble(vidtry_note(&g_try, mono(), shown, __atomic_load_n(&g_shm->trouble, __ATOMIC_RELAXED)));
 }
 
 /* Waits on V.cv for up to `sec`. Under V.mu. */
@@ -376,7 +458,11 @@ static void *vthread(void *arg)
 			}
 			if (!open) {
 				__atomic_store_n(&g_shm->active, 0u, __ATOMIC_RELEASE);
+				try_reset();
 			} else if (!d) {
+				try_reset();
+				g_shm->format[0] = 0;
+				g_shm->rate_milli = 0;
 				d = vdec_open(path);
 				g_shm->file++;
 				g_shm->sar_num = g_shm->sar_den = 1;
@@ -400,6 +486,7 @@ static void *vthread(void *arg)
 		if (V.resync) {
 			now = clock_now();
 			V.resync = false;
+			try_restart();
 			if (fabs((have ? pts : d->pos) - now) >= NEAR) {
 				pthread_mutex_unlock(&V.mu);
 				vdec_seek(d, now);
@@ -417,6 +504,9 @@ static void *vthread(void *arg)
 			pthread_mutex_lock(&V.mu);
 			if (r <= 0) {
 				if (r < 0) say("decoding stopped in", d->path);
+				/* Not one picture from its decoder, to its end or an
+				 * error: as good as no decoder */
+				if (!d->decoded) set_trouble(MPF_NO_PICTURE);
 				d->eof = true;
 				continue;
 			}
@@ -434,7 +524,7 @@ static void *vthread(void *arg)
 			shown_at = mono();
 			continue;
 		}
-		if (!V.playing) { wait_for(0.25); continue; }
+		if (!V.playing) { try_restart(); wait_for(0.25); continue; }
 		now = clock_now();
 		if (now + LEAD < pts) {
 			double w = pts - LEAD - now;
@@ -446,11 +536,13 @@ static void *vthread(void *arg)
 		if (now - pts > LATE && mono() - shown_at < STILL) {
 			dropped++;
 			dbg_note(now - pts, false);
+			try_note(false);
 		} else {
 			publish(d, pts);
 			shown++;
 			shown_at = mono();
 			dbg_note(now - pts, true);
+			try_note(true);
 		}
 		av_frame_unref(d->fr);
 		/* Read before the next decode, which is what it changes. */

@@ -51,6 +51,7 @@ void paused_backdrop(app *a, SDL_Texture *bg, float k);
 extern gm_disc_state g_gm_disc;
 extern int g_shot_discs;
 extern bool g_shot_undo;
+extern bool g_shot_rumble;
 extern const char *g_shot_disc_label;
 extern gm_mem_state g_gm_mem;
 extern SDL_Renderer *g_badge_r;
@@ -62,6 +63,23 @@ void slot_draw(app *a, const slot_view *sv, int sel);
 void gm_gather(app *a, gm_ui *out);
 void gm_mem_reset(void);
 const char *gm_tab_name_i(int i);
+/* An achievement's card, opened with A from its list (src/ingame_screen.c):
+ * its rows, made once, and its draw, the badge in the panel's header. Shared
+ * with --cheevo-card. CHV_CARD_LINES is the description's bytes, more lines
+ * than any description can make, so nothing is cut. */
+#define CHV_CARD_LINES CHV_DESC
+#define CHV_CARD_BADGE (12 * DS_GRID)
+typedef struct {
+	char lines[CHV_CARD_LINES][CHV_WRAP_COLS];
+	menu_row rows[CHV_CARD_LINES + 3];
+	unsigned vcols[CHV_CARD_LINES + 3];
+	char pts[24];
+	int n;
+} cheevo_card;
+int cheevo_card_rows(const cheevo *c, bool pending, int fixed, cheevo_card *k);
+void cheevo_card_draw(app *a, const cheevo_card *k, const char *title,
+                      SDL_Texture *badge, int fixed);
+
 int syn_layout(const char *text, int fixed,
                char (*lines)[CHV_WRAP_COLS], menu_row *rows,
                int *loop_at);
@@ -84,6 +102,12 @@ void gm_preview_frame(SDL_Texture *bg);
 extern int    shot_gm_src_w, shot_gm_src_h;
 extern double shot_gm_aspect;
 void game_menu(app *a);
+/* Reset Game's hotkey: its question over the paused game, then RESET or
+ * not and back to the game (PAUSED for=reset) */
+void game_reset_ask(app *a);
+/* Next Shader (`shader`) or Next Display, the hotkeys, while the game runs:
+ * stepped, kept and sent; the name now on into out, for the pop-up */
+void gm_hotkey_step(app *a, bool shader, char *out, size_t n);
 int port_menu(app *a);
 
 /* The in-game menu's option rows' choices by gm_row, for the state `u`

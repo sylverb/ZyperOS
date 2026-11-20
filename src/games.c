@@ -8,6 +8,7 @@
 #include "ds/flex.h"     /* the shelf, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
+#include "ds/focus.h"
 #include "theme.h"
 #include <math.h>
 #include <stdio.h>
@@ -86,14 +87,83 @@ shelf_frame games_frame(void)
     done=true;
     return f;
 }
+/* THE COVER ROW'S SEATS (DESIGN.md 11.1). Where a cover at `offset` from the
+ * focused one sits: its middle's distance from the row's middle, its size (of
+ * the focused cover's box), how far it is turned (radians, its near edge
+ * outward) and how much of it shows; a cover between two seats is between
+ * them in all four. Five covers, the four beside the focused one turned as
+ * MP4's album row turns its side cards (src/coverflow.c's tilt, 0.82, and its
+ * side alpha, 150), the far pair smaller (2026-11-18: "can we fit more covers
+ * instead of three? and make the furthest ones a bit inclined like we do in
+ * the mp4 player?"). Three flat covers before, the two beside at 72% and 42%,
+ * 390 out. A turned cover is narrower, which is what lets five fit the width
+ * with the focused one at its size; the far pair stands partly past the edge
+ * for the widest boxes, as MP4's do. The last seat shows nothing: the cover
+ * that slides in next comes from it, decoded already. */
+typedef struct { float x,scale,turn,alpha; } cover_seat;
+#define GAMES_SEATS 4
+static const cover_seat SEATS[GAMES_SEATS]={
+    {0,1,0,1},{290,.72f,.82f,.59f},{458,.56f,.82f,.48f},{560,.5f,.82f,0},
+};
+static cover_seat seat_at(float offset)
+{
+    float d=fminf(fabsf(offset),GAMES_SEATS-1);
+    int i=(int)d; if(i>=GAMES_SEATS-1) i=GAMES_SEATS-2;
+    float k=d-i; const cover_seat *a=&SEATS[i],*b=&SEATS[i+1];
+    return (cover_seat){a->x+(b->x-a->x)*k,a->scale+(b->scale-a->scale)*k,
+                        a->turn+(b->turn-a->turn)*k,a->alpha+(b->alpha-a->alpha)*k};
+}
+/* A cover's place: its middle, its half size unturned, its turn (signed: a
+ * cover right of the middle turns its right edge toward the eye) */
+typedef struct { float cx,cy,hw,hh,ang,scale,alpha; } cover_pose;
+static cover_pose cover_pose_at(int width,int height,float offset)
+{
+    cover_seat st=seat_at(offset);
+    float fit=fminf((float)GAMES_COVER_W/width,(float)GAMES_COVER_H/height)*st.scale;
+    const shelf_frame sf=games_frame();
+    return (cover_pose){sf.covers.x+sf.covers.w/2.0f+(offset<0?-st.x:st.x),sf.covers.y+sf.covers.h/2.0f,
+                        width*fit/2,height*fit/2,offset<0?st.turn:-st.turn,st.scale,st.alpha};
+}
 SDL_FRect games_cover_rect(int width,int height,float offset)
 {
     if(width<=0 || height<=0) return (SDL_FRect){0};
-    float focus=fmaxf(0,1-fabsf(offset)), scale=.72f+.28f*focus;
-    float fit=fminf((float)GAMES_COVER_W/width,(float)GAMES_COVER_H/height)*scale;
-    float w=width*fit,h=height*fit;
-    const shelf_frame sf=games_frame();
-    return (SDL_FRect){sf.covers.x+sf.covers.w/2.0f+offset*390-w/2,sf.covers.y+sf.covers.h/2.0f-h/2,w,h};
+    cover_pose p=cover_pose_at(width,height,offset);
+    return (SDL_FRect){p.cx-p.hw,p.cy-p.hh,p.hw*2,p.hh*2};
+}
+/* A turned cover as MP4's album row draws one (src/coverflow.c): yawed about
+ * its upright middle and seen through a weak perspective, the far edge
+ * shorter, in COVER_STRIPS upright strips so the picture follows the turn.
+ * Every texture coordinate is a strip's edge, 0 to 1: SDL 2.32.10, the
+ * handhelds', draws nothing for one outside that (#297). */
+#define COVER_STRIPS 8
+static float cover_focal(const cover_pose *p) { return GAMES_COVER_W*p->scale*3+1; }
+static void cover_point(const cover_pose *p,float lx,float ly,float *sx,float *sy,float *k)
+{
+    float f=cover_focal(p),z=lx*sinf(p->ang),s=f/(f+z);
+    *sx=p->cx+lx*cosf(p->ang)*s; *sy=p->cy+ly*s; if(k) *k=s;
+}
+void games_cover_corners(int width,int height,float offset,SDL_FPoint q[4],float *alpha)
+{
+    cover_pose p=cover_pose_at(width,height,offset);
+    for(int k=0;k<4;k++)
+        cover_point(&p,k==1||k==2?p.hw:-p.hw,k<2?-p.hh:p.hh,&q[k].x,&q[k].y,NULL);
+    if(alpha) *alpha=p.alpha;
+}
+static void turned_cover(SDL_Renderer *r,SDL_Texture *t,const cover_pose *p,Uint8 a)
+{
+    SDL_Vertex v[2*(COVER_STRIPS+1)];
+    int idx[6*COVER_STRIPS],n=0;
+    for(int i=0;i<=COVER_STRIPS;i++) {
+        float u=(float)i/COVER_STRIPS,lx=-p->hw+2*p->hw*u,sx,sy0,sy1;
+        cover_point(p,lx,-p->hh,&sx,&sy0,NULL); cover_point(p,lx,p->hh,&sx,&sy1,NULL);
+        v[2*i]=(SDL_Vertex){{sx,sy0},{255,255,255,a},{u,0}};
+        v[2*i+1]=(SDL_Vertex){{sx,sy1},{255,255,255,a},{u,1}};
+    }
+    for(int i=0;i<COVER_STRIPS;i++) {
+        int tl=2*i,bl=tl+1,tr=tl+2,br=tl+3;
+        idx[n++]=tl; idx[n++]=tr; idx[n++]=br; idx[n++]=tl; idx[n++]=br; idx[n++]=bl;
+    }
+    SDL_RenderGeometry(r,t,v,2*(COVER_STRIPS+1),idx,n);
 }
 /* See whether balancing retained all words. A longer name gets a full marquee,
  * rather than silently losing the tail to lb_balance's final-line ellipsis. */
@@ -188,22 +258,43 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     } else ui_text(r,meta,info->system,sf.sys.x,ui_cap_y(meta,sys_cy),-1,UI_TEXT_SOFT);
     ui_text_tabular(r,chrome,count,sf.sys.x+sf.sys.w,ui_cap_y(chrome,sys_cy),1,UI_TEXT_DIM);
 
+    const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_COVER);
     games_slot slots[GAMES_WINDOW]; int n=games_slots(row,now,slots);
     for(int i=0;i<n;i++) {
-        if(fabsf(slots[i].offset)>1.8f) continue;
+        /* Asked out to the last seat, where a cover shows nothing: so the
+         * one that slides in next is decoded before it is seen */
+        if(fabsf(slots[i].offset)>GAMES_SEATS-1) continue;
         int w=0,h=0; float cb=1;
         SDL_Texture *t=texture(ctx,slots[i].item,&w,&h,&cb);
         if(!t || w<=0 || h<=0) continue;
-        SDL_FRect dst=games_cover_rect(w,h,slots[i].offset);
-        float focus=fmaxf(0,1-fabsf(slots[i].offset));
+        cover_pose pose=cover_pose_at(w,h,slots[i].offset);
+        if(pose.alpha<=0) continue;
+        SDL_FRect dst={pose.cx-pose.hw,pose.cy-pose.hh,pose.hw*2,pose.hh*2};
+        bool turned=fabsf(pose.ang)>.001f;
+        float focus=fmaxf(0,1-fabsf(slots[i].offset)),rise=0;
+        /* Highlight's Lift (src/ds/focus.h): the cover coming to the middle
+         * rises 12 on a deep lift as it comes, and a snap taking its place
+         * with it */
+        if(marks.lift==DS_FOCUS_LIFT_HIGH && !turned && focus>.02f) {
+            rise=12*focus;
+            dst.y-=rise;
+            ui_lift_focus(r,&(SDL_Rect){(int)lroundf(dst.x),(int)lroundf(dst.y),(int)lroundf(dst.w),(int)lroundf(dst.h)},
+                          true,focus*pose.alpha*slots[i].alpha);
+        }
         Uint8 was; SDL_BlendMode texblend;
         SDL_GetTextureAlphaMod(t,&was); SDL_GetTextureBlendMode(t,&texblend);
         SDL_SetTextureBlendMode(t,SDL_BLENDMODE_BLEND);
-        Uint8 a=(Uint8)lroundf(was*(.42f+.58f*focus)*slots[i].alpha);
+        Uint8 a=(Uint8)lroundf(was*pose.alpha*slots[i].alpha);
         float k=info->snap && info->snap_k>0 && slots[i].item==info->cursor &&
                 fabsf(slots[i].offset)<.001f ? fminf(info->snap_k,1) : 0;
-        SDL_SetTextureAlphaMod(t,(Uint8)lroundf(a*(1-k)));
-        if(k<1) SDL_RenderCopyF(r,t,NULL,&dst);
+        if(turned) {
+            /* The vertices carry its alpha; the texture's own is left out */
+            SDL_SetTextureAlphaMod(t,255);
+            turned_cover(r,t,&pose,a);
+        } else {
+            SDL_SetTextureAlphaMod(t,(Uint8)lroundf(a*(1-k)));
+            if(k<1) SDL_RenderCopyF(r,t,NULL,&dst);
+        }
         SDL_SetTextureAlphaMod(t,was); SDL_SetTextureBlendMode(t,texblend);
         /* The focused card with no art as the row stops on it (src/focusfx.h):
          * its frame of play turning sharp over the blurred one, and the one
@@ -223,6 +314,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
              * through a frame that grows from the cover's rect to its own,
              * as the cover fades. Never stretched on the way. */
             SDL_FRect vr=games_cover_rect(info->snap_w,info->snap_h,0);
+            vr.y-=rise;
             SDL_Rect clip={(int)floorf(dst.x+(vr.x-dst.x)*k),(int)floorf(dst.y+(vr.y-dst.y)*k),
                            (int)ceilf(dst.w+(vr.w-dst.w)*k)+1,(int)ceilf(dst.h+(vr.h-dst.h)*k)+1};
             SDL_RenderSetClipRect(r,&clip);
@@ -237,8 +329,14 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
          * so it never sits over the video. */
         if(info->badge_of && k<1) {
             int kind=info->badge_of(ctx,slots[i].item);
-            if(kind!=AB_NONE)
-                ab_draw_at(r,(ab_kind)kind,dst.x,dst.y,.72f+.28f*focus,(Uint8)lroundf(a*(1-k)));
+            if(kind!=AB_NONE && turned) {
+                /* On a turned cover at its turned corner, as large as the
+                 * cover is there (coverflow.c's draw_badge) */
+                float in=(AB_INSET+AB_D/2.0f)*pose.scale,bx,by,bk;
+                cover_point(&pose,-pose.hw+in,-pose.hh+in,&bx,&by,&bk);
+                ab_draw(r,(ab_kind)kind,bx,by,pose.scale*bk,a);
+            } else if(kind!=AB_NONE)
+                ab_draw_at(r,(ab_kind)kind,dst.x,dst.y,pose.scale,(Uint8)lroundf(a*(1-k)));
         }
         /* A cover with a snap says so: a play mark in an accent disc at its
          * bottom right, fading with the cover as the snap takes over (
@@ -246,8 +344,13 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
          * glyph's cache holds both rather than drawing it anew each frame. */
         if(info->snap_of && k<1 && info->snap_of(ctx,slots[i].item)) {
             int d=focus>.5f?DS_BADGE:DS_BADGE_SMALL, inset=focus>.5f?DS_BADGE_INSET:DS_BADGE_INSET_SMALL;
-            ds_play_disc(r,(int)lroundf(dst.x+dst.w)-inset-d,(int)lroundf(dst.y+dst.h)-inset-d,d,
-                         (Uint8)lroundf(a*(1-k)));
+            if(turned) {
+                float px,py;
+                cover_point(&pose,pose.hw-inset-d/2.0f,pose.hh-inset-d/2.0f,&px,&py,NULL);
+                ds_play_disc(r,(int)lroundf(px-d/2.0f),(int)lroundf(py-d/2.0f),d,a);
+            } else
+                ds_play_disc(r,(int)lroundf(dst.x+dst.w)-inset-d,(int)lroundf(dst.y+dst.h)-inset-d,d,
+                             (Uint8)lroundf(a*(1-k)));
         }
         /* The wait for the snap: a bar under the focused cover, the cover's
          * width, filling over hold-snap, held full while the first picture
@@ -256,6 +359,25 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
             int bw=(int)lroundf(dst.w),bx=(int)lroundf(dst.x),by=(int)lroundf(dst.y+dst.h)+12;
             float fade=(1-k)*slots[i].alpha;
             ds_bar(r,bx,by,bw,(int)lroundf(bw*fminf(info->snap_wait,1)),(Uint8)lroundf(255*fade));
+        }
+    }
+    /* Highlight's marks round the cover in the middle, holding still as the
+     * row slides under them, as Spotlight's do: Border's ring (its corners
+     * the cover's own, square), Bar's bar right under the cover; both gone
+     * as a snap takes the cover's place. The bar gives way to the snap's
+     * wait bar while that fills, in the same place: both mark this cover.
+     * It sat under the wait bar's place until 1.1.0, 16 lower, and a name
+     * long enough to reach the middle ran into it (Tony Hawk's Pro Skater 2:
+     * the bar on its "2") */
+    if((marks.ring || marks.bar) && info->count>0) {
+        int w=0,h=0; float cb=1;
+        SDL_Texture *t=texture(ctx,info->cursor,&w,&h,&cb);
+        float k=info->snap && info->snap_k>0 ? fminf(info->snap_k,1) : 0;
+        if(t && w>0 && h>0 && k<1) {
+            SDL_FRect c=games_cover_rect(w,h,0);
+            Uint8 al=(Uint8)lroundf(255*(1-k));
+            if(marks.ring) ds_focus_ring(r,c,0,al);
+            if(marks.bar && !(info->snap_wait>0)) ds_focus_bar(r,c,al);
         }
     }
     TTF_Font *title=page_font(PAGE_GAME_TITLE);
@@ -304,7 +426,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         char pt[64]=""; int w=0, parts=0;
         if(games_line[0]) { w+=ui_text_width(chrome,games_line); parts++; }
         if(origin) { w+=ui_text_width(chrome,info->origin); parts++; }
-        if(info->install) { w+=ui_text_width(chrome,T(S_PORTMASTER_NOT_INSTALLED)); parts++; }
+        if(info->install||info->howto) { w+=ui_text_width(chrome,T(S_PORTMASTER_NOT_INSTALLED)); parts++; }
         if(info->played && *info->played) { snprintf(pt,sizeof pt,T(S_GAMES_PLAYED),info->played); w+=ui_text_width(chrome,pt); parts++; }
         if(info->has_achievements) { char at[64]; snprintf(at,sizeof at,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total); w+=ui_text_width(chrome,at); parts++; }
         if(parts) w+=(parts-1)*32;
@@ -312,7 +434,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     }
     if(origin) x=meta_part(r,chrome,info->origin,x,my);
     if(games_line[0]) x=meta_part(r,chrome,games_line,x,my);
-    if(info->install) x=meta_part(r,chrome,T(S_PORTMASTER_NOT_INSTALLED),x,my);
+    if(info->install||info->howto) x=meta_part(r,chrome,T(S_PORTMASTER_NOT_INSTALLED),x,my);
     if(info->played && *info->played) {
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_PLAYED),info->played);
         x=meta_part(r,chrome,text,x,my);
@@ -321,17 +443,19 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total);
         meta_part(r,chrome,text,x,my);
     }
-    if(info->count) page_hint(r,"A",T(info->folder>0?S_GAMES_OPEN:info->install?S_PORTMASTER_INSTALL:
-                                      info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
+    if(info->count) page_hint(r,"A",info->a_word?info->a_word:
+                              T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
+                                info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
     /* The foot, spread from B at the left to X at the right (DESIGN.md
      * 11.4): START turns the shelf into the grid, the next View (11.47) */
     key_hint foot[4]; int nf=0;
     foot[nf++]=(key_hint){"B",T(info->inside?S_GAMES_BACK:S_GAMES_SYSTEMS)};
     if(info->count) foot[nf++]=(key_hint){"START",T(S_GAMES_TO_GRID)};
-    if(info->count&&info->resumable&&!info->install&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
+    if(info->count&&info->resumable&&!info->install&&!info->howto&&!info->opens&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
     if(!info->folder) foot[nf++]=(key_hint){"X",T(S_GAMES_DETAILS)};
     /* DS_FOOT_Y, every screen's: a two-line name's system line (cap 664) stays 30 from the keys */
-    keyhints_draw(r,foot,nf,sf.keys.x,sf.keys.x+sf.keys.w,sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
+    keyhints_draw(r,info->foot?info->foot:foot,info->foot?info->nfoot:nf,sf.keys.x,sf.keys.x+sf.keys.w,
+                  sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
     SDL_SetRenderDrawBlendMode(r,blend);
     return wait;

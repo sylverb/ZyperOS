@@ -86,6 +86,8 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	int nextra = 0;
 	fw_line fw[CFG_MAX_SYSTEMS];
 	int nfw = 0;
+	struct { char tag[8], core[CFG_STR], paths[160]; } br[CFG_MAX_SYSTEMS];
+	int nbr = 0;
 	while (fgets(line, sizeof line, f) && out->count < CFG_MAX_SYSTEMS) {
 		strip(line);
 		if (!line[0] || line[0] == '#') continue;
@@ -101,6 +103,16 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			snprintf(extra[nextra].kind, sizeof extra[0].kind, "stickoff");
 			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
 			nextra++;
+			continue;
+		}
+		/* brings|tag|core|paths: files the player brings for a core */
+		if (n == 4 && !strcmp(fld[0], "brings")) {
+			if (nbr < CFG_MAX_SYSTEMS) {
+				snprintf(br[nbr].tag, sizeof br[nbr].tag, "%s", fld[1]);
+				snprintf(br[nbr].core, sizeof br[nbr].core, "%s", fld[2]);
+				snprintf(br[nbr].paths, sizeof br[nbr].paths, "%s", fld[3]);
+				nbr++;
+			}
 			continue;
 		}
 		if (n == 3 && !strcmp(fld[0], "firmware")) {
@@ -119,7 +131,7 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			}
 			continue;
 		}
-		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") ||
+		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") || !strcmp(fld[0], "pace") ||
 		               !strcmp(fld[0], "controller") || !strcmp(fld[0], "stick") ||
 		               !strcmp(fld[0], "rumble") || !strcmp(fld[0], "needs") ||
 	               !strcmp(fld[0], "bios") || !strcmp(fld[0], "es"))) {
@@ -154,6 +166,10 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			if (strcmp(s->tag, extra[i].tag)) continue;
 			if (!strcmp(extra[i].kind, "power"))
 				snprintf(s->power, sizeof s->power, "%s", extra[i].value);
+			else if (!strcmp(extra[i].kind, "pace")) {
+				if (!strcmp(extra[i].value, "smooth") || !strcmp(extra[i].value, "exact"))
+					snprintf(s->pace, sizeof s->pace, "%s", extra[i].value);
+			}
 			else if (!strcmp(extra[i].kind, "map"))
 				snprintf(s->map, sizeof s->map, "%s", extra[i].value);
 			else if (!strcmp(extra[i].kind, "stick"))
@@ -178,26 +194,49 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			else
 				s->controller = (unsigned)strtoul(extra[i].value, NULL, 10);
 		}
+	/* The files a shelf's core needs from the player, for a core it lists */
+	for (int i = 0; i < nbr; i++)
+		for (int k = 0; k < out->count; k++) {
+			system_cfg *s = &out->systems[k];
+			char one[CFG_STR];
+			int j;
+
+			if (strcmp(s->tag, br[i].tag)) continue;
+			for (j = 0; cfg_core_at(s, j, one, sizeof one); j++)
+				if (!strcmp(one, br[i].core)) {
+					snprintf(s->brings_core, sizeof s->brings_core, "%s", br[i].core);
+					snprintf(s->brings, sizeof s->brings, "%s", br[i].paths);
+				}
+		}
 	/* After the bios lines, which set a shelf's names too */
 	for (int k = 0; k < out->count; k++)
 		bios_sizes_apply(&out->systems[k], fw, nfw);
 	return out->count > 0;
 }
 
-void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, char *out, int cap)
+void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap)
+{
+	cfg_run_keys_at(s, dual, pace, s->rumble ? s->rumble : 100, out, cap);
+}
+
+void cfg_run_keys_at(const system_cfg *s, bool dual, const char *pace, int rumble,
+                     char *out, int cap)
 {
 	int n = 0;
 
 	out[0] = '\0';
-	if (dual)
-		n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=%s",
-		              frameskip && frameskip[0] ? frameskip : "late");
+	if (dual) n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=late");
 	if (s->power[0] && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%spower=%s", n ? "\t" : "", s->power);
 	if (s->controller && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%scontroller=%u", n ? "\t" : "", s->controller);
-	if (s->rumble && n < cap)
-		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", s->rumble);
+	/* The motor's share in percent, 0 (Off) to 99; all of it says nothing */
+	if (rumble >= 0 && rumble < 100 && n < cap)
+		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", rumble);
+	if (s->pace[0] && n < cap) {
+		if (!pace || (strcmp(pace, "smooth") && strcmp(pace, "exact"))) pace = s->pace;
+		n += snprintf(out + n, (size_t)(cap - n), "%space=%s", n ? "\t" : "", pace);
+	}
 	/* The stick is not here: whether a game has it on is its own
 	 * (rms_run_stick), added by the launch */
 }

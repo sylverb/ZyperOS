@@ -4,8 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <SDL.h>
+#include "ds/focus.h"
 #include <SDL_ttf.h>
 #include "rowmotion.h"
+#include "gridrule.h"
 
 /* Every system's still stays resident (2026-11-05: "have the systems
  * pictures pre-loaded on ram so it doesn't have to load while we scroll"):
@@ -36,7 +38,17 @@ typedef struct {
     SDL_Rect content;
     SDL_Surface *motion;
     int shown;
+    SDL_Texture *shade;   /* a still's own soft shadow: its shape blurred (Highlight's lift) */
 } home_texture;
+/* A tile the Grid drew: its system's key and name, its color, where it was
+ * (its cell's top left, its still's side, the cell's width and height) and
+ * its name's type (GH_NAME_*), for a glide when the systems change */
+typedef struct {
+    char key[16], name[32];
+    unsigned accent;
+    float x, y, s, cw, ch;
+    int font;
+} home_tile;
 typedef struct {
     row_motion motion;
     bool initialized;
@@ -46,10 +58,26 @@ typedef struct {
     home_texture atlas, near[HOME_NEAR], still[HOME_STILLS];
     SDL_Renderer *renderer;
     /* Grid (DESIGN.md 11.1): the cursor it last drew, the first row in sight
-     * and the focus's cell, each easing from where it was (ms.move, ms.quick) */
-    int grid_cursor, grid_cols;
+     * and the focus's place (units, the window at its first row), each easing
+     * from where it was (ms.move, ms.quick), for a grid of grid_n systems,
+     * grid_cols across, stills of grid_still; grid_ax the x where Up and Down
+     * started (-1: none yet), so Down then Up comes back */
+    int grid_cursor, grid_cols, grid_n, grid_still, grid_ax;
+    /* The tiles' weights in the focus's glide (src/ds/focus.h) */
+    ds_focus_weights grid_w;
     float grid_top_from, grid_top_to, grid_fx, grid_fy;
     uint32_t grid_moved;
+    /* The tiles it drew last (grid_live: the last home drawn was a Grid),
+     * and a glide from them (grid_from, grid_map: each system's tile there,
+     * -1 for one that came) to a new grid when the systems change, held at
+     * its start while a menu is over the home */
+    home_tile grid_was[HOME_STILLS], grid_from[HOME_STILLS];
+    int grid_was_n, grid_from_n;
+    signed char grid_map[HOME_STILLS];
+    uint32_t grid_glide;
+    bool grid_live, grid_gliding, grid_held;
+    /* A menu is over the home (the caller's, each frame) */
+    bool covered;
 } home;
 
 /* The approved 640px previews use these sizes on the 1024px logical canvas. */
@@ -100,25 +128,34 @@ bool home_song_update(home_song *song, bool active, bool paused, const char *tit
 /* Art requests use their own loader identities. No forget/bump of game jobs. */
 void home_prepare(home *h, SDL_Renderer *r, const char *root,
                   const home_item *items, int count, int cursor, uint32_t now);
-bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface *surface);
+/* A finished picture for the home (`shelf` a HOME_LOADER_*): true when it
+ * was the home's. An atlas in the texture's format is kept as it is, and
+ * *surface is then NULL; the caller frees whatever is left. */
+bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface **surface);
+/* Highlight's list picture (MENU > Display > Theme, DESIGN.md 11.42): three
+ * of the home's systems in a row in `box`, the middle one in focus as
+ * Highlight's choice `focus` (LOOK_FOCUS_*) marks it, the others stepped
+ * back, the stills only */
+void home_focus_preview(home *h, SDL_Renderer *r, const home_item *items, SDL_Rect box, int focus);
 void home_free(home *h);
 /* Spotlight's focused sprite alone, for a frame where nothing else on the
  * home has changed (main.c, focus frames): whether that is so - Spotlight,
- * the row still, and the sprite's atlas clear of the row in every frame -
- * the part of its square any of its frames can touch, which the caller lays
- * ground on, and the sprite drawn there at `now` as home_draw would. Returns
- * the delay to its next frame, as home_draw does. */
+ * the row still - the part of its square any of its frames can touch, which
+ * the caller clips to and lays ground on, and every layer home_draw lays
+ * there drawn at `now` as home_draw would (the sprite, then the row as
+ * Highlight marks it). Returns the delay to its next frame, as home_draw
+ * does. */
 #define HOME_FOCUS_GROUNDS 8
 bool home_focus_alone(const home *h, home_layout layout, int count, int cursor, uint32_t now);
 int home_focus_ground(const home *h, int count, int cursor, uint32_t now,
                       SDL_Rect out[HOME_FOCUS_GROUNDS]);
 uint32_t home_draw_focus(home *h, SDL_Renderer *r, const home_item *items, int count,
                          int cursor, uint32_t now, bool animate);
-/* Grid's columns on the canvas (6 on the 1024-wide one) and its rows (3):
- * Up and Down move a row, L1 and R1 a screenful (src/shelf_keys.c) */
-#define HOME_GRID_ROWS 3
+/* Where the Grid puts `count` systems on the canvas (gh_layout, in the
+ * home's room): Up and Down move a row (gh_row_step), L1 and R1 a screenful
+ * (src/shelf_keys.c) */
 extern int home_asks;
-int home_grid_cols(void);
+gh_geom home_grid_geom(int count);
 /* Returns the delay to the next changed frame, UINT32_MAX when still/hidden. */
 uint32_t home_draw(home *h, SDL_Renderer *r, home_layout layout,
                     const home_item *items, int count, int cursor,

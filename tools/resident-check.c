@@ -32,6 +32,7 @@ static int failures;
 
 void device_display_release(void) {}
 void device_display_take(void) {}
+unsigned device_game_wait(unsigned ms) { return ms; }
 void device_levels_forget(void) {}
 bool device_power_pressed(void) { return false; }
 /* POWER's hold (src/powerhold.h): none under way */
@@ -124,6 +125,69 @@ static void fake_diatom(int listener)
 	}
 }
 
+/* A Diatom whose core would not load: it answers a RUN with the ERROR its
+ * real one sends (diatom/src/corefail.h), and any other line with nothing */
+static void fake_refusing(int listener, const char *error)
+{
+	char buf[1024];
+	size_t used = 0;
+	int c = accept(listener, NULL, NULL);
+
+	if (c < 0) _exit(1);
+	if (write(c, "READY\tproto=14\tstate=idle\n", 26) != 26) _exit(1);
+	for (;;) {
+		ssize_t n = read(c, buf + used, sizeof buf - used - 1);
+		char *nl;
+
+		if (n <= 0) _exit(0);
+		used += (size_t)n;
+		while ((nl = memchr(buf, '\n', used))) {
+			size_t len = (size_t)(nl - buf) + 1;
+
+			if (!strncmp(buf, "RUN\t", 4) && write(c, error, strlen(error)) != (ssize_t)strlen(error)) _exit(1);
+			memmove(buf, buf + len, used - len);
+			used -= len;
+		}
+	}
+}
+
+/* A game sent to a Diatom that answers with `error`, and what the launcher read: mode 0 waits
+ * and takes the reason, 1 waits and leaves it, 2 only sends and takes */
+static int refused_by(const char *error, plat_start_error *e, bool *got, int mode)
+{
+	char path[64];
+	struct sockaddr_un a;
+	int listener, r;
+	pid_t pid;
+	plat_game_run run;
+
+	snprintf(path, sizeof path, "/tmp/zyperos-resident-check-refusing-%d.sock", (int)getpid());
+	unlink(path);
+	listener = socket(AF_UNIX, SOCK_STREAM, 0);
+	memset(&a, 0, sizeof a);
+	a.sun_family = AF_UNIX;
+	snprintf(a.sun_path, sizeof a.sun_path, "%s", path);
+	if (listener < 0 || bind(listener, (struct sockaddr *)&a, sizeof a) != 0 || listen(listener, 1) != 0) {
+		printf("FAIL: no socket at %s\n", path);
+		failures++;
+		return -1;
+	}
+	if ((pid = fork()) == 0) fake_refusing(listener, error);
+	close(listener);
+	setenv("ZYPEROS_DIATOM_SOCKET", path, 1);
+	memset(&run, 0, sizeof run);
+	run.tag = "SNES";
+	run.core = "/mnt/SDCARD/ZyperOS/cores/bsnes_libretro.so";
+	run.rom = "/mnt/SDCARD/Roms/SNES/Game.sfc";
+	if (!plat_resident_send(&run)) { printf("FAIL: the game was not sent\n"); failures++; r = -1; }
+	else r = mode == 2 ? -2 : plat_resident_wait();
+	*got = mode == 1 ? false : plat_resident_start_error(e);
+	kill(pid, SIGTERM);
+	waitpid(pid, NULL, 0);
+	unlink(path);
+	return r;
+}
+
 int main(void)
 {
 	char path[64], out[256];
@@ -191,6 +255,45 @@ int main(void)
 	kill(pid, SIGTERM);
 	waitpid(pid, NULL, 0);
 	unlink(path);
+
+	/* A core that would not load: Diatom's ERROR before RUNNING says why, and
+	 * the launcher keeps it for the shelf (src/startfail.h) instead of falling
+	 * back to a second Diatom that fails the same way */
+	printf("a game whose core would not load:\n");
+	{
+		plat_start_error e;
+		bool got;
+		int r;
+
+		memset(&e, 0, sizeof e);
+		r = refused_by("ERROR\tcode=core_load\tmsg=/mnt/SDCARD/ZyperOS/cores/bsnes_libretro.so\twhy=library"
+		               "\tname=libfoo.so.2\tversion=\n", &e, &got, 0);
+		CHECK(r == RES_DEAD, "the game never started: the wait says dead");
+		CHECK(got, "and the reason is there to take");
+		CHECK(!strcmp(e.code, "core_load") && !strcmp(e.why, "library") && !strcmp(e.name, "libfoo.so.2") &&
+		      !strcmp(e.core, "/mnt/SDCARD/ZyperOS/cores/bsnes_libretro.so") && e.version[0] == '\0',
+		      "why, the library and the core's path, read from the line");
+		{
+			plat_start_error again;
+
+			CHECK(!plat_resident_start_error(&again), "taken once");
+		}
+		memset(&e, 0, sizeof e);
+		r = refused_by("ERROR\tcode=core_load\tmsg=/c/x_libretro.so\twhy=version\tname=libstdc++.so.6"
+		               "\tversion=GLIBCXX_3.4.30\n", &e, &got, 0);
+		CHECK(r == RES_DEAD && got && !strcmp(e.why, "version") && !strcmp(e.name, "libstdc++.so.6") &&
+		      !strcmp(e.version, "GLIBCXX_3.4.30"), "a library too old: its file and the version");
+		memset(&e, 0, sizeof e);
+		r = refused_by("ERROR\tcode=core_missing\tmsg=no core given\n", &e, &got, 0);
+		CHECK(r == RES_DEAD && !got, "another refusal is the log's: nothing to take");
+		r = refused_by("ERROR\tcode=core_load\tmsg=/c/y_libretro.so\twhy=machine\tname=\tversion=\n", &e, &got, 0);
+		CHECK(r == RES_DEAD && got && !strcmp(e.why, "machine") && e.name[0] == '\0', "another machine: no name");
+		/* a game sent again forgets what was not taken */
+		r = refused_by("ERROR\tcode=core_load\tmsg=/c/z_libretro.so\twhy=other\tname=\tversion=\n", &e, &got, 1);
+		CHECK(r == RES_DEAD, "a refusal, left untaken");
+		r = refused_by("", &e, &got, 2);
+		CHECK(!got, "a new game starts with nothing left over from the last");
+	}
 
 	/* The pid file a resident the launcher started again goes in, where
 	 * launch.sh looks before it starts one of its own */

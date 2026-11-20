@@ -7,14 +7,19 @@
 #include "biosfile.h"
 #include "gamefile.h"
 #include "ctl.h"
+#include "hkstore.h"
 #include "ctl_channel.h"
+#include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
+#include "cheats_screen.h"
 #include "hudmenu_screen.h"
 #include "musec.h"
 #include "net.h"
 #include "notice.h"
+#include "pacing.h"
 #include "panel.h"
+#include "pico8.h"
 #include "place.h"
 #include "pminstall.h"
 #include "portload.h"
@@ -24,8 +29,10 @@
 #include "rahashjob.h"
 #include "raqueue.h"
 #include "remap.h"
+#include "rumble.h"
 #include "remapstore.h"
 #include "shelfbuild.h"
+#include "startfail.h"
 #include "stats.h"
 #include "strength.h"
 #include "ui.h"
@@ -124,11 +131,17 @@ static void respawn_resident(app *a)
  * argument - OpenBOR, which has no libretro core, or the Dreamcast through
  * the standalone Flycast.
  *
- * The request is one line of three fields, a tab between each: the script,
- * the game it is given (none for a port, whose script is the game), and the
- * tag of the system whose in-game menu goes over it (src/portmenu.h), none
- * for a program that has no menu. Empty fields stay fields: launch.sh splits
- * the line by hand, not with read, which would run two tabs together. */
+ * The request is one line of four fields, a tab between each: the script,
+ * the game it is given (none for a port, whose script is the game), the tag
+ * of the system whose in-game menu goes over it (src/portmenu.h), none for a
+ * program that has no menu, and the system's Display row (its display.<TAG>
+ * name, "integer" for Sharp Pixels), which launch.sh hands a "run:" script as
+ * ZYPEROS_DISPLAY: your PICO-8 draws Sharp Pixels at 3x and every other mode
+ * at the panel's full height (Tarik's pick, 2026-11-19). Empty fields stay
+ * fields: launch.sh splits the line by hand, not with read, which would run
+ * two tabs together. A launch.sh from before 1.0.7 reads three fields and
+ * gives the fourth to the tag, which no menu has: the old launch.sh is never
+ * beside this launcher, which ships with it. */
 #define PORT_REQUEST "/tmp/zyperos_port"
 bool is_port(const system_cfg *s)
 {
@@ -188,9 +201,19 @@ static void pm_heal_config(const char *folder)
 	}
 }
 
+/* `core` in place of the shelf's own: Splore runs on your PICO-8 whichever
+ * core the shelf plays its carts on */
+static void launch_port_core(app *a, const system_cfg *s, const char *file, const char *core);
+
 static void launch_port(app *a, const system_cfg *s, const char *file)
 {
-	char path[LIB_PATH * 2];
+	launch_port_core(a, s, file, s->core);
+}
+
+static void launch_port_core(app *a, const system_cfg *s, const char *file, const char *core)
+{
+	char path[LIB_PATH * 2], missing[CFG_STR];
+	const char *dmode = DMODES[0].name;
 	FILE *f;
 	bool ok;
 
@@ -205,6 +228,28 @@ static void launch_port(app *a, const system_cfg *s, const char *file)
 		return;
 	}
 
+	/* A core whose files the player brings, chosen while they are not on the
+	 * card (taken off since, by hand): said under the game, as a missing
+	 * BIOS is, rather than a script that ends at once */
+	if (!core_brought(s, core, missing, sizeof missing)) {
+		char msg[CFG_STR + 64];
+		const char *name = !strncmp(missing, "Bios/", 5) ? missing + 5 : missing;
+
+		snprintf(msg, sizeof msg, T(S_LAUNCH_NEEDS_BIOS), (int)strlen(name), name);
+		fprintf(stderr, "launch: %s refused: %s is not on the card\n", s->name, missing);
+		if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
+		result_message(a, s->name, msg);
+		return;
+	}
+	{
+		int sys = (int)(s - a->sys.systems);
+
+		if (sys >= 0 && sys < a->sys.count) {
+			int k = a->view[sys].dmode;
+
+			dmode = DMODES[k >= 0 && k < DMODE_COUNT ? k : 0].name;
+		}
+	}
 	snprintf(path, sizeof path, "%s/%s/%s", P_ROMS, s->folder, file);
 	/* PortMaster itself: its cached lists and settings as it can start on */
 	if (!strcmp(s->core, PORT_CORE) && !strcasecmp(file, PM_SCRIPT)) pm_heal_config(s->folder);
@@ -216,11 +261,11 @@ static void launch_port(app *a, const system_cfg *s, const char *file)
 	 * portkeys with --menu (src/portmenu.h). A standalone emulator's script
 	 * gets the game as its argument, the second field; a port's script is
 	 * the game, and its second field is empty (port_menu_for) */
-	if (!strncmp(s->core, RUN_PREFIX, strlen(RUN_PREFIX)))
-		ok = f && fprintf(f, "%s/%s\t%s\t%s\n", P_CARD, s->core + strlen(RUN_PREFIX), path,
-		                  port_menu_for(s->core) ? s->tag : "") > 0;
+	if (!strncmp(core, RUN_PREFIX, strlen(RUN_PREFIX)))
+		ok = f && fprintf(f, "%s/%s\t%s\t%s\t%s\n", P_CARD, core + strlen(RUN_PREFIX), path,
+		                  port_menu_for(core) ? s->tag : "", dmode) > 0;
 	else
-		ok = f && fprintf(f, "%s\t\t%s\n", path, port_menu_for(s->core) ? s->tag : "") > 0;
+		ok = f && fprintf(f, "%s\t\t%s\t%s\n", path, port_menu_for(core) ? s->tag : "", dmode) > 0;
 	if (f && fclose(f) != 0) ok = false;
 	if (!ok || rename(PORT_REQUEST ".tmp", PORT_REQUEST) != 0) {
 		fprintf(stderr, "port: couldn't write %s\n", PORT_REQUEST);
@@ -253,6 +298,150 @@ static void launch_port(app *a, const system_cfg *s, const char *file)
 	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_LIGHT, DS_LIGHT);
 	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_DARK, DS_DARK);
 	a->running = false;
+}
+
+/* ---------- Your PICO-8 and Splore (src/pico8.h, DESIGN.md 11.55) -------- */
+
+/* The page A opens on Splore while your PICO-8 is not on the card: what it
+ * is, whose it is, how to add it. Back is its one key: nothing here can
+ * bring PICO-8, which is Lexaloffle's to sell. */
+static void p8_page_screen(app *a)
+{
+	char notes[P8_NOTES][P8_NOTE_LEN], path[LIB_PATH * 2];
+	const char *np[P8_NOTES];
+	SDL_Texture *icon;
+	su_page p;
+	int nnotes, i;
+
+	snprintf(path, sizeof path, "%s/%s", P_ROOT, P8_ICON);
+	icon = access(path, R_OK) == 0 ? IMG_LoadTexture(a->r, path) : NULL;
+	p8_page_build(&p, notes, &nnotes);
+	for (i = 0; i < P8_NOTES; i++) np[i] = notes[i];
+	while (!want_quit && a->running) {
+		plat_input_poll(&a->in);
+		muse_poll();
+		aout_apply(false);
+		if (a->in.quit_requested) { a->running = false; break; }
+		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
+		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
+		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
+		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
+		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		if (a->in.pressed[IN_BACK] || a->in.pressed[IN_MENU]) {
+			uisound_play(DS_SOUND_BACK);
+			break;
+		}
+		if (a->in.pressed[IN_ACCEPT] && update_page_key(&p, "A") == SUA_NONE)
+			uisound_play(DS_SOUND_DENY);
+		tick_tint(a);
+		tick_theme(a);
+		update_page_draw(a, T(S_PICO8_PAGE_TITLE), &p, np, nnotes, icon);
+		plat_draw_osd(a->r);
+		plat_present();
+		ui_frame_rest(16);
+	}
+	if (icon) SDL_DestroyTexture(icon);
+}
+
+bool g_p8_shot;
+
+/* The page as a host shot draws it (src/shots.c) */
+void p8_page_shot(app *a)
+{
+	char notes[P8_NOTES][P8_NOTE_LEN], path[LIB_PATH * 2];
+	const char *np[P8_NOTES];
+	SDL_Texture *icon;
+	su_page p;
+	int nnotes, i;
+
+	snprintf(path, sizeof path, "%s/%s", P_ROOT, P8_ICON);
+	icon = access(path, R_OK) == 0 ? IMG_LoadTexture(a->r, path) : NULL;
+	p8_page_build(&p, notes, &nnotes);
+	for (i = 0; i < P8_NOTES; i++) np[i] = notes[i];
+	update_page_draw(a, T(S_PICO8_PAGE_TITLE), &p, np, nnotes, icon);
+	if (icon) SDL_DestroyTexture(icon);
+}
+
+int g_p8_said_shot = -1;
+
+/* What your PICO-8 says over the shelf, as a host shot draws it
+ * (src/shots.c, --pico8-said K): 0 to 3 a zip copied by hand, taken (with
+ * its version and without) or not (a zip of another PICO-8, one that could
+ * not be taken), in p8_take_message's words under the heading main.c gives
+ * them; 4 Splore with no network joined; 5 Delete Game on Splore; 6 the
+ * question Splore asks with no network, as ask_two_panel hands it to
+ * confirm_rows_pick, Turn On Wi-Fi focused */
+void p8_said_shot(app *a, int k)
+{
+	static const p8_take TAKES[] = { P8_TAKE_DONE, P8_TAKE_DONE, P8_TAKE_NOT_RASPI, P8_TAKE_FAILED };
+	static const char *const ZIPS[] = { NULL, NULL, "pico-8_0.2.7_windows.zip", "pico-8_0.2.7_raspi.zip" };
+	char said[256];
+
+	if (k >= 0 && k < 4) {
+		p8_take_message(TAKES[k], k == 0 ? "0.2.7" : NULL, ZIPS[k], said, sizeof said);
+		result_preview(a, "PICO-8", said);
+	} else if (k == 4) {
+		result_preview(a, SPLORE_NAME, T(S_PICO8_NO_NETWORK));
+	} else if (k == 5) {
+		result_preview(a, T(S_GAMEMENU_DELETE), T(S_PICO8_SPLORE_STAYS));
+	} else if (k == 6) {
+		char lines[ASK_TWO_LINES][CHV_WRAP_COLS];
+		menu_row rows[ASK_TWO_LINES + 2];
+		int n = ask_two_rows(a, T(S_PICO8_WIFI_BODY), T(S_PICO8_WIFI_ON), T(S_PICO8_OFFLINE), lines,
+		                     rows);
+
+		draw_shelf(a);
+		ui_scrim(a->r, 0);
+		menu_draw(a, T(S_PICO8_WIFI_TITLE), rows, n + 2, n, menu_std_width(a), MENU_ZYPEROS);
+	}
+}
+
+/* Wi-Fi on and its saved network joined, for Splore: false when no network
+ * was joined in 15 s, or the player pressed B */
+static bool splore_join(app *a)
+{
+	unsigned until;
+
+	wait_panel(a, T(S_MENU_WIFI), T(S_WIFI_TURNING_ON));
+	if (!wifi_up()) return false;
+	wifi_pref_save(true);
+	until = plat_now_ms() + 15000;
+	while (plat_now_ms() < until && a->running) {
+		if (wifi_status(NULL, 0, NULL, 0) == WIFI_CONNECTED && net_internet(NULL)) return true;
+		plat_input_poll(&a->in);
+		if (a->in.quit_requested) { a->running = false; return false; }
+		if (a->in.pressed[IN_BACK]) { uisound_play(DS_SOUND_BACK); return false; }
+		wait_panel(a, T(S_MENU_WIFI), T(S_WIFI_CONNECTING));
+		SDL_Delay(250);
+	}
+	return false;
+}
+
+/* A on Splore's entry: the page while your PICO-8 is not on the card; with
+ * no way out to the internet and a radio to turn on, the question first
+ * (Turn On Wi-Fi, Open Offline: Tarik's pick); then Splore, on your PICO-8
+ * (its script's -splore, for the entry's file) */
+static void splore_open(app *a, const system_cfg *s, const char *file)
+{
+	if (!p8_on_card(s)) {
+		if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_ACCEPT);
+		fprintf(stderr, "splore: your PICO-8 is not on the card: its page\n");
+		p8_page_screen(a);
+		return;
+	}
+	if (!net_internet(NULL) && plat_has_wifi()) {
+		int r = ask_two_panel(a, T(S_PICO8_WIFI_TITLE), T(S_PICO8_WIFI_BODY), T(S_PICO8_WIFI_ON),
+		                      T(S_PICO8_OFFLINE));
+
+		if (r == 0) return;
+		if (r == 1 && !splore_join(a)) {
+			fprintf(stderr, "splore: no Wi-Fi network joined\n");
+			result_message(a, SPLORE_NAME, T(S_PICO8_NO_NETWORK));
+			return;
+		}
+	}
+	launch_port_core(a, s, file, P8_CORE);
 }
 
 /* ---------- Install PortMaster (src/pminstall.h, DESIGN.md 11.32) --------
@@ -548,7 +737,7 @@ void pm_after_run(app *a)
 	if (!up_read(PM_RAN, ran, sizeof ran)) return;
 	unlink(PM_RAN);
 	if (sscanf(ran, "%lld %lld %d", &start, &end, &rc) < 2) return;
-	for (i = 0; i < a->sys.count && !s; i++)
+	for (i = 0; i < sys_kept(a) && !s; i++)        /* Ports off the home too */
 		if (!strcmp(a->sys.systems[i].core, PORT_CORE) && pm_on_card(a->sys.systems[i].folder))
 			s = &a->sys.systems[i];
 	if (!s) return;
@@ -582,12 +771,16 @@ void launch(app *a)
 	int  console = 0;
 	bool first_play = false;
 	/* 22 fixed entries (the shader's two and its strength's since 1.0.5)
-	 * plus NULL, seven more for a DS game's two screens, then two per core
-	 * option. Sized off the loader's own cap so the two cannot drift apart:
+	 * plus NULL, seven more for a DS game's two screens, two for Timing's
+	 * --pace (1.0.6), then two per core option. Sized off the loader's own cap so the two cannot drift apart:
 	 * the previous 20 was already 18 full, and a silent bound check would
 	 * have dropped every option rather than failing loudly. */
-	char *argv[33 + 2 * 32];
+	char *argv[35 + 2 * 32];
 	bool resident = false, want_menu;
+	/* Diatom said its core would not load (src/startfail.h): the shelf says
+	 * so, and a second Diatom that would fail the same way is not started */
+	bool core_said = false;
+	char core_msg[320] = "";
 	/* A DS game's resume by its language (ds_resume_fresh): what it will
 	 * run in, whether it starts fresh, and its auto state as it was */
 	char ds_lang[16] = "";
@@ -613,6 +806,11 @@ void launch(app *a)
 	 * further down would be reading it at a different moment. */
 	const char *romfile = v->list.items[v->cursor].file;
 
+	/* Splore's entry on the PICO-8 shelf, whichever core plays its carts */
+	if (!strcmp(s->tag, P8_TAG) && splore_file(romfile)) {
+		splore_open(a, s, romfile);
+		return;
+	}
 	if (is_port(s)) {
 		launch_port(a, s, romfile);
 		return;
@@ -642,6 +840,21 @@ void launch(app *a)
 			return;
 		}
 	}
+	/* A zip Diatom unpacks (a cartridge's: a shelf whose core takes no
+	 * archive itself, the arcades' listing 7z and MAME's) whose game is
+	 * compressed in a way it cannot read, bzip2 or Zstandard: said here,
+	 * where a start would have come back with nothing said (1.0.7) */
+	if (romfile && strlen(romfile) > 4 && !strcasecmp(romfile + strlen(romfile) - 4, ".zip") &&
+	    !strstr(s->exts, "7z") && strcmp(s->core, "mame2003_plus")) {
+		int m = gamefile_zip_method(rom);
+
+		if (m >= 0 && !gamefile_zip_reads(m)) {
+			fprintf(stderr, "launch: %s refused: %s is compressed by method %d\n", s->name, romfile, m);
+			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
+			result_message(a, v->list.items[v->cursor].title, T(S_LAUNCH_ZIP_METHOD));
+			return;
+		}
+	}
 
 	/* A DS game: two screens in one frame, a DraStic save (ROGUE OS's) to
 	 * take over the first time, and frames left undrawn when they run late -
@@ -650,27 +863,77 @@ void launch(app *a)
 	 * it. */
 	g_game_dual = two_screens(s);
 	if (g_game_dual) dsv_import(save, romfile);
+	/* The game stopped by itself last time while cheats were on: asked
+	 * first, the cursor on Without Cheats, which starts it with none this
+	 * time and keeps them set for later (DESIGN.md 11.66). B: not started. */
+	bool cheats_without = false;
+	if (cheats_crash_asks(s, romfile)) {
+		char q[480];
+		int r;
+
+		snprintf(q, sizeof q, "%s %s", T(S_CHEATS_CRASH_TITLE), T(S_CHEATS_CRASH_BODY));
+		ui_fit_drawn(T(S_CHEATS_CRASH_TITLE));
+		ui_fit_drawn(T(S_CHEATS_CRASH_BODY));
+		r = ask_two_panel(a, T(S_CHEATS_ROW), q, T(S_CHEATS_CRASH_WITHOUT), T(S_CHEATS_CRASH_WITH));
+		if (r == 0 || !a->running) return;
+		cheats_without = r == 1;
+	}
 	{
 		/* The RUN keys this game needs beyond the usual: a DS game's two
 		 * screens, the system's clock ceiling, controller type and d-pad
 		 * stick, and its button map (config.h: power, controller, stick,
 		 * map) */
-		char keys[128], stick[24];
+		char keys[1536], stick[24];
 		rm_table sent;
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, dsslow_frameskip(dsslow_load()), keys, (int)sizeof keys);
-		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
-		 * stick=toggle-stick when it was left on the stick */
-		rms_run_stick(s, stick_on, stick, sizeof stick);
-		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
-			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
-			         keys[0] ? "\t" : "", stick);
-		if (keys[0]) plat_resident_run_keys(keys);
+		/* The motor at the player's Rumble level (the game's own, its
+		 * system's or MENU's) times the system's share (src/rumble.h) */
+		cfg_run_keys_at(s, g_game_dual, pacing_id(pacing_load(s)),
+		                rumble_run_pct(s->rumble, rumble_scope(s->tag, romfile)), keys, (int)sizeof keys);
 		/* The whole table, whatever the card holds for the game or its
 		 * system (rms_sent): Diatom is sent no turbo of its own */
 		rms_sent(s, romfile, stick_on, &sent);
+		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
+		 * stick=toggle-stick when it was left on the stick, and a stick
+		 * that is off on the d-pad's side when a button turns it */
+		rms_run_stick(s, stick_on, rm_has_stick(&sent), stick, sizeof stick);
+		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
+			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
+			         keys[0] ? "\t" : "", stick);
+		/* The player's hotkeys for this game (src/hkstore.h), sent only
+		 * when they are not ZyperOS's own, so a player who never set one
+		 * sends what was always sent; and where a screenshot goes,
+		 * Screenshots/<System>/<Game>, Diatom adding the time, with every
+		 * game, so a key given in its Controls tab works at once */
+		{
+			hk_table hk, def;
+			char run[200], name[LIB_NAME], shots[CFG_STR * 4];
+			size_t i;
+
+			hks_get(HKS_GAME, s->tag, romfile, &hk);
+			hk_default(&def);
+			if (!hk_equal(&hk, &def)) {
+				hk_run(&hk, run, sizeof run);
+				if (strlen(keys) + strlen(run) + 10 <= sizeof keys)
+					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%shotkeys=%s",
+					         keys[0] ? "\t" : "", run);
+			}
+			{
+				snprintf(name, sizeof name, "%s", v->list.items[v->cursor].name);
+				for (i = 0; name[i]; i++)
+					if (name[i] == '/' || name[i] == '\t' || name[i] == '\\') name[i] = '-';
+				snprintf(shots, sizeof shots, "%s/Screenshots/%s/%s", P_CARD, s->folder, name);
+				if (strlen(keys) + strlen(shots) + 8 <= sizeof keys)
+					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%sshots=%s",
+					         keys[0] ? "\t" : "", shots);
+			}
+		}
+		/* The cheats that are on for this game, handed over as it loads
+		 * (src/cheats_screen.h): cheats= on RUN, none for most games */
+		cheats_game_begin(s, romfile, cheats_without, keys, sizeof keys);
+		if (keys[0]) plat_resident_run_keys(keys);
 		rm_format(&sent, map, sizeof map);
 		plat_resident_map(strcmp(map, "identity") ? map : "");
 		/* And an N64 game's Pak, its own over the system's; none else */
@@ -877,6 +1140,7 @@ void launch(app *a)
 			/* What px2-open's status says from here to the wait's end */
 			memset(&g_ctl_game, 0, sizeof g_ctl_game);
 			g_ctl_game.on = true;
+			screen_shader_apply();   /* the screens' shader off over the game */
 			snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
 			snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
 			snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
@@ -968,6 +1232,8 @@ void launch(app *a)
 			 * lands before the first frame the player could act on. */
 			if (want_menu) plat_resident_line("PAUSE");
 			g_menu_unasked = want_menu;
+			/* "2 cheats on" over the first frames, so none is forgotten */
+			if (!want_menu) cheats_game_started();
 			/* No launch animation, and it is a display-safety rule, not a
 			 * taste call: Diatom presents through fbdev, this process
 			 * through GL, and the handoff spike's one invariant is that
@@ -976,18 +1242,33 @@ void launch(app *a)
 			 * engine when one side is fbdev. A warm launch is 26 to 44 ms from
 			 * RUN to RUNNING, so there is nothing to animate over anyway; the
 			 * shelf simply holds until the game's first frame replaces it. */
+			/* The downloads behind the screens wait while the game runs
+			 * (src/dlq.h): no frame of it is spent on them */
+			dlq_game(true);
 			for (;;) {
 				r = plat_resident_wait();
 				if (r == RES_PAUSED) {
+					const char *why = plat_resident_paused_for();
+
 					g_ctl_game.paused = true;
-					game_menu(a);
+					/* A hotkey's pause (src/hotkeys.h): Quit stops the
+					 * game as MENU then X does, Reset Game asks first;
+					 * MENU's opens the menu */
+					if (!strcmp(why, "quit")) gm_quit();
+					else if (!strcmp(why, "reset")) game_reset_ask(a);
+					else game_menu(a);
 					g_ctl_game.paused = false;
 					continue;
 				}
 				break;
 			}
+			dlq_game(false);
 			g_ctl_game.on = false;
+			screen_shader_apply();
 			resident = (r == RES_EXIT);
+			/* A game that stopped by itself with cheats on asks at its next
+			 * start whether to start without them */
+			cheats_game_end(resident && plat_resident_crashed());
 			/* The game is over, and however it ended it ended here: Quit,
 			 * a crash (EXIT reason=crash) or Diatom gone (RES_DEAD), POWER,
 			 * the battery, Auto Off, px2-open's next game, a TERM. NES
@@ -1052,8 +1333,21 @@ void launch(app *a)
 			 * never started. Say so by falling through to the path that
 			 * runs it the slow way, rather than fading the shelf back up
 			 * as though it had run. */
-			if (!resident)
-				fprintf(stderr, "resident emulator stopped answering, falling back\n");
+			if (!resident) {
+				plat_start_error se;
+
+				/* A core that would not load: the fallback is the same Diatom
+				 * and the same core, and the game would go straight back to
+				 * the shelf with nothing said (Davistoa's bsnes and MAME,
+				 * Discord, 2026-11-18). The reason is on the shelf instead. */
+				if (plat_resident_start_error(&se) && startfail_message(&se, core_msg, sizeof core_msg)) {
+					fprintf(stderr, "launch: %s refused: its core would not load: %s (%s%s%s)\n", s->name,
+					        se.core, se.why, se.name[0] ? " " : "", se.name);
+					core_said = true;
+				} else {
+					fprintf(stderr, "resident emulator stopped answering, falling back\n");
+				}
+			}
 		} else {
 			fprintf(stderr, "resident emulator did not answer, falling back\n");
 		}
@@ -1064,7 +1358,7 @@ void launch(app *a)
 		        waited);
 	}
 
-	if (!resident) {
+	if (!resident && !core_said) {
 		/* One game per process, the old way: the fallback for a resident that
 		 * is missing or has died. Diatom standalone IS the one-shot mode -
 		 * same binary, no socket - so the fallback stopped being a different
@@ -1116,10 +1410,14 @@ void launch(app *a)
 
 			screens_get(s->tag, &lay, &sw);
 			argv[n++] = (char *)"--screens";   argv[n++] = (char *)"2";
-			argv[n++] = (char *)"--frameskip";
-			argv[n++] = (char *)dsslow_frameskip(dsslow_load());
+			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
 			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
 			if (sw) argv[n++] = (char *)"--swap";
+		}
+		/* Timing, as RUN's pace= gives it to the resident one (src/pacing.h) */
+		if (s->pace[0]) {
+			argv[n++] = (char *)"--pace";
+			argv[n++] = (char *)pacing_id(pacing_load(s));
 		}
 		/* The Auto card's own path here, not the scratch the resident mode
 		 * uses. Standalone has no in-game menu - the launcher is torn down -
@@ -1145,6 +1443,7 @@ void launch(app *a)
 		memset(&g_ctl_game, 0, sizeof g_ctl_game);
 		g_ctl_game.on = true;
 		g_ctl_game.fallback = true;
+		screen_shader_apply();
 		snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
 		snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
 		snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
@@ -1154,6 +1453,7 @@ void launch(app *a)
 		fprintf(stderr, "diatom exited %d\n", plat_run(argv, NULL, P_ROOT));
 		plat_run_on_tick(NULL);
 		g_ctl_game.on = false;
+		screen_shader_apply();
 
 		if (!plat_video_init() || !plat_input_init()) { a->running = false; return; }
 		a->r = plat_renderer();
@@ -1224,8 +1524,8 @@ void launch(app *a)
 	 * game; it was cleared below as a return to the shelf. Marked as asked
 	 * for (playing_mark_clean), as a crash or a power cut is not - except
 	 * MENU+START's TERM (tools/zyhome.c), which is the way to the home. */
-	if (access(ZYPEROS_POWEROFF_FLAG, F_OK) == 0 || want_quit) {
-		if (access(CTL_HOME_FLAG, F_OK) != 0) playing_mark_clean();
+	if (access(plat_flag(ZYPEROS_POWEROFF_FLAG), F_OK) == 0 || want_quit) {
+		if (access(plat_flag(CTL_HOME_FLAG), F_OK) != 0) playing_mark_clean();
 		a->running = false;
 		return;
 	}
@@ -1237,8 +1537,15 @@ void launch(app *a)
 	 * than a shutdown. Everything above leaves the marker standing, which is
 	 * what makes the next boot able to tell them apart. */
 	playing_clear();
-	/* The game just played first on Recents (src/homesys.h) */
-	refresh_recents_shelf(a);
+	if (core_said) {
+		/* It never ran: not first on Recents, and the reason on the screen */
+		tick_theme(a);
+		render(a);
+		result_message(a, v->list.items[v->cursor].title, core_msg);
+	} else {
+		/* The game just played first on Recents (src/homesys.h) */
+		refresh_recents_shelf(a);
+	}
 
 	tick_theme(a);
 	render(a);

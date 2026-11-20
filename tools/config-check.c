@@ -40,6 +40,27 @@ static const system_cfg *find(const systems_cfg *c, const char *name)
 	return NULL;
 }
 
+/* The shipped pace lines (src/pacing.h): Timing, Smooth by default, on the
+ * Game Boys, the DS and the Genesis, and on no other shelf */
+static void pace_lines_check(void)
+{
+	static systems_cfg c;
+	static const char *const smooth[] = { "GB", "GBC", "GBA", "NDS", "MD" };
+	int i, k, others = 0, found = 0;
+
+	ck(cfg_load_systems("config/systems.cfg", &c), "config/systems.cfg loads");
+	for (i = 0; i < c.count; i++) {
+		bool listed = false;
+
+		for (k = 0; k < (int)(sizeof smooth / sizeof smooth[0]); k++)
+			if (!strcmp(c.systems[i].tag, smooth[k])) listed = true;
+		if (listed && !strcmp(c.systems[i].pace, "smooth")) found++;
+		else if (!listed && c.systems[i].pace[0]) { printf("    %s has Timing\n", c.systems[i].tag); others++; }
+	}
+	ck(found == (int)(sizeof smooth / sizeof smooth[0]), "Timing, Smooth, on the GB, GBC, GBA, DS and Genesis shelves");
+	ck(!others, "and on no other shelf: the rest keep the core's own rate, no row");
+}
+
 /* The shipped es lines: each name once in the file, none that the card's
  * file system would take as a shelf's own folder (exFAT ignores case), and
  * every line's tag a system's */
@@ -144,17 +165,23 @@ int main(void)
 	      "map|NOPE|a:b\n"
 	      "sys|Late|late|core|LAT|L.png|C4443A|gb\n"
 	      "power|LAT|light\n"
+	      "pace|LOW|smooth\n"
+	      "pace|LAT|exact\n"
+	      "pace|BLK|core\n"
 	      "controller|LAT|517\n"
 	      "rumble|LAT|35\n"
 	      "needs|NAM|gpu-frames\n"
 	      "needs|LOW|teleporter\n"
 	      "needs|NOPE|gpu-frames\n"
-	      "es|NAM|famicom, fds\n", f);
+	      "es|NAM|famicom, fds\n"
+	      "sys|Two|two|run:Emulators/Two/Two.sh,core|TWO|T.png|C4443A|gb\n"
+	      "brings|TWO|run:Emulators/Two/Two.sh|Bios/Two/a,Bios/Two/b\n"
+	      "brings|NAM|run:Emulators/None/None.sh|Bios/x\n", f);
 	fclose(f);
 
 	printf("reading:\n");
 	ck(cfg_load_systems(path, &c), "the file loads");
-	ck(c.count == 11, "every sys line is a system, colored or not");
+	ck(c.count == 12, "every sys line is a system, colored or not");
 
 	printf("a color:\n");
 	s = find(&c, "Named");
@@ -212,22 +239,41 @@ int main(void)
 
 		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
+		s = find(&c, "Lower");
+		ck(s && !strcmp(s->pace, "smooth"), "pace|tag|smooth gives the system Timing, Smooth its own");
+		s = find(&c, "Two");
+		ck(s && !strcmp(s->brings_core, "run:Emulators/Two/Two.sh") && !strcmp(s->brings, "Bios/Two/a,Bios/Two/b"),
+		   "brings| gives the shelf's core the files the player brings");
+		ck(s && !strcmp(s->core, "run:Emulators/Two/Two.sh") && cfg_core_count(s) == 2,
+		   "and the core field keeps its two cores");
+		s = find(&c, "Named");
+		ck(s && !s->brings_core[0] && !s->brings[0], "a brings line for a core the shelf lacks is none");
+		s = find(&c, "Black");
+		ck(s && !s->pace[0], "and a word that is neither smooth nor exact is no line: no Timing row");
+		s = find(&c, "Named");
+		ck(s && !s->pace[0], "nor has a system with no pace line one");
 		cfg_run_keys(find(&c, "Lower"), false, NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "controller=517"), "controller= alone");
+		ck(!strcmp(keys, "controller=517\tpace=smooth"), "controller=, then the system's own pace=");
+		cfg_run_keys(find(&c, "Lower"), false, "exact", keys, (int)sizeof keys);
+		ck(!strcmp(keys, "controller=517\tpace=exact"), "the player's choice over the system's");
+		cfg_run_keys(find(&c, "Lower"), false, "fast", keys, (int)sizeof keys);
+		ck(!strcmp(keys, "controller=517\tpace=smooth"), "a choice that is none: the system's own");
+		cfg_run_keys(find(&c, "Named"), false, "smooth", keys, (int)sizeof keys);
+		ck(!strcmp(keys, "power=medium"), "and no pace= at all where the system has no Timing row");
 		s = find(&c, "Late");
 		ck(s && s->rumble == 35, "rumble| gives the motor's share, in percent");
 		s = find(&c, "Lower");
 		ck(s && s->rumble == 0, "and none is 0, the core's own");
 		cfg_run_keys(find(&c, "Late"), false, NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "power=light\tcontroller=517\trumble=35"), "power=, controller=, rumble=");
+		ck(!strcmp(keys, "power=light\tcontroller=517\trumble=35\tpace=exact"), "power=, controller=, rumble=, pace=");
 		cfg_run_keys(find(&c, "Late"), true, NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=late\tpower=light\tcontroller=517\trumble=35"),
+		ck(!strcmp(keys, "screens=2\tframeskip=late\tpower=light\tcontroller=517\trumble=35\tpace=exact"),
 		   "two screens first, all tab separated");
+		/* frameskip=late always: the DS shelf's When Slow is gone (1.0.6), so
+		 * a Steady 30 a card kept from before has nothing that sends it */
 		cfg_run_keys(find(&c, "Black"), true, NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone");
-		cfg_run_keys(find(&c, "Black"), true, "steady", keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=steady"), "When Slow's Steady 30 is frameskip=steady");
-		cfg_run_keys(find(&c, "Black"), false, "steady", keys, (int)sizeof keys);
+		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone, frameskip=late");
+		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "and one screen sends no frameskip at all");
 	}
 
@@ -297,12 +343,27 @@ int main(void)
 			ck(!strcmp(gpu, "AW DC NAOMI N64 PSP SATURN "),
 			   "GPU frames for the Atomiswave, Dreamcast, NAOMI, N64, PSP and Saturn, no other");
 		}
+		/* Your PICO-8: the player's files, never shipped, for the core
+		 * listed first, with fake08 after it for every other card */
+		for (i = 0; i < c.count && strcmp(c.systems[i].tag, "PICO8"); i++) {}
+		ck(i < c.count && !strcmp(c.systems[i].cores, "run:ZyperOS/pico8/PICO-8.sh,fake08"),
+		   "PICO-8: your PICO-8 first, fake08 after it");
+		ck(i < c.count && !strcmp(c.systems[i].brings_core, "run:ZyperOS/pico8/PICO-8.sh") &&
+		   !strcmp(c.systems[i].brings, "Bios/PICO-8/pico8_64,Bios/PICO-8/pico8.dat"),
+		   "and your PICO-8 needs the zip's two files in Bios/PICO-8");
+		{
+			int k, nb = 0;
+
+			for (k = 0; k < c.count; k++) if (c.systems[k].brings_core[0]) nb++;
+			ck(nb == 1, "no other shelf has files the player brings");
+		}
 		/* and the tags, which settings hang off, went with their names */
 		ck(!strcmp(c.systems[0].tag, "3DO") && !strcmp(c.systems[n - 1].tag, "PRT"),
 		   "each line moves whole");
 	}
 
 	es_names_check();
+	pace_lines_check();
 	from_rogue_check();
 
 	if (fails) { printf("config: %d FAILED\n", fails); return 1; }

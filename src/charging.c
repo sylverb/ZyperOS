@@ -200,7 +200,10 @@ cs_step ch_screen_tick(ch_screen *s, unsigned now, bool any_press, bool power_do
 			s->held_at = now;
 		}
 		s->lit_at = now;
-		if (now - s->held_at >= DS_MS_HOLD_UNLOCK) return s->step = CS_START;
+		/* One second, as Power Button on Hold's turn-off (Tarik, 1.0.6:
+		 * "Can we have the hold power to turn on on charging screen also
+		 * be one second?") */
+		if (now - s->held_at >= DS_MS_HOLD_POWER) return s->step = CS_START;
 	} else
 		s->holding = false;
 	return s->step = now - s->lit_at < DS_MS_HOLD_CHARGE_LIT ? CS_LIT : CS_DARK;
@@ -223,5 +226,5 @@ float ch_screen_hold(const ch_screen *s, unsigned now)
 
 	if (!s->holding) return 0.0f;
 	t = now - s->held_at;
-	return t >= DS_MS_HOLD_UNLOCK ? 1.0f : (float)t / DS_MS_HOLD_UNLOCK;
+	return t >= DS_MS_HOLD_POWER ? 1.0f : (float)t / DS_MS_HOLD_POWER;
 }

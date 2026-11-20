@@ -24,6 +24,7 @@ and once for the release:
 | `ZyperOS-Installer-<version>-macOS-update.tar.gz` and `.sig` | The macOS app again, for the installer's own update, with its signature |
 | `ZyperOS-Installer-<version>-Windows.exe.sig` | The Windows exe's signature, for the installer's own update |
 | `latest.json` | What the installer's own update reads (`releases/latest/download/latest.json`): the version, and each update file with its signature |
+| `ZyperOS-v<version>-qemu.tar.xz` | The release in QEMU, for the [Simulator](../simulator.md) without plastron's build: `sdcard.img`, `Image` and `u-boot.bin`, with no SSH key in it (from 1.1.0; never in a test kit). `tools/qemu-run.sh fetch` downloads the latest release's, checked against `SHA256SUMS` ([qemu.md](../qemu.md)) |
 | `SHA256SUMS` | The checksums of all of them |
 
 The installer has ZyperOS's version and downloads the newest published
@@ -96,7 +97,11 @@ out, as it does Install and Thanks.
    with no second build, as step 4 does: it refuses unless they were built
    from main as GitHub has it now, or from the commit before main's changes
    to the notes' `Tested on` lines and nothing else, and still match their
-   `SHA256SUMS`.
+   `SHA256SUMS`. If other work went into main after the build (build
+   tooling, say), the release stays the commit that was built and tested:
+   put the `Tested on` lines on a branch of that commit, run
+   `tools/release.sh --publish-built` there, and merge the branch into main
+   after. It refuses a branch whose commit isn't on main as GitHub has it.
 4. Or `make release PUBLISH=1` builds them again the same way (the notes need
    their `Tested on` lines before it starts), signs System Update's lists
    with the key in `~/.config/zyperos/update-signing-key.pem`

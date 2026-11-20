@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "about_screen.h"
+#include "hkstore.h"
 #include "ds/mark.h"   /* ds_bar_in */
 
 #include "about.h"
@@ -30,6 +31,9 @@
 #include <sys/statvfs.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef ZYPEROS_KIT_BUILD
+#include "kit.h"
+#endif
 
 /* ---------- About --------------------------------------------------------- */
 
@@ -78,8 +82,9 @@ static const about_thanks ABOUT_THANKS[] = {
  *	{ "Their name", "TrimUI Brick" },
  *
  * Under its own heading, Help with other handhelds, which is there only
- * while this has a row: none yet. */
+ * while this has a row. */
 static const struct { const char *who, *handheld; } ABOUT_HANDHELD_THANKS[] = {
+	{ "autobiogphnation", "TrimUI Brick" },   /* kit 2's first tester, all 12 steps */
 	{ NULL, NULL }
 };
 
@@ -265,6 +270,14 @@ void about_screen(app *a)
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (menu_leaving(a)) done = true;
 		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+#ifdef ZYPEROS_KIT_BUILD
+		/* A test kit's own page (src/kit.h), where the device has one */
+		if (a->in.pressed[IN_Y] && kit_page) {
+			kit_page(a);
+			plat_input_flush();
+			memset(&a->in, 0, sizeof a->in);
+		}
+#endif
 		if (in_repeat(&a->in, IN_LEFT)) {
 			moved_sound(a, IN_LEFT);
 			page = (page + ABOUT_PAGES - 1) % ABOUT_PAGES;
@@ -344,11 +357,21 @@ void controls_screen(app *a)
 	float k;
 
 	ctl_set_chords(&plat_profile()->chords);
+	{
+		/* Every Game's hotkeys, as MENU > System > Hotkeys sets them */
+		hk_table hk;
+
+		hks_get(HKS_EVERY, NULL, NULL, &hk);
+		ctl_set_hotkeys(&hk);
+	}
 
 	while (!done && !want_quit && a->running) {
 		menu_row rows[CTL_MAX_ROWS];
-		char head[80], count[16];
+		char head[80], count[16], keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 		int n = ctl_rows(page, rows);
+
+		/* the button column in the handheld's own glyphs (DESIGN.md 11.9) */
+		ctl_glyph_rows(rows, n, keys);
 
 		snprintf(head, sizeof head, T(S_PANEL_CONTROLS), ctl_page_name(page));
 		/* which page of how many, at the heading's right (DESIGN.md 11.3) */
