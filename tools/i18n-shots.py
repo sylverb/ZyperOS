@@ -338,6 +338,17 @@ EXTRA = {
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # MP4's Player Looks (DESIGN.md 11.64): each on Now Playing, Classic
+    # paused too (its panel says so where the time's words would), and
+    # MENU's Player Look list with its picture, the look under the cursor
+    "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
+    "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
+    "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
+    # ...its list with the cursor on each look, so every look's note is
+    # drawn in its picture's narrow column
+    **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
+                                                   "a", "--pick-at", str(_k)])
+       for _k, _l in enumerate(("cover", "classic", "spectrum"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
@@ -714,7 +725,9 @@ for _name, _tag, _flags in (
         ("n64-end", "N64", ["--gamemenu", "13"]),
         ("dc", "DC", ["--gamemenu", "2"]), ("dc-end", "DC", ["--gamemenu", "13"]),
         ("dc-place", "DC", ["--gamemenu", "2"]), ("dc-mixed", "DC", ["--gamemenu", "2"]),
-        ("stick", "PS1", ["--gamemenu", "9"])):
+        ("stick", "PS1", ["--gamemenu", "9"]),
+        ("pick-share", "PS1", ["--gamemenu", "5", "--gm-pick", "--pick-at", "1"]),
+        ("shared", "PS1", ["--gamemenu", "5"])):
     EXTRA.setdefault("gamemenu-controls-" + _name,
                      ("demo", _tag, ["--screen", "games", "--gm-tab", "2"] + _flags))
 # A Nintendo 64 game's Pak row, back in the Controls tab
@@ -760,7 +773,11 @@ SHOT_LIB = {"gamemenu-rumble-own-list": {"rumble.N64.Mario Kart 64 (USA).z64": "
             "gamemenu-controls-dc-mixed": {"map.DC." + _SONIC: "1;a:a"},
             # L2 Stick While Held and R2 Stick On/Off, a button's two stick
             # choices (DESIGN.md 11.45), the cursor on R2
-            "gamemenu-controls-stick": {_MGS: "1;l2:stickhold,r2:stick"}}
+            "gamemenu-controls-stick": {_MGS: "1;l2:stickhold,r2:stick"},
+            # Y on cross, which B gives, in Y's list: the foot's A Swap and Y
+            # Both, and what each does; and Y given cross as well, the two
+            # rows each with the other's glyph (issue #305)
+            "gamemenu-controls-shared": {_MGS: "1;y:b"}}
 
 
 # MENU > Display > Home Systems (src/homesys.h, DESIGN.md 11.48): its row with
@@ -1083,10 +1100,29 @@ SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped"):
+              "player2_stopped", "shot", "shader", "display"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))
+# The Hotkeys list (src/hotkeys_screen.h): MENU > System's, at its top and its
+# end (Home, the line under it, Reset Hotkeys); a game's, Applies To on each
+# of its three and All Controls at the end; the capture screen waiting and
+# with SELECT and Y down; the swap question; Reset Hotkeys' question for each
+# scope; and Reset Game's question over the game
+for _name, _flags in (
+        ("top", ["--hotkeys", "4"]), ("end", ["--hotkeys", "103"]),
+        ("game", ["--screen", "games", "--hk-game", "--hotkeys", "100"]),
+        ("game-every", ["--screen", "games", "--hk-game", "--hk-scope", "0", "--hotkeys", "100"]),
+        ("game-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "100"]),
+        ("game-end", ["--screen", "games", "--hk-game", "--hotkeys", "104"]),
+        ("capture", ["--hotkeys", "4", "--hk-capture", "1"]),
+        ("capture-keys", ["--hotkeys", "4", "--hk-capture", "2", "--hk-key", "3"]),
+        ("swap", ["--hotkeys", "4", "--hk-ask", "1", "--hk-key", "7"]),
+        ("reset-every", ["--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-game", ["--screen", "games", "--hk-game", "--hk-scope", "2", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-ask", ["--screen", "games", "--hk-game", "--hotkeys", "103", "--hk-ask", "3"])):
+    EXTRA.setdefault("hotkeys-" + _name, ("demo", "PS1", _flags))
 # NES Player 2 (src/p2.h): its page over a paused NES game in every state
 # (--player2), the code on the hotspot with nobody yet and its address under
 # it, a player connected, the cable, before A on each link, with neither

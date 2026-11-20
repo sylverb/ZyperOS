@@ -73,6 +73,9 @@ typedef struct {
 	 * once, when the core is opened. A core that is not shipped is closed
 	 * after each game. */
 	bool          shipped;
+	/* Whether this core was handed cheat codes it still holds (cheats.c),
+	 * so the next game on it is reset first */
+	bool          cheats_held;
 
 	void   (*set_environment)(retro_environment_t);
 	void   (*set_video_refresh)(retro_video_refresh_t);
@@ -94,6 +97,10 @@ typedef struct {
 	bool   (*unserialize)(const void *, size_t);
 	void  *(*get_memory_data)(unsigned);
 	size_t (*get_memory_size)(unsigned);
+	/* Optional, unlike the rest: a core without them has no cheats, and
+	 * still runs (cheats.c) */
+	void   (*cheat_reset)(void);
+	void   (*cheat_set)(unsigned, bool, const char *);
 } diatom_core;
 
 /* zip.c - launcher libraries arrive zipped, one ROM per archive */
@@ -276,6 +283,8 @@ typedef enum {
 	DIATOM_MSG_SETSCREENS, /* set it: `layout`, `swap` = 1 | 0 */
 	DIATOM_MSG_STYLUS,     /* report whether stylus mode is on */
 	DIATOM_MSG_SETSTYLUS,  /* turn it on or off: `on` = 1 | 0 */
+	DIATOM_MSG_SETHOTKEYS, /* SELECT's hotkeys: `hotkeys` (sent as `keys=`),
+	 * chord.h's chord_keys_parse form; answered HOTKEYS ok=1|0 */
 	DIATOM_MSG_SETSTICK,   /* the d-pad as the stick: `dmode` (sent as `mode=`)
 	 * = dpad | plain | toggle | toggle-stick | off; answered STICK on=1|0 */
 	/* Guest players, NES player 2 first (player2.h): the frames out and
@@ -299,6 +308,10 @@ typedef enum {
 	/* The equalizer (eqdsp.h): `bands`, five whole dB from -6 to +6, "5,2,
 	 * 0,0,1", all 0 flat; the gains move to them over 20 ms. No answer. */
 	DIATOM_MSG_SETEQ,
+	/* The cheat codes that are on, from now: `path`, a file of one a line
+	 * (cheats.h), empty for none. Answered CHEATS count=N, or ERROR
+	 * code=bad_cheats with the codes as they were. */
+	DIATOM_MSG_SETCHEATS,
 	/* The launcher went away - or was displaced by a newer one, which means
 	 * the same thing. The game keeps running. */
 	DIATOM_MSG_HANGUP
@@ -322,6 +335,9 @@ typedef struct {
 	 * optional for them: an RA address is an offset into a per-console space,
 	 * so 0x06f3 means nothing until the launcher says which console. */
 	char cheevos[1024];    /* RUN: a set to watch from the first frame */
+	/* RUN: the cheat codes that are on, a file of one a line (cheats.h);
+	 * SETCHEATS takes its file as path= */
+	char cheats[1024];
 	/* RUN: 2 when the frame holds two screens, top over bottom - a DS game.
 	 * The launcher's to say, since it knows which shelf a game is on and
 	 * Diatom has no core list. Anything else is one screen. */
@@ -355,6 +371,14 @@ typedef struct {
 	 * as the stick (the PSP's, whose games play with one or the other);
 	 * empty or anything else, the joypad's d-pad as ever. */
 	char stick[16];
+	/* RUN hotkeys= and SETHOTKEYS keys=: which button SELECT is held with for
+	 * each hotkey, "save:r1,load:l1,shot:y" or "none" (chord.h); absent on
+	 * RUN, the shoulders' four as ever */
+	char hotkeys[160];
+	/* RUN shots=: where a screenshot goes, a path and the start of a file's
+	 * name ("/mnt/SDCARD/Screenshots/NES/Zelda"), the time and ".png" added;
+	 * absent, no screenshot */
+	char shots[1024];
 	char layout[16];       /* SETSCREENS: a name from scr_layout_names */
 	char swap[4];          /* SETSCREENS: "1" | "0"; empty leaves it */
 	int  console;          /* RUN / SETCHEEVOS */

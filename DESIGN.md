@@ -324,6 +324,7 @@ Lexend's time the first time it is drawn, then cached like any line.
 | **support** | 28 (18 px on the Pixel 2) | Regular | home counts, compact game metadata, and the action beside its button glyph (action 27 and support 29 until 1.0.6) |
 | **game-title** | 37 (23 px on the Pixel 2) | SemiBold | the full game name below its cover row: meta's size, title's weight; its lines 40 apart (38 and 44 until 1.0.6) |
 | **card** | 71 (44 px on the Pixel 2) | Regular | the title drawn into a generated card (512 px wide) |
+| **clock** | 120 (75 px on the Pixel 2) | SemiBold | MP4's Classic look: the time played, large; digits only, so Lexend in every language |
 <!-- /generated:type -->
 
 - Text is placed by its capitals, not its em box: centered on them in a row,
@@ -534,6 +535,15 @@ its own says why beside it.
 | **preview-col-min** | 200 | ...narrower where the list's choices run long, to this |
 | **preview-gap** | 32 | the column to the list's rows |
 | **preview-note-gap** | 16 | the small screen's foot to its note's first line |
+| **look-bar-w** | 16 | a bar: 10 whole pixels on the Pixel 2 |
+| **look-bar-gap** | 8 | between two bars: 5 |
+| **look-cap** | 4 | a bar's cap: its height, and its gap over the bar |
+| **look-classic-w** | 488 | Classic: the clock's panel, 18 bars and their pad wide, and the words under it |
+| **look-panel-pad** | 32 | Classic: the clock's panel's words and bars from its edges |
+| **look-list-row** | 56 | Classic: a row of the track list |
+| **look-list-num** | 48 | Classic: a row's number, tabular, before its name |
+| **line-clock** | 128 | Classic: the clock's line, as a box |
+| **look-cover** | 192 | Spectrum: the cover beside the names |
 <!-- /generated:layout -->
 
 ---
@@ -557,6 +567,7 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 | **rule** | 2 | a heading's rule, the keyboard field's edge |
 | **caret** | 3 | the keyboard's caret |
 | **ring** | 4 | a button glyph's ring |
+| **radius-bar** | 4 | MP4's bars (Player Look); a bar's cap is a pill |
 <!-- /generated:shape -->
 
 - A panel's frame is **edge**, 3 units, in both themes. *(The 12-unit cyan
@@ -661,6 +672,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
+| **peak-hold** | 400 | - | MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity |
+| **bar-fall** | 140 | follow | MP4's bars falling to the sound: follow's tau, where a bar rises at once |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
 | **hold-band** | 2000 | - | the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip |
 | **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
@@ -1277,7 +1290,7 @@ where it was.)*
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, Equalizer (11.60), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
-| **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
+| **System** | Date & Time, Clock, Language, Hotkeys, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
 
 A row added to MENU goes into `pm_row` where its tab's rows are and into
@@ -2181,6 +2194,9 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
+- **Player Look.** MENU on the music shelf, under Shuffle All: how Now
+  Playing shows a song. Cover, the cover large as it always was, is the
+  default; the others are 11.64's.
 - **Repeat.** MP4's MENU on the shelves with videos (Videos, and All):
   videos' own play mode, **Off** (each once, in order, as before), **One**
   (the video playing, again and again) or **All** (its folder, round
@@ -3244,7 +3260,9 @@ screen), in this order, the rows in brackets only where they apply:
    asks first in the yes/cancel panel Delete Game uses, "Put back the
    PlayStation's buttons in Spyro the Dragon?" or "Put back ZyperOS's buttons
    for every PlayStation game?".
-9. **Hotkeys**: A opens the read-only pages below, as a panel of pages (11.3).
+9. **Hotkeys**: A opens the Hotkeys list (11.61), at its own width, Applies
+   To first; its last row, **All Controls**, opens the read-only pages
+   below, as a panel of pages (11.3).
 
 A row that cannot change here is a quiet row with its value: the N64's SELECT
 ("C buttons"), the Dreamcast's while D-pad as Stick is on ("Held: D-pad"), and
@@ -3276,10 +3294,11 @@ system's own buttons are the tab's rows, so they are not a page here.
   Pak row chooses it); the DS's two screens (L2 the other screen, R2 the
   stylus, then the d-pad moves it and A touches). An FDS game adds L1/R1, the
   disk's side and eject.
-- **Hotkeys**, SELECT held with a shoulder (2026-11-07): SELECT+R1 quick
-  save and SELECT+L1 quick load (where the core keeps states), SELECT+R2
-  faster and SELECT+L2 slower, and under them "SELECT alone stays the
-  game's" where SELECT is one of the system's buttons.
+- **Hotkeys**, SELECT held with one more button (11.61): the game's own, as
+  the player set them (SELECT+R1 quick save and SELECT+L1 quick load where
+  the core keeps states, SELECT+R2 faster and SELECT+L2 slower until set
+  otherwise), a row each set one, and under them "SELECT alone stays the
+  game's" where SELECT is one of the system's buttons and the page has room.
 - **In a game** last: MENU (the menu), MENU then X (Quit), the volume
   rocker, brightness (MENU+VOL on the Pixel 2, F1/F2 on the Brick), POWER.
   The same rows as the home's pages, from one place in src/controls.c.
@@ -4834,17 +4853,43 @@ stick: it holds the hotkeys, and a press of it is never a turn of the stick
 and a hotkey at once. A opens the same
 choices as a list of their own, headed "Y: PlayStation", the handheld still
 beside it, a tick on what the button does now and "default" in **text-dim**
-on the scope's default; A on a choice takes it and goes back, B goes back with
-no change. Each Left or Right works from the table as it was when the cursor
+on the scope's default; A on a choice takes it and goes back (Y too, on a
+choice another button gives: below), B goes back with no change. Each Left or Right works from the table as it was when the cursor
 came onto the row, so stepping through the list leaves the other buttons as
 they were except for the one swap at the value it stops on.
 
-**Swap, not copy.** When button P is given game button G, and another button
-Q already gives G, Q takes what P gave before: Y given Cross makes B give
-Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
+**Swap, not copy**, unless the player asks for both. When button P is given
+game button G, and another button Q already gives G, Q takes what P gave
+before: Y given Cross makes B give Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
 Cross while B stays Cross), and a swap never lands on a quiet row: it keeps
 what it gives. The stick's two swap as a game button does, so one button
-turns the stick unless the player gives the other one to a second button. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
+turns the stick unless the player gives the other one to a second button.
+
+**Two buttons on one game button** *(issue #305, moroboshi69 on the Brick:
+"both A and Y on the NES's B"; my picks in the Controls lab, 2026-11-19)*.
+Diatom always ORs every handheld button that targets a game button; only
+the swap stopped it. Left and Right on a row still swap, so a quick look
+never leaves two buttons on one game button by surprise. **In a button's
+list, A swaps and Y shares**: on a choice another button already gives
+(`ct_can_share`: plainly, and not the row's own value or Nothing), **A**
+takes it with the swap and **Y** takes it as well, so both give it
+(`rm_share`). The list's foot, under a rule and kept still (pin_foot), says
+what the choice under the cursor does in two lines - "A: B takes Square." and
+"Y: Y and B give Cross." - and its keys as hints, "A Swap" and "Y Both";
+on any other choice one line, "Y gives Cross.", and "A Take". The list is
+as tall as the page it opens over, so the panel holds still: the foot comes
+out of the page's rows (three choices show, and scroll) and stands in the
+bottom pad down to a note's own air (`pad / 3`). **A shared row
+carries its partner's glyph after the value** (`MENU_PARTNER_MARK`, 32
+units, at 70%: B, then a small Y), and the handheld lights both buttons while
+the cursor is on either row. **Removing one** is giving that row anything
+else (Left, Right, its list) or Nothing: the partner keeps the game button,
+so no warning row. A swap from a shared row hands its old value to the other
+button, which then shares it: still one rule. Reset Buttons removes every
+share. A share is stored as the pair it is (`y:b`), as every change. With the
+hotkeys (11.61) a chord does one action and an action has one chord, so a
+clash there offers Swap or Cancel, never Both; a handheld button can give a
+game button and be part of a chord, and SELECT's rule decides, as before. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
 chord gives a lone SELECT to the game as it is let go, or once held 400 ms,
 and never under a shoulder (pressed after it, or up to 100 ms before it).
 
@@ -4925,8 +4970,9 @@ tutorial's front pose (10 degrees), lights the keys of the row under the
 cursor in the tutorial's lit look (accent fill, ring, halo): a button row its
 button; D-pad as Stick the d-pad (and SELECT on the N64 and the Dreamcast);
 Face Buttons the four faces; Reset Buttons every changed button; a swap
-both buttons while the cursor stays on the row; Applies To, Pak, Rumble and
-Hotkeys nothing. A lit shoulder stands up out of the top edge. It **leans**
+both buttons while the cursor stays on the row, and a shared game button
+both buttons that give it; Applies To, Pak, Rumble and Hotkeys nothing. A
+lit shoulder stands up out of the top edge. It **leans**
 toward the side of the keys lit: the faces (A, B, X, Y) turn it 12 degrees
 from the front pose to show its right side (22 degrees), the d-pad 22 the
 other way (-12). A shoulder row turns it 12 toward its side (R1 and R2 to 22
@@ -4966,10 +5012,11 @@ when it ends (8.2). The handheld is drawn into its kept texture when its view
 changes and copied otherwise; it is drawn only in the menu, never in a frame
 of the game.
 
-**What the Hotkeys row opens** is the read-only pages of 11.28: what a system
-adds, Hotkeys and In a game, at their own width and with no handheld.
-Hotkeys, SELECT with a shoulder, stay on the physical buttons whatever the map
-says; MENU, the volume keys and POWER cannot be remapped.
+**What the Hotkeys row opens** is the Hotkeys list of 11.61, and through its
+All Controls row the read-only pages of 11.28: what a system adds, Hotkeys
+and In a game, at their own width and with no handheld. Hotkeys, SELECT with
+one more button, stay on the physical buttons whatever the map says; MENU,
+the volume keys and POWER cannot be remapped.
 
 ### 11.47 The grid
 
@@ -6113,6 +6160,89 @@ Custom's five bands (no key when flat). Host shots: `menu-eq`, `eq-page`,
 `-custom`: the cursor on each), `eq-page-phones` (`--eq-phones` stands in
 for a cable), `mp4-menu-eq` (tools/i18n-shots.py).
 
+### 11.61 Hotkeys
+
+The hotkeys a player sets *(2026-11-18: my review of the Controls ideas,
+"cover a way to change ZyperOS's hotkeys"; and NextUI's top ten, "a user can
+set a hotkey that takes a screenshot", "same as #1" for the next shader and
+display, reset and quit. Picked in the Controls lab, 2026-11-19)*. The rules
+are pure (src/hotkeys.c, what is kept src/hkstore.c, `make check-hotkeys`);
+Diatom's chord.h judges them, its keys from RUN `hotkeys=` and SETHOTKEYS.
+
+**Every hotkey is SELECT held and one more button** *(my pick: MENU is never
+a holder, so MENU stays one press that opens the menu, everywhere)*: A, B,
+X, Y, L1, R1, L2, R2 or START, never the d-pad (the game's, and the stick's
+SELECT rule) nor MENU. SELECT alone stays the game's, by chord.h's rule as
+before. An action has one chord and a chord does one action.
+
+| Action | From the start | What it does |
+|---|---|---|
+| Quick Save, Quick Load | SELECT+R1, SELECT+L1 | the quick slot, as they always did |
+| Faster, Slower | SELECT+R2, SELECT+L2 | the speed's steps |
+| Screenshot | None | the game's frame to `Screenshots/<System>/<Game> 2026-11-18 21.40.05.png` |
+| Next Shader, Next Display | None | the system's next shader or display mode, kept as the menu's rows keep them; a pop-up names it ("Shader / CRT Curved") |
+| Reset Game | None | asks first (below) |
+| Quit | None | leaves at once, as MENU then X; the resume point is kept |
+
+A player who sets none sends what was always sent: RUN carries `hotkeys=`
+only when the hotkeys in force differ from ZyperOS's own. Home (MENU+START
+held a second) and POWER are no hotkeys and never change.
+
+**The list** is **MENU > System > Hotkeys** (Every Game's, over the shelf)
+and a game's **Controls tab > Hotkeys** (over the paused game), in the widest
+panel (menu_most_w): a row an action, its keys at its right drawn as this
+handheld's glyphs (11.9, `MENU_KEYS_MARK` as a value), "+" between them, or
+**None**; a key that differs from what the scope falls back to in the
+**accent-ink**. Then **Home** with MENU+START's glyphs, a quiet row, and the
+line "Held 1 s. It never changes."; then **Reset Hotkeys**, live when the
+scope shown has keys of its own, which asks first, as Reset Buttons does. In
+a game **Applies To** comes first, round on Left and Right: **This Game** (as
+the Controls tab opens), the system by its home label, or **Every Game**, its
+value in the accent-ink where that scope has keys of its own; and last **All
+Controls**, the read-only pages of 11.28 that the Hotkeys row opened before
+the list. A change there reaches the paused game at once (SETHOTKEYS).
+
+**Scope and storage** are the buttons' (11.45): `hotkeys` for Every Game,
+`hotkeys.<TAG>` for a system, `hotkeys.<TAG>.<file>` for This Game, the
+whole table copied at its first change; a game plays with its own, else its
+system's, else Every Game's, else ZyperOS's own. Stored as `1;` and the
+actions that differ from ZyperOS's own (`shot:y,save:none`); no key equals
+what its scope falls back to. Rename and Delete Game take a game's key with
+them.
+
+**The capture screen** (A on an action's row), in the widest panel: the
+action's name as heading, then where the keys go, "Waiting for the keys",
+and under the rule "Hold SELECT, then press a button." and "B with nothing
+held goes back.". Every button is read as a key until SELECT is let go, A
+and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
+a button with it lights beside it with "+", and the second line says "Let go
+to keep them.". SELECT let go alone waits again; MENU, or B with nothing
+held, leaves with no change. **A clash offers a swap**: the keys are another
+action's, so the yes/cancel panel asks "SELECT+R2 is Faster now. Faster moves
+to None." (or to the keys the row had), **Swap** and Cancel, the cursor on
+Cancel, so no hotkey is lost by accident. There is no Both: a chord does one
+action.
+
+**Reset Game asks first** *(my pick: a reset loses play, so one press is not
+enough)*. The chord pauses the game as MENU does (Diatom's PAUSED
+`for=reset`), and over the paused frame the yes/cancel panel Delete Game uses
+asks "Reset the game?", "Play since the last save is lost.", **Reset** and
+Cancel, the cursor on Cancel. Reset resets and the game goes on; Cancel or B
+goes back to it where it was. **Quit** pauses the same way (`for=quit`) and
+stops the game as the menu's Quit does.
+
+**The screenshot** is the game's own frame at its own size, as a save's
+picture is, not the screen with its shader and border: Diatom keeps that
+frame already (a GPU core's read back once, between frames, as a pause's
+preview is), copies it and writes the PNG on a thread of its own, so no
+frame waits on the card or the encoding; a press while one is being written
+is dropped. A DS game's is the two screens as laid out. The launcher says
+where (RUN `shots=`, with every game, so a key set in the game works at
+once); Diatom adds the time. **The pop-up** *(my pick: the picture, small)*
+carries the shot itself beside "Screenshot saved", the folder under it,
+kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
+**hold-short**, as every pop-up over a game.
+
 ### 11.62 Two cores on a shelf: Gambatte
 *(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
 stays the default.)*
@@ -6171,3 +6301,76 @@ which list 7z, and MAME's). RetroAchievements' hash takes the same entry
 `.7z` stays on the shelves whose cores read it themselves (Arcade, Neo Geo,
 NAOMI, Atomiswave). A cartridge system's `.7z` would need a 7z reader in
 Diatom and in the launcher's hash, and is not done.
+
+### 11.64 Player Looks
+
+**Player Look**, in MP4's MENU on the music shelf (and on All when the card
+has songs) under Shuffle All, is how Now Playing shows a song
+(src/mp4look.h, src/nowplaying_looks.c). **Cover**, the cover large as it
+always was, is the default; **Classic** and **Spectrum** beside it. A opens
+the list, its picture the look under the cursor playing (src/ds/preview.h's
+column): Now Playing drawn whole at the screen's size into a texture,
+halved, then drawn into the box - the song that plays, or with none the
+shelf's album's first song in show, its clock running and its bars moving.
+Left and Right step it round. Kept as `muse.look`. A book and a video keep
+their own Now Playing.
+
+- **The frame** every look shares: the top bar; the song's time, the bar
+  from margin to margin with the time played and the time left under its
+  two ends in **meta** **text-soft** (tabular) and the word for a pause
+  between them; the keys at the foot. Laid out from the foot up
+  (src/ds/flex.h): the keys' rows, their box rounded up to the grid, a
+  section, the times, a related step, the bar, a section; the look has the
+  rest, from a section under the header. Six of the eight languages put
+  the keys on two rows, and their looks are 48 shorter: nothing meets.
+- **Classic**: the clock's panel (**look-classic-w** wide, a panel's slab
+  with its lift) - the play state's mark in **accent-ink** and its word
+  (Playing, Paused, Stopped) in **meta** **text-dim**, where in the queue
+  and the mode's mark at its right, the time played in **clock** (tabular;
+  a time past an hour too wide for the panel comes down to **title**), and
+  18 bars in the room under it - and under the panel the song in **title**
+  and its artist in **meta** **text-soft**, sliding when long. On the right
+  the album's tracks in a panel of their own, **look-list-row** rows: the
+  number tabular in **text-dim**, the name fitted in **text-soft**, and the
+  song's row in the **accent** fill with **on-accent** words, kept in view
+  and as near the middle as the album allows. The word for a pause is the
+  panel's, so the times under the bar say none.
+- **Spectrum**: 32 bars, one a band, across the screen with their
+  reflection under them (22% at their feet, fading to nothing over three
+  tenths of their height), under the cover (**look-cover**, in the light a
+  cover in MP4 gets) and beside it where in the queue and the mode's mark,
+  the song in **title** and the artist in **menu** **text-soft**. 32 bars on
+  the grid are 760 wide; the column is the grid step nearest the middle,
+  128 to 888.
+- **The bars**: **look-bar-w** wide and **look-bar-gap** apart, in
+  **accent-ink**, round at the top (**radius-bar**) and flat on their
+  feet; over each a cap, a **text-dim** pill **look-cap** high and
+  **look-cap** over the bar. A bar rises at once and falls on **follow**
+  (tau **bar-fall**); its cap holds where the bar reached for
+  **peak-hold**, then drops with gravity, from the top to the floor in
+  667 ms. Paused, the bars fall to rest and the caps lie in a row on the
+  floor. Every edge is on the grid, whole pixels on the Pixel 2 (a bar 10
+  of them, 5 between); a bar's top and a cap move smoothly between them.
+- **The sound** is the daemon's (src/muse/bands.h): what is heard, not
+  what the decoder has reached - the frames written, less the 200 ms still
+  queued, plus what played since - a 1024-point FFT under a Hann window
+  (at 512 the nine bands under 200 Hz shared two bins), 32 bands spaced
+  evenly in pitch from 50 Hz to 12 kHz, each its loudest bin in dB from
+  -64 to -16, tilted 2 dB an octave about 1 kHz; the scale set on five
+  songs, from a quiet live recording to a loud electronic master
+  (tools/bands-check.c --song). 30 times a second, and only while bars are
+  drawn: every frame of bars keeps the daemon measuring for 300 ms more
+  (`musec_bands_keep`, BANDS on the socket), so behind a menu, under the
+  lock, paused and still, or on Cover it is not measuring. 5 to 34 us a
+  window on an M3 Max (check-bands); the Pixel 2's is measured on the
+  device.
+- **Power**: a look draws every frame while music plays, paced by the
+  panel (ui_frame_rest); paused, once its bars are down, it draws as Cover
+  does, on a change and once a second. Under the lock nothing moves: the
+  bars are at rest from its first frame.
+- *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
+  which stays the default; bars with caps - a bar rising at once and
+  falling on follow, its cap holding 400 ms and then dropping with
+  gravity.)*
+
+

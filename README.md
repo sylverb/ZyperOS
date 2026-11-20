@@ -21,8 +21,8 @@
 </p>
 
 <p align="center">
-  <a href="https://zyperos.com"><b>zyperos.com</b></a> &nbsp;·&nbsp; <a href="#why-zyperos">Why ZyperOS</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp; <a href="#how-it-compares">Compare</a> &nbsp;·&nbsp;
-  <a href="#supported-systems">Systems</a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="https://discord.gg/Ust8sE22Tm">Discord</a>
+  <a href="https://zyperos.com"><b>zyperos.com</b></a> &nbsp;·&nbsp; <a href="#why-zyperos">Why ZyperOS</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp;
+  <a href="#supported-systems">Systems</a> &nbsp;·&nbsp; <a href="#try-it-on-your-mac">Try it on a Mac</a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="https://discord.gg/Ust8sE22Tm">Discord</a>
 </p>
 
 <p align="center">
@@ -110,11 +110,12 @@ Each line has its details in [the guide](docs/guide.md).
 - **Player 2 on a friend's phone,** in NES games on the Pixel 2, with no app and no account ([how](docs/guide.md#player-2)).
 - **Autosave and resume,** six save slots, quick save and quick load on **SELECT + R1** and **L1**, **Undo Load**, and a **Disc** row for games on more than one disc ([in a game](docs/guide.md#in-a-game)).
 - **Faster and slower** (1.5x, 2x and 3x), **turbo** buttons and **On-Screen Stats** over the game ([in a game](docs/guide.md#in-a-game)).
-- **Change what a button does,** for one game or a whole system, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
+- **Hotkeys you choose,** SELECT and a button, for a screenshot, the next shader or display, reset and quit, for every game, a system or one game ([hotkeys](docs/guide.md#controls-and-menus)).
+- **Change what a button does,** for one game or a whole system, two buttons on one game button if you like, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
 - **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).
 - **Sound your way:** a USB-C headphone adapter on the Pixel 2, Bluetooth headphones on the Brick (untried so far), and mono audio for anyone who hears with one ear ([audio](docs/guide.md#audio)).
 - **An equalizer for everything you hear:** Bass, Voice, Treble or five bands of your own, one preset for the speaker and one for headphones, heard live as you tune it ([equalizer](docs/guide.md#equalizer)).
-- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
+- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, showing a song as its cover or as bars that move to the music, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
 - **The top bar and side lights:** the clock, Wi-Fi and the battery with its time left, and on the Pixel 2 side lights for the battery, volume, transfers and achievements.
 - **Battery care:** a charging screen while it is off, a charge limit of 80, 85 or 90%, a warning before it gets hot, a Power Button that asks for a hold, and clocks for each system that save battery ([battery and power](docs/guide.md#battery-and-power)).
 - **Play Time,** **Continue** or start from the start, favorites, sorting, a QWERTY keyboard that keeps up with the d-pad, and **MENU + START** for a way out of anything.
@@ -132,30 +133,38 @@ Each line has its details in [the guide](docs/guide.md).
 
 Each system's games go in its folder under `Roms/`, and EmulationStation's folder names (`nds`, `gba`, `psx`, `megadrive` and the rest) work as they are. BIOS files go loose in `Bios/`. [The guide](docs/guide.md#supported-systems) has every folder, file type and core, and [each BIOS file](docs/guide.md#bios-files).
 
-## How it compares
+## Try it on your Mac
 
-The GKD Pixel 2 has several operating systems to choose from. This is ZyperOS beside the one it comes with and four others, from what each one's own pages, code and releases say in November 2026. ROGUE OS set the bar for this handheld, and ZyperOS set out to match it.
+No handheld yet? ZyperOS runs on a Mac in a window drawn as the handheld itself, in two ways. [The full walk-through](https://zyperos.com/blog/try-zyperos-on-mac/) is on the blog.
 
-| | ZyperOS | Stock<sup>1</sup> | ROGUE OS | TortOS | ROCKNIX | plumOS Pixel2 |
-|---|---|---|---|---|---|---|
-| **Systems** | 45, and Ports | Over 100 folders | 117<sup>2</sup> | 11 | 120<sup>2</sup> | 86<sup>2</sup> |
-| **Games without taking the card out** | Wi-Fi or USB web page at zyperos.local, its own hotspot, SSH | Samba | USB cable, SSH | Wi-Fi or USB web page | Samba, SFTP, USB cable | Samba, SFTP, FTP |
-| **Box art on the device** | libretro, ScreenScraper<sup>3</sup>, SteamGridDB | On a computer (Skraper) | ScreenScraper | libretro, ScreenScraper | ScreenScraper | libretro |
-| **RetroAchievements** | Yes | — | — | Yes | Yes | — |
-| **System updates** | Over Wi-Fi or the USB cable, A/B with roll back | — | Copy the new files | TortOS Installer, on a computer | Over the air, or a file | A file you copy, A/B with roll back |
-| **Languages** | 8: English, 简体中文, Español, Português (Brasil), Français, Deutsch, 日本語, Italiano | — | 21, in its launcher | English | 36 | 6 |
-| **PortMaster** | Yes, installed from the Ports shelf with one press, with the in-game menu over every port | Yes | Yes | — | Yes | Yes |
-| **Boot time** | 1.6 s<sup>4</sup>, about 2 s from power on<sup>5</sup> | 30 to 40 s from power on<sup>5</sup> | — | 2.2 s<sup>4</sup> | — | — |
+<div align="center">
 
-— means none of [the sources](docs/guide.md#how-it-compares) says either way. The Pixel 2 has no Wi-Fi of its own, so on every system a Wi-Fi feature needs a USB Wi-Fi adapter. Knulli, muOS, twigUI (spruceOS) and a MinUI port run on the Pixel 2 too.
+<table>
+<tr><td align="center"><img src="res/readme/desk-keys.png" width="240" alt="Desk mode: the ZyperOS home in a window drawn as a green GKD Pixel 2, each button labelled with its keyboard key: X on A, Z on B, Esc on MENU, Return on START"><br><sub>Desk mode, each key's letter on show</sub></td><td align="center"><img src="res/readme/desk-game.png" width="240" alt="Desk mode: the in-game menu's Game tab, Continue, Save and Load, over a NES game on the drawn Pixel 2"><br><sub>A game and its in-game menu</sub></td><td align="center"><img src="res/readme/desk-brick.png" width="240" alt="Desk mode as the TrimUI Brick: the ZyperOS home on its 1024x768 screen, with the Brick's F1, F2, MENU, SELECT and START keys drawn below"><br><sub>The same, as the TrimUI Brick</sub></td></tr>
+</table>
 
-1. GameKiddy publishes no documentation for the stock firmware. Its column is from Retro Game Corps' review of February 2025, and the firmware may have changed since.
-2. No count is published, so this is the systems in its own list, counted without tools, media players and ports. Hacks and regions can be entries of their own.
-3. In builds made with ScreenScraper's developer key.
-4. Each project's own number, and not measured the same way: ZyperOS's from the kernel's start to the home screen, on the Pixel 2 (mean of 10 starts), and TortOS's from power on to its shelf.
-5. My own count on my Pixel 2, from power on until it can be used, with the stock card it came with and with ZyperOS: the stock firmware takes over 30 seconds, usually close to 40; ZyperOS about 2.
+</div>
 
-Every row of the comparison, and where each one comes from: [the guide](docs/guide.md#how-it-compares).
+**Desk mode** is the launcher itself, built for your Mac: the menus, the settings, the themes and a game, at 60 frames a second. With Xcode's command-line tools and [Homebrew](https://brew.sh):
+
+```sh
+brew install sdl2 sdl2_image sdl2_ttf xz
+git clone https://github.com/tarikbc/ZyperOS && cd ZyperOS
+make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
+```
+
+The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons: the arrows for the d-pad, X Z S A for A B X Y, Q W E R for L1 R1 L2 R2, Return for START, Right Shift for SELECT and Esc for MENU. The mouse presses the drawn keys, Option shows each key's letter, and F1 lists the rest. Linux works too ([Building](docs/building.md#work-on-the-ui-without-a-device)).
+
+**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. For now it needs a QEMU image you build with plastron, in Docker, with an SSH key in `plastron/local/authorized_keys` ([how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes.
+
+```sh
+brew install qemu
+make -C plastron qemu
+simulator/scripts/build-app.sh
+open "simulator/build/ZyperOS Simulator.app"
+```
+
+I plan to put a ready image in the 1.1.0 release, so `tools/qemu-run.sh fetch` can download it instead.
 
 ## More
 
@@ -174,6 +183,8 @@ The name is also two words in one: **zippy** and **hyper**. Games start the mome
 ## For developers
 
 ZyperOS is C and SDL2, in two repositories that build together. [ZyperOS](https://github.com/tarikbc/ZyperOS) (this one) holds the launcher, the card's scripts and the tools, [`diatom/`](diatom/), the libretro frontend that starts once at boot (its own Makefile, under the Mozilla Public License 2.0), and [`installer/`](installer/), ZyperOS Installer (Rust and Tauri). [`plastron/`](plastron/) is the Linux under it, built with Buildroot in Docker, under the GNU GPL version 3. [Building](docs/building.md) covers the toolchain, the card, QEMU, the simulator, releasing, developer mode and the checks.
+
+To run it on your computer first, see [Try it on your Mac](#try-it-on-your-mac).
 
 ## Credits
 

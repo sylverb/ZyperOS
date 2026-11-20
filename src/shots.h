@@ -70,6 +70,14 @@ extern int shot_zip_said;
 extern int shot_gm_said;
 extern int shot_delete_now;
 extern int shot_controls;
+/* --hotkeys ROW: the Hotkeys list (src/hotkeys_screen.h), the cursor on an
+ * action's row (0 to 8) or HKR_* id; --hk-game, the in-game one for the
+ * focused game (Applies To first); --hk-scope N its scope; --hk-capture 1
+ * the capture screen waiting, 2 with SELECT and --hk-key K down; --hk-ask
+ * 1 the swap question for K, 2 Reset Hotkeys', 3 Reset Game's */
+extern int shot_hotkeys, shot_hk_scope, shot_hk_capture, shot_hk_key;
+extern bool shot_hk_game;
+extern int shot_hk_ask;
 extern int shot_sgdb;
 extern int shot_scraper;
 extern int shot_about;
@@ -136,6 +144,7 @@ extern int shot_np_paused;
 extern int shot_np;
 extern int shot_np_track;
 extern int shot_locked;
+extern int shot_np_bench;
 extern int shot_video, shot_video_w, shot_video_h, shot_video_trouble;
 extern float shot_video_k, shot_video_grow;
 extern float shot_np_at;
