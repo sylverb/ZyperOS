@@ -250,6 +250,28 @@ ja = チート %d 個オン
 it.one = %d trucco attivo
 it.other = %d trucchi attivi
 
+[cheats.shelf_crashed]
+note = On the shelf, after "2 cheats on" (cheats.popup) and " · " in the line under the game's name: the game stopped by itself last time while cheats were on. Lowercase, a part of the line.
+en = the last session ended in a crash
+zh-Hans = 上次游戏崩溃退出
+es = la última sesión terminó en un fallo
+pt-BR = a última sessão terminou em um travamento
+fr = la dernière session s'est terminée par un plantage
+de = die letzte Sitzung endete mit einem Absturz
+ja = 前回のセッションはクラッシュで終了
+it = l'ultima sessione è finita con un crash
+
+[cheats.shelf_crashed_line]
+note = The same as cheats.shelf_crashed as a line of its own under "2 cheats on" in the shelf's List view, whose panel is narrow: the game stopped by itself last time while cheats were on. Begun with a capital; as short as it can be.
+en = Crashed last time
+zh-Hans = 上次已崩溃
+es = Falló la última vez
+pt-BR = Travou da última vez
+fr = Planté la dernière fois
+de = Zuletzt abgestürzt
+ja = 前回クラッシュ
+it = Crash l'ultima volta
+
 [cheats.ach_paused]
 note = The in-game Achievements row's value while a cheat has been on in this game: they stop until the next start with every cheat off. Begun with a capital.
 en = Paused

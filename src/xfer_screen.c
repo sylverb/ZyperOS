@@ -1831,11 +1831,15 @@ static int xs_ask(app *a, const char *heading, const char *const *labels, const 
 		/* B: the first answer, which loses nothing; MENU: the same, and on
 		 * to the shelf */
 		if (menu_leaving(a)) { choice = -1; break; }
-		if (in_repeat(&a->in, IN_LEFT) || in_repeat(&a->in, IN_RIGHT)) {
-			in_button b = in_repeat(&a->in, IN_LEFT) ? IN_LEFT : IN_RIGHT;
+		/* each button read once a frame: a second read of a held Left
+		 * was false and turned it Right (in_repeat_axis) */
+		int lr = in_repeat_axis(&a->in, IN_LEFT, IN_RIGHT);
+
+		if (lr) {
+			in_button b = lr < 0 ? IN_LEFT : IN_RIGHT;
 
 			moved_sound(a, b);
-			sel = (sel + (b == IN_LEFT ? -1 : 1) + n) % n;
+			sel = (sel + lr + n) % n;
 		}
 		if (a->in.pressed[IN_ACCEPT]) {
 			uisound_play(DS_SOUND_ACCEPT);

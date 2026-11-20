@@ -33,6 +33,8 @@
 #include "flipwatch.h"
 #include "player2.h"
 #include "screens.h"
+#include "sgb.h"
+#include "border.h"
 
 /* --- the frame the core last handed us ----------------------------------- */
 static void       *g_frame;
@@ -558,6 +560,8 @@ static void shot_poll(void)
 }
 
 static diatom_port_caps g_caps;
+
+
 static diatom_rect      g_dst;   /* locked at load */
 
 /* Set from a signal handler and read by the frame loop. The handler does NO
@@ -567,6 +571,90 @@ static diatom_rect      g_dst;   /* locked at load */
  * budget - a 1% price for not calling malloc or open from a handler. */
 static volatile sig_atomic_t g_terminate;
 static bool g_quit_requested;   /* launcher said QUIT */
+
+/* The Border around the game (src/border.h): a picture the launcher made,
+ * handed to the port once, or the game's own picture blurred, made again
+ * every BORDER_BLUR_EVERY frames presented (border_tick). Dropped at each
+ * RUN: a game the launcher says nothing for is black around, as before. */
+static bool     g_border_blur;
+static unsigned g_border_frames;
+/* A picture that says where the game goes (SETBORDER rect=, a handheld's
+ * frame, whose window is the game at one LCD dot a game pixel): the game's
+ * rect while it is on, whatever the display mode says (apply_display) */
+static diatom_rect g_border_rect;
+static bool        g_border_rect_on;
+
+static void border_off(void)
+{
+	g_border_blur = false;
+	g_border_rect_on = false;
+	diatom_port_border(NULL, 0, 0);
+}
+
+/* The game's picture, blurred, from the frame kept for previews: nothing for
+ * a frame the GPU drew (no pixels here without a read back, which a border
+ * is not worth) */
+static void border_make_blur(void)
+{
+	static uint8_t px[BORDER_BLUR_W * BORDER_BLUR_H * 4];
+
+	if (!g_frame || g_frame_w <= 0 || diatom_hw_active()) return;
+	if (border_blur(g_frame, g_frame_w, g_frame_h, g_frame_pitch, g_policy.pixfmt == DIATOM_PIX_RGB565,
+	                g_caps.surface_w, g_caps.surface_h, px))
+		diatom_port_border(px, BORDER_BLUR_W, BORDER_BLUR_H);
+}
+
+static bool border_set(const diatom_msg *m)
+{
+	/* A Super Game Boy game draws its own border in its picture: none
+	 * around it (DESIGN.md 11.59), whatever was asked, and the answer ok */
+	if (diatom_sgb_active()) {
+		border_off();
+		return true;
+	}
+	if (m->path[0]) {
+		int w = 0, h = 0, rw = 0, rh = 0, rx = 0, ry = 0;
+		bool rect = m->brect[0] != '\0';
+		uint8_t *px;
+
+		/* The window must be on the surface and the size of something */
+		if (rect && (sscanf(m->brect, "%dx%d+%d+%d", &rw, &rh, &rx, &ry) != 4 || rw <= 0 || rh <= 0 ||
+		             rx < 0 || ry < 0 || rx + rw > g_caps.surface_w || ry + rh > g_caps.surface_h))
+			return false;
+		px = border_read(m->path, &w, &h);
+		if (!px) return false;
+		g_border_blur = false;
+		diatom_port_border(px, w, h);   /* copied: see diatom_port.h */
+		free(px);
+		g_border_rect_on = rect;
+		if (rect) g_border_rect = (diatom_rect){ rx, ry, rw, rh };
+		return true;
+	}
+	if (!strcmp(m->blur, "1")) {
+		g_border_blur = true;
+		g_border_frames = 0;
+		border_make_blur();
+		return true;
+	}
+	border_off();
+	return true;
+}
+
+
+/* Whether the game's picture leaves any of the surface uncovered */
+static bool border_room_now(void)
+{
+	return g_dst.x > 0 || g_dst.y > 0 || g_dst.x + g_dst.w < g_caps.surface_w ||
+	       g_dst.y + g_dst.h < g_caps.surface_h;
+}
+
+/* After each frame presented: the blur made again, a few times a second,
+ * and not at all while the picture covers the whole surface */
+static void border_tick(void)
+{
+	if (g_border_blur && ++g_border_frames % BORDER_BLUR_EVERY == 0 && border_room_now())
+		border_make_blur();
+}
 
 /* The pipe that lets a blocked poll notice the flag above. See
  * diatom_proto_wake_fd - the flag alone is not enough, because the signal may
@@ -840,6 +928,25 @@ static int           g_base_w, g_base_h;
 static double        g_base_aspect;
 static int           g_mode;
 static diatom_filter g_filter;
+
+/* The command line's --border (a DTOV file, or "blur"), for a run with no
+ * launcher: set as the session starts, after RUN's black */
+static const char *g_border_arg, *g_border_rect_arg;
+
+static void border_from_arg(void)
+{
+	diatom_msg m;
+
+	if (!g_border_arg || !*g_border_arg) return;
+	memset(&m, 0, sizeof m);
+	if (!strcmp(g_border_arg, "blur"))
+		snprintf(m.blur, sizeof m.blur, "1");
+	else
+		snprintf(m.path, sizeof m.path, "%s", g_border_arg);
+	if (g_border_rect_arg) snprintf(m.brect, sizeof m.brect, "%s", g_border_rect_arg);
+	if (!border_set(&m)) fprintf(stderr, "diatom: --border %s: not a picture\n", g_border_arg);
+	else if (g_border_rect_on) apply_display(g_mode, g_filter);
+}
 /* How strongly an old screen's filter is drawn, percent: 100 is the filter as
  * it is (diatom_port_strength). Held across games as the filter is, and set
  * back to the command line's at every RUN, the launcher's SETDISPLAY after it
@@ -1069,6 +1176,7 @@ static void usage(void)
 		"              [--load-state <file>] [--state-on-exit <file>]\n"
 		"              [--firmware <name>]  required in --system, checked first\n"
 		"              [--frames <n>] [--shot <file.bmp>] [--preview-on-exit <file.bmp>]\n"
+		"              [--border <file.dtov>|blur] [--border-rect WxH+X+Y]\n"
 		"              [--card-frame <file.bmp>]\n"
 		"              [--socket <path>]   launcher protocol\n"
 		"              [--cores <dir>]     map every core there before listening\n"
@@ -1122,6 +1230,8 @@ static void apply_display(int mode, diatom_filter filter)
 	g_filter = filter;
 	g_dst = diatom_scale_rect(diatom_modes[mode].mode, g_base_w, g_base_h,
 	                          g_base_aspect, g_caps.surface_w, g_caps.surface_h);
+	/* A handheld's frame puts the game in its window (border_set) */
+	if (g_border_rect_on && !g_dual) g_dst = g_border_rect;
 	shown = g_dst;
 	/* Two screens: each half where the layout puts it, and what the launcher
 	 * hears as the rect is where they are together. The stylus puts the
@@ -2225,6 +2335,17 @@ static bool state_plane_msg(const diatom_msg *m)
 		                  ? "OVERLAID" : "ERROR\tcode=bad_overlay\tmsg=%s",
 		                  m->path);
 		return true;
+	case DIATOM_MSG_SETBORDER: {
+		bool had = g_border_rect_on, ok;
+		diatom_rect was = g_border_rect;
+
+		ok = border_set(m);
+		diatom_proto_send(ok ? "BORDER\tok=1" : "ERROR\tcode=bad_border\tmsg=%s", m->path);
+		/* A window came, went or moved: the game's rect again, said */
+		if (had != g_border_rect_on || (had && memcmp(&was, &g_border_rect, sizeof was) != 0))
+			apply_display(g_mode, g_filter);
+		return true;
+	}
 	case DIATOM_MSG_CHEEVOS: diatom_cheevos_emit(); return true;
 	case DIATOM_MSG_SETCHEATS:
 		/* A switch in the in-game menu: the codes on from now. A file
@@ -2371,6 +2492,7 @@ static void present_frame(bool fresh)
 	                    g_frame_w, g_frame_h, g_frame_pitch,
 	                    g_policy.pixfmt, g_dst, g_filter);
 	if (cur) sty_unstamp(g_frame, g_frame_pitch, bpp);
+	if (fresh) border_tick();
 }
 
 /* The clock ceiling a game runs under: the system's (RUN power=), stepped
@@ -2817,6 +2939,7 @@ static int run_session_inner(const diatom_session *sn)
 	}
 	set_strength(sn->strength);
 	apply_display(sn->mode, sn->filter);
+	border_from_arg();
 	if (g_dual) { screens_emit(); stylus_emit(); }
 	locked_at = 0;
 
@@ -3899,6 +4022,8 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--save") && i + 1 < argc) g_policy.save_dir = argv[++i];
 		else if (!strcmp(argv[i], "--frames") && i + 1 < argc) limit = strtol(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot_path = argv[++i];
+		else if (!strcmp(argv[i], "--border") && i + 1 < argc) g_border_arg = argv[++i];
+		else if (!strcmp(argv[i], "--border-rect") && i + 1 < argc) g_border_rect_arg = argv[++i];
 		else if (!strcmp(argv[i], "--display") && i + 1 < argc) display = argv[++i];
 		else if (!strcmp(argv[i], "--filter") && i + 1 < argc) filter = argv[++i];
 		else if (!strcmp(argv[i], "--strength") && i + 1 < argc) {
@@ -3938,6 +4063,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--frameskip") && i + 1 < argc) frameskip = argv[++i];
 		else if (!strcmp(argv[i], "--power") && i + 1 < argc) power = argv[++i];
 		else if (!strcmp(argv[i], "--pace") && i + 1 < argc) pace = argv[++i];
+		else if (!strcmp(argv[i], "--sgb") && i + 1 < argc) diatom_sgb_set(diatom_sgb_parse(argv[++i]));
 		else if (!strcmp(argv[i], "--controller") && i + 1 < argc)
 			controller = (unsigned)strtoul(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--stick") && i + 1 < argc) {
@@ -4127,6 +4253,10 @@ int main(int argc, char **argv)
 			sn.stick_plain = !strcmp(m.stick, "plain") || !strcmp(m.stick, "plain-pad");
 			sn.stick_pad = !strcmp(m.stick, "dpad-pad") || !strcmp(m.stick, "plain-pad");
 			sn.pace_smooth = !strcmp(m.pace, "smooth");
+			/* The Super Game Boy, if the game's header says it can be one */
+			diatom_sgb_set(diatom_sgb_parse(m.sgb));
+			/* Black around a new game until the launcher says otherwise */
+			border_off();
 			sn.hotkeys = m.hotkeys;
 			sn.shots   = m.shots;
 			sn.mode   = start_mode;

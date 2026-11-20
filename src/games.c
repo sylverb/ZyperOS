@@ -188,13 +188,17 @@ static void turned_cover(SDL_Renderer *r,SDL_Texture *t,const cover_pose *p,Uint
  * drift apart. A title of two lines leaves the slot below instead. */
 #define GAMES_SUBLINE_Y     (GAMES_TITLE_Y + GAMES_TITLE_STEP)
 #define GAMES_SUBLINE_Y_LOW (GAMES_TITLE_Y + 2 * GAMES_TITLE_STEP)
-static int meta_part(SDL_Renderer *r,TTF_Font *f,const char *s,int x,int y)
+static int meta_part_in(SDL_Renderer *r,TTF_Font *f,const char *s,int x,int y,SDL_Color c)
 {
     if(x<0) return -1;
     int w=ui_text_width(f,s);
     if(x+w>GAMES_META_RIGHT) return -1;
-    ui_text(r,f,s,x,ui_cap_y(f,y),-1,UI_TEXT_DIM);
+    ui_text(r,f,s,x,ui_cap_y(f,y),-1,c);
     return x+w+32;
+}
+static int meta_part(SDL_Renderer *r,TTF_Font *f,const char *s,int x,int y)
+{
+    return meta_part_in(r,f,s,x,y,UI_TEXT_DIM);
 }
 
 static bool complete_title(const char *title,char lines[][LB_LINE],int n)
@@ -427,22 +431,28 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         if(games_line[0]) { w+=ui_text_width(chrome,games_line); parts++; }
         if(origin) { w+=ui_text_width(chrome,info->origin); parts++; }
         if(info->install||info->howto) { w+=ui_text_width(chrome,T(S_PORTMASTER_NOT_INSTALLED)); parts++; }
+        if(info->needs && *info->needs) { w+=ui_text_width(chrome,info->needs); parts++; }
         if(info->played && *info->played) { snprintf(pt,sizeof pt,T(S_GAMES_PLAYED),info->played); w+=ui_text_width(chrome,pt); parts++; }
         if(info->has_achievements) { char at[64]; snprintf(at,sizeof at,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total); w+=ui_text_width(chrome,at); parts++; }
+        if(info->cheats && *info->cheats) { w+=ui_text_width(chrome,info->cheats); parts++; }
         if(parts) w+=(parts-1)*32;
         if(sf.title.x+w<=GAMES_ORIGIN_RIGHT) my=GAMES_SUBLINE_Y;
     }
     if(origin) x=meta_part(r,chrome,info->origin,x,my);
     if(games_line[0]) x=meta_part(r,chrome,games_line,x,my);
     if(info->install||info->howto) x=meta_part(r,chrome,T(S_PORTMASTER_NOT_INSTALLED),x,my);
+    /* Firmware it cannot start without, in **warning**: what A would say */
+    if(info->needs && *info->needs) x=meta_part_in(r,chrome,info->needs,x,my,ui_col(theme()->warning,255));
     if(info->played && *info->played) {
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_PLAYED),info->played);
         x=meta_part(r,chrome,text,x,my);
     }
     if(info->has_achievements) {
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total);
-        meta_part(r,chrome,text,x,my);
+        x=meta_part(r,chrome,text,x,my);
     }
+    /* and how many of its cheats are on (DESIGN.md 11.66), last */
+    if(info->cheats && *info->cheats) meta_part(r,chrome,info->cheats,x,my);
     if(info->count) page_hint(r,"A",info->a_word?info->a_word:
                               T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
                                 info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);

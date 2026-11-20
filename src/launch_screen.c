@@ -18,6 +18,8 @@
 #include "net.h"
 #include "notice.h"
 #include "pacing.h"
+#include "sgbmode.h"
+#include "border_pic.h"
 #include "panel.h"
 #include "pico8.h"
 #include "place.h"
@@ -897,6 +899,12 @@ void launch(app *a)
 		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
 			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
 			         keys[0] ? "\t" : "", stick);
+		/* Super Game Boy, the shelf's (src/sgbmode.h): Diatom reads the
+		 * game's header for it. Off sends nothing, as before. */
+		if (sgbm_shelf(s->tag, s->core) && sgbm_load(s) != SGBM_OFF &&
+		    strlen(keys) + 12 <= sizeof keys)
+			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%ssgb=%s",
+			         keys[0] ? "\t" : "", sgbm_id(sgbm_load(s)));
 		/* The player's hotkeys for this game (src/hkstore.h), sent only
 		 * when they are not ZyperOS's own, so a player who never set one
 		 * sends what was always sent; and where a screenshot goes,
@@ -950,16 +958,20 @@ void launch(app *a)
 	 * cartridge on the shelf because a CD would have needed one is a worse
 	 * failure than the one being fixed. Every game where the shelf's whole
 	 * library needs it (bios_every, a `bios|tag|names` line: the
-	 * ColecoVision's).
+	 * ColecoVision's). And a file of a type that needs firmware of its own
+	 * (a `bios|tag|names|extensions` line): an .fds image on the NES shelf
+	 * needs disksys.rom, which FCEUmm refuses the game without, while a
+	 * cartridge beside it needs nothing.
 	 *
 	 * And a file of the wrong size as well as no file: the core would start
 	 * a 0-byte saturn_bios.bin to a black screen with no sound. Looked at in
 	 * the core's order, so a bad first name is said even beside a good later
 	 * one the core never reaches (src/biosfile.h). */
-	if (s->disc_bios[0] && (s->bios_every || lib_is_disc(v->list.items[v->cursor].file))) {
+	{
+		const char *gf = v->list.items[v->cursor].file;
 		bios_result br;
 
-		if (bios_check(s, bios, &br) != BIOS_OK) {
+		if (bios_check_file(s, gf, lib_is_disc(gf), bios, &br) != BIOS_OK) {
 			char msg[CFG_STR + 160];
 
 			bios_message(&br, msg, sizeof msg);
@@ -1165,6 +1177,10 @@ void launch(app *a)
 			                   DMODES[a->view[o].dmode].name,
 			                   SHADERS[a->view[o].shader].name,
 			                   strength_clamp(a->view[o].strength));
+			/* Its Border (src/border.h), the system's, after the mode it
+			 * fills around: Diatom drops it at each RUN, so a system with
+			 * none is black around as before. Off sends nothing more. */
+			if (border_load(a, o) != BORDER_OFF) border_send(a, o);
 			/* On-Screen Stats, the player's, the same way: Diatom keeps
 			 * it from game to game, and a new launcher's is the one kept */
 			{
@@ -1413,6 +1429,11 @@ void launch(app *a)
 		if (s->pace[0]) {
 			argv[n++] = (char *)"--pace";
 			argv[n++] = (char *)pacing_id(pacing_load(s));
+		}
+		/* And the Super Game Boy, as RUN's sgb= (src/sgbmode.h) */
+		if (sgbm_shelf(s->tag, s->core) && sgbm_load(s) != SGBM_OFF) {
+			argv[n++] = (char *)"--sgb";
+			argv[n++] = (char *)sgbm_id(sgbm_load(s));
 		}
 		/* The Auto card's own path here, not the scratch the resident mode
 		 * uses. Standalone has no in-game menu - the launcher is torn down -

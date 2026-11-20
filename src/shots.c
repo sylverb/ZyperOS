@@ -17,6 +17,7 @@
 #include "hotkeys_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
+#include "diskpopup.h"
 #include "dl_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
@@ -54,6 +55,7 @@
 #include "storage_screen.h"
 #include "sysmenu_screen.h"
 #include "devmode_screen.h"
+#include "diskpopup.h"
 #include "topbar.h"
 #include "tour_screen.h"
 #include "tourdevice.h"
@@ -131,7 +133,8 @@ nq_kind shot_notice_kind = NQ_SET;
 /* --notice-heat: the notice with the thermometer where a badge goes, as
  * "Getting hot" is over a game (DESIGN.md 11.23) */
 int shot_notice_mark;
-/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|shot|shader|display|speed N:
+/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|
+ * shot|shader|display|disk_side|disk_in|disk_out|disk_first|speed N:
  * the pop-up of the SELECT hotkeys, as on_quick and on_speed put it over a
  * game (notice_render, no badge, no Zyper); N is the step for speed, in
  * halves (3 is 1.5x) */
@@ -650,8 +653,85 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 	menu_draw_styled(a, &st, gm_tab_name(tabs->at), rows, n, sel);
 }
 
-/* --pick-at K: the list's cursor on choice K, not on the one that is on */
+/* --pick-at K: the list's cursor on choice K, not on the one that is on;
+ * --pick-en WORDS: on the choice whose words are WORDS in English, in
+ * whatever language is on, for a list whose choices differ by device
+ * (Border's: no Blur on the Brick) */
 int shot_pick_at = -1;
+const char *shot_pick_en;
+
+static int shot_pick_index(const menu_choice *ch)
+{
+	int id, k;
+
+	if (shot_pick_en && ch->labels)
+		for (id = 0; id < S_COUNT; id++) {
+			if (strcmp(T_en((str_id)id), shot_pick_en)) continue;
+			for (k = 0; k < ch->n; k++)
+				if (ch->labels[k] && !strcmp(ch->labels[k], T((str_id)id))) return k;
+		}
+	return shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
+}
+
+/* --expect-en "WORDS|WORDS?|...": the shot fails unless the open list's
+ * every choice is one of these, in English, in whatever language is on,
+ * and each one not marked "?" is there: a list built from another row's
+ * words shows (Recents' Card Picture said Border's Off and Blur when the two
+ * shared a pool slot, 1.1.0's test run) */
+const char *shot_expect_en;
+
+/* Whether `label` is word `w` (n bytes of it) in the language that is on */
+static bool shot_is_en(const char *label, const char *w, size_t n)
+{
+	int id;
+
+	for (id = 0; id < S_COUNT; id++) {
+		const char *en = T_en((str_id)id);
+
+		if (strlen(en) == n && !strncmp(en, w, n) && !strcmp(T((str_id)id), label)) return true;
+	}
+	return false;
+}
+
+static void shot_expect_list(const menu_choice *ch)
+{
+	const char *p = shot_expect_en, *e;
+	int k;
+	bool bad = false;
+
+	if (!p || !ch->labels) return;
+	for (k = 0; k < ch->n && !bad; k++) {
+		bool known = false;
+
+		for (p = shot_expect_en; *p && !known; p = *e ? e + 1 : e) {
+			size_t n;
+
+			e = strchr(p, '|');
+			if (!e) e = p + strlen(p);
+			n = (size_t)(e - p) - (e > p && e[-1] == '?');
+			known = shot_is_en(ch->labels[k], p, n);
+		}
+		if (!known) {
+			fprintf(stderr, "--expect-en: the list has \"%s\", which is not one of %s\n", ch->labels[k],
+			        shot_expect_en);
+			bad = true;
+		}
+	}
+	for (p = shot_expect_en; *p && !bad; p = *e ? e + 1 : e) {
+		bool there = false;
+
+		e = strchr(p, '|');
+		if (!e) e = p + strlen(p);
+		if (e > p && e[-1] == '?') continue;
+		for (k = 0; k < ch->n && !there; k++) there = ch->labels[k] && shot_is_en(ch->labels[k], p, (size_t)(e - p));
+		if (!there) {
+			fprintf(stderr, "--expect-en: the list has no %.*s\n", (int)(e - p), p);
+			bad = true;
+		}
+	}
+	if (bad) shot_failed = 1;
+	shot_expect_en = NULL;   /* once: the shot composes more than once */
+}
 
 /* An option row's list as menu_pick draws it: its choices, the one on
  * ticked, and what the one under the cursor does - in a picture column
@@ -679,8 +759,10 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	menu_row pr[MENU_CHOICES_MAX + 3];
 	static char pw[MENU_CHOICES_MAX][64];
 	static char pn[2][CHV_WRAP_COLS];
-	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
+	const int at = shot_pick_index(ch);
 	int k, np = ch->n, kept = ch->none ? -1 : ch->cur;
+
+	shot_expect_list(ch);
 
 	/* The choice under the cursor shown, as the list shows it: once, and
 	 * the shot composed again with it on (the tick on the one kept) */
@@ -2168,6 +2250,15 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strncmp(shot_popup, "disk_", 5)) {
+			/* L1 or R1 moving a Famicom Disk System game's disk (on_disk):
+			 * disk_side, disk_in, disk_out on disk 1's side B, disk_first
+			 * L1 with the disk in */
+			const char *st = !strcmp(shot_popup, "disk_side") ? "selected"
+			               : !strcmp(shot_popup, "disk_in") ? "in"
+			               : !strcmp(shot_popup, "disk_out") ? "out" : "eject-first";
+
+			disk_popup_words(st, 1, 'B', &shot_notice_head, pbody, sizeof pbody);
 		} else if (!strcmp(shot_popup, "cheats") || !strcmp(shot_popup, "cheats_one")) {
 			/* A game started with cheats on (cheats_game_started): two,
 			 * and one for the word's other form */

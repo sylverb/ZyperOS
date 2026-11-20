@@ -194,6 +194,19 @@ void diatom_port_strength(int percent);
  * screen is a bug that looks like a design choice. */
 void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms);
 
+/* The Border: a picture drawn under the game, filling the surface where the
+ * game's picture does not (src/border.h). Stretched to the whole surface,
+ * smoothly (a small one, the blur's 32x24, is soft by being stretched),
+ * and opaque whatever its alpha: under the game and under every overlay,
+ * which stay on top. 8-bit BGRA, `w * 4` bytes a row.
+ *
+ * COPIED, unlike the overlay: it stays for the whole game, and a port that
+ * draws on the CPU keeps its own copy at the surface's size anyway. Uploaded
+ * or painted once a call, so a picture held costs nothing a frame but its
+ * pixels drawn where black was. Held until the next call; NULL clears it to
+ * black, as before any. */
+void diatom_port_border(const uint8_t *bgra, int w, int h);
+
 /* Stop presenting, without tearing down. Returns when nothing is pending and
  * nothing is in flight, so a SECOND presenter may take the display safely.
  * The port stays initialized and must serve the next diatom_port_present.

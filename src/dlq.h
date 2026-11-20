@@ -31,7 +31,7 @@
  * live here once: the card's room is looked at every DLQ_ROOM_MS and a lane
  * that would write the card below DLQ_FLOOR is stopped (DLQ_FULL). */
 
-typedef enum { DLQ_ART, DLQ_RA, DLQ_LANES } dlq_lane;
+typedef enum { DLQ_ART, DLQ_RA, DLQ_CHT, DLQ_LANES } dlq_lane;
 
 /* How a lane's last run ended */
 typedef enum {

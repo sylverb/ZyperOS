@@ -678,6 +678,21 @@ static bool dot_visible(void)
 	return g_lowbat && (!g_lowbat_blink || (diatom_port_now_us() / 1000000u) % 2 == 0);
 }
 
+/* The Border (diatom_port_border) in the pages' pixels, xres x yres, or NULL
+ * for black: what lies outside the picture. The bars are painted once, when
+ * the pages are (clear_pages), and whatever was drawn over a bar and comes
+ * down (the low battery's dot, a notice, the level bar) puts the border's
+ * pixel back where black was. Never read from a page: from here. */
+static uint32_t *g_bd_px;
+/* A new border to paint, at the next frame this path draws: not from the
+ * host's call, which may come while the launcher shows the pages (paused) */
+static bool      g_bd_repaint;
+
+static inline uint32_t bd_px(int x, int y)
+{
+	return g_bd_px ? g_bd_px[(size_t)y * g_vinfo.xres + (size_t)x] : g_opaque;
+}
+
 static void dot_page(uint8_t *base, diatom_rect dst, bool draw)
 {
 	const unsigned ro = g_vinfo.red.offset, go = g_vinfo.green.offset;
@@ -699,7 +714,7 @@ static void dot_page(uint8_t *base, diatom_rect dst, bool draw)
 			if (draw)
 				row[x] = red;
 			else if (!covered || x < dst.x || x >= dst.x + dst.w)
-				row[x] = g_opaque;
+				row[x] = bd_px(x, y);
 		}
 	}
 }
@@ -819,7 +834,7 @@ static void clear_overlay(uint8_t *base, diatom_rect r, diatom_rect dst)
 
 		for (x = r.x; x < r.x + r.w; x++) {
 			if (covered && x >= dst.x && x < dst.x + dst.w) continue;
-			row[x] = g_opaque;
+			row[x] = bd_px(x, y);
 		}
 	}
 }
@@ -928,7 +943,7 @@ static void bar_frame(void)
 	                                              : (int)g_vinfo.yres) - r.y;
 	if (r.w <= 0 || r.h <= 0) return;
 	n = (size_t)r.w * (size_t)r.h;
-	for (i = 0; i < n; i++) g_bar_under[i] = g_opaque;
+	for (i = 0; i < n; i++) g_bar_under[i] = bd_px(r.x + (int)(i % (size_t)r.w), r.y + (int)(i / (size_t)r.w));
 	g_bar_rect = r;
 	g_bar_live = true;
 }
@@ -1746,7 +1761,9 @@ static void blit(uint8_t *page, const void *src, int w, int h, size_t pitch,
 
 		uy0 = ov_y0();
 		ux0 = ov_x0();
-		for (i = 0; i < n; i++) g_ov_under[i] = opaque;
+		for (i = 0; i < n; i++)
+			g_ov_under[i] = g_bd_px ? bd_px(ux0 + (int)(i % (size_t)g_ov_w), uy0 + (int)(i / (size_t)g_ov_w))
+			                        : opaque;
 	}
 	/* And under the level bar, the same way: see g_bar_under, which
 	 * bar_frame has made black. */
@@ -1802,7 +1819,59 @@ static void clear_pages(void)
 {
 	uint32_t *p = (uint32_t *)g_fb;
 	size_t n = g_fb_size / sizeof *p, i;
+	int pg, y;
+
 	for (i = 0; i < n; i++) p[i] = g_opaque;
+	/* And the Border over every page's panel, from the copy kept for it */
+	if (!g_bd_px) return;
+	for (pg = 0; pg < g_pages; pg++)
+		for (y = 0; y < (int)g_vinfo.yres; y++)
+			memcpy(page_base(pg) + (size_t)y * g_finfo.line_length,
+			       g_bd_px + (size_t)y * g_vinfo.xres, (size_t)g_vinfo.xres * sizeof *p);
+}
+
+/* The host's picture in the pages' pixels at the panel's size: stretched,
+ * smoothly (bilinear: a small picture is soft by being stretched, one of the
+ * panel's size is itself), opaque. Built once a call. */
+static void cpu_border(const uint8_t *bgra, int w, int h)
+{
+	const unsigned ro = g_vinfo.red.offset, go = g_vinfo.green.offset, bo = g_vinfo.blue.offset;
+	const int W = (int)g_vinfo.xres, H = (int)g_vinfo.yres;
+	uint32_t *px;
+	int x, y;
+
+	g_bd_repaint = true;
+	if (!bgra || w <= 0 || h <= 0 || W <= 0 || H <= 0) {
+		free(g_bd_px);
+		g_bd_px = NULL;
+		return;
+	}
+	px = g_bd_px ? g_bd_px : malloc((size_t)W * (size_t)H * sizeof *px);
+	if (!px) return;
+	for (y = 0; y < H; y++) {
+		/* The panel pixel's centre in the picture's pixels */
+		const float fy = ((float)y + 0.5f) * (float)h / (float)H - 0.5f;
+		const int y0 = fy < 0 ? 0 : (int)fy, y1 = y0 + 1 < h ? y0 + 1 : h - 1;
+		const float ty = fy < 0 ? 0 : fy - (float)y0;
+
+		for (x = 0; x < W; x++) {
+			const float fx = ((float)x + 0.5f) * (float)w / (float)W - 0.5f;
+			const int x0 = fx < 0 ? 0 : (int)fx, x1 = x0 + 1 < w ? x0 + 1 : w - 1;
+			const float tx = fx < 0 ? 0 : fx - (float)x0;
+			const uint8_t *a = bgra + ((size_t)y0 * w + x0) * 4, *b = bgra + ((size_t)y0 * w + x1) * 4;
+			const uint8_t *c = bgra + ((size_t)y1 * w + x0) * 4, *d = bgra + ((size_t)y1 * w + x1) * 4;
+			unsigned ch[3];
+			int k;
+
+			for (k = 0; k < 3; k++) {
+				const float top = a[k] + (b[k] - a[k]) * tx, bot = c[k] + (d[k] - c[k]) * tx;
+
+				ch[k] = (unsigned)(top + (bot - top) * ty + 0.5f);
+			}
+			px[(size_t)y * W + x] = (ch[2] << ro) | (ch[1] << go) | (ch[0] << bo) | g_opaque;
+		}
+	}
+	g_bd_px = px;
 }
 
 /* ---------- the GPU path ------------------------------------------------------
@@ -2358,6 +2427,16 @@ void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms)
 	if (g_thread_running) gl_overlay(bgra, w, h, ms);
 }
 
+/* The Border to both: the CPU path keeps it at the panel's size and paints
+ * the pages with it at its next frame, the GPU path uploads it */
+void diatom_port_border(const uint8_t *bgra, int w, int h)
+{
+	cpu_border(bgra, w, h);
+	/* Kept by the GPU path's state even with its thread not started: a
+	 * thread that starts later uploads it (gles_objects.h) */
+	gl_border(bgra, w, h);
+}
+
 /* A capture of the last frame by the path that drew it: the GPU's draws it
  * again on its thread (port/gles_present.h's capture_front) */
 static bool cpu_capture(const char *path);
@@ -2456,7 +2535,8 @@ static void cpu_present(const void *src, int w, int h, size_t pitch,
 	}
 	/* A smaller rect leaves the old picture around the new one. Only on a mode
 	 * change, so the cost of wiping every page does not matter. */
-	if (rect_changed) {
+	if (rect_changed || g_bd_repaint) {
+		g_bd_repaint = false;
 		clear_pages();
 		memset(g_bar_painted, 0, sizeof g_bar_painted);
 		memset(g_dot_painted, 0, sizeof g_dot_painted);
