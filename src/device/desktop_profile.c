@@ -70,4 +70,7 @@ const device_profile device_profile_desktop = {
 	/* None: the computer's chip is not the launcher's to warn of, and the
 	 * host's plat_chip_temp reads only the test file */
 	.thermal_zones = NULL,
+	/* None: the computer has no battery of the launcher's (a test file's
+	 * level alone, plat_battery) */
+	.batt_empty_mv = 0,
 };
