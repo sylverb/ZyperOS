@@ -56,4 +56,9 @@ const device_profile device_profile_brick = {
 	.screen_colors = true,
 	.wifi = DEV_WIFI_BUILTIN,
 	.thermal_zones = brick_zones,
+	/* 3.40 V, a careful guess, nothing measured: no cutoff is set or named
+	 * for its battery (its kernel's axp2202_charger.c sets no power-off
+	 * voltage and its device tree gives none; Allwinner's other AXP drivers
+	 * default to 3.3 V), a 4.2 V cell whose own gauge reads its level */
+	.batt_empty_mv = 3400,
 };
