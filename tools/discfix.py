@@ -70,11 +70,20 @@ def _record(lba, size, name, is_dir):
 
 
 class Iso:
-    """Files by path ("PSP_GAME/SYSDIR/EBOOT.BIN"); directories follow"""
+    """Files by path ("PSP_GAME/SYSDIR/EBOOT.BIN"); directories follow.
 
-    def __init__(self, volume):
+    `base` is the disc sector the image's first is: every LBA written is
+    counted from there (a GD-ROM's file system starts at 45000, a MIL-CD's
+    at its second session). `system` is what the 16 sectors before the
+    volume descriptor hold (a Dreamcast's IP.BIN). `at` puts a file at a
+    sector of the image's own, after the rest, which is how a file comes to
+    be on a later track than its directory."""
+
+    def __init__(self, volume, system_id="PLAYSTATION", base=0, system=b"", at=None):
         self.volume = volume
         self.files = {}
+        self.system_id, self.base, self.system = system_id, base, system
+        self.at = dict(at or {})
 
     def add(self, path, data):
         self.files[path] = bytes(data)
@@ -124,15 +133,25 @@ class Iso:
             lbas[d] = lba
             lba += sizes[d] // 2048
         for f in sorted(self.files):
+            if f in self.at:
+                continue
             lbas[f] = lba
             lba += max(1, -(-len(self.files[f]) // 2048))
+        self.end = lba                            # where the laid-out files end
+        for f, where in self.at.items():
+            assert where >= lba, f"{f} at {where}, before the files' end {lba}"
+            lbas[f] = where
+            lba = max(lba, where + max(1, -(-len(self.files[f]) // 2048)))
         total = lba
 
         img = bytearray(total * 2048)
+        b = self.base
+        disc = {k: v + b for k, v in lbas.items()}
         for d in order:
-            img[lbas[d] * 2048:lbas[d] * 2048 + sizes[d]] = dir_bytes(d, lbas, sizes)
+            img[lbas[d] * 2048:lbas[d] * 2048 + sizes[d]] = dir_bytes(d, disc, sizes)
         for f, data in self.files.items():
             img[lbas[f] * 2048:lbas[f] * 2048 + len(data)] = data
+        img[0:len(self.system)] = self.system
 
         # Path tables, little- then big-endian, dirs numbered in order
         num = {d: i + 1 for i, d in enumerate(order)}
@@ -141,23 +160,23 @@ class Iso:
             name = d.rsplit("/", 1)[-1].encode() if d else b"\0"
             parent = num[d.rsplit("/", 1)[0] if "/" in d else ""]
             pad = bytes(len(name) % 2)
-            lpt += bytes([len(name), 0]) + struct.pack("<IH", lbas[d], parent) + name + pad
-            mpt += bytes([len(name), 0]) + struct.pack(">IH", lbas[d], parent) + name + pad
+            lpt += bytes([len(name), 0]) + struct.pack("<IH", disc[d], parent) + name + pad
+            mpt += bytes([len(name), 0]) + struct.pack(">IH", disc[d], parent) + name + pad
         img[18 * 2048:18 * 2048 + len(lpt)] = lpt
         img[19 * 2048:19 * 2048 + len(mpt)] = mpt
 
         pvd = bytearray(2048)
         pvd[0:7] = b"\x01CD001\x01"
-        pvd[8:40] = b"PLAYSTATION".ljust(32)
+        pvd[8:40] = self.system_id.encode().ljust(32)
         pvd[40:72] = self.volume.encode().ljust(32)
-        pvd[80:88] = _both32(total)
+        pvd[80:88] = _both32(total + b)
         pvd[120:124] = _both16(1)
         pvd[124:128] = _both16(1)
         pvd[128:132] = _both16(2048)
         pvd[132:140] = _both32(len(lpt))
-        pvd[140:144] = struct.pack("<I", 18)
-        pvd[148:152] = struct.pack(">I", 19)
-        pvd[156:190] = _record(lbas[""], sizes[""], b"\0", True)
+        pvd[140:144] = struct.pack("<I", 18 + b)
+        pvd[148:152] = struct.pack(">I", 19 + b)
+        pvd[156:190] = _record(disc[""], sizes[""], b"\0", True)
         pvd[881] = 1
         img[16 * 2048:17 * 2048] = pvd
         img[17 * 2048:17 * 2048 + 7] = b"\xffCD001\x01"
@@ -247,20 +266,20 @@ def mode1(lba, data):
     return _ecc(bytes(s), False)
 
 
-def raw_track(iso, mode=2, xa=()):
-    """2048-byte sectors as raw 2352-byte ones. `xa` are sector ranges to
-    write as Form 2 audio instead (a file of them reads as noise to a walk,
-    which never goes there)."""
+def raw_track(iso, mode=2, xa=(), base=0):
+    """2048-byte sectors as raw 2352-byte ones, the first at disc sector
+    `base`. `xa` are sector ranges to write as Form 2 audio instead (a file
+    of them reads as noise to a walk, which never goes there)."""
     out = bytearray()
     n = len(iso) // 2048
     for lba in range(n):
         d = iso[lba * 2048:(lba + 1) * 2048]
         if any(a <= lba < b for a, b in xa):
-            out += mode2_form2(lba, d + d[:276])
+            out += mode2_form2(base + lba, d + d[:276])
         elif mode == 1:
-            out += mode1(lba, d)
+            out += mode1(base + lba, d)
         else:
-            out += mode2_form1(lba, d, last=lba == n - 1)
+            out += mode2_form1(base + lba, d, last=lba == n - 1)
     return bytes(out)
 
 
@@ -467,3 +486,180 @@ def pbp_psx_multi(raws, title="ZYPER"):
 def pbp_psp(seed="pspn"):
     """A PSN game's EBOOT.PBP; RA hashes it whole, so its insides are moot"""
     return _pbp(b"NPUMDIMG" + noise(seed, 300000), "ZYPER PSN")
+
+
+# ------------------------------------------------------------- Dreamcast ----
+#
+# A Dreamcast disc as RetroAchievements hashes it (rc_hash_dreamcast): the
+# first 256 bytes of IP.BIN, at the start of its data track, then the boot
+# file IP.BIN names at byte 96. A GD-ROM has a small single-density area
+# (track 1 data, track 2 audio) and its high-density area from sector 45000
+# (track 3, and on some discs more tracks after it); a MIL-CD, as a .cdi
+# holds one, has an audio track and then a second session whose data track
+# holds IP.BIN and the file system. No game data: IP.BIN's bootstrap and
+# the boot file are made up here like everything else.
+
+GD_HD = 45000                  # the high-density area's first sector
+MIL_LBA = 11702                # a MIL-CD's second session (a 4-second track 1)
+
+
+def dc_ip(boot="1ST_READ.BIN", title="ZYPEROS TEST DISC", product="T-99999", seed="ip"):
+    """IP.BIN: the 256 bytes of meta RA hashes, then its bootstrap, 16
+    sectors in all (mc.pp.se/dc/ip0000.bin.html)"""
+    meta = (b"SEGA SEGAKATANA " + b"SEGA ENTERPRISES" + b"5D63 GD-ROM1/1  "
+            + b"JUE     " + b"0799A10 " + product.encode().ljust(10) + b"V1.000"
+            + b"20261119        " + boot.encode().ljust(16) + b"ZYPEROS         "
+            + title.encode().ljust(128))
+    assert len(meta) == 256
+    return meta + prose(seed + "boot", 0x3000) + noise(seed + "code", 0x8000 - 256 - 0x3000)
+
+
+def dc_exe(size, seed):
+    """A boot file: SH-4 code to the hash, made up"""
+    body = bytearray()
+    while len(body) < size:
+        body += noise(seed + str(len(body)), 1500) + prose(seed + "s" + str(len(body)), 548)
+    return bytes(body[:size])
+
+
+def dc_hd_iso(seed="dc", boot="1ST_READ.BIN", exe_size=0x1B234, base=GD_HD, boot_at=None):
+    """The data track a Dreamcast boots from: IP.BIN in its first 16
+    sectors, then an ISO 9660 file system counted from `base`. `boot_at`
+    puts the boot file that many sectors in, past a gap, for a disc whose
+    boot file is on a later track. Returns the image, its IP.BIN, the boot
+    file, and the Iso (for where the laid-out files end)."""
+    ip = dc_ip(boot, seed=seed + "ip")
+    exe = dc_exe(exe_size, seed + "exe")
+    iso = Iso("ZYPEROS_DC", system_id="SEGA SEGAKATANA", base=base, system=ip,
+              at={boot: boot_at} if boot_at else None)
+    iso.add(boot, exe)
+    iso.add("0GDTEX.PVR", noise(seed + "tex", 3000))
+    iso.add("DATA/STAGE1.BIN", prose(seed + "st1", 9 * 2048))
+    iso.add("DATA/STAGE2.BIN", prose(seed + "st2", 5 * 2048 + 77))
+    for i in range(40):                         # a root longer than a sector
+        iso.add(f"SND{i:02d}.ADX", prose(f"{seed}a{i}", 40 + 13 * i))
+    return iso.build(), ip, exe, iso
+
+
+def dc_hash_input(ip, exe):
+    """What rc_hash_dreamcast takes the md5 of"""
+    return ip[:256] + exe
+
+
+def _pad_sectors(raw, n, sector=2352):
+    return raw + bytes(n * sector - len(raw)) if len(raw) < n * sector else raw
+
+
+def gdrom(seed="dc", split=False, small=False, exe=None):
+    """A GD-ROM as a .gdi and its track files, and as a Redump-style .cue
+    (one file a track, track 2's pregap in its file). `split` puts the boot
+    file on track 5, past an audio track 4, as some games have it. `small`
+    is the one whose CHDs are committed: short tracks 1, 2 and 4, a smaller
+    boot file. `exe` is the boot file's size, for one other than those.
+    Returns {name: bytes} for both sheets' files, and the bytes RA hashes."""
+    lo = Iso("ZYPEROS_LD", system_id="SEGA SEGAKATANA")
+    lo.add("README.TXT", prose(seed + "lo", 3000))
+    n1, na = (30, 75) if small else (300, 300)
+    exe = exe or (0x9876 if small else 0x1B234)
+    t1 = _pad_sectors(raw_track(lo.build(), mode=1), n1)
+    t2 = audio_track(na, seed + "a2")
+    t2_lba = n1 + 150
+    if not split:
+        img, ip, exe, _ = dc_hd_iso(seed, exe_size=exe)
+        t3 = raw_track(img, mode=1, base=GD_HD)
+        tracks = [(1, 0, 4, t1), (2, t2_lba, 0, t2), (3, GD_HD, 4, t3)]
+    else:
+        # Track 3 to the files' end, an audio track 4 after a 2-second gap,
+        # and track 5 after another, holding the boot file
+        probe = dc_hd_iso(seed, exe_size=exe, boot_at=None)[3]
+        n3 = probe.end + 4
+        t4 = audio_track(na, seed + "a4")
+        t4_lba = GD_HD + n3 + 150
+        t5_lba = t4_lba + na + 150
+        img, ip, exe, _ = dc_hd_iso(seed, exe_size=exe, boot_at=t5_lba - GD_HD)
+        t3 = raw_track(img[:n3 * 2048], mode=1, base=GD_HD)
+        t5 = raw_track(img[(t5_lba - GD_HD) * 2048:], mode=1, base=t5_lba)
+        tracks = [(1, 0, 4, t1), (2, t2_lba, 0, t2), (3, GD_HD, 4, t3),
+                  (4, t4_lba, 0, t4), (5, t5_lba, 4, t5)]
+    files = {}
+    gdi = [str(len(tracks))]
+    for num, lba, kind, data in tracks:
+        name = f"track{num:02d}." + ("raw" if kind == 0 else "bin")
+        files[name] = data
+        gdi.append(f"{num} {lba} {kind} 2352 {name} 0")
+    files["disc.gdi"] = ("\n".join(gdi) + "\n").encode()
+    # The Redump way: each track its own file, track 2's file starting with
+    # its 2-second pregap, and where the sheet puts track 3 is not 45000 -
+    # its sectors' own headers say that
+    cue = []
+    for num, lba, kind, data in tracks:
+        name = f"Disc (Track {num}).bin"
+        if num == 3:
+            cue.append("REM HIGH-DENSITY AREA")
+        elif num == 1:
+            cue.append("REM SINGLE-DENSITY AREA")
+        cue.append(f'FILE "{name}" BINARY')
+        if kind == 0:
+            files[name] = bytes(150 * 2352) + data
+            cue += [f"  TRACK {num:02d} AUDIO", "    INDEX 00 00:00:00", "    INDEX 01 00:02:00"]
+        else:
+            files[name] = data
+            cue += [f"  TRACK {num:02d} MODE1/2352", "    INDEX 01 00:00:00"]
+    files["disc.cue"] = ("\r\n".join(cue) + "\r\n").encode()
+    return files, dc_hash_input(ip, exe)
+
+
+# A DiscJuggler image's descriptor, the layout Flycast's reader takes
+# (deps/chdpsr/cdipsr.cpp): written field by field, the fields it skips as
+# zeros. Version 3.5 counts where the descriptor starts back from the end.
+CDI_V2, CDI_V3, CDI_V35 = 0x80000004, 0x80000005, 0x80000006
+_CDI_MARK = bytes([0, 0, 1, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF])
+_CDI_SIZE = {2048: 0, 2336: 1, 2352: 2, 2448: 4}
+
+
+def _cdi_track(version, mode, ss, pregap, length, lba, name=b"ZYPER.CDI"):
+    return (struct.pack("<I", 0) + _CDI_MARK + _CDI_MARK + bytes(4)
+            + bytes([len(name)]) + name + bytes(11 + 4 + 4) + struct.pack("<I", 0)
+            + bytes(2) + struct.pack("<II", pregap, length) + bytes(6)
+            + struct.pack("<I", mode) + bytes(12) + struct.pack("<II", lba, pregap + length)
+            + bytes(16) + struct.pack("<I", _CDI_SIZE[ss]) + bytes(29)
+            + (bytes(5) + struct.pack("<I", 0) if version != CDI_V2 else b""))
+
+
+def cdi(sessions, version=CDI_V35):
+    """sessions: [[(mode, sector size, pregap, length, lba, bytes), ...], ...],
+    each track's bytes its pregap then its sectors"""
+    body = bytearray()
+    desc = bytearray(struct.pack("<H", len(sessions)))
+    for tracks in sessions:
+        desc += struct.pack("<H", len(tracks))
+        for mode, ss, pregap, length, lba, data in tracks:
+            assert len(data) == (pregap + length) * ss, (len(data), pregap, length, ss)
+            body += data
+            desc += _cdi_track(version, mode, ss, pregap, length, lba)
+        desc += bytes(4 + 8 + (1 if version != CDI_V2 else 0))
+    start = len(body)
+    total = start + len(desc) + 8
+    tail = struct.pack("<II", version, total - start if version == CDI_V35 else start)
+    return bytes(body + desc + tail)
+
+
+def milcd(seed="dcm", ss=2352, version=CDI_V35):
+    """A MIL-CD as a .cdi: session 1 an audio track, session 2 the data
+    track at MIL_LBA, Mode 2 (2352 or 2336 bytes a sector) or Mode 1
+    cooked (2048). Returns the .cdi and the bytes RA hashes."""
+    img, ip, exe, _ = dc_hd_iso(seed, exe_size=0x9876, base=MIL_LBA)
+    audio = audio_track(150 + 300, seed + "a1")
+    if ss == 2048:
+        mode, data = 1, bytes(150 * 2048) + img
+    else:
+        raw = raw_track(img, mode=2, base=MIL_LBA)
+        if ss == 2336:
+            raw = b"".join(raw[i + 16:i + 2352] for i in range(0, len(raw), 2352))
+        mode, data = 2, bytes(150 * ss) + raw
+    n = len(img) // 2048
+    # Flycast's track starts at its LBA plus its pregap, from -150: the
+    # listed LBA of a track whose pregap is 150 is its first sector's
+    sessions = [[(0, 2352, 150, 300, 0, audio)],
+                [(mode, ss, 150, n, MIL_LBA, data)]]
+    return cdi(sessions, version), dc_hash_input(ip, exe)
