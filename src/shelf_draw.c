@@ -41,6 +41,9 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -2130,6 +2133,17 @@ void render(app *a)
 	if (a->sys.count > 0 && a->screen == SCREEN_GAMES && is_muse(&a->sys.systems[a->sys_cursor]) && a->tint != a->sys.systems[a->sys_cursor].accent)
 		redraw_now();
 	redraw_at(plat_osd_until());
+#ifdef ZYPEROS_DESK
+	/* tools/desk's `state`: where the shelf's cursor is, as drawn */
+	if (a->sys.count > 0) {
+		sysview *v = &a->view[a->sys_cursor];
+		bool games = a->screen == SCREEN_GAMES;
+
+		desk_note_focus(games ? "games" : "systems", games ? v->cursor : a->sys_cursor,
+		                games && v->list.count > 0 ? v->list.items[v->cursor].title
+		                                           : a->sys.systems[a->sys_cursor].tag);
+	}
+#endif
 	plat_present();
 }
 

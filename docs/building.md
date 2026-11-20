@@ -282,7 +282,8 @@ something once broke in a way nothing noticed:
 | `check-from-rogue` | tools/from-rogue.sh's table against systems.cfg and against the folders on a ROGUE OS card |
 | `check-importers` | the computer-side importers (--meta, --titles) on a scratch card: a title written over a game's details keeps them (builds the host launcher) |
 | `check-diatom` | Diatom's own suite (diatom/Makefile's check) on its desktop port with the stub core: the port seam, core facts, achievements, screens, the protocol, the state plane, resident cores, save states packed and read back (old ones too), the card's frame of play written once a minute in and never again; then the launcher's own Diatom link against it (tools/gamezone-check.c): the zone chosen in Date & Time reaches a game's clock, a new zone the next game with no restart, and a Diatom started again its first game (skips without SDL2) |
-| `check-desk` | desk mode (tools/desk, src/device/desk.h) in SDL's dummy window, as the Pixel 2 and as the Brick on tools/desk's sample card, over its control socket: the panel its size (a shot is 640x480 or 1024x768), a press held until let go, a tap timed to its frame, the zoom and the drawn handheld on and off, an unknown button refused, quit |
+| `check-desk` | desk mode (tools/desk, src/device/desk.h) in SDL's dummy window, as the Pixel 2 and as the Brick on tools/desk's sample card, over its control socket: the panel its size (a shot is 640x480 or 1024x768), a press held until let go, a tap timed to its frame, the zoom and the drawn handheld on and off, an unknown button refused, `state` naming the shelf's screen, cursor and focus, quit |
+| `check-homekeys` | the home's d-pad held as a thumb holds it, in desk mode over its control socket, the cursor read after each frame: on the Grid a held Down walks a row at a time to the last row and stops, a held Up back to the first and stops, a held Left stops at the first system, on 24 systems (the window scrolls) and on 8; on Spotlight a held Down jumps forward as taps of it do. Each button is read once a frame (`in_repeat_axis`): a second read of a held one is false, which turned a held Down round |
 | `check-keymap` | one key map for a keyboard standing in for the buttons: src/device/keymap.h, the Simulator's (App.swift) and Diatom's own window's give each key the same button, and both docs point at it |
 | `check-handhelds` | the simulator's handhelds (simulator/Sources/SimCore/Handhelds.swift) are what `make handhelds` writes from the device files (each src/device/<id>_model.c's flat drawing), and those files whole: every flat key a key of the model, every key a button, the screen in its glass |
 | `check-simulator` | the simulator's Swift tests: its D-Bus display client (the wire format, and a fake QEMU's login, properties call, frame in shared memory and frame over the socket), its VNC client, the px2sim link, the state lines and the control socket's commands (skips without Swift) |
@@ -858,7 +859,7 @@ tools/desk shot shot.png                 # the panel, at its own pixels
 tools/desk shot desk.png window          # the whole window, the drawn handheld too
 tools/desk latency down                  # a tap, and ms from it to its frame
 tools/desk hints 1                       # every key's name on its key, as Option
-tools/desk state | stats | close | quit
+tools/desk state | stats | close | quit   # state: the shelf's screen, cursor and focus too
 ```
 
 What desk mode cannot show you:
