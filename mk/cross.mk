@@ -156,7 +156,8 @@ $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p
 # (src/theme.c, for Auto's hours) and the theme file the bar falls back on,
 # Date & Time's zone list (src/clock.c), the settings it reads for the bar
 # (tools/pkset.c) and SQLite for them, the side lights' line for a level
-# (src/sidelights.c), and the heat warning's rules (src/heat.c); no SDL. Developer SSH for the port's length
+# (src/sidelights.c), the heat warning's rules (src/heat.c), and the battery
+# run flat's (src/battempty.c); no SDL. Developer SSH for the port's length
 # (tools/pkssh.c), on the launcher's own sshlink, its run folder's clean and zyperos.local (src/sshlink.c,
 # src/rmtree.c, src/mdns.c). The bar's colors are src/design.h's,
 # which osdbar.h, theme.h and themefile.h include, so it is listed beside
@@ -165,11 +166,11 @@ $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p
 # with no relocations, so portkeys pays file size, not memory or start time.
 PORTKEYS_SRC := tools/portkeys.c tools/pkkeys.c tools/pkset.c src/audioout.c src/osdbar.c src/theme.c \
                 src/themefile.c src/look.c src/clock.c src/sidelights.c src/i18n.c src/i18n_tables.c src/heat.c \
-                src/powerhold.c tools/pkssh.c src/sshlink.c src/rmtree.c src/mdns.c src/panelgamma.c
+                src/powerhold.c tools/pkssh.c src/sshlink.c src/rmtree.c src/mdns.c src/panelgamma.c src/battempty.c
 $(BUILD)/portkeys: $(PORTKEYS_SRC) tools/pkkeys.h src/keyrepeat.h tools/pkset.h src/osdbar.h src/theme.h src/themefile.h \
                    src/clock.h src/design.h src/look.h src/audioout.h src/device/pixel2_levels.h src/sidelights.h \
                    src/heat.h src/portmenu.h src/powerhold.h tools/pkssh.h src/sshlink.h src/rmtree.h src/mdns.h \
-                   src/panelgamma.h
+                   src/panelgamma.h src/battempty.h src/status.h
 	mkdir -p $(BUILD)
 	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc -I$(SYSROOT)/usr/include \
 	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lm
