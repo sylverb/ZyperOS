@@ -6,7 +6,7 @@ Subject: [PATCH] The audio clock runs at 48 kHz, where it ran 0.96% slow. The
  PLL's fraction stayed at its default, 0xc00121ff: 97.36 MHz, and 47,538 Hz
  measured on the Brick. The default is now 0xc001eb85, the pattern for both
  48 kHz rates, measured at 48,000 Hz. Games no longer drop sound to keep up,
- which crackled, and Muse plays at the right speed and pitch
+ which crackled, and MP4 plays at the right speed and pitch
 
 ---
 --- a/drivers/clk/sunxi/clk-sun50iw10.c

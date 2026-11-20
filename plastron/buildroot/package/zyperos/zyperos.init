@@ -104,9 +104,10 @@ seed() {
 	# The files an older version left that this one doesn't: its notice, which
 	# moved to Licenses/ in 2.0.0, and the names cards had before ZyperOS had
 	# its own (Licenses/ZyperOS.md was another name), which a card updated
-	# from them would otherwise keep beside the new ones
+	# from them would otherwise keep beside the new ones, and MP4's daemon
+	# by its old name (mp4d was muse until 1.1.0)
 	rm -f "$CARD/ZyperOS/THIRD-PARTY-LICENSES.md" "$CARD/Licenses/TortOS.md" \
-		"$CARD/ZyperOS/portmaster/libgl_TortOS.txt"
+		"$CARD/ZyperOS/portmaster/libgl_TortOS.txt" "$CARD/ZyperOS/muse"
 	sync
 	cp "$SEED/ZyperOS/launch.sh" "$LAUNCH" || return 1
 	sync
@@ -356,7 +357,7 @@ steady_memory() {
 }
 
 # At shutdown, ahead of init's TERM to everything: launch.sh first, or it
-# starts ZyperOS again the moment ZyperOS goes, then ZyperOS, Muse and Diatom,
+# starts ZyperOS again the moment ZyperOS goes, then ZyperOS, MP4 and Diatom,
 # waiting up to 2 s for Diatom, which saves a running game on its TERM
 stop() {
 	local p kids
@@ -368,7 +369,7 @@ stop() {
 		kill "$p" 2>/dev/null
 		[ -n "$kids" ] && kill $kids 2>/dev/null
 	fi
-	killall -TERM zyperos.elf muse diatom 2>/dev/null
+	killall -TERM zyperos.elf mp4d diatom 2>/dev/null
 	for i in $(seq 1 20); do pidof diatom > /dev/null || break; sleep 0.1; done
 }
 

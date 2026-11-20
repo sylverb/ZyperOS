@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Does Muse play the tracks it should, in the order it should?
+/* Does MP4 play the tracks it should, in the order it should?
  *
- *     make check-musequeue
+ *     make check-mp4queue
  *
  * Every mode walked through the places a player gets wrong: the last track, the
  * first one, running out while shuffled, a track that will not open, and the
@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../src/musequeue.h"
+#include "../src/mp4queue.h"
 
 static int failures;
 
@@ -184,7 +184,7 @@ static void video_repeat(void)
 
 int main(void)
 {
-	printf("musequeue: the play modes\n");
+	printf("mp4queue: the play modes\n");
 	in_order();
 	repeat_all();
 	repeat_one();

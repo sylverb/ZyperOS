@@ -6,14 +6,14 @@
 #   tools/px2-payload.sh             (make px2-payload)
 #   tools/px2-payload.sh --programs  the programs alone (make px2-programs)
 #
-# --programs: build/px2/programs/ZyperOS with the launcher, Muse, portkeys,
+# --programs: build/px2/programs/ZyperOS with the launcher, MP4, portkeys,
 # zyhome, System Update's program, p2d and Diatom and nothing else, for a
 # change to the code: no cores, so no main checkout's vendor/ (whose patched
 # cores' stamps must be fresh for a whole payload), and tools/px2-deploy.sh
 # sends only those of them that changed. A change to res/ or launch.sh needs
 # the whole payload.
 #
-# Out: build/px2/payload/ZyperOS - the launcher, Muse, portkeys, System
+# Out: build/px2/payload/ZyperOS - the launcher, MP4, portkeys, System
 # Update's program and Diatom, with the cores, cards and fonts, as plastron's
 # image carries it - for tools/px2-deploy.sh or `tools/qemu-run.sh deploy`.
 # The objects stay in build/px2/ and diatom/build/pixel2/, unstripped, for

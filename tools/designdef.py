@@ -127,11 +127,11 @@ PAGE_CURVES = {"out": "cubic-bezier(0.22, 1, 0.36, 1)",
 # Roles that must be one value in both themes, and why. A theme change reaches
 # whatever is drawn from theme() on the next frame, but not a value the
 # launcher has kept: src/main.c keeps the accent as the color of Favorites
-# and Muse (ZYPEROS_ACCENT, in their systems' accents and the covers drawn
+# and MP4 (ZYPEROS_ACCENT, in their systems' accents and the covers drawn
 # from it) for as long as it runs, and src/ui.c's ui_sys_mark knows that
 # lime, and draws it as accent-ink, by its value.
 SAME_IN_BOTH = {
-    "accent": "src/main.c keeps it as Favorites' and Muse's color "
+    "accent": "src/main.c keeps it as Favorites' and MP4's color "
               "(ZYPEROS_ACCENT) and src/ui.c's ui_sys_mark knows it by value",
 }
 
@@ -361,7 +361,7 @@ LAYOUT = [
 
 GLOWS = [
     ("focus",       105, 2.3, "a card on the shelf"),
-    ("focus-small", 85,  1.5, "a thumbnail, Muse's cover"),
+    ("focus-small", 85,  1.5, "a thumbnail, MP4's cover"),
     ("panel",       60,  1.5, "a menu panel, the keyboard"),
     ("wash",        34,  1.7, "the system's light along the bottom of the shelf"),
 ]

@@ -14,7 +14,7 @@
  * mpf_stride apart (a multiple of 128), and the texture is that wide.
  *
  * For each size here - 4:3 ones, 16:9 ones, odd, tiny, the largest, the size
- * changing inside one file - pictures are published as src/muse/vid.c
+ * changing inside one file - pictures are published as src/mp4d/vid.c
  * publishes them and read back by src/mp4video.c itself, built into this
  * check against a frames file of its own. The texture must be as wide as
  * the rows and as high as the picture, so each frame overwrites all of it;

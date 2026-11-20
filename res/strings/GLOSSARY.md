@@ -21,7 +21,7 @@ written to match. Change a term here first, then everywhere it is used.
 
 ## Rules for every language
 
-- **Never translated:** ZyperOS, Zyper, Diatom, Muse, MP4 (the video
+- **Never translated:** ZyperOS, Zyper, Diatom, MP4 (the video
   player's name), PortMaster, RetroAchievements, ScreenScraper, SteamGridDB,
   Wi-Fi, Bluetooth, USB, SSH, PIN, Linux, macOS, Windows, system names
   (Game Boy, SNES, PlayStation...), core names, shader names

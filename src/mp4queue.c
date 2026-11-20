@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* See musequeue.h. */
-#include "musequeue.h"
+/* See mp4queue.h. */
+#include "mp4queue.h"
 
 #include <stdlib.h>
 

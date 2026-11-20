@@ -3,7 +3,7 @@
 
 #include "bgm.h"
 #include "design.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "place.h"
 #include "status.h"
 #include "theme.h"
@@ -766,7 +766,7 @@ bool charge_instead(app *a)
 	snap_off();
 	remember_place(a);
 	book_keep(true);
-	if (musec_playing()) musec_stop();
+	if (mp4c_playing()) mp4c_stop();
 	bgm_hold(BGM_HOLD_START, true);
 	playing_mark_clean();
 	anim_poweroff(a);

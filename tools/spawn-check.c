@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* make check-spawn: spawn_detached (src/spawn.h), the start of a program that
- * outlives the launcher - Muse, a resident Diatom started again after a crash -
+ * outlives the launcher - MP4, a resident Diatom started again after a crash -
  * with real processes on this computer.
  *
  * What it holds: the pid it returns is the program's own (alive, in a session

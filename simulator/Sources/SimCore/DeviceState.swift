@@ -7,7 +7,7 @@ public struct DeviceState: Equatable, Codable {
     /// The side lights, bit 0 battery0 (the bottom light's red) to bit 4
     /// battery4 (the top green)
     public var leds = 0
-    /// 0-255, and bl_power: 0 on, 4 off (Muse's pocket lock)
+    /// 0-255, and bl_power: 0 on, 4 off (MP4's pocket lock)
     public var backlight = 128
     public var backlightPower = 0
     public var battery = 100

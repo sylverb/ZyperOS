@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef MUSE_DEC_H
-#define MUSE_DEC_H
+#ifndef MP4D_DEC_H
+#define MP4D_DEC_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -36,7 +36,7 @@ double dec_pos(const dec *d);
 double dec_len(const dec *d);
 
 /* Whether the file has a picture to watch, and its size: MP4's video, which
- * src/muse/vid.c decodes beside this. A cover carried in the file is not one.
+ * src/mp4d/vid.c decodes beside this. A cover carried in the file is not one.
  * A file with a picture and no sound at all opens anyway, and reads as
  * silence for its length. */
 bool dec_video(const dec *d, int *w, int *h);

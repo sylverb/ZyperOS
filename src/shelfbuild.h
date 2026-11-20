@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_SHELFBUILD_H
 #define ZYPEROS_SHELFBUILD_H
 
-/* The shelves, built: the systems with games, Favorites, and Muse's card
+/* The shelves, built: the systems with games, Favorites, and MP4's card
  * with its albums; the card read at start and read again (Rescan, File
  * Transfer). Each is described in src/shelfbuild.c. */
 #include "app.h"
@@ -153,8 +153,8 @@ void shelf_drop_game(app *a, const char *tag, const char *file);
  * False when no shelf has it. */
 bool shelf_rename_game(app *a, const char *tag, const char *file, const char *new_file,
                        const char *new_name);
-/* Muse's shelf in the order its view is set to */
-void muse_order_view(sysview *v);
+/* MP4's shelf in the order its view is set to */
+void mp4_order_view(sysview *v);
 /* The Singles album's cover, made once there is a Singles */
 void singles_cover(void);
 
@@ -162,8 +162,8 @@ void singles_cover(void);
  * answers: a step, from the main loop and the transfer screen's; whether any
  * is still waiting; and whether something moved, for the shelf to be read
  * again */
-void muse_file_albums(void);
+void mp4_file_albums(void);
 bool flat_albums_waiting(void);
-extern bool g_muse_moved;
+extern bool g_mp4_moved;
 
 #endif

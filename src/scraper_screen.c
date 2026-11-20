@@ -356,7 +356,7 @@ bool scraper_count_sys(app *a, int i, bool box_art, bool ss_in, long long now, s
 	bool named;
 
 	memset(s, 0, sizeof *s);
-	if (!sc->folder[0] || a->view[i].owner || is_muse(sc)) return false;
+	if (!sc->folder[0] || a->view[i].owner || is_mp4(sc)) return false;
 	gl = sys_games(&a->view[i]);
 	if (!gl->count) return false;
 	s->games = gl->count;
@@ -1445,7 +1445,7 @@ static void scp_page(app *a, const char *only)
 
 		plat_input_poll(&a->in);
 		scp_test(v, a);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {
@@ -1988,7 +1988,7 @@ static void snaps_read(snaps_ctx *s)
 	for (i = 0; i < a->sys.count && s->nc < CFG_MAX_SYSTEMS; i++) {
 		const system_cfg *sc = &a->sys.systems[i];
 
-		if (!sc->folder[0] || is_muse(sc) || !ss_system_id(sc->folder)) continue;
+		if (!sc->folder[0] || is_mp4(sc) || !ss_system_id(sc->folder)) continue;
 		snprintf(s->folder[s->nc], sizeof s->folder[0], "%s", sc->folder);
 		s->c[s->nc].name = sc->name;
 		s->c[s->nc].on = snaps_console_on(sc->folder);
