@@ -64,6 +64,10 @@ extern heatpop_state g_heatpop;
 extern unsigned last_tint_ms;
 Uint32 anim_ticks(void);
 bool snap_new_picture(void);
+/* The shelf drawn last was the Video view (DESIGN.md 11.57) with its snap
+ * playing: somebody watching, which holds the screensaver's countdown as
+ * music does (saver_screen.c) */
+bool shelf_video_playing(void);
 bool no_games(const app *a);
 int games_on_card(const app *a);
 void cheer_zyper(SDL_Renderer *r, float cx, float cy, float h, float alpha, void *ctx);

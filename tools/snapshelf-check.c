@@ -160,7 +160,41 @@ int main(void)
 	CHECK(!strcmp(at(B, true, true, 5600), B) && s.phase == SNS_ASKED && k == 0,
 	      "the next game not asked at once, or its card skipped");
 	CHECK(!*at(B, false, true, 5610), "asked while a direction is held (not in front)");
+
+	printf("  the Video view under a page or a menu: its snap held on its picture:\n");
+	at(B, true, true, 6000);
+	at(B, true, true, 6050);
+	at(B, true, true, 6050 + DS_MS_TURN);
+	CHECK(s.phase == SNS_PLAY && k == 1, "not playing before the page");
+	s.covered = true;
+	CHECK(!strcmp(at(B, false, true, 6400), B) && held && k == 1 && s.phase == SNS_PLAY,
+	      "a page over the view took the snap away, the card under it (2026-11-19: X flashed the art)");
+	CHECK(!strcmp(at(B, false, true, 9000), B) && held && k == 1,
+	      "the snap went while the page stayed up");
+	s.covered = false;
+	CHECK(!strcmp(at(B, true, true, 9100), B) && !held && k == 1 && s.phase == SNS_PLAY,
+	      "the page gone, the snap did not play on from its picture");
+	CHECK(!*at(B, false, true, 9110) && s.phase == SNS_OUT,
+	      "a direction held (not in front, nothing over it) kept the snap");
+	at(B, true, true, 9500);                 /* gone back */
+	at(B, true, true, 9550);                 /* asked again */
+	at(B, true, true, 9560);                 /* its picture: turning in */
+	CHECK(s.phase == SNS_IN, "not turning in before the page");
+	s.covered = true;
+	CHECK(!strcmp(at(B, false, true, 9570), B) && held && s.phase == SNS_IN,
+	      "a page over a snap turning in took it away");
+	s.covered = false;
 	s.at_once = false;
+	printf("  the cover row under a page: its snap goes back to the cover, as before:\n");
+	memset(&s, 0, sizeof s);
+	at(A, true, false, 0);
+	at(A, true, true, SNAPS_WAIT_MS);
+	at(A, true, true, SNAPS_WAIT_MS + DS_MS_TURN);
+	CHECK(s.phase == SNS_PLAY, "the cover row's snap did not play");
+	s.covered = true;
+	CHECK(!*at(A, false, true, SNAPS_WAIT_MS + DS_MS_TURN + 10) && s.phase == SNS_OUT,
+	      "the cover row held its snap under a page: only the Video view does");
+	s.covered = false;
 
 	printf("  a snap that came under the same focus is looked for again:\n");
 	{

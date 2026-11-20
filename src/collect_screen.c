@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Collections' screens. See src/collect_screen.h. */
 #include "collect_screen.h"
+#include "keyboard.h"
 
 #include "collect.h"
 #include "gamedel_screen.h"
@@ -39,6 +40,10 @@ static bool ask_name(app *a, const char *title, char *typed, size_t n, int self)
 	coll_name_err why;
 
 	for (;;) {
+		/* A new name's first letter a capital (2026-11-19: "Name input
+		 * should have the keyboard start with shift on"); a name being
+		 * changed opens on its own letters, where this does nothing */
+		kb_capital_next();
 		if (keyboard_prompt(a, title, typed, (int)n) != KB_ACCEPT || !a->running) return false;
 		if ((why = coll_name_check(typed, self)) == COLL_NAME_OK) return true;
 		fprintf(stderr, "coll: \"%s\" is no name for a collection (%d)\n", typed, (int)why);

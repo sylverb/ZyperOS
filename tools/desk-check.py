@@ -93,6 +93,13 @@ def run(desk, tmp, device, size):
         st = ask(sock, 'state')
         check(st.get('device') == device and st.get('panel') == list(size),
               f'{device}: state says the {size[0]}x{size[1]} panel ({st})')
+        for _ in range(100):
+            if st.get('screen'):
+                break
+            time.sleep(0.05)
+            st = ask(sock, 'state')
+        check(st.get('screen') == 'systems' and isinstance(st.get('cursor'), int) and st['cursor'] >= 0
+              and st.get('focus'), f'{device}: state names the shelf\'s screen, cursor and focus ({st})')
         shot = tmp / f'{device}.png'
         r = ask(sock, f'shot {shot}')
         check(r.get('ok') and png_size(shot) == size, f'{device}: a shot is the panel, {png_size(shot)}')
