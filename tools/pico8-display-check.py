@@ -12,7 +12,16 @@ it asks for, since PICO-8 draws its picture where it was told as it started.
    through it, once; a word in the file that is no mode's is a plain Quit; a
    file left from before the program started is no start again; POWER while
    a start again is under way starts nothing.
-2. The real launcher in desk mode's dummy window (build-native/zyperos, make
+2. Its default: a PICO-8 shelf whose Display was never set plays your PICO-8
+   at Original Shape (480 x 480, as before its Display modes), and only a
+   pick of Full Screen stretches it; fake08 on it keeps Full Screen. The
+   launcher's rows (--rows-report) and the request it writes as a cart opens
+   (px2-open's channel): never set, Original Shape and "aspect"; core.PICO8
+   on fake08, Full Screen; a "stretch" from before 1.1.0 (every row was
+   written at any change then) let go of once, and a marker kept; a change of
+   another shelf's Display writes that shelf's row alone; Full Screen picked
+   on the shelf's own row, "stretch" in the request.
+3. The real launcher in desk mode's dummy window (build-native/zyperos, make
    native), as portkeys starts it over the program (--port-menu PICO8 CART):
    the rows Continue, Display (the mode on, from display.PICO8), Controls and
    Quit; Left and Right on Display step nothing; A opens the Display list,
@@ -21,7 +30,9 @@ it asks for, since PICO-8 draws its picture where it was told as it started.
    Continue; the yes ends the menu with PORT_MENU_RESTART (14), display.PICO8
    kept and the restart file saying the mode; over OpenBOR no Display row;
    and --display (PORT_MENU_DISPLAY_ARG, the Next Display hotkey's) asks for
-   the next mode with no menu, Cancel 10 and nothing kept, Start Again 14.
+   the next mode with no menu, Cancel 10 and nothing kept, Start Again 14;
+   and On-Screen Stats after Display, Off, Right turning it On in the
+   device's database (portkeys reads it as the menu closes).
 """
 import importlib.machinery
 import importlib.util
@@ -180,7 +191,129 @@ exit 0
           f'nothing starts again, and the handheld powers off ({progs})')
 
 
-# ---- 2. the launcher ------------------------------------------------------
+# ---- 2. the default -------------------------------------------------------
+
+def defaults(tmp):
+    desk = module('desk', ROOT / 'tools/desk')
+    rs = module('readme_shots', ROOT / 'tools/readme-shots.py')
+    card, flags = tmp / 'dcard', tmp / 'dflags'
+    flags.mkdir(parents=True)
+    rs.media_card(card)
+    desk.card_sounds(card)
+    env = desk.card_env(card, None)
+    subprocess.run([str(BINARY), '--set', 'tour.done=1'], env=env, check=True, stdout=subprocess.DEVNULL)
+    (card / 'Roms/PICO-8').mkdir(parents=True, exist_ok=True)
+    (card / 'Roms/PICO-8/celeste.p8').write_text('pico-8 cartridge\n')
+    (card / 'Bios/PICO-8').mkdir(parents=True, exist_ok=True)
+    for f in ('pico8_64', 'pico8.dat'):
+        (card / 'Bios/PICO-8' / f).write_bytes(b'stand-in')
+    (card / 'ZyperOS/pico8').mkdir(parents=True, exist_ok=True)
+    (card / 'ZyperOS/pico8/PICO-8.sh').write_text('#!/bin/sh\n')
+    (card / 'Roms/NES').mkdir(parents=True, exist_ok=True)
+    (card / 'Roms/NES/x.nes').write_bytes(b'')
+    db = card / 'userdata/zyperos.db'
+    short = Path(tempfile.gettempdir())
+    dsock = short / f'zyp8df-{os.getpid()}.sock'
+    cdir = short / f'zyp8dc-{os.getpid()}'
+    cdir.mkdir(mode=0o700, exist_ok=True)
+    env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', ZYPEROS_DESK_FORCE='1',
+               ZYPEROS_DESK_SOCK=str(dsock), ZYPEROS_FLAG_DIR=str(flags), ZYPEROS_CTL_DIR=str(cdir))
+    env.pop('ZYPEROS_HEADLESS', None)
+    request = flags / 'zyperos_port'
+
+    def setting(key, value=None, delete=False):
+        c = sqlite3.connect(str(db))
+        if delete:
+            c.execute('DELETE FROM settings WHERE key=?', (key,))
+        elif value is not None:
+            c.execute('INSERT OR REPLACE INTO settings(key, value) VALUES(?, ?)', (key, value))
+        r = c.execute('SELECT value FROM settings WHERE key=?', (key,)).fetchone()
+        c.commit()
+        c.close()
+        return r[0] if r else None
+
+    def shelf(tag, focus):
+        (card / 'ZyperOS/.last').write_text(f'{tag}\n{focus}\n')
+
+    def row(name):
+        """the PICO-8 shelf's system menu row `name`'s value (--rows-report)"""
+        shelf('PICO8', 'celeste.p8')
+        out = subprocess.run([str(BINARY), '--shot', str(tmp / 'rows.png'), '--screen', 'games',
+                              '--rows-report', '--device', 'pixel2'], env=env, text=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60).stdout
+        for line in out.splitlines():
+            f = line.split('\t')
+            if len(f) > 2 and f[0] == 'rows: system' and f[1] == name:
+                return f[2]
+        return None
+
+    def press(tag, focus, key):
+        """--menu Display --press KEY on a shelf: its row stepped, as the
+        player steps it (display_save)"""
+        shelf(tag, focus)
+        subprocess.run([str(BINARY), '--shot', str(tmp / 'press.png'), '--screen', 'games', '--menu', 'Display',
+                        '--press', key, '--device', 'pixel2'], env=env, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=60)
+
+    def opened():
+        """a cart opened as px2-open opens it: the request's Display"""
+        if dsock.exists():
+            dsock.unlink()
+        request.unlink(missing_ok=True)
+        shelf('PICO8', 'celeste.p8')
+        log = open(tmp / 'open.log', 'w')
+        p = subprocess.Popen([str(BINARY), '--device', 'pixel2'], env=env, stdout=log, stderr=subprocess.STDOUT)
+        try:
+            if not (wait_for(lambda: dsock.exists() or p.poll() is not None, 10) and dsock.exists()):
+                return None
+            ask(dsock, 'wait-frames 3')
+            sk = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sk.settimeout(10)
+            sk.connect(str(cdir / 'ctl.sock'))
+            sk.sendall(f'open\tpath={card}/Roms/PICO-8/celeste.p8\n'.encode())
+            sk.makefile().readline()
+            sk.close()
+            p.wait(timeout=10)
+        finally:
+            if p.poll() is None:
+                p.kill()
+                p.wait()
+        f = request.read_text().rstrip('\n').split('\t') if request.exists() else []
+        return f[3] if len(f) > 3 else None
+
+    try:
+        print('a PICO-8 shelf whose Display was never set:')
+        check(row('Display') == 'Original Shape', f'its row says Original Shape ({row("Display")!r})')
+        check(opened() == 'aspect', 'a cart opens at Original Shape, 480 x 480, as before')
+        check(setting('display.PICO8') is None, 'and no row is written for it')
+        setting('core.PICO8', 'fake08')
+        check(row('Display') == 'Full Screen', 'on fake08 the same shelf says Full Screen, as before')
+        setting('core.PICO8', delete=True)
+
+        print('a "stretch" from before 1.1.0, when any change wrote every row:')
+        setting('pico8.display_settled', delete=True)
+        setting('display.PICO8', 'stretch')
+        check(opened() == 'aspect', 'let go of once: Original Shape')
+        check(setting('display.PICO8') is None and setting('pico8.display_settled') == '1',
+              'the row gone, and the marker kept')
+
+        print('another shelf\'s Display changed:')
+        press('NES', 'x.nes', 'right')
+        check(setting('display.NES') is not None and setting('display.PICO8') is None,
+              f'writes that shelf\'s row alone (NES {setting("display.NES")!r}, PICO-8 {setting("display.PICO8")!r})')
+
+        print('Full Screen picked on the PICO-8 shelf\'s own row:')
+        press('PICO8', 'celeste.p8', 'left')
+        check(setting('display.PICO8') == 'stretch', f'kept as a pick ({setting("display.PICO8")!r})')
+        check(row('Display') == 'Full Screen' and opened() == 'stretch',
+              'its row Full Screen, and a cart opens stretched, 640 x 480')
+    finally:
+        shutil.rmtree(cdir, ignore_errors=True)
+        if dsock.exists():
+            dsock.unlink()
+
+
+# ---- 3. the in-game menu over it ------------------------------------------
 
 def ask(sock, line, timeout=10):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -317,10 +450,28 @@ def launcher(tmp):
         rc = ended(m)
         check(rc == 10 and not restart.exists(), f'B is Continue, and no restart file is left ({rc})')
 
+        print('On-Screen Stats over your PICO-8:')
+        hud = lambda: (lambda c: (c.execute("SELECT value FROM settings WHERE key='hud'").fetchone() or [None])[0])(
+            sqlite3.connect(str(db)))
+        m, ok = start('menu-hud', ['--port-menu', 'PICO8', cart])
+        seen = drawn('menu-hud')
+        check(ok and 'On-Screen Stats' in seen and seen.index('Display') < seen.index('On-Screen Stats') <
+              seen.index('Controls') if all(w in seen for w in ('Display', 'On-Screen Stats', 'Controls')) else False,
+              'a row after Display, before Controls')
+        check(hud() in (None, '0'), 'Off')
+        keys('down', 'down', 'right')
+        check(wait_for(lambda: hud() == '1', 3), f'Right turns it On, kept for portkeys ({hud()!r})')
+        keys('left')
+        check(wait_for(lambda: hud() == '0', 3), 'Left turns it Off again')
+        keys('b')
+        rc = ended(m)
+        check(rc == 10, f'B is Continue ({rc})')
+
         print('over OpenBOR:')
         m, ok = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
         seen = drawn('openbor')
-        check(ok and 'Continue' in seen and 'Display' not in seen, 'no Display row')
+        check(ok and 'Continue' in seen and 'Display' not in seen and 'On-Screen Stats' not in seen,
+              'no Display row and no On-Screen Stats')
         keys('b')
         ended(m)
 
@@ -352,6 +503,7 @@ def main():
     try:
         launch_sh(tmp)
         if BINARY.is_file():
+            defaults(tmp)
             launcher(tmp)
         else:
             check(False, 'build-native/zyperos is there (make native)')

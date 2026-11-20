@@ -224,6 +224,7 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 	if (u->port) {
 		ids[n++] = GM_CONTINUE;
 		if (u->port_display) ids[n++] = GM_DISPLAY;
+		if (u->port_hud) ids[n++] = GM_HUD;
 		ids[n++] = GM_CONTROLS;
 		if (u->port_reset) ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;

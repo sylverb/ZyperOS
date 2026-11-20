@@ -3393,7 +3393,7 @@ room for the handheld on the Controls tab: its content is 864 units wide
 (`menu_most_w`; 860, 26 from the sides, off the grid, until 1.0.6).
 Over a port (OpenBOR, PortMaster) the menu is as it was, Continue, Controls
 and Quit with no tabs, and there Controls is the read-only pages below. Over
-your PICO-8 it has Display and Reset too, and Controls is the Controls tab's
+your PICO-8 it has Display, On-Screen Stats and Reset too, and Controls is the Controls tab's
 list, the buttons themselves (11.55).
 
 **X is Quit** from any row of any tab (gm_x_row, src/game_menu.h), in every
@@ -6157,7 +6157,8 @@ So once they are, carts open in it, and the shelf's **Core** row offers it
 beside fake08; before, the row names fake08 alone, as today. *(2026-11-19:
 adding it is the choice.)* It runs as OpenBOR does, a program of its own:
 the loading screen (11.11) until it draws, **MENU** ZyperOS's menu over it
-(Continue, Display, Controls, Reset, Quit, **X** Quit from any row, 11.28),
+(Continue, Display, On-Screen Stats, Controls, Reset, Quit, **X** Quit from
+any row, 11.28),
 its Controls the PICO-8 shelf's buttons (below), **START** PICO-8's own pause
 menu, the player's hotkeys (below), **MENU+START**
 held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
@@ -6198,15 +6199,24 @@ the whole panel, 640 x 480, its shape changed; **Original Shape** and
 Edges Cut** the full width, 640 x 640, both cut 80 rows at the top and the
 bottom; **Actual Size** 1x, 128 x 128 in the middle. Unfiltered where PICO-8's
 pixels are whole ones of the panel's, filtered where they are not (Full
-Screen, the full height). A shelf whose Display was never set is Full
-Screen, as every system's is. Zoomed and Edges Cut start above the panel's
+Screen, the full height). A shelf whose Display was never set plays your
+PICO-8 at **Original Shape**, the 480 x 480 it drew before its Display modes
+came, and only a pick of Full Screen stretches it *(2026-11-20: the default
+must not change under a player)*; fake08 on the same shelf keeps Full Screen,
+every system's default. So the default follows the core (`dmode_default`),
+the shelf's row says it, and a system's row is written only for a pick: any
+change of any shelf's Display wrote every system's row before, and a
+"stretch" your PICO-8's row holds from then is let go of once. Zoomed and
+Edges Cut start above the panel's
 top, which no device has shown 0.2.7 taking: if it does not, one constant
 (`NEG_OK` in PICO-8.sh, `P8_NEG_OK` beside it) draws them as Sharp Pixels and
 Original Shape. On the Brick 6x is its full height (768 x 768).
 
 **Display in the game.** The menu over it has a **Display** row, after
 Continue (where the Display tab is, after the Game tab's first row), its
-value the mode on: Continue, Display, Controls, Reset, Quit. PICO-8 draws its
+value the mode on, and **On-Screen Stats** after it, as the Display tab's
+last row is over a game: Continue, Display, On-Screen Stats, Controls,
+Reset, Quit. PICO-8 draws its
 picture where it was told as it started and cannot move it, so a mode is one
 it starts again in. A opens the Display list, each mode's picture beside it
 (PICO-8's own screen, cut out of the frame the menu is over, drawn in that
@@ -6279,7 +6289,9 @@ Speed left out, as PICO-8 says nothing of it. portkeys draws both on the
 panel's cursor window with the volume bar and "Getting hot", in one frame
 (tools/pkover.h), and keeps PICO-8's display borrowed while they show (only
 over your PICO-8, whose script opens its display once). On-Screen Stats is
-turned on in a Diatom game's menu; the menu over PICO-8 has no row for it.
+turned on in the menu over it (its row: On or Off on Left and Right, A its
+page, the same one as over a game) or over a Diatom game; portkeys reads it as
+the menu closes.
 
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
