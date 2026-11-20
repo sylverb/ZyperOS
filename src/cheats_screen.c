@@ -58,13 +58,15 @@ static char          g_heading[200];
 #define EMPTY_LINES 12
 static char          g_lines[EMPTY_LINES][CHV_WRAP_COLS];
 static app          *g_app;
-/* The list's quiet top line: achievements would stop for a first cheat.
- * Asked when the page opens and at each switch, not every frame */
+/* The list's quiet top line, that achievements wait while a cheat is on:
+ * signed in, for a game with a set, before a cheat is on and while one is,
+ * as the mock and the lab show it beside "2 On". Asked when the page opens
+ * and at each switch, not every frame */
 static bool          g_note;
 
 static void note_now(void)
 {
-	g_note = !g_cg.paused && ra_signed_in() && chv_count() > 0;
+	g_note = ra_signed_in() && chv_count() > 0;
 }
 
 /* The top line, under the heading's rule in the quiet line's face, as the

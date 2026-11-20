@@ -985,6 +985,7 @@ EXTRA.setdefault("cheats-achtab", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab"
 EXTRA.setdefault("cheats-none-libretro", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
 EXTRA.setdefault("cheats-not-checked", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
 EXTRA.setdefault("cheats-note", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "1", "--cheats-note"]))
+EXTRA.setdefault("cheats-note-end", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "99", "--cheats-note"]))
 EXTRA.setdefault("cheats-on-first", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-on-first"]))
 EXTRA.setdefault("cheats-search", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "infinite"]))
 EXTRA.setdefault("cheats-search-none", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "zzz"]))

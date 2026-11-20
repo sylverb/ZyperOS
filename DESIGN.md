@@ -6389,7 +6389,7 @@ and in `Cheats/<console>/` the player's file by the game's name and by its
 file's (NextUI's) and libretro's folder for it (11.31, 11.41). A file named
 by a stem another game of the shelf has (a .cue beside a .chd) stays for
 that game, and a rename takes a copy. Host shots: `cheats-row`, `cheats-page`,
-`cheats-page-end`, `cheats-ask`, `cheats-note`, `cheats-on-first`,
+`cheats-page-end`, `cheats-ask`, `cheats-note`, `cheats-note-end`, `cheats-on-first`,
 `cheats-search`, `cheats-search-none`, `cheats-achtab`,
 `cheats-none-libretro`, `cheats-not-checked`, `cheats-crash` and
 `popup-cheats` (tools/i18n-shots.py; `--cheats` and `--cheats-page` stand in
