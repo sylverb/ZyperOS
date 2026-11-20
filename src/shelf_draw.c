@@ -42,6 +42,9 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -341,21 +344,6 @@ void draw_background(app *a)
 	}
 }
 
-/* On a games shelf, every card in the shelf's color: a game is drawn in its
- * system's accent, and on Favorites and Muse that is ZyperOS's lime. Under
- * the art's pixels and not its canvas: a cover padded with clear rows below
- * it (content_bottom) would otherwise stand on a grey band of nothing. */
-static void game_lift(void *ctx, int i, const SDL_Rect *art,
-                      const SDL_Rect *content, float focus)
-{
-	app *a = ctx;
-
-	(void)i;
-	(void)art;
-	ui_lift_k(a->r, content, a->sys.systems[a->sys_cursor].accent,
-	          UI_LIFT_FOCUS, focus);
-}
-
 /* Only the unobscured home schedules its animation. Menu backdrops are still. */
 static bool g_home_live;
 int g_home_phase = -1;
@@ -490,160 +478,10 @@ unsigned title_phase(app *a)
 	return mq_phase(MQ_SHELF, a->sys_cursor, a->view[a->sys_cursor].cursor);
 }
 
-/* The top of the games title's line, and of the heart beside it. 56, under
- * the status corner (DESIGN.md 11.12), which stands from y 24 to 48 at the
- * right end: a long title slides under it, not through it, its capitals 9
- * units below the row (measured on a host shot, 57) and its ascenders 5. It
- * was 40 before the corner, and the box art below was placed against that
- * with room to spare; the descenders are still 17 over the focused box. */
-#define TITLE_TOP 56
 
-static void draw_game_text(app *a, sysview *v, const system_cfg *s, int idx)
-{
-	const system_cfg *gs = &a->sys.systems[
-		shelf_owner(a, a->sys_cursor, idx)];
-	char count[64];
-
-	if (v->list.count > 0) {
-		game_entry *g = &v->list.items[idx];
-		/* A title that fits is centered, as before. One that does not slides,
-		 * because truncating it destroys the rest of the name permanently and
-		 * sliding it only delays it - see ui_text_marquee.
-		 *
-		 * THE HEART HAS A FIXED SEAT, far left, whether or not this game
-		 * has one. It used to be placed off the title's own width, which put
-		 * it somewhere new for every game and - once titles could slide -
-		 * would have moved it at the moment a title started sliding. A mark
-		 * that jumps when the thing beside it grows is not a mark, it is more
-		 * motion.
-		 *
-		 * Its width is reserved on BOTH sides, so the box stays centered on the
-		 * screen and a short title is centered exactly where it always was.
-		 * The cost is a narrower box, so a few more titles slide; sliding is
-		 * the thing that made a narrow box acceptable. */
-		TTF_Font *ft2 = ui_font(UI_F_TITLE);
-		int line = ui_font_line(UI_F_TITLE);
-		int margin = line / 2;
-		int hrad = line * 2 / 5;
-		int lead = margin + hrad * 2 + hrad;      /* edge, heart, its gap */
-		int boxx = lead;
-		int boxw = ZYPEROS_SCREEN_W - lead * 2, fullw = boxw;
-		int tw = ui_text_width(ft2, g->title);
-		int tx = ZYPEROS_SCREEN_W / 2;
-		bool slides;
-		/* On MP4's shelf the title stands in the header's row, between its
-		 * clock and its marks (2026-11-09), and a long one slides there; the
-		 * line under it is under the header, and keeps the whole width */
-		if (is_muse(s) && header_half() < boxw / 2) {
-			boxw = header_half() * 2;
-			boxx = ZYPEROS_SCREEN_W / 2 - header_half();
-		}
-		slides = tw > boxw;
-		/* Asked for EVERY frame, not only when something slides. It is a
-		 * clock that has to watch the cursor to know when to restart, and it
-		 * cannot watch it on frames nobody calls it. Reading it only inside
-		 * the sliding branch meant a short title in between - which needs no
-		 * marquee and so never called this - left the last long one still
-		 * recorded as current; coming back to it was not a change, and it
-		 * carried on mid-scroll instead of starting over. */
-		unsigned phase = title_phase(a);
-		/* The one mark left on a card.
-		 *
-		 * There was a second, a dot on the right, for a game with an autosave
-		 * - A continues it rather than starting it. Removed 2026-08-30: it
-		 * only ever drew beside the CENTERED title, so it was never the
-		 * scan-the-shelf signal it looked like, and it said one bit with no
-		 * legend about the one game you could already ask about directly. X
-		 * says "resume + 3" now, which is the same fact with a number on it. */
-		if (fav_is(gs->tag, g->file)) {
-			/* Centered on the title's capitals, where ui_line_y puts them in
-			 * its line, not on the line's middle: the line keeps a
-			 * descender's depth under them that most titles never use, so a
-			 * mark at its middle sits visibly below the letters. */
-			int dy = TITLE_TOP + line * 2 / 5;
-
-			/* In **favorite**, DESIGN.md 11.1, and not the game's system's
-			 * color: pink is love (DESIGN.md 1), and a heart in Game Boy
-			 * Color's yellow said "this system" where it means "you kept
-			 * this". */
-			draw_heart(a->r, (float)(margin + hrad), (float)dy, (float)hrad,
-			           ui_col(theme()->favorite, 255));
-		}
-		/* Its capitals, for a shot's check that they stay under the corner */
-		g_title_caps = (SDL_Rect){ slides ? boxx : tx - tw / 2,
-		                           TITLE_TOP + line * 2 / 5 - ui_cap_height(ft2) / 2,
-		                           slides ? boxw : tw, ui_cap_height(ft2) };
-		if (slides) {
-			ui_text_marquee(a->r, ft2, g->title, boxx,
-			                ui_line_y(UI_F_TITLE, TITLE_TOP), boxw, phase, UI_TEXT);
-			/* Not "a title is sliding, so keep drawing". It ping-pongs for
-			 * as long as the game is focused, with 1.4s of stillness at the
-			 * start and 0.9s at the far end, so ask for the moment it next
-			 * moves and sleep through the holds. The phase clock is
-			 * plat_now_ms, the same one the main loop compares against.
-			 *
-			 * Only the holds can be skipped; the travel between them is
-			 * motion and has to be drawn. Measured on the Brick 2026-09-13,
-			 * idle for 30s on Advanced Busterhawk Gleylancer: 17.4% of a core,
-			 * against 1.7% on a title that fits and 26.6% before any of this.
-			 *
-			 * DECIDED, left that way. Scrolling once and resting would bring a
-			 * long title down near 1.7%, and it is not worth doing, because
-			 * this is not idle. A marquee only runs while its title is focused
-			 * and on screen, so someone looking at one is reading it - the cost
-			 * is the feature doing its job while it is being used. And a device
-			 * set down on a long title with nobody looking is ended by Auto Off,
-			 * so there is no long unattended stretch of it to save. */
-			redraw_at(plat_now_ms() + ui_pingpong_wait(tw - boxw, phase));
-		} else {
-			ui_text(a->r, ft2, g->title, tx, ui_line_y(UI_F_TITLE, TITLE_TOP), 0,
-			        UI_TEXT);
-		}
-		/* An album is two names, and on Muse's shelf the artist is the one
-		 * the letter jump goes by - so it is said, a step quieter, under the
-		 * album's. Fitted rather than slid: the album's title already slides
-		 * on this clock, and two lines moving at once is a lot of motion. */
-		if (is_muse(s)) {
-			char afit[192];
-			const char *under = g->name;
-			int al = v->album && idx >= 0 && idx < v->list.count ? v->album[idx] : -1;
-
-			/* A book says it is finished there, and says nothing rather than
-			 * its own name again when it is a folder with no author above it;
-			 * nor does a folder of videos with no series above it. */
-			if (al >= 0 && g_muse.albums[al].book) {
-				if (g_book_done && g_book_done[al]) under = T(S_BOOKS_FINISHED);
-				else if (!strcmp(g->name, g->title)) under = "";
-			} else if (al >= 0 && g_muse.albums[al].kind == ML_VIDEOS &&
-			           !strcmp(g->name, g->title)) {
-				under = "";
-			}
-			ui_fit_text(ui_font(UI_F_MENU), under, afit, sizeof afit, fullw);
-			ui_text(a->r, ui_font(UI_F_MENU), afit, tx,
-			        ui_line_y(UI_F_MENU, TITLE_TOP + line + 4), 0, UI_TEXT_DIM);
-		}
-		/* The position sits below the horizontal row, above its rail. */
-		snprintf(count, sizeof count, "%d / %d", idx + 1, v->list.count);
-		ui_text(a->r, ui_font(UI_F_META), count,
-		        ZYPEROS_SCREEN_W / 2, ui_line_y(UI_F_META, 690), 0, UI_TEXT_DIM);
-	} else {
-		char nfit[192];
-
-		TTF_Font *ft = ui_font(UI_F_TITLE);
-		int nw;
-
-		ui_fit_text(ft, s->name, nfit, sizeof nfit, ZYPEROS_SCREEN_W - 48);
-		nw = ui_text(a->r, ft, nfit, ZYPEROS_SCREEN_W / 2,
-		             ui_line_y(UI_F_TITLE, TITLE_TOP), 0, UI_TEXT);
-		g_title_caps = (SDL_Rect){ (ZYPEROS_SCREEN_W - nw) / 2,
-		                           TITLE_TOP + ui_font_line(UI_F_TITLE) * 2 / 5
-		                           - ui_cap_height(ft) / 2, nw, ui_cap_height(ft) };
-	}
-}
-
-/* cf_badge_fn on MP4's shelf: on All, what each card is - an album, a book or
- * a video - since the shelf mixes them; on one kind alone the shelf says it
- * and the cards carry none. */
+/* The badge_of on MP4's shelf (games_info, gg_info, gl_info): on All, what
+ * each card is - an album, a book or a video - since the shelf mixes them;
+ * on one kind alone the shelf says it and the cards carry none. */
 static int album_badge(void *ctx, int i)
 {
 	app *a = ctx;
@@ -661,32 +499,6 @@ static int album_badge(void *ctx, int i)
 	}
 }
 
-static void draw_albums(app *a)
-{
-
-	sysview *v = &a->view[a->sys_cursor];
-	const system_cfg *s = &a->sys.systems[a->sys_cursor];
-	bool albums = is_muse(s);
-	const cf_layout *row = albums ? &CF_LAYOUT_ALBUMS : &CF_LAYOUT_GAMES;
-
-	if (cf_draw(&v->cf, a->r, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, v->list.count,
-	            game_get_tex, game_lift, albums ? album_badge : NULL, a,
-	            row))
-		redraw_now();
-	/* Warm where the move is about to cut to, one card per frame, underneath
-	 * the departure that is still being drawn. Eviction waits: the cursor is
-	 * already at the destination and evict_far measures from the cursor, so
-	 * running it now would free the very cards the departure is drawing. */
-	{
-		int land = cf_landing(&v->cf, v->list.count);
-		if (land >= 0) prime_toward(a, a->sys_cursor, land);
-	}
-	if (!cf_cutting(&v->cf)) evict_far(v, TEX_KEEP_NEAR);
-
-	draw_game_text(a, v, s, v->cursor);
-	ui_rail(a->r, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, v->cf.pos, v->list.count,
-		 s->accent, NULL, NULL);
-}
 
 /* Facts are cached for the selected ROM and refreshed after leaving the shelf.
  * File reads happen after selection motion settles, never for every frame.
@@ -812,6 +624,13 @@ void snap_ask(const char *req, bool hold)
 
 /* For the shelf's loop: a snap is asked for and the daemon has a newer
  * picture of it than the one on screen */
+static bool g_video_playing;
+
+bool shelf_video_playing(void)
+{
+	return g_video_playing;
+}
+
 bool snap_new_picture(void)
 {
 	return g_snap_asked[0] && snapv_pending();
@@ -835,6 +654,10 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 	float k = 0;
 	int w = 0, h = 0;
 	bool front = g_home_live && settled && g, hold = false;
+
+	/* Under a page or a menu, which snapshelf holds the Video view's snap
+	 * through (snapshelf.h) */
+	g_snap_shelf.covered = !g_home_live;
 
 	/* Which file, worked out when the focus moves rather than every frame */
 	if (!g) {
@@ -1220,11 +1043,109 @@ static void grid_ask_ahead(app *a, sysview *v)
 	}
 }
 
+/* MP4's shelf (DESIGN.md 11.67): the games shelf's own three Views - the
+ * cover row (games_draw), the grid (gg_draw) and the list (gl_draw), with
+ * their focus, Highlight, motion and no-art cards - given an album's facts.
+ * Each album is a cover and a name, as a game is, so they draw it as they
+ * draw a game; what differs is what is said of it. The heading is MP4 and
+ * the kind Show shows, the artist (an author, a series; album_fact) is the
+ * focused album's fact where a Favorites game's system is, each album carries its
+ * kind's badge on All, and A opens an album (plays a film). No play time,
+ * achievements, resume or heart: those are a game's. The foot is B and
+ * START, as MP4 has no X Details or Y on its shelf. */
+/* What is said of album k under its name: its artist, whom the letter jump
+ * goes by; a finished book says so instead; and a book or a folder of
+ * videos with no author or series above it says nothing, rather than its
+ * own name again. NULL for nothing. */
+static const char *album_fact(const sysview *v, int k)
+{
+	const game_entry *g = k >= 0 && k < v->list.count ? &v->list.items[k] : NULL;
+	int al = g && v->album ? v->album[k] : -1;
+
+	if (!g || al < 0 || al >= g_muse.nalbums) return NULL;
+	if (g_muse.albums[al].book) {
+		if (g_book_done && g_book_done[al]) return T(S_BOOKS_FINISHED);
+		if (!strcmp(g->name, g->title)) return NULL;
+	} else if (g_muse.albums[al].kind == ML_VIDEOS && !strcmp(g->name, g->title)) {
+		return NULL;
+	}
+	return g->name[0] ? g->name : NULL;
+}
+
+static void draw_album_views(app *a, sysview *v, const system_cfg *s)
+{
+	static const str_id SHOW[ML_ALL + 1] = { S_SYSMENU_MUSE_MUSIC, S_SYSMENU_MUSE_AUDIOBOOKS,
+	                                         S_SYSMENU_MUSE_VIDEOS, S_SYSMENU_MUSE_ALL };
+	unsigned now = g_games_phase >= 0 ? v->row.moved + g_games_phase : plat_now_ms();
+	const game_entry *g = v->list.count ? &v->list.items[v->cursor] : NULL;
+	int al = g && v->album ? v->album[v->cursor] : -1, kind = (int)muse_kind_shown();
+	bool film = al >= 0 && al < g_muse.nalbums && g_muse.albums[al].solo;
+	const char *artist = album_fact(v, v->cursor);
+	const char *a_word = T(film ? S_GAMES_PLAY : S_GAMES_OPEN);
+	char head[CFG_STR + 64];
+	key_hint foot[2];
+	int nf = 0;
+	uint32_t wait;
+
+	/* "MP4 / Music", as a games shelf names the folder it is in, when the
+	 * card has more than one kind */
+	if (muse_kinds() > 1 && kind >= 0 && kind <= ML_ALL)
+		snprintf(head, sizeof head, "%s / %s", s->name, T(SHOW[kind]));
+	else
+		snprintf(head, sizeof head, "%s", s->name);
+	foot[nf++] = (key_hint){ "B", T(S_GAMES_BACK) };
+	if (v->list.count > 0)
+		foot[nf++] = (key_hint){ "START", T(v->grid ? S_GAMES_TO_LIST : v->listed ? S_GAMES_TO_COVERS
+		                                      : S_GAMES_TO_GRID) };
+	if (v->grid) {
+		/* Square cells, never measured: MP4 draws every cover square
+		 * (cover_shape), the art crops to it, and an album with none is a
+		 * square card */
+		wait = gg_draw(&v->gm, a->r, &(gg_info){
+			.heading = head, .count = v->list.count, .cursor = v->cursor, .accent = s->accent,
+			.title_of = list_title, .folder_of = list_folder, .peek = grid_peek, .art_of = grid_art,
+			.kept = 1.0f, .played = "", .origin = artist,
+			.a_word = a_word, .foot = foot, .nfoot = nf, .badge_of = album_badge,
+		}, game_get_tex, a, now, title_phase(a));
+		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
+		grid_ask_ahead(a, v);
+		evict_grid(v, gg_cols(&v->gm), false);
+		g_title_caps = (SDL_Rect){ 0, 0, 0, 0 };
+		return;
+	}
+	if (v->listed) {
+		wait = gl_draw(&v->lm, a->r, &(gl_info){
+			.heading = head, .count = v->list.count, .cursor = v->cursor, .accent = s->accent,
+			.title_of = list_title, .folder_of = list_folder, .played = "", .origin = artist,
+			.a_word = a_word, .foot = foot, .nfoot = nf, .badge_of = album_badge,
+		}, game_get_tex, a, now, title_phase(a));
+		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
+		evict_far(v, TEX_KEEP_NEAR);
+		g_title_caps = (SDL_Rect){ 0, 0, 0, 0 };
+		return;
+	}
+	{
+		games_info info = {
+			.system = head, .title = g ? g->title : "", .count = v->list.count,
+			.cursor = v->cursor, .played = "", .origin = artist, .badge_of = album_badge,
+			.a_word = a_word, .foot = foot, .nfoot = nf,
+		};
+
+		games_select(&v->row, v->cursor, v->list.count, 0, now);
+		/* The no-art card's sweep as the row stops on it, as a game's */
+		shelf_focusfx(a, v, g, a->sys_cursor, !games_moving(&v->row, now), now, &info);
+		wait = games_draw(&v->row, a->r, &info, game_get_tex, a, now, title_phase(a));
+		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
+		evict_far(v, TEX_KEEP_NEAR);
+		g_title_caps = (SDL_Rect){ 64, 564, 656, 88 };
+	}
+}
+
 static void draw_games(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
 	const system_cfg *s = &a->sys.systems[a->sys_cursor];
-	if (is_muse(s)) { snap_off(); draw_albums(a); return; }
+	if (is_muse(s)) { snap_off(); draw_album_views(a, v, s); return; }
 	unsigned now = g_games_phase >= 0 ? v->row.moved + g_games_phase : plat_now_ms();
 	char head[LIB_PATH + CFG_STR + 64];
 
@@ -1247,6 +1168,10 @@ static void draw_games(app *a)
 		g_snap_shelf.at_once = true;
 		shelf_snap(a, v, g && !g->folder ? g : NULL, owner, !held, &si);
 		g_snap_shelf.at_once = false;
+		/* A page or a menu over the view keeps its band up, as a press
+		 * does: the snap holds under it (snapshelf's `covered`) and would
+		 * otherwise rest the band down behind the page */
+		if (!g_home_live) vv_touch(&v->vm, now);
 		vi = (vv_info){
 			.heading = head, .title = g ? g->title : NULL,
 			.count = v->list.count, .cursor = v->cursor,
@@ -1268,6 +1193,7 @@ static void draw_games(app *a)
 			.playing = si.snap && si.snap_k >= 1,
 			.band = g_shot_band,
 		};
+		g_video_playing = vi.playing;
 		wait = vv_draw(&v->vm, &v->row, a->r, &vi, game_get_tex, a, now, title_phase(a));
 		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
 		evict_far(v, TEX_KEEP_NEAR);
@@ -1657,14 +1583,13 @@ void draw_shelf(app *a)
 	texload_drain(a);
 	prime_home(a);
 	draw_background(a);
-	/* MP4's shelf draws its header first: its album's title stands in the
-	 * header's row, between the clock and the marks (draw_game_text) */
-	if (muse_shelf_shown(a)) draw_status(a);
+	g_video_playing = false;           /* the Video view's, below, says otherwise */
 	if (no_games(a)) { snap_off(); draw_no_games(a); }
 	else if (a->screen == SCREEN_SYSTEMS) { snap_off(); draw_systems(a); }
 	else draw_games(a);
-	if (!muse_shelf_shown(a)) draw_status(a);
+	draw_status(a);
 	if (a->screen == SCREEN_SYSTEMS) g_title_caps = (SDL_Rect){0};
+	/* Not on MP4's own shelf, which is what plays there (muse_shelf_shown) */
 	if (!muse_shelf_shown(a))
 	{
 		/* The song's name slides when it is wider than its room, on its
@@ -2135,6 +2060,16 @@ void focus_frame(app *a)
 	else redraw_now();                 /* a whole frame, then */
 }
 
+/* The shelf drawn by a loop that is its own, as render's is: MP4's shelf
+ * (src/muse_screen.c), whose cover row's no-art card sweeps as a games
+ * shelf's does, live and not behind a menu */
+void draw_shelf_live(app *a)
+{
+	g_home_live = true;
+	draw_shelf(a);
+	g_home_live = false;
+}
+
 void render(app *a)
 {
 	g_redraw_at = REDRAW_NEVER;
@@ -2154,6 +2089,17 @@ void render(app *a)
 	if (a->sys.count > 0 && a->screen == SCREEN_GAMES && is_muse(&a->sys.systems[a->sys_cursor]) && a->tint != a->sys.systems[a->sys_cursor].accent)
 		redraw_now();
 	redraw_at(plat_osd_until());
+#ifdef ZYPEROS_DESK
+	/* tools/desk's `state`: where the shelf's cursor is, as drawn */
+	if (a->sys.count > 0) {
+		sysview *v = &a->view[a->sys_cursor];
+		bool games = a->screen == SCREEN_GAMES;
+
+		desk_note_focus(games ? "games" : "systems", games ? v->cursor : a->sys_cursor,
+		                games && v->list.count > 0 ? v->list.items[v->cursor].title
+		                                           : a->sys.systems[a->sys_cursor].tag);
+	}
+#endif
 	plat_present();
 }
 

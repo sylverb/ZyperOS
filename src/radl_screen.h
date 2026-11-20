@@ -25,5 +25,13 @@ typedef struct {
 } radl_counts;
 void radl_plan_of(app *a, radl_counts *out);
 bool radl_run(app *a);
+/* The page opened from Downloads' Achievements row: B is Back. The run on
+ * `cfg`'s systems (`only` one console's folder, or NULL), with no plan
+ * counted first: false when nobody is signed in, no network, or it could
+ * not start. What the last run did, as it ended. */
+#include "radl.h"
+menu_result radl_screen_from_downloads(app *a);
+bool radl_start_run(app *a, const systems_cfg *cfg, const char *only);
+void radl_last(radl_progress *out);
 
 #endif

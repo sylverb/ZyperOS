@@ -218,14 +218,24 @@ int main(void)
 		let_go(IN_START);
 
 		press(IN_START);
-		mp4chord_step(&c, down, pressed);
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "START down turns nothing yet");
 		memset(pressed, 0, sizeof pressed);
 		press(IN_SELECT);
 		CHECK(mp4chord_step(&c, down, pressed) == MP4C_LOCK, "SELECT joining START locks");
 		memset(pressed, 0, sizeof pressed);
 		let_go(IN_SELECT);
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "and SELECT let go closes nothing");
 		let_go(IN_START);
-		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "and closes nothing let go");
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "nor START let go turns anything");
+
+		/* START alone turns, as it is let go (DESIGN.md 11.67) */
+		press(IN_START);
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "START down alone turns nothing yet");
+		memset(pressed, 0, sizeof pressed);
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "nor held");
+		let_go(IN_START);
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_START, "START let go alone turns");
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "once");
 
 		press(IN_SELECT);
 		press(IN_START);
@@ -247,6 +257,16 @@ int main(void)
 		pressed[IN_SELECT] = true;
 		CHECK(mp4chord_step(&c, down, pressed) == MP4C_SELECT, "a SELECT tap closes");
 		memset(pressed, 0, sizeof pressed);
+		pressed[IN_START] = true;
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_START, "a START tap turns");
+		memset(pressed, 0, sizeof pressed);
+
+		/* A START already down as the screen opens is not this screen's */
+		c = (mp4chord){ 0 };
+		down[IN_START] = true;
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "a START held from before");
+		let_go(IN_START);
+		CHECK(mp4chord_step(&c, down, pressed) == MP4C_NONE, "turns nothing let go");
 	}
 
 	if (failures) {

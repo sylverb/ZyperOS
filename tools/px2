@@ -34,7 +34,8 @@
 #
 # The device: PX2_HOST (10.42.0.1, or its Wi-Fi address) and PX2_PORT (22) as tools/px2-deploy.sh
 # takes them, or --vm NAME for a VM of tools/qemu-run.sh's (its port);
-# PX2_KEY (~/.ssh/zyperos_pixel2), and PX2_DEVICE (pixel2), whose .userdata
+# PX2_KEY (~/.ssh/zyperos_pixel2; for a VM with neither, the key
+# tools/qemu-run.sh made for its VMs), and PX2_DEVICE (pixel2), whose .userdata
 # folder holds the log. A development image, or Developer Mode.
 #
 # The device's own tools are in its image (/usr/bin). On an image from before
@@ -80,10 +81,14 @@ CMD=$1
 shift
 
 if [ -n "$vm" ]; then
-	f=${ZYPEROS_QEMU_HOME:-$HOME/Library/Caches/zyperos-qemu}/$vm/ssh.port
+	qhome=${ZYPEROS_QEMU_HOME:-$HOME/Library/Caches/zyperos-qemu}
+	f=$qhome/$vm/ssh.port
 	[ -f "$f" ] || die "no VM named $vm (tools/qemu-run.sh list)"
 	HOST=127.0.0.1
 	PORT=$(cat "$f")
+	# The key tools/qemu-run.sh gives its VMs, by its rule: with no PX2_KEY
+	# and no ~/.ssh/zyperos_pixel2, the one it made for them
+	[ -n "${PX2_KEY:-}" ] || [ -f "$KEY" ] || KEY=$qhome/ssh/zyperos_qemu
 fi
 if [ -n "${PX2_LOCK:-}" ]; then LOCK=$PX2_LOCK
 elif [ "$PORT" = 22 ] && [ "$HOST" != 127.0.0.1 ] && [ "$HOST" != localhost ]; then LOCK=/tmp/px2-lock

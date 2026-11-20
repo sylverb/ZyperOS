@@ -38,6 +38,8 @@ void ra_creds_copy(char *user, size_t un, char *token, size_t tn);
  * sign you in (HTTP n)" for any other HTTP error or answer that is no reply
  * (a redirect), and "could not reach" when nothing answered whole. */
 bool ra_sign_in(const char *user, const char *password, char *err, size_t errn);
+/* The account and its token gone (Downloads > Settings > Sign Out) */
+void ra_sign_out(void);
 
 /* The conversion on its own, so it can be checked against real responses with
  * no network involved. tools/raset-check.c does exactly that, against the

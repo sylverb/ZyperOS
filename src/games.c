@@ -446,8 +446,9 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     }
     /* and how many of its cheats are on (DESIGN.md 11.66), last */
     if(info->cheats && *info->cheats) meta_part(r,chrome,info->cheats,x,my);
-    if(info->count) page_hint(r,"A",T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
-                                      info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
+    if(info->count) page_hint(r,"A",info->a_word?info->a_word:
+                              T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
+                                info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
     /* The foot, spread from B at the left to X at the right (DESIGN.md
      * 11.4): START turns the shelf into the grid, the next View (11.47) */
     key_hint foot[4]; int nf=0;
@@ -456,7 +457,8 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     if(info->count&&info->resumable&&!info->install&&!info->howto&&!info->opens&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
     if(!info->folder) foot[nf++]=(key_hint){"X",T(S_GAMES_DETAILS)};
     /* DS_FOOT_Y, every screen's: a two-line name's system line (cap 664) stays 30 from the keys */
-    keyhints_draw(r,foot,nf,sf.keys.x,sf.keys.x+sf.keys.w,sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
+    keyhints_draw(r,info->foot?info->foot:foot,info->foot?info->nfoot:nf,sf.keys.x,sf.keys.x+sf.keys.w,
+                  sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
     SDL_SetRenderDrawBlendMode(r,blend);
     return wait;

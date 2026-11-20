@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "gamelist.h"
 
+#include "artbadge_draw.h"
+
 #include "design.h"
 #include "folderart.h"
 #include "games.h"        /* games_frame: the shelf's line and keys */
@@ -187,6 +189,9 @@ static void gl_row(SDL_Renderer *r, const gl_info *in, void *ctx, int i, int y,
 		snprintf(num, sizeof num, "%d", games);
 		end -= ui_text_tabular_width(small, num) + 24;
 		ui_text_tabular(r, small, num, GL_END_X, ui_cap_y(small, cy), 1, dim);
+	} else if (in->badge_of && in->badge_of(ctx, i) != AB_NONE) {
+		/* What it is, in the mark's place (MP4's All): the row's badge */
+		ab_draw(r, (ab_kind)in->badge_of(ctx, i), GL_MARK_X, cy, 1.0f, 255);
 	} else {
 		game_mark(r, GL_MARK_X, cy, in->accent_of ? in->accent_of(ctx, i) : in->accent, name);
 		if (in->fav_of && in->fav_of(ctx, i)) {
@@ -367,9 +372,10 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 			if (in->cheats && *in->cheats && in->cheats_crashed)
 				y = gl_fact(r, T(S_CHEATS_SHELF_CRASHED_LINE), y);
 		}
-		page_hint(r, "A", T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD
-		                    : in->install ? S_PORTMASTER_INSTALL
-		                    : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY),
+		page_hint(r, "A", in->a_word ? in->a_word
+		                  : T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD
+		                      : in->install ? S_PORTMASTER_INSTALL
+		                      : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY),
 		          GL_PANEL_X, GL_A_Y, true, false);
 	}
 	/* The foot, as the cover row's (DESIGN.md 11.4): B, START back to the
@@ -384,7 +390,8 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 		if (in->count > 0 && in->resumable && !in->install && !in->howto && !in->opens && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
-		keyhints_draw(r, foot, nf, sf.keys.x, sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2,
+		keyhints_draw(r, in->foot ? in->foot : foot, in->foot ? in->nfoot : nf, sf.keys.x,
+		              sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2,
 		              KEYHINTS_SPREAD, true, 255);   /* as the shelf's */
 	}
 	SDL_SetRenderDrawColor(r, red, green, blue, alpha);

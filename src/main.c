@@ -1053,7 +1053,9 @@ void view_load(app *a)
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
-		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag);
+		/* Never MP4's (view_turn) */
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag) &&
+		                   !is_muse(&a->sys.systems[i]);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
 		a->view[i].vm.set = false;
@@ -1078,7 +1080,10 @@ void view_turn(app *a, int sys, int dir)
 	sysview *v = &a->view[sys];
 	int k = view_index(v);
 
-	k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	/* MP4's shelf has no Video view: an album has no snap to play
+	 * (DESIGN.md 11.67) */
+	do k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	while (k == VIEW_VIDEO && is_muse(&a->sys.systems[sys]));
 	v->listed = k == VIEW_LIST;
 	v->grid = k == VIEW_GRID;
 	v->video = k == VIEW_VIDEO;
@@ -1929,7 +1934,8 @@ void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated)
 {
 	sysview *v = &a->view[s];
 
-	if (is_muse(&a->sys.systems[s]) || i < 0 || i >= v->list.count || !v->tex[i]) return;
+	/* MP4's shelf too, since it has the Grid (DESIGN.md 11.67) */
+	if (i < 0 || i >= v->list.count || !v->tex[i]) return;
 	gg_note(&v->gart, a->r, v->list.count, i, v->tex[i], gg_key(v->list.items[i].file),
 	        surf, generated);
 }
@@ -2157,12 +2163,13 @@ void shelf_put(void *ctx, texload_got *g)
 		ui_card_order card;
 		SDL_Surface *ground = NULL;
 
-		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
-		game_card_order(a, o, &v->list.items[i], &card);
-		v->tex[i] = is_muse(&a->sys.systems[s])
-		          ? ui_make_cover(a->r, v->list.items[i].title,
-		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
-		          : v->list.items[i].folder
+		if (is_muse(&a->sys.systems[s])) {
+			muse_album_card_order(a, s, i, a->sys.systems[o].accent, &card);
+		} else {
+			ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+			game_card_order(a, o, &v->list.items[i], &card);
+		}
+		v->tex[i] = v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
 		                                look_folder_rgb(a->sys.systems[o].accent),
 		                                v->list.items[i].folder, &v->tw[i], &v->th[i])
@@ -4052,6 +4059,13 @@ static bool snap_wanted(const char *folder, const char *file)
 	return snaps_for_game(which, fav_is(tag, file), which == SNAPS_FOR_PLAYED);
 }
 
+/* The rule back after a game's own fetch asked for its video alone
+ * (Downloads' game panel) */
+void ss_run_videos_default(void)
+{
+	ss_run_videos(snap_wanted);
+}
+
 /* MENU > Scraper's value, from the last count of missing covers: taken as
  * its page closes (scraper_page), never per frame */
 char g_scraper_val[32];
@@ -4345,6 +4359,20 @@ static void ra_news_watch(void)
 	snprintf(g_heatpop.line1, sizeof g_heatpop.line1, TN(S_CHEEVOS_SENT, g_ra_news), g_ra_news);
 	snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", T(S_CHEEVOS_SENT_WHERE));
 	g_ra_news = 0;
+}
+
+/* A download that went on behind the screens has ended well: said once, in
+ * Zyper's bubble on the shelf ("Downloads done", "41 covers · 150 achievement
+ * sets"), as the update's news is; and the side lights' done (dlq's lanes) */
+static void dl_news_watch(void)
+{
+	char l1[96], l2[160];
+
+	if (g_heatpop.on || g_songpop.on || g_up_news[0][0]) return;
+	if (!downloads_news(l1, sizeof l1, l2, sizeof l2)) return;
+	heatpop_show(plat_now_ms());
+	snprintf(g_heatpop.line1, sizeof g_heatpop.line1, "%s", l1);
+	snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", l2);
 }
 
 /* The update's own clock, every 2 s, from every screen's loop through
@@ -5754,6 +5782,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
 		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--zip-said")) shot_zip_said = 1;
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
@@ -7433,6 +7462,11 @@ int main(int argc, char *argv[])
 	 * card's empty .media folders go once the shelf is up (after_start_step). */
 	up_cable_tidy();
 
+	/* A test of MENU > Downloads (dl_test): the page at once */
+	if (getenv("ZYPEROS_DOWNLOADS_TEST")) {
+		downloads_screen(&a);
+		a.running = false;
+	}
 	/* A test of MENU > Scraper's page (scp_test): the page at once */
 	if (getenv("ZYPEROS_SCRAPER_TEST")) {
 		scraper_page(&a, NULL);
@@ -7632,6 +7666,7 @@ int main(int argc, char *argv[])
 		heat_watch();
 		up_news_watch();
 		ra_news_watch();
+		dl_news_watch();
 
 		/* SELECT is Muse, on the shelf and on every screen but a running
 		 * game - see muse_open. Before the shelf's own keys, which do not use

@@ -39,7 +39,7 @@ STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with pla
 STAMP += -e PLASTRON_CLEAN=$(CLEAN) -e PLASTRON_DEV=$(filter 0 1,$(DEV))
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
+.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-qemu third-party
 
 all: image
 
@@ -209,6 +209,22 @@ release-brick: brick-inputs cores
 	$(BRICK_RUN) sh /src/scripts/release.sh $(VERSION) brick > out/release-brick.log 2>&1 || \
 		{ tail -30 out/release-brick.log; exit 1; }
 
+# QEMU's image for a release, ZyperOS-v<VERSION>-qemu.tar.xz
+# (scripts/release-qemu.sh): built from empty as the devices' release images
+# are, with no SSH key in it, into the volume's release/ beside theirs and
+# out/release-qemu. ZyperOS's tools/release.sh builds it with the devices;
+# its tools/qemu-image.sh builds it alone, to try.
+release-qemu: builder volume
+	@[ -n "$(VERSION)" ] || { echo "no VERSION in $(ZYPEROS_SRC)/Makefile" >&2; exit 1; }
+	@mkdir -p out
+	$(DOCKER_RUN) sh /src/scripts/release-qemu.sh $(VERSION) > out/release-qemu.log 2>&1 || \
+		{ tail -30 out/release-qemu.log; exit 1; }
+	rm -rf out/release-qemu
+	mkdir -p out/release-qemu
+	docker run --rm -v $(VOLUME):/work -v $(CURDIR)/out:/out --user root $(IMAGE) \
+		sh -c 'cp /work/release/ZyperOS-v$(VERSION)-qemu.tar.xz /out/release-qemu/ && chown -R $(shell id -u):$(shell id -g) /out/release-qemu'
+	@ls -l out/release-qemu
+
 OUTPUT ?= output
 CARD ?= sdcard.img
 copy-out:
@@ -282,17 +298,22 @@ charge-limit-check:
 # The Pixel 2's battery level at a start (board/px2/start-soc-check.c): the
 # voltage at rest and where a start's level comes from, taken out of its
 # kernel patch as they stand (rk817_rest_uv, rk817_start_from and
-# RK817_START_CHARGING_UA), and the OCV table and internal resistance out of
+# RK817_START_CHARGING_UA), the full charge a start measures out of the wear
+# patch (rk817_learn_fcc), and the OCV table and internal resistance out of
 # its device tree. No Docker, no kernel, no device. Into out/.
 START_SOC_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-start-soc.patch
 START_SOC_DTS := buildroot/board/px2/dts/rk3326s-gkd-pixel2.dts
 START_SOC_OUT := out/start-soc-check
+# and the full charge a start measures (rk817_learn_fcc, RK817_LEARN_MAX_SOC)
+WEAR_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-wear.patch
 start-soc-check:
 	@mkdir -p $(START_SOC_OUT) && \
 		{ sed -n 's/^+\(#define RK817_START_CHARGING_UA\)/\1/p' $(START_SOC_PATCH) && \
 		  sed -n '/^+enum rk817_start_from {/,/^+};/s/^+//p' $(START_SOC_PATCH) && \
 		  sed -n '/^+static int rk817_rest_uv(/,/^+}/s/^+//p' $(START_SOC_PATCH) && \
-		  sed -n '/^+static enum rk817_start_from rk817_start_from(/,/^+}/s/^+//p' $(START_SOC_PATCH); \
+		  sed -n '/^+static enum rk817_start_from rk817_start_from(/,/^+}/s/^+//p' $(START_SOC_PATCH) && \
+		  sed -n 's/^+\(#define RK817_LEARN_MAX_SOC\)/\1/p' $(WEAR_PATCH) && \
+		  sed -n '/^+static int rk817_learn_fcc(/,/^+}/s/^+//p' $(WEAR_PATCH); \
 		} > $(START_SOC_OUT)/rule.c && \
 		{ sed -n 's/.*factory-internal-resistance-micro-ohms = <\([0-9]*\)>;.*/#define PX2_R_UOHM \1/p' $(START_SOC_DTS) && \
 		  echo 'static const int PX2_OCV[][2] = {' && \

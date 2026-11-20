@@ -34,8 +34,13 @@ const char *snapshelf_step(snapshelf *s, const char *path, bool front,
 		snprintf(s->key, sizeof s->key, "%s", path);
 		go(s, path[0] ? SNS_WAIT : SNS_IDLE, now);
 	}
-	/* Not in front: a menu, a dark screen, a move in flight */
-	if (!front) {
+	/* Not in front: a menu, a dark screen, a move in flight. On the Video
+	 * view, a page or a menu over it holds the snap where it is instead
+	 * (`covered`): the card would show through as the page comes, a flash
+	 * of art behind it (2026-11-19, on the 1.1.0 test build) */
+	if (!front && s->at_once && s->covered && (s->phase == SNS_IN || s->phase == SNS_PLAY)) {
+		held = true;
+	} else if (!front) {
 		if (s->phase == SNS_IN || s->phase == SNS_PLAY) {
 			s->from = s->phase == SNS_PLAY ? 1.f
 			        : turn((float)(now - s->t) / DS_MS_TURN);

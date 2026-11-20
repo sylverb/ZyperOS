@@ -289,6 +289,13 @@ uint32_t vv_draw(vv_motion *m, const games_row *row, SDL_Renderer *r, const vv_i
 		if (now - m->t < m->ms) wait = 0;
 		else if (in->playing && m->to == 0) wait = m->touched + DS_MS_HOLD_BAND - now;
 	}
+	/* The covers' glide, a frame each until it lands, as the cover row's
+	 * (games_draw). Without it the shelf drew the glide only while the
+	 * band slid or a button was down, and its last frame stayed up until
+	 * the snap's next picture or the heartbeat: a cover left at the side of
+	 * the band, half faded, for up to a second after the press (2026-11-19,
+	 * on the 1.1.0 test build: "a black box stays on the side") */
+	if (row_moving(&row->motion, now)) wait = 0;
 	top = (int)lroundf(VV_BAND_TOP + (VV_STRIP_TOP - VV_BAND_TOP) * down);
 
 	/* The focused game's card, whole above the band, until its snap is in */

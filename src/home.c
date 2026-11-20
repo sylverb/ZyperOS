@@ -660,13 +660,6 @@ static int row_draws(const home *h,bool gallery,int count,int cursor,uint32_t no
     return n;
 }
 
-/* Whole pixels a sprite at `f` can touch */
-static SDL_Rect cover(SDL_FRect f)
-{
-    int x0=(int)floorf(f.x), y0=(int)floorf(f.y);
-    return (SDL_Rect){x0,y0,(int)ceilf(f.x+f.w)-x0,(int)ceilf(f.y+f.h)-y0};
-}
-
 static SDL_Rect content_rect(const home *h)
 {
     const sa_asset *a = valid(h->atlas.asset) ? &SA_ASSETS[h->atlas.asset] : NULL;
@@ -690,46 +683,139 @@ static SDL_Rect content_rect(const home *h)
     return (SDL_Rect){x0,y0,x1-x0,y1-y0};
 }
 
-/* The row's sprites over the content: true for each in `hit`. False when one
- * of those overlaps another of the row, which would have to be drawn again
- * too (only while the row moves, which is no focus frame's). */
-static bool row_over(const row_draw *row,int nr,SDL_Rect content,bool hit[ROW_SLOTS])
+/* The row as Highlight marks it (src/ds/focus.h): Border's ring round the
+ * focused still, holding still as the row slides under it; Lift raises the
+ * focused still on its own shadow; None leaves the others a step back;
+ * Bar's bar is under it (home_draw). One painter for the whole frame and
+ * the focus frame, so the two lay the same pixels. */
+static void row_paint(home *h,SDL_Renderer *r,const home_item *items,const row_draw *row,int nr,
+                      bool gallery,ds_focus_marks marks,uint32_t phase,uint32_t *wait,const bool *only)
 {
+    const float fs=gallery?HOME_GALLERY_STILL:128.0f, fy0=gallery?HOME_GALLERY_Y:HOME_ROW_Y-8;
+
+    /* `only`: the layers to lay (focus_layers' slots), or NULL for all */
+    if(marks.ring && (!only || only[0]))
+        ds_focus_ring(r,(SDL_FRect){HOME_MID_X-fs/2,fy0-fs/2,fs,fs},DS_RADIUS_CELL,255);
     for(int k=0;k<nr;k++) {
-        SDL_Rect c=cover(row[k].dst);
-        hit[k]=SDL_HasIntersection(&c,&content);
+        SDL_FRect d=row[k].dst;
+        if(only && !only[1+k]) continue;
+        float f=gallery?(d.w-208)/176.0f:(d.w-112)/16.0f, a=row[k].alpha;
+        if(f<0) f=0;
+        if(f>1) f=1;
+        if(marks.lift==DS_FOCUS_LIFT_HIGH) { d.y-=8*f; sprite_shade(h,r,&items[row[k].item],d,marks.lift,f); }
+        if(marks.focus==LOOK_FOCUS_NONE) a*=.6f+.4f*f;
+        sprite(h,r,&items[row[k].item],d,row[k].active,phase,wait,a);
     }
-    for(int k=0;k<nr;k++) for(int j=0;j<nr;j++) {
-        SDL_Rect a=cover(row[k].dst), b=cover(row[j].dst);
-        if(hit[k] && j!=k && SDL_HasIntersection(&a,&b)) return false;
+}
+
+/* The layers of Spotlight's stage over the ground besides the focused
+ * sprite, as row_paint lays them: Border's ring, then each of the row's
+ * sprites (lifted, its shade under it). `ext` is the whole pixels each can
+ * touch, empty for a layer not drawn. Slot 0 is the ring, 1 + k row[k]. */
+#define FOCUS_LAYERS (1 + ROW_SLOTS)
+#define RING_REACH   10   /* units: the ring's gap and line round its tile, on any panel, rounded out */
+
+static SDL_Rect px_cover(float x, float y, float w, float h)
+{
+    int x0=(int)floorf(x), y0=(int)floorf(y);
+    return (SDL_Rect){x0,y0,(int)ceilf(x+w)-x0,(int)ceilf(y+h)-y0};
+}
+
+static int focus_layers(const home *h,int count,int cursor,uint32_t now,ds_focus_marks marks,
+                        row_draw row[ROW_SLOTS],SDL_Rect ext[FOCUS_LAYERS])
+{
+    int nr=row_draws(h,false,count,cursor,now,row);
+
+    memset(ext,0,sizeof(SDL_Rect)*FOCUS_LAYERS);
+    if(marks.ring)
+        ext[0]=px_cover(HOME_MID_X-64-RING_REACH,HOME_ROW_Y-8-64-RING_REACH,128+2*RING_REACH,128+2*RING_REACH);
+    for(int k=0;k<nr;k++) {
+        SDL_FRect d=row[k].dst;
+        float f=(d.w-112)/16.0f;
+        SDL_Rect e;
+
+        if(f<0) f=0;
+        if(f>1) f=1;
+        if(marks.lift==DS_FOCUS_LIFT_HIGH) d.y-=8*f;
+        e=px_cover(d.x,d.y,d.w,d.h);
+        if(marks.lift==DS_FOCUS_LIFT_HIGH && f>0.02f) {
+            /* sprite_shade's rect, its deepest: pad, grow and drop */
+            float u=d.w/(float)SA_STILL, pad=SHADE_PAD*2*u, grow=d.w*.03f, dy=d.h*.075f;
+            SDL_Rect sh=px_cover(d.x-pad-grow,d.y-pad-grow,d.w+2*(pad+grow),d.h+2*(pad+grow)+dy), u2;
+
+            SDL_UnionRect(&e,&sh,&u2);
+            e=u2;
+        }
+        ext[1+k]=e;
     }
+    return nr;
+}
+
+/* The ground a focus frame lays and the layers it draws again whole over
+ * it: the sprite's frames' part of its square; every layer over the
+ * square, which the sprite drawn again whole would cover; and every layer
+ * reaching ground already laid, round until none more does. False when
+ * that runs to more than HOME_FOCUS_GROUNDS rects or reaches Bar's bar,
+ * which a focus frame does not draw. */
+static bool focus_plan(const home *h,int count,int cursor,uint32_t now,
+                       SDL_Rect ground[HOME_FOCUS_GROUNDS],int *ng,bool again[FOCUS_LAYERS],
+                       row_draw row[ROW_SLOTS],int *nr)
+{
+    const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_STILL);
+    const SDL_Rect square=px_cover(FOCUS.x,FOCUS.y,FOCUS.w,FOCUS.h);
+    SDL_Rect ext[FOCUS_LAYERS], c=content_rect(h);
+    bool grew=true;
+    int n=0;
+
+    if (c.w<=0 || c.h<=0) return false;
+    *nr=focus_layers(h,count,cursor,now,marks,row,ext);
+    ground[n++]=c;
+    for(int i=0;i<FOCUS_LAYERS;i++) again[i]=ext[i].w>0 && SDL_HasIntersection(&ext[i],&square);
+    for(int i=0;i<FOCUS_LAYERS;i++) if(again[i]) {
+        if(n==HOME_FOCUS_GROUNDS) return false;
+        ground[n++]=ext[i];
+    }
+    while(grew) {
+        grew=false;
+        for(int i=0;i<FOCUS_LAYERS;i++) {
+            if(again[i] || ext[i].w<=0) continue;
+            for(int j=0;j<n && !again[i];j++) again[i]=SDL_HasIntersection(&ext[i],&ground[j]);
+            if(!again[i]) continue;
+            if(n==HOME_FOCUS_GROUNDS) return false;
+            ground[n++]=ext[i];
+            grew=true;
+        }
+    }
+    if(marks.bar) {
+        const int under_y=HOME_ROW_Y-8+64+16;
+        SDL_Rect bar={HOME_MID_X-64,under_y-8,128,32};   /* its pill and round it */
+
+        for(int j=0;j<n;j++) if(SDL_HasIntersection(&ground[j],&bar)) return false;
+    }
+    *ng=n;
     return true;
 }
 
 bool home_focus_alone(const home *h,home_layout layout,int count,int cursor,uint32_t now)
 {
+    SDL_Rect ground[HOME_FOCUS_GROUNDS];
+    bool again[FOCUS_LAYERS];
     row_draw row[ROW_SLOTS];
-    bool hit[ROW_SLOTS];
-    SDL_Rect c;
+    int ng, nr;
 
     if (layout!=HOME_SPOTLIGHT || count<=0 || cursor<0 || cursor>=count ||
         row_moving(&h->motion,now))
         return false;
-    c=content_rect(h);
-    return c.w>0 && c.h>0 && row_over(row,row_draws(h,false,count,cursor,now,row),c,hit);
+    return focus_plan(h,count,cursor,now,ground,&ng,again,row,&nr);
 }
 
 int home_focus_ground(const home *h,int count,int cursor,uint32_t now,SDL_Rect out[HOME_FOCUS_GROUNDS])
 {
+    bool again[FOCUS_LAYERS];
     row_draw row[ROW_SLOTS];
-    bool hit[ROW_SLOTS];
-    SDL_Rect c=content_rect(h);
-    int nr=row_draws(h,false,count,cursor,now,row), n=0;
+    int ng, nr;
 
-    if (c.w<=0 || c.h<=0 || !row_over(row,nr,c,hit)) return 0;
-    out[n++]=c;
-    for(int k=0;k<nr && n<HOME_FOCUS_GROUNDS;k++) if(hit[k]) out[n++]=cover(row[k].dst);
-    return n;
+    return focus_plan(h,count,cursor,now,out,&ng,again,row,&nr) ? ng : 0;
 }
 
 uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int count,int cursor,
@@ -737,16 +823,18 @@ uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int coun
 {
     draw_state saved=save_state(r);
     uint32_t wait=UINT32_MAX, phase=animate?now-h->animation:0, row_wait=UINT32_MAX;
+    SDL_Rect ground[HOME_FOCUS_GROUNDS];
+    bool again[FOCUS_LAYERS];
     row_draw row[ROW_SLOTS];
-    bool hit[ROW_SLOTS];
-    int nr=row_draws(h,false,count,cursor,now,row);
+    int ng, nr;
 
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     sprite(h,r,&items[cursor],FOCUS,true,phase,&wait,1);
-    /* Then the row's sprites the content reaches, over it, in home_draw's order */
-    if (row_over(row,nr,content_rect(h),hit))
-        for(int k=0;k<nr;k++) if(hit[k])
-            sprite(h,r,&items[row[k].item],row[k].dst,row[k].active,phase,&row_wait,row[k].alpha);
+    /* Then the layers on the ground laid, whole, in home_draw's order:
+     * Border's ring, the row's sprites with Highlight's lift, shade and
+     * step back (row_paint) */
+    if (focus_plan(h,count,cursor,now,ground,&ng,again,row,&nr))
+        row_paint(h,r,items,row,nr,false,ds_focus_marks_of(DS_FOCUS_STILL),phase,&row_wait,again);
     if(!animate) wait=UINT32_MAX;
     restore_state(r,saved);
     return wait;
@@ -1168,23 +1256,9 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
         return wait;
     }
     if(!gallery) sprite(h,r,&items[cursor],FOCUS,true,phase,&wait,1);
-    /* Highlight (src/ds/focus.h): Border's ring round the focused still,
-     * holding still as the row slides under it; Lift raises the focused
-     * still on its own shadow; None leaves the others a step back; Bar's
-     * bar is under it below */
     const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_STILL);
-    const float fs=gallery?HOME_GALLERY_STILL:128.0f, fy0=gallery?HOME_GALLERY_Y:HOME_ROW_Y-8;
-    if(marks.ring) ds_focus_ring(r,(SDL_FRect){HOME_MID_X-fs/2,fy0-fs/2,fs,fs},DS_RADIUS_CELL,255);
     row_draw row[ROW_SLOTS]; int nr=row_draws(h,gallery,count,cursor,now,row);
-    for(int k=0;k<nr;k++) {
-        SDL_FRect d=row[k].dst;
-        float f=gallery?(d.w-208)/176.0f:(d.w-112)/16.0f, a=row[k].alpha;
-        if(f<0) f=0;
-        if(f>1) f=1;
-        if(marks.lift==DS_FOCUS_LIFT_HIGH) { d.y-=8*f; sprite_shade(h,r,&items[row[k].item],d,marks.lift,f); }
-        if(marks.focus==LOOK_FOCUS_NONE) a*=.6f+.4f*f;
-        sprite(h,r,&items[row[k].item],d,row[k].active,phase,&wait,a);
-    }
+    row_paint(h,r,items,row,nr,gallery,marks,phase,&wait,NULL);
     const char *label=home_label(items[cursor].key,items[cursor].name);
     if(gallery && items[cursor].name && items[cursor].name[0] &&
        ui_text_width(ui_font(UI_F_TITLE),items[cursor].name)<=880) label=items[cursor].name;
