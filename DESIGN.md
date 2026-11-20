@@ -5800,51 +5800,127 @@ slow core and the step in fast forward) and `make check-emumeter` (the rule).
 ### 11.53 Downloads
 *(My picks in the downloads lab, 2026-11-19: one place for every download of
 game data, its name **Downloads**, one door - the Scraper and Achievements
-rows go - and a list with Download on top. The lab's other picks, a run that
-goes on behind the screens (11.19) and side by side on lanes of its own
-(src/dlq.h), came first.)*
+rows go - a list with Download on top, everything but videos in it from the
+start, side by side, one stream, continue in the background and wait in a
+game, the rest goes on when ScreenScraper's day runs out. 1.1.0's first page
+was a MENU panel; I saw it on the Pixel 2 and it was not the design I picked,
+so this is the lab's page, screen by screen.)*
 
-MENU > Games > **Downloads**, where Scraper was, is a MENU page (11.3) of
-every download of game data, src/dl_screen.c:
+MENU > Games > **Downloads**, where Scraper was, opens a page (the Flash
+Drive pages' frame, src/ds/page.h; src/dl_screen.c): Zyper beside the
+heading, a second line under it in **meta** **text-soft** with its mark - a
+clock and `about 12 min`, the Wi-Fi mark and `Needs Wi-Fi`, a tick and
+`Everything is here`, the arrow into a tray and `Downloading · 41%` - the
+body, one line over the keys, the keys. A console's menu has the same page
+for that console alone where Box Art was (its row is **Downloads**, its
+value the console's count), its name as the heading.
 
-- **Download**, first, so A, A from MENU gets everything: what every kind
-  that is in adds to the card and the time it takes, "186 MB · 15 min"
-  (the Scraper's and the achievements download's own estimates, the two
-  servers side by side, so the longer of the two); "Nothing to fetch";
-  "Needs Wi-Fi"; "Downloading · 41%" while a run goes on. A starts each
-  kind's lane at once (11.19). A plan that will not fit on the card with
-  200 MB to spare says "Not enough room on the card" and starts nothing.
-- a rule, then the kinds, each with what it lacks, as MENU values begin:
-  **Covers** ("41 missing", "Complete", "Off"), **Videos** ("63 to fetch",
-  "Needs ScreenScraper"), **Names and Details** ("199 names"),
-  **Achievements** ("150 to fetch", "Ready offline", "Sign in"). While a
-  lane runs its kinds say how far it has got, the number alone ("37%"), so
-  a long name keeps its room. A opens the kind's own page: the Scraper's
-  (11.19) for the first three, the achievements download's (11.49), or the
-  sign-in when nobody is signed in.
-- a rule, then **Settings**: **ScreenScraper**, **RetroAchievements** and
-  **SteamGridDB**, each with its account (or Link, Sign in) and its page;
-  a rule; what Download gets, each **On** or **Off** as every MENU switch is
-  (Left, Right, A): **Covers**, **Videos**, **Names and Details** (the
-  Scraper's own switch, the same as in its Settings) and **Achievements**;
-  a rule; **Video Snaps** (11.19's page).
+**The hub.** A list in rows DS_LINE_MENU tall on the ground, the focus fill
+(**accent**, **radius-row**) gliding over **quick**: **Download**, a rule,
+then each kind with its mark - **Covers** (a cover), **Videos** (a screen and
+a play mark), **Names and Details** (an open book), **Achievements** (a cup) -
+its name in **menu** and its value in **meta** **text-dim**: `41 missing`,
+`63 to fetch`, `199 to look up`, `150 to download`, `Complete`, `Ready
+offline`, `Off` (the row in **text-dim**), `Needs ScreenScraper`, `Sign in
+first`, and while its lane runs how far it has got (`37%`). Download's value
+is the size and the time of every kind that is in, the lanes side by side so
+the longer of the two (`186 MB · about 12 min`), `Nothing to fetch`, `Needs
+Wi-Fi` or `Downloading · 41%`. Over the keys: on Download what it adds and
+the card's room (`186 MB to fetch · 11.2 GB free`, in **warning** when it
+would leave less than 200 MB, and then A says "Not enough room on the
+card"), or `It all works offline now`; on a kind where it comes from and its
+room (`150 MB on the card · libretro first`); with no network the Pixel 2's
+"A Wi-Fi adapter or a phone by USB works too." or the Brick's "Connect in
+MENU > Connections > Wi-Fi.". Keys: A Download (Open while a run goes on), Y
+Systems, START Settings, B Close; on a kind A Open, `< >` On/Off, Y Systems,
+START Settings, B Close. **LEFT** and **RIGHT** on a kind take it in or out of
+Download (`dl.off.covers`, `dl.off.videos`, `dl.off.ach`; Names and Details is
+the Scraper's own `scraper.names`) and its size and time change at once; in
+with no system's switch on, every system's goes on (the lab's rule). The
+cursor opens on Download, so A, A from MENU gets everything.
 
-A kind that is Off says so on the page and Download leaves it out; a
-system's own switches (the Scraper's Systems) still choose within it, and
-Names and Details asks names for a system whose covers switch is on even
-with Covers off, its games with no cover too (artscrape.c's
-art_names_rule). Every kind starts On (my pick: everything but videos,
-whose systems start off). The counts are taken as the page opens, after a
-switch or a page it opened, and as a lane ends - never a frame. MENU's
-Downloads row says how far a run behind the screens has got, else what the
-Scraper's page counted as it closed.
+**Loading.** The page draws at once. Its counts (src/dlcount.h) are the
+Scraper's and the achievements download's own, a system at a time, at most
+DL_COUNT_MS of a frame: until the first count ends the second line and every
+value say `Counting…`; after it, the last count shows at once and a new one
+goes behind it. The achievements count reads each system's .cheevos folder
+once (radl_plan_one) instead of looking for a game's set and its .none one by
+one, which on a FAT card walked the folder for every game. The switches are
+read when the totals are made, so Left and Right never count again. The log
+says how long a count took (`downloads: counted 12 systems in 840 ms`).
 
-*(The lab drew the kinds' in and out on the page itself, Left and Right on
-each kind's row. In MENU a row that steps opens its own list on A, and the
-kinds' A opens their pages, so the switches are Settings' rows.)*
+**A kind's page** (A on Covers, Videos, Names and Details): the kind's name
+as the heading, the time under it; each system's icon over a tick (lit when
+it lacks nothing, the icon dim when the system's switch is off; nine at
+most, or eight and `+N`); two **raised** tiles, what the card has (On the
+Card, Named) and what a download adds (Missing, To Download, To Look Up) with
+its size; over the keys what it adds and from where. A downloads that kind
+alone, X is Videos for (Videos), Y Systems, B Back. **Achievements** opens
+1.0.6's page (11.49), its B Back.
 
-Host shots: `--downloads STATE`, 0 the plan, 1 a run going on, 2 every kind
-done or out, 3 no network and nobody signed in, 4 Settings.
+**Systems** (Y): a row per system (its icon and name), a column per kind
+under the kind's mark: the count missing in **text**, a tick in
+**accent-ink**, a dash in **text-dim** when it is off. A ring of
+**accent-ink** on the cell; over the keys the cell in words (`NES · Names and
+Details · 30 to look up`). Up and Down go round, Left and Right stop at the
+ends. A switches the cell (covers `scraper.covers.<folder>`, videos
+`snaps.get.<folder>`, names `dl.names.<folder>` - the covers switch until
+set apart -, achievements `dl.off.ach.<folder>`); X deletes the system's
+videos or achievement sets after a question; Y opens its games.
+
+**A system's games** (Y on a row): the system's name, `96 games`, a list of
+its games with a mark per kind at its right - lit (on the card), dim
+(missing), struck (RetroAchievements has none) - and under it what the game
+has and lacks. A opens **the game's panel** (11.3): Cover, Video, Names and
+Details, Achievements with their values (a video not on the card is `None`),
+a rule, **Get What's Missing**. A on
+Cover or Video opens its Cover and Video page (11.34); A on Names or
+Achievements gets them, and Get What's Missing everything it lacks, in the
+panel, each value `Getting…` until its file lands: names with the cover and
+the video in one ScreenScraper request, the set by the game's hash as a
+first play gets it.
+
+**Settings** (START), a panel: **ScreenScraper**, **RetroAchievements**,
+**SteamGridDB** with their accounts, **Video Snaps** (11.19's page),
+**Names and Details** (On or Off), **On the Card** (each kind's room; A on
+Videos or Achievements deletes them all after a question, cursor on Cancel;
+Covers and Names say why they are not deleted here). RetroAchievements' page
+says who is signed in, signs in again, and **Sign Out** after a question:
+earned achievements stay on the account, unlocks still waiting stay in their
+queue for the next sign-in (there was no sign-out before).
+
+**The run**, one stream for every lane (src/dlq.h): the game being asked
+about as the heading (the art lane's, else the achievements lane's); under
+it its system's icon, the kind's mark, the source's mark (a cloud
+ScreenScraper, books on a shelf libretro, a grid SteamGridDB, the cup
+RetroAchievements), the bar and `214 / 573`. What came last lands big at the
+left over 520 ms while the six before it move one place along (the
+Scraper's run, 11.19): each is the game's cover, or its card with no art (11.1's
+one name treatment, painted on a thread of its own) when it has none, with a
+lime corner mark for what came - a play mark, the
+book, the cup and the set's count. Over the keys: the counts per kind as
+marks and the time left beside a clock, or in **warning** why it waits -
+`Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`. B
+Continue in background (the page closes, the corner's ring shows it, MENU's
+row says `Downloading · 41%`), Y Stop. **Done**: **All done**, **Stopped**
+(why under it) or **Sign in again**; the wall of what came (fourteen at
+most), the counts, and over the keys `It all works offline now` or `The
+next download starts from what is missing`. A Again (from what is missing,
+once the card is counted), B Close. A run that ends well behind the screens
+says so in Zyper's bubble on the shelf: `Downloads done`, `41 covers · 150
+achievement sets`.
+
+The top bar's download mark (11.12) is the row's whole 24: its ring and its
+arrow take the battery outline's 3-unit stroke and its ring is whole in
+**text-dim**, swept in **accent-ink**, so it stands as tall and as heavy as
+the fan and the battery.
+
+Host shots: `--downloads STATE`, 0 the hub, 1 a run going on, 2 everything
+done, 3 no network and nobody signed in, 4 Settings, 5 counting, 6 on
+Covers, 7 Covers out, 8 to 10 the kinds' pages, 11 Systems, 12 a system's
+games, 13 a game's panel, 14 the run, 15 waiting for Wi-Fi, 16 paused, 17
+done, 18 stopped, 19 On the Card, 20 RetroAchievements' account, 21 a
+console's page, 22 Videos for.
 
 ### 11.54 Rumble
 *(Asked for on the Discord after 1.0.6: turn the motor down or off. My picks

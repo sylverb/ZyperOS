@@ -240,7 +240,7 @@ EXTRA = {
     "system-menu-list": ("demo", "GBA", ["--screen", "games", "--view", "list", "--menu", "View"]),
     # ...and at its end: with View and Shader (1.0.5), Box Art is below the
     # first shot's rows
-    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Box Art"]),
+    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Downloads"]),
     "storage-art": ("demo", "PS1", ["--storage", "art"]),
     "storage-states": ("demo", "PS1", ["--storage", "states"]),
     "storage-delete": ("demo", "PS1", ["--storage", "delete"]),
@@ -464,13 +464,40 @@ EXTRA = {
     "scraper-page-done-full": ("demo", "PS1", ["--scraper-page", "15"]),
     # and the Video Snaps page it opens: how the shelf plays them, the room
     "scraper-video-snaps": ("demo", "PS1", ["--scraper", "3"]),
-    # MENU > Downloads (DESIGN.md 11.53): the plan, a run going on, every
-    # kind done or out, no network and nobody signed in, and its Settings
+    # MENU > Downloads (DESIGN.md 11.53), every screen and state of the
+    # downloads lab's picked design: the hub (its plan, a run going on, every
+    # kind done, no network and nobody signed in, counting, on a kind, a kind
+    # out), Settings, the kinds' pages, Systems, a system's games and a
+    # game's panel, the run (going, waiting for Wi-Fi, paused), done and
+    # stopped, On the Card, RetroAchievements' account, a console's page and
+    # Videos for
     "downloads": ("demo", "PS1", ["--downloads", "0"]),
     "downloads-running": ("demo", "PS1", ["--downloads", "1"]),
     "downloads-done": ("demo", "PS1", ["--downloads", "2"]),
     "downloads-offline": ("demo", "PS1", ["--downloads", "3"]),
     "downloads-settings": ("demo", "PS1", ["--downloads", "4"]),
+    "downloads-counting": ("demo", "PS1", ["--downloads", "5"]),
+    "downloads-on-covers": ("demo", "PS1", ["--downloads", "6"]),
+    "downloads-covers-out": ("demo", "PS1", ["--downloads", "7"]),
+    "downloads-covers": ("demo", "PS1", ["--downloads", "8"]),
+    "downloads-videos": ("demo", "PS1", ["--downloads", "9"]),
+    "downloads-names": ("demo", "PS1", ["--downloads", "10"]),
+    "downloads-systems": ("demo", "PS1", ["--downloads", "11"]),
+    "downloads-games": ("demo", "PS1", ["--downloads", "12"]),
+    "downloads-game": ("demo", "PS1", ["--downloads", "13"]),
+    "downloads-run": ("demo", "PS1", ["--downloads", "14"]),
+    "downloads-run-no-wifi": ("demo", "PS1", ["--downloads", "15"]),
+    "downloads-run-paused": ("demo", "PS1", ["--downloads", "16"]),
+    "downloads-all-done": ("demo", "PS1", ["--downloads", "17"]),
+    "downloads-stopped": ("demo", "PS1", ["--downloads", "18"]),
+    "downloads-on-the-card": ("demo", "PS1", ["--downloads", "19"]),
+    "downloads-ra-account": ("demo", "PS1", ["--downloads", "20"]),
+    "downloads-console": ("demo", "PS1", ["--downloads", "21"]),
+    "downloads-videos-for": ("demo", "PS1", ["--downloads", "22"]),
+    "downloads-ra-signed-out": ("demo", "PS1", ["--downloads", "24"]),
+    "downloads-on-names": ("demo", "PS1", ["--downloads", "25"]),
+    "downloads-covers-complete": ("demo", "PS1", ["--downloads", "26"]),
+    "downloads-no-accounts": ("demo", "PS1", ["--downloads", "27"]),
     # A game's Cover and Video (DESIGN.md 11.34) in every state, a tile of
     # each kind and region focused, Delete's question and the message of a
     # download that did not come; and the details row's other value

@@ -119,6 +119,7 @@ typedef struct {
 	char found_path[512], found_game[128], found_folder[64];
 	int  found_src;
 	bool found_video;
+	bool found_names;    /* names and details came for it (with its video, or alone) */
 	/* The system the run is on (its folder), for the screen's icon */
 	char folder_now[64];
 } art_progress;

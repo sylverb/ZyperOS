@@ -4046,6 +4046,13 @@ static bool snap_wanted(const char *folder, const char *file)
 	return snaps_for_game(which, fav_is(tag, file), which == SNAPS_FOR_PLAYED);
 }
 
+/* The rule back after a game's own fetch asked for its video alone
+ * (Downloads' game panel) */
+void ss_run_videos_default(void)
+{
+	ss_run_videos(snap_wanted);
+}
+
 /* MENU > Scraper's value, from the last count of missing covers: taken as
  * its page closes (scraper_page), never per frame */
 char g_scraper_val[32];
@@ -4339,6 +4346,20 @@ static void ra_news_watch(void)
 	snprintf(g_heatpop.line1, sizeof g_heatpop.line1, TN(S_CHEEVOS_SENT, g_ra_news), g_ra_news);
 	snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", T(S_CHEEVOS_SENT_WHERE));
 	g_ra_news = 0;
+}
+
+/* A download that went on behind the screens has ended well: said once, in
+ * Zyper's bubble on the shelf ("Downloads done", "41 covers · 150 achievement
+ * sets"), as the update's news is; and the side lights' done (dlq's lanes) */
+static void dl_news_watch(void)
+{
+	char l1[96], l2[160];
+
+	if (g_heatpop.on || g_songpop.on || g_up_news[0][0]) return;
+	if (!downloads_news(l1, sizeof l1, l2, sizeof l2)) return;
+	heatpop_show(plat_now_ms());
+	snprintf(g_heatpop.line1, sizeof g_heatpop.line1, "%s", l1);
+	snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", l2);
 }
 
 /* The update's own clock, every 2 s, from every screen's loop through
@@ -7420,6 +7441,11 @@ int main(int argc, char *argv[])
 	 * card's empty .media folders go once the shelf is up (after_start_step). */
 	up_cable_tidy();
 
+	/* A test of MENU > Downloads (dl_test): the page at once */
+	if (getenv("ZYPEROS_DOWNLOADS_TEST")) {
+		downloads_screen(&a);
+		a.running = false;
+	}
 	/* A test of MENU > Scraper's page (scp_test): the page at once */
 	if (getenv("ZYPEROS_SCRAPER_TEST")) {
 		scraper_page(&a, NULL);
@@ -7619,6 +7645,7 @@ int main(int argc, char *argv[])
 		heat_watch();
 		up_news_watch();
 		ra_news_watch();
+		dl_news_watch();
 
 		/* SELECT is Muse, on the shelf and on every screen but a running
 		 * game - see muse_open. Before the shelf's own keys, which do not use
