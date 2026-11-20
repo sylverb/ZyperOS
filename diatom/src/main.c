@@ -42,6 +42,7 @@ static size_t      g_frame_cap;
 static int         g_frame_w, g_frame_h;
 static size_t      g_frame_pitch;
 static bool        g_frame_fresh;
+static bool        g_frame_gpu;     /* the last frame handed over was the GPU's (hw.c) */
 
 /* The state plane, defined below but reachable from the menu loop that comes
  * first. */
@@ -1029,8 +1030,10 @@ void diatom_on_video(const void *data, unsigned w, unsigned h, size_t pitch)
 		g_frame_w = (int)w;
 		g_frame_h = (int)h;
 		g_frame_fresh = true;
+		g_frame_gpu = true;
 		return;
 	}
+	g_frame_gpu = false;
 	/* A turned frame is stored packed, which is never more than pitch * h,
 	 * so one size covers both and the buffer still only grows - the frame
 	 * loop allocates nothing once it has seen its largest frame. */
@@ -3386,8 +3389,11 @@ static int run_session_inner(const diatom_session *sn)
 			uint64_t p0 = diatom_port_now_us();
 			/* A frame run undrawn is not presented: its pixels are the last
 			 * drawn frame's, already on the panel, and presenting them again
-			 * would spend on the upload what skipping saved. */
-			present_frame(g_frame_fresh && last_shown);
+			 * would spend on the upload what skipping saved. Unless it is a
+			 * GPU frame at 1x under frameskip=late, drawn ahead by a core on
+			 * a thread of its own (pace.h, pace_present_undrawn). */
+			present_frame(g_frame_fresh &&
+			              (last_shown || pace_present_undrawn(g_frame_gpu, fast, sn->late_skip)));
 			t_shown = diatom_port_now_us();
 			g_present_us += t_shown - p0;
 			g_present_frames++;
