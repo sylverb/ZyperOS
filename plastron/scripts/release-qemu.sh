@@ -1,21 +1,28 @@
 #!/bin/sh
-# Runs inside the build container (make release-qemu): QEMU's image, built as
-# a release is, from an empty output folder of its own, for ZyperOS's
-# tools/qemu-image.sh to publish, so a developer without plastron's build can
-# run ZyperOS in QEMU (ZyperOS's docs/qemu.md). Into /work/release-qemu:
+# Runs inside the build container (make release-qemu), for a ZyperOS
+# release: QEMU's image, built as the devices' release images are, from an
+# empty output folder of its own, so a developer without plastron's build
+# runs that release in QEMU and in ZyperOS's Simulator (ZyperOS's
+# docs/qemu.md). Into /work/release, beside the devices' files:
 #
-#   zyperos-qemu.tar.xz        sdcard.img, Image and u-boot.bin, what
-#                              ZyperOS's tools/qemu-run.sh boots
-#   zyperos-qemu-sources.tar   the licenses and sources of everything in it
+#   ZyperOS-v<version>-qemu.tar.xz   sdcard.img, Image and u-boot.bin, what
+#                                    ZyperOS's tools/qemu-run.sh boots
+#
+# ZyperOS's tools/release.sh puts it on the release with its sha256 in
+# SHA256SUMS, and tools/qemu-run.sh fetch downloads it by that. This build's
+# legal-info stays in its output folder, with U-Boot's and Buildroot's
+# sources added as scripts/release.sh adds them to the Pixel 2's.
 #
 # The image carries no SSH key and no private key of any kind: root's key
 # comes from QEMU at every boot (board/qemu/post-build.sh), and the host keys
-# are made at boot. Both are checked here on what goes out, the root
-# filesystem as squashed, not trusted.
+# are made at boot. scripts/qemu-key-check.sh checks both on what goes out,
+# the root filesystem as squashed, not trusted.
 set -eu
 
+VERSION=${1:?usage: release-qemu.sh VERSION}
+NAME=ZyperOS-v$VERSION-qemu.tar.xz
 OUTPUT=/work/release-output-qemu
-RELEASE=/work/release-qemu
+RELEASE=/work/release
 SOURCES=$OUTPUT/legal-info/sources
 STAGE=/tmp/release-qemu
 
@@ -64,17 +71,16 @@ if [ -n "$CORES_TAG" ]; then
 	EOF
 fi
 
-# The three files, one archive: tools/qemu-run.sh fetch checks its sha256
-# against ZyperOS's tools/qemu/image.pin and takes exactly these names
+# The three files, one archive: tools/qemu-run.sh fetch takes exactly
+# these names, after the archive's sha256 matches the release's SHA256SUMS
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 cp "$OUTPUT/images/sdcard.img" "$OUTPUT/images/Image" "$STAGE/"
 plastron_lock /work/qemu-uboot -s
 cp /work/qemu-uboot/u-boot.bin "$STAGE/"
 mkdir -p "$RELEASE"
-rm -f "$RELEASE/zyperos-qemu.tar.xz" "$RELEASE/zyperos-qemu-sources.tar"
+rm -f "$RELEASE/$NAME"
 tar -C "$STAGE" --owner=0 --group=0 --numeric-owner -cf - sdcard.img Image u-boot.bin |
-	xz -T0 -9 > "$RELEASE/zyperos-qemu.tar.xz"
-tar -C "$OUTPUT" -cf "$RELEASE/zyperos-qemu-sources.tar" legal-info
+	xz -T0 -9 > "$RELEASE/$NAME"
 rm -rf "$STAGE"
-ls -l "$RELEASE/zyperos-qemu.tar.xz" "$RELEASE/zyperos-qemu-sources.tar"
+ls -l "$RELEASE/$NAME"
