@@ -65,6 +65,11 @@ static float clampf(float v, float lo, float hi)
 
 static float sd_rbox(const shape *s, float x, float y)
 {
+	/* Beside the straight edges, which are most of the pill, the nearest
+	 * edge is a straight one: no square root. The bar repaints every frame
+	 * while the boost moves, on the thread Diatom presents from. */
+	if (x >= s->a + s->r && x <= s->c - s->r) return fmaxf(s->b - y, y - s->d);
+	if (y >= s->b + s->r && y <= s->d - s->r) return fmaxf(s->a - x, x - s->c);
 	float cx = (s->a + s->c) / 2, cy = (s->b + s->d) / 2;
 	float hx = (s->c - s->a) / 2 - s->r, hy = (s->d - s->b) / 2 - s->r;
 	float qx = fabsf(x - cx) - hx, qy = fabsf(y - cy) - hy;

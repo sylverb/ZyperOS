@@ -1384,8 +1384,11 @@ in **press** and plays **accept**; a delete plays **back**.
 
 ### 11.6 Volume and brightness bar
 A pill (src/osdbar.c) 452 x 64 at the top center, 22 below the top edge:
-**surface** at 93%, **edge**, **elevation.bar**. The mark - a speaker with one
-to three waves and a cross at silence, or a sun whose rays grow - in
+**surface** at 93%, **edge**, **elevation.bar**. The mark - a speaker whose
+three waves grow arc by arc, each over its third of the scale, with a cross
+at silence, or a sun whose disc and rays grow - in a 52-unit box 42 units in
+from the pill's left end, 13 units clear of the first segment at its
+largest; it follows the level in **quick** (out), up and down. It is in
 **accent-ink** for volume and **light** for brightness, and one segment per
 step in the same color over **track**. In **quick** (out) sliding down 14,
 held **hold.bar** after the last press, out in **fade.out**. The same pixels
@@ -1406,6 +1409,65 @@ PX30 loads its table with the table off. A rung kept before 1.0.6 moved once
 to the new rung nearest its light. The player's Screen Colors (11.42) go in
 the same table, on every rung. *(Discord, 1.0.6: "one or two dimmer
 steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
+
+**The boost past the top** (src/boost.h, src/levels.c). Some films and
+games are quiet even at volume 20, and the top rung of brightness is already
+the backlight's own maximum. At the top, the up key held **hold-boost** (1 s)
+more, or pressed three more times with no more than **tap-gap** (1 s)
+between two presses, opens cells past it. While it charges, the pill's end
+pushes out by one big charging cell (36 x 30 units, in the first 30% of the
+charge, on out) and the cell fills in the theme's **warning**: linearly with
+a hold, a third with each press; let go early, or the presses stop for
+longer than tap-gap, and it drains back at the speed and on the curve it
+filled. Full, it settles to a cell's size in **boost-open** (240 ms, out)
+while the pill grows both ways, staying centered, and the other cells come
+out of its end; a thin mark in **text-dim** at 70% stands at the top between
+the steps and the cells; the rim flashes in **warning** and fades back to
+**edge** over **boost-flash** (360 ms, fade); and a 40 ms rumble at the
+player's Rumble level is felt, with no sound - a volume press never makes a
+UI sound, the media's own is the feedback. The opening fills the first cell
+and a key still held stops there: each further cell is a press. Each cell is
+a little taller than the one before, 16 to 28 units, so the boost reads by
+its shape too, with any accent (a Red, Orange or Pink accent's ink is near
+**warning**) and to a color-blind player. A cell fills from its left in
+**quick** and empties in **exit**; a press on a full boost pushes the end 6
+units out and back (**press**, then **exit**). The boost's parts of the mark
+are in **warning** too, so the mark keeps its color: a fourth wave, and
+eight short rays between the sun's, growing with the cells filled.
+
+Going down empties the cells one by one; at the top they wait, empty; the
+next press goes under the top and folds them back into the end in **exit**.
+An empty boost closes with the bar; a filled one stays, kept on the card
+beside the level (`volume_boost`, `brightness_boost`), so it is there at the
+next start. A plug going in or out closes the volume boost: the new output
+starts at the top without it.
+
+- **Volume:** six cells of 2 dB, up to +12 dB, near a step under the top
+  (1.8 dB on the Pixel 2's speaker, 2.3 on the Brick). The gain is software,
+  in src/eqdsp.h after the equalizer's bands, moving over 20 ms, with a
+  limiter that keeps every peak under -1 dB of full scale (down at once, back
+  over 100 ms, both channels together): a quiet film gets louder, a loud one
+  only flatter, and the speaker never gets more than a loud game gives it at
+  20. It opens in MP4 (Muse, told with a GAIN line), in a game (Diatom) and
+  over a port (the zyperos-eq plugin, now in every port's chain, the gain in
+  the shared file that portkeys writes during the port). MP4's lock screen
+  fills and empties an open one but never opens one: a held key in a pocket
+  must not. The menus show the bar as it was, the menu music is never
+  boosted, and a press under the top there folds a kept boost.
+- **Brightness:** three cells, each a lift of the mid-tones on the display's
+  gamma table after the player's Screen Colors, like Gamma +3: x^0.88,
+  x^0.76, x^0.64 (mid grey 128 to 139, 151 and 164), black and white kept.
+  No more light, no frame and no battery: a bright scene looks flatter. It
+  opens anywhere. On the Pixel 2 each step blinks one frame as any table
+  load; the Brick loads it at vblank. Screenshots never show it.
+
+My picks in the volume boost lab, 2026-11-19: the hold of 1 s and three
+presses each within 1 s, the big charging cell, marks that grow with the
+level, rising warning cells, the pill growing both ways, six cells, the end
+pushing out, a held key stopping at the first cell, a short rumble, the
+boost kept like the level, games, MP4 and ports, headphones the same (a plug
+closes it), a mid-tone lift for brightness. A host shot: `--osd volume 20
++4`.
 
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every

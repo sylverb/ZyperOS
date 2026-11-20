@@ -1075,11 +1075,35 @@ until you press another button under that SELECT.
 Volume and brightness show the same bar at the top of the screen in the
 launcher, in a game, in the in-game menu and over a port: a pill with a mark
 at its left and a segment for each step. The mark says which of the two it
-is: a speaker with one to three waves, and a cross at silence, for volume, and
-a sun whose rays grow for brightness. The mark and the segments are lime for
-volume and amber for brightness, on a bar in the theme that is on, light or
-dark. Over a game on the Brick, Diatom still draws the old bar: a thin line
-across the top, warm for brightness and cyan for volume.
+is: a speaker whose waves grow with the volume, and a cross at silence, and a
+sun whose rays grow with the brightness. The mark and the segments are lime
+for volume and amber for brightness, on a bar in the theme that is on, light
+or dark.
+
+### Past the top: the boost
+
+Some films and games are quiet even at the top of the volume. At the top,
+**hold VOL+ one second more**, or **press it three more times**, each press
+within a second of the last. The bar's end pushes out and a big red cell
+fills as you hold or press; let go early and it drains back. Full, it opens
+red boost cells past the top, each a little taller than the last, and you
+feel a short buzz (at your Rumble level). Each cell makes the sound 2 dB
+louder, up to six cells, +12 dB; a limiter keeps the loudest moments from
+clipping, so a quiet film gets louder and a loud one only gets flatter. A
+held key stops at the first cell: press for each next one. **VOL-** empties
+the cells one by one, stops at the top, and the next press folds them away.
+
+The boost works in a game, in MP4 and over a port, and stays as the volume
+does, also after a restart, until you turn it down under the top. MP4's lock
+screen never opens it, so a key held in a pocket cannot. In the menus the bar
+is the plain one and the menu music is never boosted. Plugging headphones in
+or out closes it.
+
+Brightness works the same way (**F2** on the Brick, **MENU+VOL+** on the
+Pixel 2), with three cells. The top rung is already the backlight's brightest,
+so the boost cannot make more light: it lifts the dark and middle tones of the
+picture instead, which helps a dark game, and makes a bright scene look a
+little flatter. It costs no speed and no battery.
 
 ## Languages
 
