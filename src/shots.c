@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shots.h"
+#include "cheats_screen.h"
 #include "aout_route.h"
 #include "eq.h"
 
@@ -718,7 +719,20 @@ static void shot_draw_gamemenu(app *a)
 	menu_tabs tabs = { .count = GT_TABS, .name = gm_tab_name_i };
 	int n;
 
+	/* The cursor's game running with its cheats as the card keeps them
+	 * (src/cheats_screen.h): the Game tab's Cheats row, and its list */
+	if ((shot_cheats || shot_cheats_page >= 0) && a->view[a->sys_cursor].list.count > 0) {
+		const sysview *cv = &a->view[a->sys_cursor];
+
+		cheats_shot_game(&a->sys.systems[shelf_owner(a, a->sys_cursor, cv->cursor)],
+		                 cv->list.items[cv->cursor].file, false);
+	}
 	gm_gather(a, &u);
+	if (shot_cheats_page >= 0 && !u.port) {
+		cheats_page_shot(a, bg, shot_cheats_page, shot_cheats_ask);
+		if (bg) SDL_DestroyTexture(bg);
+		return;
+	}
 	tabs.at = tabs.from = shot_gamemenu_tab % GT_TABS;
 	/* The tab move a shot pressed (shot_motion), from where it was */
 	if (shot_gm_t0 && shot_gm_from >= 0) {
@@ -1037,6 +1051,9 @@ static menu_choice shot_pick;          /* --press a on an option row: its list *
 static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
 int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
+bool shot_cheats;          /* --cheats: the cursor's game as the running one */
+int  shot_cheats_page = -1; /* --cheats-page ROW: its cheat list */
+bool shot_cheats_ask;      /* --cheats-ask: the first cheat's question */
 bool shot_hud_items;    /* --hud-items: its Shows list */
 int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */

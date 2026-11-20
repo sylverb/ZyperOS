@@ -169,6 +169,9 @@ extern bool shot_hud_items;    /* --hud-items */
 extern int  shot_hud_pick;     /* --hud-pick ROW */
 extern const char *shot_hud_shows; /* --hud-shows WORDS */
 extern bool shot_hud_alt;      /* --hud-alt */
+extern bool shot_cheats;       /* --cheats: the cursor's game runs with its cheats */
+extern int  shot_cheats_page;  /* --cheats-page ROW: its list, -1 for none */
+extern bool shot_cheats_ask;   /* --cheats-ask: the first cheat's question over it */
 extern int shot_pick_at;       /* --pick-at K */
 extern int shot_rows_report;   /* --rows-report */
 extern int shot_hover_sweep;   /* --hover-sweep */

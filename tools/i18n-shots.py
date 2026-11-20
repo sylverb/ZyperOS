@@ -949,6 +949,19 @@ EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", 
 # Home Screen's three (Spotlight, Gallery, Grid) over the Grid home
 EXTRA.setdefault("menu-home-list", ("demo", "PS1", ["--home", "grid", "--menu-tab", "1", "--menu", "Home Screen", "--press", "a"]))
 EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
+# Cheats (src/cheats_screen.h, DESIGN.md 11.62): the Game tab's row with two
+# on, the game's list (the player's file, libretro's two under their seams,
+# Turn All Off), its end, the first cheat's question, the Achievements tab
+# while paused, and the two lists with none: libretro has none, not checked
+EXTRA.setdefault("cheats-row", ("demo", "PS1", ["--gamemenu", "4", "--cheats"]))
+EXTRA.setdefault("cheats-page", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "2"]))
+EXTRA.setdefault("cheats-page-end", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "99"]))
+EXTRA.setdefault("cheats-ask", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "4", "--cheats-ask"]))
+EXTRA.setdefault("cheats-achtab", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "paused"]))
+EXTRA.setdefault("cheats-none-libretro", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
+EXTRA.setdefault("cheats-not-checked", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
+R.SHOT_FOCUS.setdefault("cheats-none-libretro", "Crash Bandicoot (USA).chd")
+R.SHOT_FOCUS.setdefault("cheats-not-checked", "Spyro the Dragon (USA).chd")
 # On-Screen Stats' page (src/hudmenu_screen.h): its rows with three items
 # shown ("3 Items"), the Shows list (every item's name), and each row's list
 # of more than two (every corner, distance, opacity and color); Background

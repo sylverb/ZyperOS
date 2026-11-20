@@ -252,6 +252,9 @@ static void rows_for(const shelf *s, const char *file, const char *title)
 	CHECK(db_set_str(db_lib(), key, "a:b"));
 	snprintf(key, sizeof key, "stick.%s.%s", s->tag, file);
 	CHECK(db_set_str(db_lib(), key, "1"));
+	/* and its cheats that are on (src/cheats.h) */
+	snprintf(key, sizeof key, "cheats.%s.%s", s->tag, file);
+	CHECK(db_set_str(db_lib(), key, "0badf00d"));
 }
 
 struct sess_count { const char *tag, *file; int n; };
@@ -296,7 +299,7 @@ static void rows_there(const char *what, const shelf *s, const char *file, bool 
 {
 	bool d = details(s, file), f = fav_row(s, file), fm;
 	char key[700];
-	bool mk, sk;
+	bool mk, sk, ck;
 	int n = sessions(s, file);
 
 	fav_load();
@@ -305,7 +308,13 @@ static void rows_there(const char *what, const shelf *s, const char *file, bool 
 	mk = db_has(db_lib(), key);
 	snprintf(key, sizeof key, "stick.%s.%s", s->tag, file);
 	sk = db_has(db_lib(), key);
+	snprintf(key, sizeof key, "cheats.%s.%s", s->tag, file);
+	ck = db_has(db_lib(), key);
 	if (want) {
+		if (!ck) {
+			printf("  FAIL %s: %s's cheats went\n", what, file);
+			failures++;
+		}
 		if (!mk || !sk) {
 			printf("  FAIL %s: %s's map/stick went (%d/%d)\n", what, file, mk, sk);
 			failures++;
@@ -317,6 +326,9 @@ static void rows_there(const char *what, const shelf *s, const char *file, bool 
 		}
 	} else if (mk || sk) {
 		printf("  FAIL delete_drops_map_and_stick: %s's map/stick stayed (%d/%d)\n", file, mk, sk);
+		failures++;
+	} else if (ck) {
+		printf("  FAIL delete_drops_cheats: %s's cheats stayed\n", file);
 		failures++;
 	} else if (d || f || fm || n) {
 		printf("  FAIL %s: %s's rows stayed (details %d, favorite %d/%d, sessions %d)\n",

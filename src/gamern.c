@@ -483,6 +483,18 @@ int gr_follow(const char *folder, const char *tag, const char *file, const char 
 	snprintf(a, sizeof a, "rumble.%s.%s", tag, file);
 	snprintf(b, sizeof b, "rumble.%s.%s", tag, new_file);
 	n += db_key_move(db_lib(), a, b);
+	/* And which of its cheats are on, whether its first cheat has asked,
+	 * and its crash question (src/cheats.h, DESIGN.md 11.66) */
+	{
+		static const char *const pre[] = { "cheats", "cheats-asked", "cheats-crash" };
+		int k;
+
+		for (k = 0; k < 3; k++) {
+			snprintf(a, sizeof a, "%s.%s.%s", pre[k], tag, file);
+			snprintf(b, sizeof b, "%s.%s.%s", pre[k], tag, new_file);
+			n += db_key_move(db_lib(), a, b);
+		}
+	}
 	snprintf(a, sizeof a, "artsrc.%s/%s", folder, name);
 	snprintf(b, sizeof b, "artsrc.%s/%s", folder, new_name);
 	n += db_key_move(db_lib(), a, b);

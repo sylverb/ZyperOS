@@ -6146,3 +6146,78 @@ carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
 **hold-short**, as every pop-up over a game.
 
+
+### 11.66 Cheats
+*(Asked for on the Discord after 1.0.6, and NextUI's top ten's second: "ok".
+The design and its mocks liked on 2026-11-18; my picks in the Library lab,
+2026-11-19: cheats from libretro's list, achievements pause, a file of my
+own in the game's own list. In 1.1.0.)* The files and the list are
+src/cheats.h's (`make check-cheats`), the page and the questions
+src/cheats_screen.c's, the cheats' download the Downloads page's (11.53);
+Diatom's side is its cheats.h (`make -C diatom check-cheats`).
+
+**Where they are.** `Cheats/` at the card's top, a folder a system named as
+its Roms folder: `Cheats/SNES/<game>.cht` is the player's own file, named
+as the game without its extension (as a save is, so Rename and Delete Game
+can carry it). NextUI's names count too (the file with its extension, and
+the tag's folder, `Cheats/SFC/`), so a card moves over as it is. libretro's
+files, as the Downloads page fetches them from libretro's cheat list
+(libretro-database, CC BY-SA 4.0: ZyperOS ships none of it), go in
+`Cheats/<System>/.libretro/<game>/`, a file each as in libretro's zip; an
+empty `.none` there says libretro has none for the game. RetroArch's format,
+old and new: a cheat RetroArch pokes into memory itself every frame
+(handler 1) has no code for a core and is left out.
+
+**In the game, the Game tab's Cheats row**, right over Achievements, for
+every game Diatom runs: "2 On", or None. A opens the list over the paused
+game, headed "Cheats · 2 On": the player's file first, then libretro's, each
+file after the first under a seam named for its code type, the part of its
+name after the game's ("GameShark"), or libretro. A, Left or Right turns a
+cheat over at once; its On is in **accent-ink**. Turn All Off is the last
+row. Under them, pinned: **Y Search** (the keyboard; the list shows what
+matches, its heading the word in quotes) and **X On First** (the ones that
+are on move to the top; again for In Order). B goes back.
+
+**A game with none** says why, where the list would be: "libretro has no
+cheats for this game." when the Downloads page looked, or "No cheats on the
+card for this game. Downloads in MENU gets them from libretro." when it has
+not; under a rule, how a file goes on by hand, with the folder and the name
+it needs.
+
+**Achievements stop while a cheat is on** *(my pick: pause)*. From the first
+cheat on in a game until the game starts again with every cheat off: Diatom
+evaluates nothing (CHEEVOS says `paused=cheats`), the Achievements row says
+**Paused** and the Achievements tab says why in a sentence. Turning them all
+off again does not bring them back: what a cheat changed in the game's
+memory stays. While signed in, for a game with achievements, the list's top
+line says "Achievements wait while a cheat is on.", and **the first cheat
+asks first**, once a game: "Turn on a cheat?", "Achievements stop for this
+game until it starts again with every cheat off.", **Turn On** and Cancel,
+the cursor on Cancel, as Delete Game asks.
+
+**The start.** A game starts with what was on when it was last left: the
+pop-up "Cheats" / "2 cheats on" over its first frames, for **hold-short**, so
+nobody plays an evening with a cheat they forgot. A game that stopped by
+itself with cheats on (EXIT `reason=crash`) asks at its next start: "This
+game stopped last time with cheats on. Start it without them?",
+**Without Cheats** (the cursor's) and **With Cheats**; without, the game
+starts with none and they stay set for later. B leaves it unstarted.
+
+**What it costs.** Nothing a frame. The launcher hands Diatom the codes that
+are on, a file of one a line (RUN `cheats=`, and `SETCHEATS path=` at each
+switch); Diatom hands them to the core as RetroArch does, a reset and then
+each code, once the game is loaded, at each switch, and again after a reset
+and each state load. A core that holds the last game's codes is reset
+before the next game; one that never had any is never touched, so a game
+without cheats runs as it did before cheats existed. Whether a core takes a
+code is the core's: a cheat it cannot use does nothing.
+
+**Kept** in the library's database: `cheats.<TAG>.<file>`, the ids of the
+ones that are on (a hash of the file's name, the description and the code,
+so an update that changes a code turns that cheat off and leaves the rest),
+gone when none is on; `cheats-asked.<TAG>.<file>` once the first cheat has
+asked; `cheats-crash.<TAG>.<file>` while the crash question waits. Nothing is
+written into a .cht file. Host shots: `cheats-row`, `cheats-page`,
+`cheats-page-end`, `cheats-ask`, `cheats-achtab`, `cheats-none-libretro`,
+`cheats-not-checked` (tools/i18n-shots.py; `--cheats` and `--cheats-page`
+stand in for a running game).

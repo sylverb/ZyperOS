@@ -186,6 +186,8 @@ int main(void)
 	db_set_str(db_lib(), "artsrc.Game Boy/Tetris (World)", "lr");
 	db_set_str(db_lib(), "map.GB.Tetris (World).gb", "a:b,b:a");
 	db_set_str(db_lib(), "stick.GB.Tetris (World).gb", "1");
+	db_set_str(db_lib(), "cheats.GB.Tetris (World).gb", "0badf00d");
+	db_set_str(db_lib(), "cheats-asked.GB.Tetris (World).gb", "1");
 	db_set_str(db_lib(), "map.GB.Tetris (World) (Rev 1).gb", "x:y");
 
 	printf("names:\n");
@@ -249,6 +251,10 @@ int main(void)
 	CHECK(db_get_str(db_lib(), "stick.GB.Tetris DX Test.gb", t, sizeof t, NULL) && !strcmp(t, "1"));
 	CHECK(!db_has(db_lib(), "map.GB.Tetris (World).gb") && !db_has(db_lib(), "stick.GB.Tetris (World).gb"));
 	CHECK(db_has(db_lib(), "map.GB.Tetris (World) (Rev 1).gb"));            /* the neighbour's */
+	/* Its cheats that are on, and its first cheat's question, follow it */
+	CHECK(db_get_str(db_lib(), "cheats.GB.Tetris DX Test.gb", t, sizeof t, NULL) && !strcmp(t, "0badf00d"));
+	CHECK(db_has(db_lib(), "cheats-asked.GB.Tetris DX Test.gb"));
+	CHECK(!db_has(db_lib(), "cheats.GB.Tetris (World).gb"));
 	CHECK(db_has(db_lib(), "artsrc.Game Boy/Tetris DX Test") && !db_has(db_lib(), "artsrc.Game Boy/Tetris (World)"));
 	CHECK(db_has(db_lib(), "sess.100.100.GB\tTetris DX Test.gb") && db_has(db_lib(), "sess.200.200.GB\tTetris DX Test.gb"));
 	CHECK(!db_has(db_lib(), "sess.100.100.GB\tTetris (World).gb"));
