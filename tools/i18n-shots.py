@@ -751,11 +751,13 @@ SHOT_SETTINGS["menu-shader-list"] = {"launcher_shader": "scanlines"}
 # the cursor; the GBA shelf's own Shader list with it; and where it is not
 # offered, with a card edited to name it: the SNES shelf's list (Off, the
 # SNES's default, and no such row) and MENU's, the screens' own (Off)
-EXTRA.setdefault("gamemenu-shader-lcd-unlit", ("demo", "GBA", ["--screen", "games", "--gamemenu", "1",
+# The Advance's Display tab has Border under Display (its frames are offered
+# in every mode), so Shader is its third row
+EXTRA.setdefault("gamemenu-shader-lcd-unlit", ("demo", "GBA", ["--screen", "games", "--gamemenu", "2",
                                                                "--gm-tab", "1"]))
 SHOT_SETTINGS["gamemenu-shader-lcd-unlit"] = {"shader.GBA": "lcd-unlit"}
 EXTRA.setdefault("gamemenu-shader-list-lcd-unlit",
-                 ("demo", "GBA", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", "6"]))
+                 ("demo", "GBA", ["--gamemenu", "2", "--gm-tab", "1", "--gm-choose", "--pick-at", "6"]))
 EXTRA.setdefault("system-menu-shader-list-gba", ("demo", "GBA", ["--screen", "games", "--menu", "Shader",
                                                                  "--press", "a"]))
 SHOT_SETTINGS["system-menu-shader-list-gba"] = {"shader.GBA": "lcd-unlit"}
@@ -1152,29 +1154,87 @@ EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "t
 EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
 # Border (src/border.h): the Game Boy's system menu at Sharp Pixels, a
 # Game Boy's 160x144 kept for it, at Blur; its list with each kind under the
-# cursor, a picture of the player's own on the card for Your Own; and the
-# in-game Display tab's row and list over a paused Game Boy game
+# cursor (by its English words, --pick-en: the Brick has no Blur, so the
+# places differ), a picture of the player's own on the card for Your Own;
+# and the in-game Display tab's row and list over a paused Game Boy game.
+# The handheld frames (src/handframe.h) on each of the three Game Boys,
+# Handheld and Handheld, Whole under the cursor (the Advance has no Whole on
+# the Pixel 2: its cursor then stays on the kept one), and the Game Boy
+# Color's Handheld Color list, each of its six under the cursor
 _BORDER_SET = {"display.GB": "integer", "display_source.GB": "160x144", "display_shape.GB": "1.11111"}
 _BORDER_PIC = ["Borders/Game Boy/Waves.png"]
+# Border's lists say only its own kinds (--expect-en): Blur where the device
+# draws it (not the Brick), the rest on both
+_BORDER_EXPECT = "Off|Blur?|Handheld|Handheld, Whole|Your Own"
+_BORDER_WORDS = (("off", "Off"), ("blur", "Blur"), ("handheld", "Handheld"), ("whole", "Handheld, Whole"),
+                 ("own", "Your Own"))
 EXTRA.setdefault("system-menu-border", ("demo", "GB", ["--screen", "games", "--menu", "Border"]))
 SHOT_SETTINGS["system-menu-border"] = dict(_BORDER_SET, **{"border.GB": "blur"})
 SHOT_FILES["system-menu-border"] = _BORDER_PIC
-for _k, _p in enumerate(("off", "blur", "own")):
+for _p, _w in _BORDER_WORDS:
     EXTRA.setdefault("system-menu-border-list-" + _p, ("demo", "GB", ["--screen", "games", "--menu", "Border",
-                                                                     "--press", "a", "--pick-at", str(_k),
-                                                                     "--expect-en", "Off|Blur?|Your Own"]))
+                                                                     "--press", "a", "--pick-en", _w,
+                                                                     "--expect-en", _BORDER_EXPECT]))
     SHOT_SETTINGS["system-menu-border-list-" + _p] = dict(_BORDER_SET)
     SHOT_FILES["system-menu-border-list-" + _p] = _BORDER_PIC
     EXTRA.setdefault("gamemenu-border-list-" + _p, ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose",
-                                                                  "--pick-at", str(_k), "--gm-source",
-                                                                  "160x144@1.11111", "--expect-en",
-                                                                  "Off|Blur?|Your Own"]))
+                                                                  "--pick-en", _w, "--gm-source",
+                                                                  "160x144@1.11111", "--expect-en", _BORDER_EXPECT]))
     SHOT_SETTINGS["gamemenu-border-list-" + _p] = dict(_BORDER_SET)
     SHOT_FILES["gamemenu-border-list-" + _p] = _BORDER_PIC
 EXTRA.setdefault("gamemenu-border", ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-source",
                                                     "160x144@1.11111"]))
 SHOT_SETTINGS["gamemenu-border"] = dict(_BORDER_SET, **{"border.GB": "own"})
 SHOT_FILES["gamemenu-border"] = _BORDER_PIC
+_FRAME_GBC = ["Roms/Game Boy Color/Tobu Tobu Girl Deluxe.gbc"]
+for _tag, _src, _shape, _files in (("GBC", "160x144", "1.11111", _FRAME_GBC), ("GBA", "240x160", "1.5", None)):
+    _set = {"display." + _tag: "integer", "display_source." + _tag: _src, "display_shape." + _tag: _shape}
+    _t = _tag.lower()
+    EXTRA.setdefault("system-menu-border-" + _t, ("demo", _tag, ["--screen", "games", "--menu", "Border"]))
+    SHOT_SETTINGS["system-menu-border-" + _t] = dict(_set, **{"border." + _tag: "handheld"})
+    SHOT_FILES["system-menu-border-" + _t] = _files
+    for _p, _w in (("handheld", "Handheld"), ("whole", "Handheld, Whole")):
+        _n = "system-menu-border-%s-list-%s" % (_t, _p)
+        EXTRA.setdefault(_n, ("demo", _tag, ["--screen", "games", "--menu", "Border", "--press", "a",
+                                             "--pick-en", _w]))
+        SHOT_SETTINGS[_n] = dict(_set)
+        SHOT_FILES[_n] = _files
+        _n = "gamemenu-border-%s-list-%s" % (_t, _p)
+        EXTRA.setdefault(_n, ("demo", _tag, ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-en", _w,
+                                             "--gm-source", _src + "@" + _shape]))
+        SHOT_SETTINGS[_n] = dict(_set)
+        SHOT_FILES[_n] = _files
+# A Game Boy at the mode a system starts in, Full Screen, with no size kept
+# (a system never played): Border shows all the same and offers the frames
+# (not Blur or Your Own, which would change nothing there), its list, the
+# list in a game's Display tab, and Right on the row: Handheld chosen and
+# Display turned to Sharp Pixels. Before 1.1.0 the row hid in that mode, so
+# on a card left at Full Screen no frame could be found; the first of these
+# fails then (--menu: no row called Border).
+EXTRA.setdefault("system-menu-border-fullscreen", ("demo", "GB", ["--screen", "games", "--menu", "Border"]))
+EXTRA.setdefault("system-menu-border-fullscreen-list", ("demo", "GB", ["--screen", "games", "--menu", "Border",
+                                                                     "--press", "a", "--pick-en", "Handheld"]))
+EXTRA.setdefault("system-menu-border-fullscreen-chosen", ("demo", "GB", ["--screen", "games", "--menu", "Border",
+                                                                       "--press", "right"]))
+EXTRA.setdefault("gamemenu-border-fullscreen-list", ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose",
+                                                                  "--pick-en", "Handheld", "--gm-source",
+                                                                  "160x144@1.11111"]))
+_GBC_FRAME = {"display.GBC": "integer", "display_source.GBC": "160x144", "display_shape.GBC": "1.11111",
+              "border.GBC": "handheld"}
+EXTRA.setdefault("system-menu-border-color", ("demo", "GBC", ["--screen", "games", "--menu", "Handheld Color"]))
+SHOT_SETTINGS["system-menu-border-color"] = dict(_GBC_FRAME, **{"border_color.GBC": "4"})
+SHOT_FILES["system-menu-border-color"] = _FRAME_GBC
+for _c in ("Yellow", "Red", "Purple", "Green", "Teal", "Clear Purple"):
+    _n = "system-menu-border-color-list-" + _c.lower().replace(" ", "-")
+    EXTRA.setdefault(_n, ("demo", "GBC", ["--screen", "games", "--menu", "Handheld Color", "--press", "a",
+                                          "--pick-en", _c]))
+    SHOT_SETTINGS[_n] = dict(_GBC_FRAME)
+    SHOT_FILES[_n] = _FRAME_GBC
+EXTRA.setdefault("gamemenu-border-color-list", ("demo", "GBC", ["--gamemenu", "2", "--gm-tab", "1", "--gm-choose",
+                                                                "--pick-en",
+                                                                "Clear Purple", "--gm-source", "160x144@1.11111"]))
+SHOT_SETTINGS["gamemenu-border-color-list"] = dict(_GBC_FRAME, **{"border.GBC": "whole"})
+SHOT_FILES["gamemenu-border-color-list"] = _FRAME_GBC
 # Super Game Boy (src/sgbmode.h) on the Game Boy's system menu, at Its
 # Games, and its list with each choice under the cursor: the picture of each
 # at the shelf's display mode and what it does under it

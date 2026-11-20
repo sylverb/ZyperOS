@@ -205,6 +205,9 @@ typedef enum {
 	GM_HUD,
 	/* Border (src/border.h), under Display, while the mode leaves room */
 	GM_BORDER,
+	/* Handheld Color, under Border while it is a Handheld frame that comes
+	 * in more than one color (the Game Boy Color's) */
+	GM_BORDER_COLOR,
 	/* Cheats (src/cheats.h, DESIGN.md 11.66), on the Game tab right over
 	 * Achievements: how many are on, and A opens the game's list */
 	GM_CHEATS,
@@ -238,6 +241,8 @@ typedef struct {
 	/* Border's value (src/border.h) while the display mode leaves room
 	 * around the game, and no Super Game Boy border fills it; NULL: no row */
 	const char *border;
+	/* Handheld Color's value under it; NULL: no row */
+	const char *border_color;
 	/* On-Screen Stats, the player's (HUD_KEY), whatever the game */
 	bool        hud;
 	int         earned;

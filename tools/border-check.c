@@ -32,19 +32,32 @@ int main(void)
 	border_key("GB", key, sizeof key);
 	ck(!strcmp(key, "border.GB"), "the system's own key, by its tag");
 
-	ck(border_offered(true, true, list) == 3 && list[0] == BORDER_OFF && list[1] == BORDER_BLUR &&
-	   list[2] == BORDER_OWN, "Off, Blur, Your Own, in that order");
-	ck(border_offered(false, true, list) == 2 && list[1] == BORDER_OWN, "no Blur where the device has none");
-	ck(border_offered(true, false, list) == 2 && list[1] == BORDER_BLUR, "no Your Own without a picture");
-	ck(border_offered(false, false, list) == 1, "Off alone");
-	ck(border_shown(BORDER_OWN, true, false) == BORDER_OFF && border_shown(BORDER_BLUR, false, true) == BORDER_OFF,
+	const border_offer all = { true, true, true, true }, blur_own = { true, false, false, true };
+	const border_offer own_only = { false, false, false, true }, blur_only = { true, false, false, false };
+	const border_offer none = { false, false, false, false }, cut_only = { true, true, false, true };
+
+	ck(border_offered(all, list) == 5 && list[0] == BORDER_OFF && list[1] == BORDER_BLUR &&
+	   list[2] == BORDER_HANDHELD && list[3] == BORDER_WHOLE && list[4] == BORDER_OWN,
+	   "Off, Blur, Handheld, Handheld Whole, Your Own, in that order");
+	ck(border_offered(blur_own, list) == 3 && list[2] == BORDER_OWN, "no Handheld frames where none is drawn");
+	ck(border_offered(cut_only, list) == 4 && list[2] == BORDER_HANDHELD && list[3] == BORDER_OWN &&
+	   border_shown(BORDER_WHOLE, cut_only) == BORDER_OFF, "Handheld without Whole where Whole has no placement");
+	ck(border_offered(own_only, list) == 2 && list[1] == BORDER_OWN, "no Blur where the device has none");
+	ck(border_offered(blur_only, list) == 2 && list[1] == BORDER_BLUR, "no Your Own without a picture");
+	ck(border_offered(none, list) == 1, "Off alone");
+	ck(border_shown(BORDER_OWN, blur_only) == BORDER_OFF && border_shown(BORDER_BLUR, own_only) == BORDER_OFF &&
+	   border_shown(BORDER_WHOLE, blur_own) == BORDER_OFF && border_shown(BORDER_HANDHELD, all) == BORDER_HANDHELD,
 	   "a kept kind the row cannot show reads Off");
-	ck(border_step(BORDER_OFF, 1, true, true) == BORDER_BLUR && border_step(BORDER_BLUR, 1, true, true) == BORDER_OWN &&
-	   border_step(BORDER_OWN, 1, true, true) == BORDER_OFF, "right steps round the three");
-	ck(border_step(BORDER_OFF, -1, true, true) == BORDER_OWN, "and left");
-	ck(border_step(BORDER_OFF, 1, false, true) == BORDER_OWN && border_step(BORDER_OWN, 1, false, true) == BORDER_OFF,
+	ck(border_step(BORDER_OFF, 1, blur_own) == BORDER_BLUR && border_step(BORDER_BLUR, 1, blur_own) == BORDER_OWN &&
+	   border_step(BORDER_OWN, 1, blur_own) == BORDER_OFF, "right steps round the three");
+	ck(border_step(BORDER_OFF, -1, blur_own) == BORDER_OWN, "and left");
+	ck(border_step(BORDER_BLUR, 1, all) == BORDER_HANDHELD && border_step(BORDER_HANDHELD, 1, all) == BORDER_WHOLE &&
+	   border_step(BORDER_WHOLE, 1, all) == BORDER_OWN, "and through the frames");
+	ck(border_step(BORDER_OFF, 1, own_only) == BORDER_OWN && border_step(BORDER_OWN, 1, own_only) == BORDER_OFF,
 	   "round what is offered only");
-	ck(border_step(BORDER_OWN, 1, true, false) == BORDER_BLUR, "a kind gone steps from Off");
+	ck(border_step(BORDER_OWN, 1, blur_only) == BORDER_BLUR, "a kind gone steps from Off");
+	ck(!strcmp(border_id(BORDER_HANDHELD), "handheld") && !strcmp(border_id(BORDER_WHOLE), "whole") &&
+	   border_parse("whole") == BORDER_WHOLE, "the frames' words");
 
 	/* The room, on the Pixel 2's 640x480 and the Brick's 1024x768 */
 	ck(border_room("integer", 160, 144, 0, 640, 480), "a Game Boy at Sharp Pixels on the Pixel 2 (3x)");
@@ -62,6 +75,35 @@ int main(void)
 	ck(!border_room("overscale", 160, 144, 0, 640, 480) && !border_room("overscale", 240, 160, 0, 1024, 768),
 	   "Sharp Pixels, Zoomed covers a known picture too");
 	ck(!border_room(NULL, 160, 144, 0, 640, 480) && !border_room("integer", 160, 144, 0, 0, 0), "no mode, no surface");
+
+	/* The frames in every display mode (Tarik's 1.1.0 test run: a card left
+	 * at Full Screen, the mode a system starts in, showed no Border row and
+	 * so no frame): Blur and Your Own only with room, the frames without */
+	{
+		const border_offer full = border_offer_make(false, true, true, true, true);
+		const border_offer sharp = border_offer_make(true, true, true, true, true);
+		const border_offer plain = border_offer_make(false, true, true, false, false);
+
+		ck(!full.blur && !full.own && full.handheld && full.whole,
+		   "Full Screen on a Game Boy: the frames, not Blur or Your Own");
+		ck(border_offered(full, list) == 3 && list[1] == BORDER_HANDHELD && list[2] == BORDER_WHOLE,
+		   "its list: Off, Handheld, Handheld Whole");
+		ck(border_row_shows(full, false), "so the row shows at Full Screen where a frame is drawn");
+		ck(!border_row_shows(plain, false) && border_row_shows(plain, true),
+		   "and with no frame, only where the mode leaves room, as before");
+		ck(sharp.blur && sharp.own && sharp.handheld && border_offered(sharp, list) == 5,
+		   "at Sharp Pixels, everything");
+		ck(!border_offer_make(true, true, true, true, false).whole, "Whole only where it has a placement");
+		ck(border_in_mode(BORDER_HANDHELD, "stretch") == BORDER_OFF &&
+		   border_in_mode(BORDER_WHOLE, "aspect") == BORDER_OFF &&
+		   border_in_mode(BORDER_HANDHELD, "integer") == BORDER_HANDHELD &&
+		   border_in_mode(BORDER_WHOLE, "integer") == BORDER_WHOLE,
+		   "a kept frame reads Off at any mode but Sharp Pixels, and comes back with it");
+		ck(border_in_mode(BORDER_BLUR, "stretch") == BORDER_BLUR && border_in_mode(BORDER_OWN, NULL) == BORDER_OWN,
+		   "the other kinds as they are");
+		ck(border_is_frame(BORDER_HANDHELD) && border_is_frame(BORDER_WHOLE) && !border_is_frame(BORDER_BLUR) &&
+		   !border_is_frame(BORDER_OFF) && !border_is_frame(BORDER_OWN), "the two frames are the frames");
+	}
 
 	ck(!strcmp(border_nextui_tag("NES"), "FC") && !strcmp(border_nextui_tag("PS1"), "PS") &&
 	   !border_nextui_tag("GB") && !border_nextui_tag("SFC") && !border_nextui_tag(NULL),

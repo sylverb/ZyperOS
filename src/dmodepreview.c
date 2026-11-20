@@ -250,7 +250,7 @@ static SDL_Texture *blur_of(SDL_Renderer *r, SDL_Texture *pic)
 
 void dmode_border_preview(app *a, SDL_Texture *frame, int src_w, int src_h, double aspect,
                           int dmode, int kind, SDL_Surface *own, const char *own_key,
-                          int x, int y, int w, int h)
+                          const SDL_Rect *game_at, int x, int y, int w, int h)
 {
 	const SDL_Rect screen = { x, y, w, h };
 	SDL_Texture *pic = frame;
@@ -282,7 +282,7 @@ void dmode_border_preview(app *a, SDL_Texture *frame, int src_w, int src_h, doub
 			SDL_RenderCopy(a->r, b, NULL, &box);
 			SDL_SetTextureColorMod(b, 255, 255, 255);
 		}
-	} else if (kind == 2 && own) {
+	} else if (kind >= 2 && own) {
 		/* Its texture made once for the picture it is from */
 		static SDL_Texture *t;
 		static char of[512];
@@ -298,6 +298,7 @@ void dmode_border_preview(app *a, SDL_Texture *frame, int src_w, int src_h, doub
 		if (t) SDL_RenderCopy(a->r, t, NULL, &box);
 	}
 	fit = dmode_fit(DMODES[dmode].name, src_w, src_h, aspect, surf_w, surf_h);
+	if (game_at) fit = (dmode_rect){ game_at->x, game_at->y, game_at->w, game_at->h };
 	if (pic && fit.w > 0 && fit.h > 0) {
 		SDL_Rect dst;
 

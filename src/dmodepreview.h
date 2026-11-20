@@ -38,11 +38,14 @@ void dmode_sgb_preview(app *a, int dmode, int k, int x, int y, int w, int h);
  * around it: black (Off), the picture itself made small, stretched back and
  * darkened, as Diatom's blur is (Blur), or the player's own picture made
  * the surface's shape (`own`, a surface border_own_surface made, for Your
- * Own; `own_key` its file, whose texture is kept while it is the same).
- * `frame` NULL draws the stand-in, as there. */
+ * Own; `own_key` its file, whose texture is kept while it is the same), or
+ * a handheld's frame made the surface's size (`own` too, `own_key` naming
+ * the frame) with the game at `game_at` in it, in the surface's pixels,
+ * rather than where the mode puts it. `frame` NULL draws the stand-in, as
+ * there. */
 void dmode_border_preview(app *a, SDL_Texture *frame, int src_w, int src_h, double aspect,
                           int dmode, int kind, SDL_Surface *own, const char *own_key,
-                          int x, int y, int w, int h);
+                          const SDL_Rect *game_at, int x, int y, int w, int h);
 
 /* The surface Diatom draws on, as the last DISPLAY said, or the device's
  * panel before one did */

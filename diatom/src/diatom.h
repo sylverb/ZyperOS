@@ -362,6 +362,9 @@ typedef struct {
 	char sgb[8];
 	/* SETBORDER: "1", the game's own picture blurred around it (src/border.h) */
 	char blur[4];
+	/* SETBORDER: "WxH+X+Y", where the game goes in the picture's frame,
+	 * in the surface's pixels (a handheld's window, src/border.h) */
+	char brect[32];
 	/* RUN and SETRUMBLE: how hard the motor runs, in percent of what the
 	 * core asks: the player's Rumble level times the system's share (a
 	 * system whose core shakes harder than the handheld wants: PrBoom's

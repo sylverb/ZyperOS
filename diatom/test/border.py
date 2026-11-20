@@ -78,6 +78,23 @@ if px:
           px(63, 240) == (40, 120, 200) and px(64, 240) != (40, 120, 200) and
           px(576, 240) == (40, 120, 200) and px(575, 240) != (40, 120, 200), [px(63, 240), px(64, 240)])
 
+# A frame's window (rect=): the game where the frame says, whatever the
+# mode (Sharp Pixels would center it at 2x), at the size it says
+out = f"{TMP}/window.bmp"
+subprocess.run([BIN, "--core", STUB, "--frames", "40", "--display", "integer", "--shot", out, "--save", TMP,
+                "--system", TMP, "--border", pic, "--border-rect", "256x224+20+30"],
+               env=ENV, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+if os.path.exists(out):
+    w, h, px = bmp(out)
+    check("a window: the game at 256x224 at 20,30, the picture around it",
+          px(19, 100) == (40, 120, 200) and px(20, 100) != (40, 120, 200) and
+          px(275, 100) != (40, 120, 200) and px(276, 100) == (40, 120, 200) and
+          px(100, 29) == (40, 120, 200) and px(100, 30) != (40, 120, 200) and
+          px(100, 253) != (40, 120, 200) and px(100, 254) == (40, 120, 200),
+          [px(19, 100), px(20, 100), px(275, 100), px(276, 100), px(100, 29), px(100, 30)])
+else:
+    check("a window: a capture", False, "no capture")
+
 w, h, px = shot("blur", "blur")
 if px:
     c = px(10, 10)
@@ -135,13 +152,19 @@ send(f"RUN\tcore={STUB}")
 until("RUNNING")
 bad = f"{TMP}/bad.dtov"
 open(bad, "wb").write(b"not a picture")
-for line, want, name in ((f"SETBORDER\tpath={pic}", "BORDER\tok=1", "a good file"),
+for line, want, name in ((f"SETBORDER\tpath={pic}\trect=999x10+0+0", "ERROR\tcode=bad_border",
+                          "a window off the surface"),
+                         (f"SETBORDER\tpath={pic}\trect=160x144+10+10", "DISPLAY", "a window: the rect said"),
+                         (f"SETBORDER\tpath={pic}", "BORDER\tok=1", "a good file"),
                          (f"SETBORDER\tpath={bad}", "ERROR\tcode=bad_border", "a file that is no picture"),
                          ("SETBORDER\tblur=1", "BORDER\tok=1", "blur"),
                          ("SETBORDER", "BORDER\tok=1", "black again")):
     send(line)
-    a = until("BORDER") if want.startswith("BORDER") else until("ERROR")
-    check(f"SETBORDER, {name}: {want.split(chr(9))[0]}", a is not None and a.startswith(want), a)
+    a = until(want.split("\t")[0])
+    if want == "DISPLAY":
+        check(f"SETBORDER, {name}", a is not None and "rect=160x144+10+10" in a, a)
+    else:
+        check(f"SETBORDER, {name}: {want.split(chr(9))[0]}", a is not None and a.startswith(want), a)
 send("STOP")
 until("EXIT")
 send("QUIT")

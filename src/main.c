@@ -78,6 +78,7 @@
 #include "dlq.h"
 #include "diskpopup.h"
 #include "border_pic.h"
+#include "handframe.h"
 #include "dmodepreview.h"
 #include "sshlink.h"
 #include "mdns.h"
@@ -745,21 +746,18 @@ sgbm_choice sgbm_load(const system_cfg *s)
 
 /* Border's row on a system's menu (src/border.h): its value while the
  * system's display mode leaves room around its games, by the size they
- * last said (dmode_source_of; a system never played, by the mode alone);
+ * last said (border_room_kept), or in any mode where a handheld's frame is
+ * drawn for it (the Game Boys: choosing one turns Display to Sharp Pixels);
  * NULL, no row, else, and on a shelf of no console (Favorites, MP4, ports) */
 const char *border_row_value(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
-	int sw, sh, fw, fh;
-	bool known;
-	double aspect;
+	bool room;
 
 	if (!s->core[0] || is_mp4(s) || is_port(s) || a->view[sys].owner) return NULL;
-	dmode_source_of(s->tag, &sw, &sh);
-	aspect = dmode_shape_of(s->tag, &known);
-	dmode_surface(&fw, &fh);
-	if (!border_room(DMODES[a->view[sys].dmode].name, sw, sh, known ? aspect : 0.0, fw, fh)) return NULL;
-	return T(border_label_id(border_load(a, sys)));
+	room = border_room_kept(a, sys);
+	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
+	return T(border_label_id(border_load_room(a, sys, room)));
 }
 
 /* The Game Boy's and the Game Boy Color's shelves, while mGBA runs them */
@@ -5106,6 +5104,7 @@ static int sm_pos(const app *a, int sys, sm_row which)
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
 	               .sgb = sgb_row_shown(a, sys) ? "" : NULL,
 	               .border = border_row_value(a, sys),
+	               .border_color = border_color_value(a, sys),
 	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
@@ -5189,6 +5188,7 @@ static int menu_shelf_width(app *a)
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  grow = own ? -1 : sm_pos(a, i, SM_SGB);
 		int  brow = own ? -1 : sm_pos(a, i, SM_BORDER);
+		int  bcrow = own ? -1 : sm_pos(a, i, SM_BORDER_COLOR);
 		int  vrow = mp4 ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
@@ -5285,7 +5285,7 @@ static int menu_shelf_width(app *a)
 			}
 			rows[lrow].value = keep;
 		}
-		/* Border's three */
+		/* Border's kinds */
 		if (brow >= 0 && brow < n) {
 			const char *keep = rows[brow].value;
 
@@ -5296,6 +5296,19 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[brow].value = keep;
+		}
+		/* Handheld Color's colors */
+		if (bcrow >= 0 && bcrow < n) {
+			const hf_model *m = hf_model_for(a->sys.systems[i].tag);
+			const char *keep = rows[bcrow].value;
+
+			for (k = 0; m && k < m->ncolors; k++) {
+				int mw;
+				rows[bcrow].value = border_color_label(m->color_name[k]);
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[bcrow].value = keep;
 		}
 		/* Super Game Boy's two */
 		if (grow >= 0 && grow < n) {
@@ -6023,6 +6036,7 @@ int main(int argc, char *argv[])
 		 * WxH[@ASPECT]: the core's picture the in-game menu's frame stands
 		 * for, which the Display list's picture draws with */
 		else if (!strcmp(argv[i], "--pick-at") && i + 1 < argc) shot_pick_at = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--pick-en") && i + 1 < argc) shot_pick_en = argv[++i];
 		else if (!strcmp(argv[i], "--expect-en") && i + 1 < argc) shot_expect_en = argv[++i];
 		else if (!strcmp(argv[i], "--gm-source") && i + 1 < argc) {
 			const char *v = argv[++i], *at = strchr(v, '@');

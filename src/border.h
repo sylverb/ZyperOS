@@ -12,6 +12,15 @@
  *              a few times a second (Diatom, diatom/src/border.h). Only where
  *              the port draws it smoothly (the Pixel 2; the Brick when its
  *              GPU path draws every frame)
+ *   Handheld   the handheld's own face around the game (src/handframe.h),
+ *              ZyperOS's drawing at the game's scale: the game at its full
+ *              Sharp Pixels size, the frame cut where the panel ends
+ *   Handheld, Whole
+ *              the same one whole step smaller, so the whole lens and some
+ *              of the body show
+ *              Both only for a system with a frame drawn (the three Game
+ *              Boys first) and while the display mode is Sharp Pixels: the
+ *              frame is drawn at a whole step, as the mode draws the game
  *   Your Own   a picture on the card: the first PNG, by name, in
  *              Borders/<the system's folder>/, else in NextUI's
  *              Overlays/<its tag>/, so a NextUI card's overlays work as they
@@ -37,10 +46,12 @@ typedef enum {
 	BORDER_OFF,
 	BORDER_BLUR,
 	BORDER_OWN,
+	BORDER_HANDHELD,
+	BORDER_WHOLE,
 	BORDER_KINDS
 } border_kind;
 
-/* The word the database keeps ("off", "blur", "own") */
+/* The word the database keeps ("off", "blur", "own", "handheld", "whole") */
 const char *border_id(border_kind k);
 
 /* The kind for a word; Off for one that is none (NULL included) */
@@ -53,18 +64,46 @@ str_id border_note_id(border_kind k);
 /* The database key for the system tagged `tag`: "border.GB" */
 void border_key(const char *tag, char *out, size_t n);
 
+/* What a system's row can offer besides Off */
+typedef struct {
+	bool blur;      /* the device draws Blur (border_blur_here) and the mode leaves room */
+	bool handheld;  /* a frame is drawn for the system and fits the panel, in any mode */
+	bool whole;     /* ...and Handheld, Whole has a placement here (2x or more) */
+	bool own;       /* the card has a picture for it and the mode leaves room */
+} border_offer;
+
+/* What Border offers: Blur and Your Own only where the system's display mode
+ * leaves room around its games (`room`), since in a mode that covers the
+ * screen they would change nothing; a handheld's frames (`frame`, `whole`:
+ * the system has a frame that fits the panel, and its Whole placement) in
+ * every mode, Full Screen, the one a system starts in, too, since choosing
+ * a frame turns Display to Sharp Pixels, the size the frame is drawn for */
+border_offer border_offer_make(bool room, bool blur_here, bool own, bool frame, bool whole);
+
+/* Whether the Border row shows: where the mode leaves room, or a frame is
+ * offered */
+bool border_row_shows(border_offer o, bool room);
+
+/* Whether `k` is one of the handheld frames */
+bool border_is_frame(border_kind k);
+
+/* The kind a kept `k` reads as at display mode `mode` (a DMODES name): a
+ * frame only at Sharp Pixels, Off at any other, and back with Sharp Pixels;
+ * the rest as they are */
+border_kind border_in_mode(border_kind k, const char *mode);
+
 /* The kinds this system's row offers, in the row's order, into `out` (up to
- * BORDER_KINDS): Off, then Blur where the device draws it (`blur`), then
- * Your Own where the card has a picture for it (`own`). Returns how many. */
-int border_offered(bool blur, bool own, border_kind *out);
+ * BORDER_KINDS): Off, Blur, Handheld, Handheld Whole, Your Own, each where
+ * `o` says. Returns how many. */
+int border_offered(border_offer o, border_kind *out);
 
 /* The kind kept, as the row can show it: one the row does not offer now
- * (Your Own with its picture gone, Blur on a device without it) reads Off,
- * and is drawn as Off */
-border_kind border_shown(border_kind kept, bool blur, bool own);
+ * (Your Own with its picture gone, Blur on a device without it, a Handheld
+ * frame at a mode that is not Sharp Pixels) reads Off, and is drawn as Off */
+border_kind border_shown(border_kind kept, border_offer o);
 
 /* The kind after or before `k` among the offered, round: d is +1 or -1 */
-border_kind border_step(border_kind k, int d, bool blur, bool own);
+border_kind border_step(border_kind k, int d, border_offer o);
 
 /* Whether display mode `mode` (a DMODES name) leaves room around a picture
  * `src_w` x `src_h` with the shape `aspect` (0 for square pixels) on a

@@ -10,6 +10,7 @@
 #include "aout_route.h"
 #include "app.h"
 #include "border_pic.h"
+#include "handframe.h"
 #include "controls.h"
 #include "ctl_channel.h"
 #include "ctltab.h"
@@ -511,37 +512,54 @@ static void gm_source(int *sw, int *sh, double *aspect)
 	}
 }
 
+/* Whether the game's display mode leaves room around it, by Diatom's own
+ * size for it (gm_source) */
+static bool gm_border_room(app *a)
+{
+	int sw, sh, fw, fh;
+	double aspect;
+
+	gm_source(&sw, &sh, &aspect);
+	dmode_surface(&fw, &fh);
+	return border_room(DMODES[owner_view(a)->dmode].name, sw, sh, aspect, fw, fh);
+}
+
 /* Border's row (src/border.h): its value while the display mode leaves room
- * around the game, and no Super Game Boy border fills that room (its 256x224
- * on a Game Boy shelf that turns it on); NULL, no row, else */
+ * around the game, or in any mode where a handheld's frame is drawn for its
+ * system (choosing one turns Display to Sharp Pixels), and no Super Game Boy
+ * border fills that room (its 256x224 on a Game Boy shelf that turns it on);
+ * NULL, no row, else */
 static const char *gm_border_value(app *a)
 {
 	sysview *v = owner_view(a);
-	int sys = (int)(v - a->view), sw, sh, fw, fh;
+	int sys = (int)(v - a->view), sw, sh;
 	const system_cfg *s = &a->sys.systems[sys];
 	double aspect;
+	bool room;
 
 	if (g_port_menu || g_game_dual) return NULL;
 	gm_source(&sw, &sh, &aspect);
-	dmode_surface(&fw, &fh);
-	if (!border_room(DMODES[v->dmode].name, sw, sh, aspect, fw, fh)) return NULL;
+	room = gm_border_room(a);
+	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
 	if (sgbm_shelf(s->tag, s->core) && sgbm_load(s) == SGBM_GAMES && sw == 256 && sh == 224) return NULL;
-	return T(border_label_id(border_load(a, sys)));
+	return T(border_label_id(border_load_room(a, sys, room)));
 }
 
 /* Border stepped on left, right and A among what the row offers, kept for
  * the owner's system and sent to the game at once: Diatom takes SETBORDER
- * while paused, and the picture is around the game when it comes back */
+ * while paused, and the picture is around the game when it comes back. A
+ * frame chosen at another mode turns Display to Sharp Pixels first, told to
+ * the game before its frame, as the Display row tells it. */
 static void gm_step_border(app *a, int d)
 {
 	sysview *v = owner_view(a);
 	int sys = (int)(v - a->view);
-	const system_cfg *s = &a->sys.systems[sys];
-	char key[CFG_STR + 16], own[CFG_STR * 3];
 
-	border_key(s->tag, key, sizeof key);
-	db_set_str(db_dev(), key, border_id(border_step(border_load(a, sys), d, border_blur_here(),
-	                                                border_own_path(s, own, sizeof own))));
+	if (border_choose(a, sys, d, gm_border_room(a))) {
+		display_save(a);
+		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
+		plat_resident_sync_rect(150);
+	}
 	border_send(a, sys);
 }
 
@@ -562,6 +580,7 @@ void gm_gather(app *a, gm_ui *out)
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
 	u.border = gm_border_value(a);
+	u.border_color = u.border ? border_color_value(a, (int)(owner_view(a) - a->view)) : NULL;
 	u.hud = db_get_int(db_dev(), HUD_KEY, 0) == 1;
 	u.earned = chv_earned();
 	u.total  = chv_count();
@@ -1607,7 +1626,33 @@ static void gm_border_preview(void *app_, int k, int x, int y, int w, int h)
 
 	gm_source(&sw, &sh, &aspect);
 	if (kind == BORDER_OWN) own = border_own_cached(&a->sys.systems[v - a->view], path, sizeof path);
-	dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, own, path, x, y, w, h);
+	if (kind == BORDER_HANDHELD || kind == BORDER_WHOLE) {
+		SDL_Rect at;
+
+		own = border_frame_cached(a, (int)(v - a->view), kind, -1, path, sizeof path, &at);
+		dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, own, path, own ? &at : NULL,
+		                     x, y, w, h);
+		return;
+	}
+	dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, own, path, NULL, x, y, w, h);
+}
+
+/* Handheld Color's list's picture: the frame in color k, whole where it is
+ * offered (border_color_kind) */
+static void gm_color_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	sysview *v = owner_view(a);
+	int sys = (int)(v - a->view), sw, sh;
+	double aspect;
+	border_kind kind = border_color_kind(a, sys);
+	char key[96];
+	SDL_Surface *f;
+	SDL_Rect at;
+
+	gm_source(&sw, &sh, &aspect);
+	f = border_frame_cached(a, sys, kind, k, key, sizeof key, &at);
+	dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, f, key, f ? &at : NULL, x, y, w, h);
 }
 
 static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
@@ -1652,11 +1697,10 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 	{
 		/* Border's offered kinds, each with its note and picture */
 		static const char *labels[BORDER_KINDS], *notes[BORDER_KINDS];
-		const system_cfg *s = &a->sys.systems[v - a->view];
-		char own[CFG_STR * 3];
-		border_kind kept = border_load(a, (int)(v - a->view));
+		const bool room = gm_border_room(a);
+		border_kind kept = border_load_room(a, (int)(v - a->view), room);
 
-		n = border_offered(border_blur_here(), border_own_path(s, own, sizeof own), g_gm_border_kinds);
+		n = border_offered(border_offer_room(a, (int)(v - a->view), room), g_gm_border_kinds);
 		for (i = 0, cur = 0; i < n; i++) {
 			labels[i] = T(border_label_id(g_gm_border_kinds[i]));
 			notes[i] = T(border_note_id(g_gm_border_kinds[i]));
@@ -1665,6 +1709,18 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		g_gm_choice[GM_BORDER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur,
 		                                        .labels = labels, .notes = notes,
 		                                        .preview = gm_border_preview, .list = true };
+	}
+	{
+		/* Handheld Color's colors, each with the frame in it */
+		static const char *labels[HF_COLORS];
+		const hf_model *m = hf_model_for(a->sys.systems[v - a->view].tag);
+
+		if (m && m->ncolors > 1) {
+			for (i = 0; i < m->ncolors && i < HF_COLORS; i++) labels[i] = border_color_label(m->color_name[i]);
+			g_gm_choice[GM_BORDER_COLOR] = (menu_choice){
+				.n = (unsigned char)m->ncolors, .cur = (unsigned char)border_color_load(a, (int)(v - a->view)),
+				.labels = labels, .preview = gm_color_preview };
+		}
 	}
 	g_gm_demo_tag = a->sys.systems[v - a->view].tag;
 	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
@@ -1893,6 +1949,14 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	 * into it. */
 	if (sel == GM_DISPLAY && (key == IN_LEFT || key == IN_RIGHT)) {
 		gm_cycle_display(a, key == IN_RIGHT ? 1 : -1);
+		return MENU_STAY;
+	}
+	/* Handheld Color the same way, the frame sent again in its color */
+	if (sel == GM_BORDER_COLOR && (key == IN_LEFT || key == IN_RIGHT)) {
+		int sys = (int)(owner_view(a) - a->view);
+
+		border_color_step(a, sys, key == IN_LEFT ? -1 : 1);
+		border_send(a, sys);
 		return MENU_STAY;
 	}
 	/* Border, on left and right, sent to the game the same way; A opens its
