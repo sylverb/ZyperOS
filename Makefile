@@ -2660,7 +2660,8 @@ check-mp4views: native
 # mode's dummy window: Now Playing paused at its second, only for a row that
 # says playing, and nothing for one whose file is gone. And a start back into
 # a game, against a Diatom of the check's own: the game first, MP4 held under
-# it, and SELECT in the game's menu Now Playing on it, paused.
+# it, and SELECT in the game's menu Now Playing on it, paused. Each wait is
+# for the screen or the row it names, never for a time.
 check-mp4resume: build-native/mp4resume-check native
 	@./build-native/mp4resume-check
 	@python3 tools/mp4resume-start.py
