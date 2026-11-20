@@ -341,17 +341,18 @@ bool plat_save_screen(const char *path) { (void)path; return false; }
 
 #ifdef __linux__
 /* Flash Drive's pictures for usbdrive (src/usbdrive_screen.c): the frame
- * just drawn, never shown, read back and made 640x480, the size usbdrive's
- * atlas is laid out in on every device, landscape (the Brick's panel is not
- * turned), as raw XRGB8888. usbdrive's page on the Brick (plastron's
+ * just drawn, never shown, read back and made 0.625 of the canvas, 640x480
+ * on a 4:3 one and 855x480 on the Smart Pro's 1368x768, the size usbdrive's
+ * atlas is laid out in, landscape (the Brick's panel is not turned), as raw
+ * XRGB8888. usbdrive's page on the Brick (plastron's
  * package/usbdrive/src/panel_fb.c) scales it up to the panel again. Each
  * picture is the average of the 1.6 x 1.6 frame pixels under it, two taps a
  * way, so text keeps its weight. A few frames at Flash Drive's start: a
  * read back here costs nothing a game would see. */
-/* usbdrive's pictures' size on every device: src/usbdrive_screen.c's
- * UD_SAVE_W and UD_SAVE_H, the units its atlas is written in (a file's
- * format, not a place on this screen) */
-#define SAVE_W 640
+/* usbdrive's pictures' size: src/usbdrive_screen.c's UD_SAVE_W and
+ * UD_SAVE_H, the units its atlas is written in (a file's format, not a
+ * place on this screen) */
+#define SAVE_W (ZYPEROS_SCREEN_W * 5 / 8)
 #define SAVE_H 480
 bool plat_save_screen_hidden(const char *path)
 {
