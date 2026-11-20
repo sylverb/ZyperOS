@@ -20,7 +20,7 @@
 #define TAIL       65536          /* the zip's end, where its index's place is */
 #define MAX_MATCH  8              /* a game's files at most */
 #define MAX_COLL   64
-#define LOCAL_PAD  1024           /* a local header's name and extra, generously */
+#define LOCAL_ROOM  1024           /* a local header's name and extra, generously */
 #define ASK_S      60             /* a request's time limit; the index is 4 MB */
 #define ENTRY_MAX  (4u * 1024 * 1024)   /* a cheat file is a few KB: anything past this is no cheat file */
 static const unsigned BACKOFF[] = { 5000, 15000, 30000 };
@@ -58,7 +58,7 @@ static struct {
 	bool want[MAX_MATCH];
 	bool had;                     /* the game had files before: an update */
 	int got;                      /* its cheats, as they land */
-	int range_extra;              /* a local header longer than LOCAL_PAD */
+	int range_extra;              /* a local header longer than LOCAL_ROOM */
 	/* asking */
 	int tries, fail_row;
 	unsigned wait_until;
@@ -812,7 +812,7 @@ int cheats_step(void)
 		while (g.mi < g.nm && !g.want[g.mi]) g.mi++;
 		if (g.mi >= g.nm) { game_landed(); return 1; }
 		e = &g.e[g.match[g.mi]];
-		if (ask_range(e->off, (unsigned long long)e->off + 30 + (unsigned)e->nlen + LOCAL_PAD + (unsigned)g.range_extra +
+		if (ask_range(e->off, (unsigned long long)e->off + 30 + (unsigned)e->nlen + LOCAL_ROOM + (unsigned)g.range_extra +
 		                      e->csize - 1)) {
 			g.phase = P_FETCH_WAIT;
 		} else if (!retry_later()) {
