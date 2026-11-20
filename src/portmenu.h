@@ -65,6 +65,31 @@ static inline bool port_keeps_mp4(const char *core)
 #define PORT_KEEPS_MP4  "mp4"
 #define MP4_FOLLOW_ARG  "--mp4-follow"
 
+/* Of those, the programs whose picture follows the system's Display row:
+ * your PICO-8, by its tag, whose script hands the row's mode to pico8_64
+ * (sd/pixel2/PICO-8.sh, src/p8draw.h). The in-game menu over it has a
+ * Display row (2026-11-20, "cover all those": the gap map's in-game
+ * Display): PICO-8 cannot change its picture while it runs, so a mode
+ * picked there asks first, the cursor on Cancel, as Reset Game's hotkey
+ * does, and then the cart starts again in it (port_restart_ask,
+ * src/ingame_screen.h). The launcher keeps the mode as display.<TAG>,
+ * writes it to PORT_RESTART_FILE and exits PORT_MENU_RESTART; portkeys gives
+ * the program its display back, lets it go on and sends launch.sh USR2, as
+ * for Quit, and launch.sh's port_quit, finding the file, ends the program
+ * and starts its script again with that mode (ZYPEROS_DISPLAY). portkeys,
+ * MP4's follower and MP4 go on through it. tools/pico8-display-check.py
+ * holds the menu's part and launch.sh's. */
+static inline bool port_menu_display(const char *tag)
+{
+	return tag && !strcmp(tag, "PICO8");
+}
+/* One line, the display.<TAG> word to start again in, written whole */
+#define PORT_RESTART_FILE  "/tmp/zyperos_port_restart"
+/* After the tag and the game: the Next Display hotkey over your PICO-8
+ * (portkeys, src/hotkeys.h). No menu: the next mode, round, and the same
+ * question over the frame, then PORT_MENU_RESTART or PORT_MENU_CONTINUE */
+#define PORT_MENU_DISPLAY_ARG "--display"
+
 /* The menu's process to the kernel when memory runs out: the first to go,
  * its oom_score_adj at the top of the scale */
 #define PORT_MENU_OOM "1000"
@@ -111,5 +136,7 @@ static inline bool port_menu_pads(const char *tag)
 #define PORT_MENU_CONTINUE 10
 #define PORT_MENU_QUIT     11
 #define PORT_MENU_POWER    12
+/* 13 is Reset's (the Reset row and hotkey over your PICO-8) */
+#define PORT_MENU_RESTART  14
 
 #endif

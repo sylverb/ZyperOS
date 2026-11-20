@@ -262,6 +262,11 @@ typedef struct {
 	bool        port;
 	/* ...that has not drawn yet: Continue reads Keep Waiting (1.0.6) */
 	bool        waiting;
+	/* ...whose picture follows the Display row (your PICO-8,
+	 * src/portmenu.h's port_menu_display): the Display row, after Continue,
+	 * `dmode` its value. A picks a mode from its list, which starts the
+	 * program again after a question; Left and Right step nothing */
+	bool        port_display;
 	/* The quick slot, 1 to GM_SLOTS; 0 where the system keeps no states */
 	int         quick;
 	/* The game has a state from before its last load (SLOT_UNDO): the Undo
@@ -319,7 +324,9 @@ int gm_disc_step(int disc, int discs, int d);
  *             glance, and A on it turns to this tab, the one L1 would
  * GM_CONTROLS and GM_PAK are in no tab: Controls is a tab now and Pak is one
  * of its rows. A port's menu (u->port) has no tabs and is Continue, Controls
- * and Quit whichever tab is asked for. */
+ * and Quit whichever tab is asked for; over your PICO-8 (u->port_display)
+ * Continue, Display, Controls and Quit, Display where the Display tab is,
+ * after the Game tab's first row. */
 typedef enum { GT_GAME, GT_DISPLAY, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
 
 /* On-Screen Stats' switch in the device's database, kept per player and

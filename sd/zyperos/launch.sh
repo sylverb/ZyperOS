@@ -403,10 +403,50 @@ port_power() {
 # Quit in the in-game menu over a port (OpenBOR's, a PortMaster port's,
 # PortMaster's own; tools/portkeys.c --menu): USR2 from portkeys. The port
 # ends as for POWER, and the launcher comes back on its shelf, as after a
-# port that ended by itself
+# port that ended by itself.
+#
+# Or, with the in-game menu's restart file there, a start again: a Display
+# mode picked over your PICO-8, which draws its picture where it was told as
+# it started (src/portmenu.h, PORT_RESTART_FILE; the file says the mode). The
+# program ends at once, TERM to its whole group (SDL turns it into a quit, so
+# PICO-8 saves its settings on its way out), whatever is left of it 4 s later
+# is killed, and run_port starts the script again with that Display. A word
+# that is no mode's is no start again.
+PORT_RESTART_FILE=/tmp/zyperos_port_restart
+PORT_AGAIN=
 port_quit() {
+	local w=
+	[ -f "$PORT_RESTART_FILE" ] && read -r w < "$PORT_RESTART_FILE"
+	rm -f "$PORT_RESTART_FILE"
+	case $w in *[!a-z-]*) w= ;; esac
+	if [ -n "$w" ] && [ -n "$PORT_PID" ]; then
+		echo "port: Display $w in the in-game menu, starting it again" >> "$LOG"
+		PORT_AGAIN=$w
+		kill -TERM -"$PORT_PID" 2> /dev/null
+		kill -CONT -"$PORT_PID" 2> /dev/null
+		( p=$PORT_PID; sleep 4; kill -KILL -"$p" 2> /dev/null ) &
+		return
+	fi
 	echo "port: Quit in the in-game menu, ending it" >> "$LOG"
 	port_end
+}
+# The loading screen the launcher left, held on the panel by splash until
+# the port draws (run_port says why); again for a start again, with the one
+# before ended first
+port_still() {
+	[ -n "$still" ] && kill "$still" 2> /dev/null
+	still=
+	if [ "$HAS_PORT_STILL" = 1 ] && [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] &&
+	   [ -x /usr/bin/splash ]; then
+		rm -f /tmp/zyperos_menu_up
+		slater= sout=
+		[ -f /tmp/zyperos_loading_later.raw ] && slater=/tmp/zyperos_loading_later.raw
+		[ -f /tmp/zyperos_loading_out ] && sout=/tmp/zyperos_loading_out
+		SPLASH_LATER=$slater SPLASH_OUT=$sout SPLASH_OUT_LOG=${sout:+$LOG} \
+		SPLASH_OUT_PAUSE=${sout:+/tmp/zyperos_menu_up} \
+			/usr/bin/splash --still /tmp/zyperos_loading.raw &
+		still=$!
+	fi
 }
 run_port() {
 	local pid i rc
@@ -466,7 +506,11 @@ run_port() {
 	# It steps ZyperOS's own levels, saved in its database, and shows the bar
 	# over the port, in the theme the Appearance setting there makes; the
 	# library database holds the time zone Auto's hour is read in
-	local keys= still= turn= m sout= slater=
+	local keys= still= turn= m sout= slater= disp=$4
+	# No start again asked for yet (port_quit): a file left from before is
+	# none
+	rm -f "$PORT_RESTART_FILE"
+	PORT_AGAIN=
 	trap port_power USR1
 	trap port_quit USR2
 	# The Pixel 2's panel is a 480x640 portrait one mounted turned (below). A
@@ -489,16 +533,7 @@ run_port() {
 	# is up over the screen (SPLASH_OUT_PAUSE, there while it is: portkeys's).
 	# One left by a portkeys that ended with its menu up would hold the line
 	# back for the whole start, so none is kept from before.
-	if [ "$HAS_PORT_STILL" = 1 ] && [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] &&
-	   [ -x /usr/bin/splash ]; then
-		rm -f /tmp/zyperos_menu_up
-		[ -f /tmp/zyperos_loading_later.raw ] && slater=/tmp/zyperos_loading_later.raw
-		[ -f /tmp/zyperos_loading_out ] && sout=/tmp/zyperos_loading_out
-		SPLASH_LATER=$slater SPLASH_OUT=$sout SPLASH_OUT_LOG=${sout:+$LOG} \
-		SPLASH_OUT_PAUSE=${sout:+/tmp/zyperos_menu_up} \
-			/usr/bin/splash --still /tmp/zyperos_loading.raw &
-		still=$!
-	fi
+	port_still
 	# MP4 kept playing over it: the launcher's queue handed to a follower
 	# (zyperos.elf --mp4-follow, src/mp4hand.h), which does what the
 	# launcher does beside a Diatom game, and which portkeys stops while the
@@ -555,38 +590,49 @@ run_port() {
 	fi
 	# And the system's Display row ("integer" for Sharp Pixels, its
 	# display.<TAG> name), fourth: a "run:" script that draws to it reads
-	# ZYPEROS_DISPLAY (your PICO-8's, sd/pixel2/PICO-8.sh)
-	( cd "${1%/*}" &&
-	  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
-	  if [ -n "$eqcfg" ]; then
-		export ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg
-	  fi &&
-	  ZYPEROS_DISPLAY=$4 SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
-	PORT_PID=$!
-	# A USR1 (POWER) ends the wait early; the port has ended once its
-	# process is gone
+	# ZYPEROS_DISPLAY (your PICO-8's, sd/pixel2/PICO-8.sh). Started again
+	# with the one the in-game menu picked, for as long as it asks
+	# (port_quit), unless POWER came meanwhile; portkeys, the follower and
+	# MP4 go on through it
 	while :; do
-		wait "$PORT_PID"
-		rc=$?
-		[ -d "/proc/$PORT_PID" ] || break
+		( cd "${1%/*}" &&
+		  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
+		  if [ -n "$eqcfg" ]; then
+			export ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg
+		  fi &&
+		  ZYPEROS_DISPLAY=$disp SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
+		PORT_PID=$!
+		# A USR1 (POWER) ends the wait early; the port has ended once its
+		# process is gone
+		while :; do
+			wait "$PORT_PID"
+			rc=$?
+			[ -d "/proc/$PORT_PID" ] || break
+		done
+		echo "port: ended, $rc" >> "$LOG"
+		# What the script left running in its group when it ended, a helper
+		# started in the background and never stopped, goes with it
+		if kill -0 -"$PORT_PID" 2> /dev/null; then
+			echo "port: ending what it left running" >> "$LOG"
+			kill -TERM -"$PORT_PID" 2> /dev/null
+			kill -CONT -"$PORT_PID" 2> /dev/null
+			i=0
+			while [ $i -lt 10 ] && kill -0 -"$PORT_PID" 2> /dev/null; do
+				sleep 0.1
+				i=$((i + 1))
+			done
+			kill -KILL -"$PORT_PID" 2> /dev/null
+		fi
+		[ -n "$PORT_AGAIN" ] && [ ! -e /tmp/zyperos_poweroff ] || break
+		disp=$PORT_AGAIN
+		PORT_AGAIN=
+		echo "port: $1${2:+ $2} again, Display $disp" >> "$LOG"
+		port_still
 	done
-	echo "port: ended, $rc" >> "$LOG"
+	PORT_AGAIN=
 	# PortMaster's run, for the launcher that starts next: when it began and
 	# ended, and how it ended
 	[ -n "$pm_start" ] && echo "$pm_start $(date +%s) $rc" > /tmp/zyperos_pm_ran
-	# What the script left running in its group when it ended, a helper
-	# started in the background and never stopped, goes with it
-	if kill -0 -"$PORT_PID" 2> /dev/null; then
-		echo "port: ending what it left running" >> "$LOG"
-		kill -TERM -"$PORT_PID" 2> /dev/null
-		kill -CONT -"$PORT_PID" 2> /dev/null
-		i=0
-		while [ $i -lt 10 ] && kill -0 -"$PORT_PID" 2> /dev/null; do
-			sleep 0.1
-			i=$((i + 1))
-		done
-		kill -KILL -"$PORT_PID" 2> /dev/null
-	fi
 	PORT_PID=
 	# Waited for: while the bar is up it holds a copy of the port's display,
 	# and the launcher cannot take the display until that copy is gone
@@ -610,7 +656,7 @@ run_port() {
 	[ -n "$3" ] && killall -TERM zyperos.elf 2> /dev/null
 	trap - USR1 USR2
 	[ -n "$still" ] && kill "$still" 2> /dev/null
-	rm -f /tmp/zyperos_loading.raw /tmp/zyperos_loading_out /tmp/zyperos_menu_up
+	rm -f /tmp/zyperos_loading.raw /tmp/zyperos_loading_out /tmp/zyperos_menu_up "$PORT_RESTART_FILE"
 	# A helper left behind would keep the buttons typing keys under the
 	# shelf: gptokeyb
 	killall -9 gptokeyb gptokeyb2 2> /dev/null

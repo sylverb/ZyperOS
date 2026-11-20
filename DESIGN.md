@@ -6173,6 +6173,22 @@ top, which no device has shown 0.2.7 taking: if it does not, one constant
 (`NEG_OK` in PICO-8.sh, `P8_NEG_OK` beside it) draws them as Sharp Pixels and
 Original Shape. On the Brick 6x is its full height (768 x 768).
 
+**Display in the game.** The menu over it has a **Display** row, after
+Continue (where the Display tab is, after the Game tab's first row), its
+value the mode on: Continue, Display, Controls, Quit. PICO-8 draws its
+picture where it was told as it started and cannot move it, so a mode is one
+it starts again in. A opens the Display list, each mode's picture beside it
+(PICO-8's own screen, cut out of the frame the menu is over, drawn in that
+mode); Left and Right step nothing, as a step would start it again. A mode
+other than the one on asks first, as Reset Game's hotkey asks, the cursor on
+Cancel: **Start the cart again?**, "PICO-8 starts again in Actual Size. Play
+since the cart last saved is lost.", **Start Again** and Cancel. Start Again
+keeps the mode as the shelf's row keeps it (`display.PICO8`), and PICO-8 ends
+(saving its settings) and starts again in it, behind the cart's loading
+screen, MP4 playing on; Cancel, B or the mode on change nothing. The **Next
+Display** hotkey over it asks the same for the next mode, with no menu
+(`--display`). launch.sh does the start again (`port_quit`, src/portmenu.h).
+
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
 and its favourites stay in `Saves/PICO-8`. *(Favourites stay in Splore.)*
