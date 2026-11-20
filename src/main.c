@@ -7152,8 +7152,10 @@ int main(int argc, char *argv[])
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);
 		/* The downloads' lanes go on behind every screen while it rests
-		 * (src/dlq.h); tick_theme steps them as one draws */
+		 * (src/dlq.h); tick_theme steps them as one draws. What each step
+		 * brings is kept for MENU > Downloads, open or not. */
 		plat_on_input_wait(dlq_wait);
+		dlq_on_step(downloads_stepped);
 		p2_setup();
 		heat_init(&g_heat);
 
@@ -7709,9 +7711,10 @@ int main(int argc, char *argv[])
 	 * card's empty .media folders go once the shelf is up (after_start_step). */
 	up_cable_tidy();
 
-	/* A test of MENU > Downloads (dl_test): the page at once */
+	/* A test of MENU > Downloads (dl_test): the page at once, and the steps
+	 * behind it once it closes */
 	if (getenv("ZYPEROS_DOWNLOADS_TEST")) {
-		downloads_screen(&a);
+		downloads_test(&a);
 		a.running = false;
 	}
 	/* A test of MENU > Scraper's page (scp_test): the page at once */
