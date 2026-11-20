@@ -69,7 +69,7 @@ something once broke in a way nothing noticed:
 | `check-taskhold` | long tasks and Auto Off (src/taskhold.h): what a loop says holds the clock for 2 s and lets go by itself, across the counter's wrap, and the real clock does not fire during a task and starts a whole countdown after it |
 | `check-saver` | the screensaver's policy (src/saver.h): the delay's ladder, when it starts and what holds it back (a button, music, a long task, a low battery, time away), when it ends on its own (the cable-less cap, a low battery), a clip's fades and timing, which game is next (none of the last twelve), and that Auto Off fires at its own time with it up, down or off |
 | `check-cheevos` | the achievement half: parsing and filtering |
-| `check-rahash` | the C and Python ROM hashers agree, over the whole library; PlayStation and PSP discs in `.chd`, `.cso` and `.pbp` give upstream rcheevos's hashes (`tools/fixtures/rahash`, made by `tools/rahash-fixtures.py`), and broken ones are refused |
+| `check-rahash` | the C and Python ROM hashers agree, over the whole library; PlayStation and PSP discs in `.chd`, `.cso` and `.pbp`, and Dreamcast discs in `.gdi`, `.cue`, `.chd` and `.cdi`, give upstream rcheevos's hashes (`tools/fixtures/rahash`, made by `tools/rahash-fixtures.py`; a `.cdi` through Flycast's own reader), and broken ones are refused |
 | `check-flacdec` | the FLAC decoder under a CHD's FLAC hunks matches libFLAC's encoder at every setting (needs Homebrew's `flac`) |
 | `check-achtab` | the in-game menu's Achievements tab: each state its sentence, the counts line, an achievement's row |
 | `check-raset` | the C and Python set converters agree (needs `RA_USER`/`RA_PASS`) |
@@ -139,7 +139,7 @@ something once broke in a way nothing noticed:
 | `check-signin` | RetroAchievements sign-in against a stand-in for curl: a token signs in; a 401 says the user or password is wrong; a 403, a 503 or a redirect says retroachievements.org would not sign you in, with the number; a reply cut short, too long, or nothing at all is never read as a token; and as curl, the check holds that the password is never on its command line, every file the request makes is new and 0600 from the start and gone after, and the log names the failure and no credential |
 | `check-noticeq` | the pop-ups over a game, one after another (src/noticeq.h) |
 | `check-badges` | achievement badges (src/rabadge.h) through the real fetch with a stand-in for curl: kept beside the set; one curl for what is missing and nothing else; starting it and drawing 4,000 icons while it runs never wait for it; a badge that has not come is a plain one of the same 64 pixels, never a hole; a 404 page is never kept as a badge; then the plain badge and Zyper as pixels (src/noticeart.h), in both themes, his shadow on Beard only. No network (needs SDL2 and SDL2_image; skips without them) |
-| `check-badge-shots` | the unlock notice with Zyper at its right end and its badge, or the plain one where the card has none; a count's notice with the plain one and no Zyper; the set's arrival with neither; the achievements list with a badge in every row, plain until the art is there, and the rows' words not moving when it comes; in both themes (builds the host launcher; skips without SDL2) |
+| `check-badge-shots` | the unlock notice with Zyper at its right end and its badge, or the plain one where the card has none; a count's notice with the plain one and no Zyper; the set's arrival with neither; the achievements list with a badge in every row, plain until the art is there, and the rows' words not moving when it comes; an achievement's card with its badge centered under the heading, or the plain one, and a long description moving under a still footer; in both themes (builds the host launcher; skips without SDL2) |
 | `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear; Developer Mode's choice between the cable's SSH and SSH over Wi-Fi for every combination of cable, radio, choice and a spent plug (the password never with a radio), dropbear's words for each (`-s` and every address over Wi-Fi, the cable's address alone on the cable), and what counts as a key; over a port, portkeys' SSH keys only on every link and none in the in-game menu |
 | `check-usblink` | USB charges only until asked: a computer is asked about once per plug and a charger never, every choice ends with its screen or its cable, and Developer Mode keeps the link |
 | `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database (and SSH over Wi-Fi, only while Developer Mode is on and off with it), a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
@@ -159,6 +159,7 @@ something once broke in a way nothing noticed:
 | `check-museart` | album covers from MusicBrainz: the rule that picks the record, and a run on a stubbed network |
 | `check-mp4lock` | the play modes, and MP4's lock screen: every button blocked, power and volume too, and L1 + R1 held two seconds the one way out |
 | `check-mp4look` | MP4's Player Looks' motion: bars up at once and down on follow at any frame rate, caps held for peak-hold and down with gravity, at rest after, the bands over a look's bars |
+| `check-covercolor` | an album cover's main color, the cassette's stripe and the vinyl's: one color, a title on a white sleeve, the larger of two, a gradient over a band, grey |
 | `check-bands` | the daemon's bands for the bars: each lit by a tone at its own middle, silence dark, the window where the listener is; `build-native/bands-check --song FILE` plays a song through it |
 | `check-mp4frame` | MP4's video frames between the daemon and the launcher: a writer and a reader on two threads over the same pages, every picture the reader keeps whole |
 | `check-mp4size` | MP4's video picture of any shape (4:3 at 1440x1080, 480x360 and 320x240, 16:9, odd, tiny, the largest, the size changing inside one file) published as the daemon publishes it and read into the player's texture: a texture as wide as the frame's rows (a multiple of 128) and as high as the picture, each plane fitting the Pixel 2's Mesa tile buffer as rows (it ran past it, a crash or a green bottom edge, for 4:3 widths), the picture drawn whole from its own rectangle, its shape kept, nothing out of bounds under UBSan and, on a Mac, Guard Malloc (skips without SDL2) |
@@ -439,7 +440,10 @@ without it the corner shows what the host has, which is its clock, and a
 battery only when `/tmp/zyperos_fake_batt` holds a level. `--gamemenu [row]
 [dual]`, on a games shelf, draws the menu over a paused game on a made-up
 frame, `dual` with a Nintendo DS game's screen rows, and `--ingame` draws
-`--cheevos-screen` over a paused game, as the in-game menu opens it. Every
+`--cheevos-screen` over a paused game, as the in-game menu opens it.
+`--cheevo-card N` draws an achievement's card (0 earned, 1 the longest
+description, which scrolls, 2 earned offline, 3 none), with
+`--cheevos-badge SET NAME` for its art and `--phase MS` for its scroll. Every
 shot fails (exit 3, a `CORNER:` line) when the status corner meets the
 focused card, a games title or a panel, when its clock is not 16 from its
 marks, when it draws a clock no `--status` gave, or when `--status` gave it

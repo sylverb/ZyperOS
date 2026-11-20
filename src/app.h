@@ -529,6 +529,9 @@ typedef struct {
 	int          album;
 	bool         done;
 	SDL_Texture *tex;
+	/* The cover's main color (src/covercolor.h), CFG_NO_COLOR for an album
+	 * with none, whose card is drawn in the accent */
+	unsigned     rgb;
 } np_cover_state;
 extern np_cover_state g_np;
 void np_cover(app *a, int al);
