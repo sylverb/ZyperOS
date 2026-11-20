@@ -35,6 +35,17 @@ de = Pausiert
 ja = 一時停止中
 it = In pausa
 
+[muse.playing]
+note = Now Playing in the Classic look, beside the play mark over the large clock: music is playing (paused and stopped say muse.paused and muse.stopped there)
+en = Playing
+zh-Hans = 正在播放
+es = Reproduciendo
+pt-BR = Tocando
+fr = Lecture
+de = Wiedergabe
+ja = 再生中
+it = In riproduzione
+
 [muse.stopped]
 note = Now Playing, between the two times under the bar: nothing is playing
 en = Stopped
