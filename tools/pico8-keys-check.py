@@ -54,6 +54,8 @@ SHIPS = (GUID + 'a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoul
          'dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,')
 SWAPPED = SHIPS.replace('a:b1,b:b0,', 'a:b0,b:b1,')
 RESET, RESTART = 13, 14
+# The menu's rows over your PICO-8, whichever it has, in its order
+MENU_ROWS = ('Continue', 'Display', 'On-Screen Stats', 'Controls', 'Reset', 'Quit')
 fails = []
 
 
@@ -276,7 +278,7 @@ def launcher(tmp):
         check(ok and all(w in seen for w in ('Continue', 'Controls', 'Reset', 'Quit')) and
               seen.index('Controls') < seen.index('Reset') < seen.index('Quit'),
               'Reset, between Controls and Quit')
-        rows = [w for w in seen if w in ('Continue', 'Display', 'Controls', 'Reset', 'Quit')]
+        rows = [w for w in seen if w in MENU_ROWS]
         down = rows.index('Reset') if 'Reset' in rows else 3
         n = len(drawn('menu'))
         keys(*(['down'] * down), 'a')
@@ -305,7 +307,7 @@ def launcher(tmp):
         keys_file.write_text(f'hotkeys\tnone\nshots\t{shots}\n')
         m, ok = start('ctl', ['--port-menu', 'PICO8', cart])
         seen = drawn('ctl')
-        rows = [w for w in seen if w in ('Continue', 'Display', 'Controls', 'Reset', 'Quit')]
+        rows = [w for w in seen if w in MENU_ROWS]
         n = len(seen)
         keys(*(['down'] * rows.index('Controls')), 'a')
         # O on the B cap, as map.PICO8 swaps them (the A cap's row says it)
@@ -333,7 +335,7 @@ def launcher(tmp):
               f'as the menu ends the hotkeys are written again, the folder kept ({rc}, {k})')
 
         m, ok = start('ctl-yes', ['--port-menu', 'PICO8', cart])
-        rows = [w for w in drawn('ctl-yes') if w in ('Continue', 'Display', 'Controls', 'Reset', 'Quit')]
+        rows = [w for w in drawn('ctl-yes') if w in MENU_ROWS]
         keys(*(['down'] * rows.index('Controls')), 'a', 'down', 'right', 'b', 'up', 'a')
         rc = ended(m)
         mode = settings(card / 'userdata/zyperos.db', key='display.PICO8') or 'stretch'
