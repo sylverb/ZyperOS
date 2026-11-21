@@ -49,16 +49,13 @@
         "controls-tab": "The in-game Controls tab with button remapping and a TrimUI Brick drawing that highlights the selected buttons."
       },
       "facts": [
-        { "value": "39", "label": "Systems to explore, for now", "note": true },
+        { "value": "45", "label": "Systems to explore", "note": true },
         { "value": "Wi-Fi", "label": "Built into the Brick" },
         { "value": "0", "label": "Writes to the Brick's own storage" }
       ],
-      "fact_note": "*Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn come once their cores run on the Brick's graphics chip.",
-      "hidden_systems": ["DC", "NAOMI", "AW", "N64", "PSP", "SATURN"],
-      "hidden_note": "the six that need its graphics chip come later.",
+      "fact_note": "*Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn among them, drawn by the Brick's graphics chip from 1.1.0.",
+      "hidden_systems": [],
       "missing": {
-        "shaders-old": "Sharp-Shimmerless only, for now",
-        "cores-n64-dc": null,
         "ports": null,
         "usb-tethering": null,
         "usb-ask": "no SSH on its release image",
@@ -67,8 +64,8 @@
         "side-lights": null
       },
       "lines": {
-        "summary-gameplay": "Save slots, hotkeys and a sharp scaler.",
-        "summary-systems": "39 systems for now, and Nintendo DS.",
+        "summary-gameplay": "Save slots, hotkeys and shaders.",
+        "summary-systems": "45 systems and Nintendo DS.",
         "summary-connections": "File Transfer and system updates, over Wi-Fi.",
         "summary-care": "Battery, heat and sensible power use."
       },
@@ -79,7 +76,7 @@
           "id": "brick-faq",
           "q": "Does it run on the TrimUI Brick?",
           "a": [
-            "Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card. It never writes to the Brick's own storage. Pick it in ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. Screen Colors, Night Mode and Flash Drive came to it in 1.1.0. The 3D systems are hidden on it for now, and ports, the old-screen shaders, rumble, NES Player 2, the charge limit and its lights are not there yet. Nobody has tried Bluetooth headphones on it yet. The Brick Hammer runs the same card, but nobody has tried one yet either. Not the Brick Pro yet.",
+            "Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card. It never writes to the Brick's own storage. Pick it in ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. The Dreamcast, Nintendo 64, PSP and Saturn, the old-screen shaders, Screen Colors, Night Mode and Flash Drive came to it in 1.1.0. Ports, rumble, NES Player 2, the charge limit and its lights are not there yet. Nobody has tried Bluetooth headphones on it yet. The Brick Hammer runs the same card, but nobody has tried one yet either. Not the Brick Pro yet.",
             "I don't have a Brick myself: players on the ZyperOS Discord test it for me, and their logs show me what to fix."
           ],
           "link": "See the page for the Brick"
