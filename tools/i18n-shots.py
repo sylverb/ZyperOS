@@ -10,6 +10,9 @@
     python3 tools/i18n-shots.py --device brick --keep DIR
                                                 every screen as that handheld
                                                 alone (src/device/profile.h)
+    python3 tools/i18n-shots.py --part 2/4      the second of four parts of the
+                                                languages and handhelds (CI's
+                                                macOS job, one part a runner)
 
 Every screen is shot as each handheld ZyperOS runs on (DEVICES: the Pixel 2,
 the README's, first, then the Brick), with its own keys, rows and words: the
@@ -1936,6 +1939,48 @@ class Tee:
         self.out.flush()
 
 
+def part_arg(s):
+    m = re.fullmatch(r"(\d+)/(\d+)", s)
+    if not m or not 1 <= int(m.group(1)) <= int(m.group(2)):
+        raise argparse.ArgumentTypeError("a part is I/N with 1 <= I <= N, not %r" % s)
+    return int(m.group(1)), int(m.group(2))
+
+
+# What one language's shots cost on each handheld, against the Pixel 2's:
+# the Brick's panel has 2.6 times its pixels, and on CI's runners a part of
+# five Brick runs took 932 s where five Pixel 2 runs took 402 (2026-11-21)
+COST = {"pixel2": 1.0, "brick": 2.5}
+
+
+def part_of(runs, devices, i, n):
+    """The I-th of N parts of the runs (handheld, language), for CI's
+    runners, as even as their cost (COST) lets them be: the languages other
+    than English dealt out the dearest first, each to the part it adds the
+    least to, which counts the English run of its handheld too when the
+    part has none yet, as a language is read against English's on the same
+    handheld. The first part has English on every handheld from the start,
+    so the strings no shot draws (tools/i18n-unshot.txt) are still looked
+    for, in that part. The same runs give every part the same deal."""
+    cost = lambda d: COST.get(d, 1.0)
+    english = {d for d, c in runs if c == "en"}
+    parts = [set() for _ in range(n)]
+    load = [0.0] * n
+    for d in devices:
+        if d in english:
+            parts[0].add((d, "en"))
+            load[0] += cost(d)
+    order = {r: k for k, r in enumerate(runs)}
+    for r in sorted((r for r in runs if r[1] != "en"), key=lambda r: (-cost(r[0]), order[r])):
+        d = r[0]
+        extra = lambda k: cost(d) + (cost(d) if d in english and (d, "en") not in parts[k] else 0.0)
+        k = min(range(n), key=lambda k: (load[k] + extra(k), k))
+        load[k] += extra(k)
+        parts[k].add(r)
+        if d in english:
+            parts[k].add((d, "en"))
+    return [r for r in runs if r in parts[i - 1]]
+
+
 def main():
     """check() with the run's stops and its kept passes around it: a pass is
     kept by verdict_key (ZYPEROS_SHOTS_CACHE_DIR; ~/Library/Caches/ZyperOS/
@@ -2007,6 +2052,8 @@ def check():
     ap.add_argument("--jobs", type=int, help="launchers at once (one a language a handheld)")
     ap.add_argument("--device", action="append",
                     help="as this handheld only (more than once for more; all of DEVICES by default)")
+    ap.add_argument("--part", type=part_arg, help="I/N: the I-th of N parts of the languages and handhelds "
+                    "(make check CHECK_SHARD=I/N; CI's parts)")
     ap.add_argument("--cards", type=Path, help="clone the cards from DIR, which make_cards made (tools/pixel-gate.py "
                     "makes them once a gate), and leave it")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
@@ -2024,6 +2071,8 @@ def check():
     langs = args.lang or (i18n.CODES + [i18n.PSEUDO])
     keep = args.keep.resolve() if args.keep else None
     runs = [(d, c) for d in devices for c in langs]
+    if args.part:
+        runs = part_of(runs, devices, *args.part)
 
     # One launcher a language and handheld, as before 2026-11-18: fewer when
     # the computer was loaded (its free cores) left a make check's run at two
@@ -2069,7 +2118,8 @@ def check():
     # Every string a shot draws on any handheld, or says why it is none of
     # the shots'
     english_runs = [results[(d, "en")] for d in devices if (d, "en") in results]
-    full = not args.only and not args.lang and english_runs and sorted(devices) == sorted(DEVICES)
+    full = (not args.only and not args.lang and len(english_runs) == len(devices)
+            and sorted(devices) == sorted(DEVICES))
     gone = []
     if english_runs:
         st = strings_of("en")
@@ -2122,13 +2172,15 @@ def check():
         print("FAIL " + n)
         bad += 1
     pseudo = sum(len(results.get((d, i18n.PSEUDO), ([], [], {}, set()))[0]) for d in devices)
-    said = "check-i18n-shots"
+    said = "check-i18n-shots" + (" part %d/%d" % args.part if args.part else "")
+    langs = [c for c in langs if any(r[1] == c for r in runs)]
+    shot_as = [d for d in devices if any(r[0] == d for r in runs)]
     if bad:
         print("%s: %d problems in %d screens x %d languages as %s" % (
-            said, bad, len(shots), len(langs), ", ".join(devices)))
+            said, bad, len(shots), len(langs), ", ".join(shot_as)))
         return 1
     print("%s: %d screens in %s as %s, everything fits%s" % (
-        said, len(shots), ", ".join(langs), " and ".join(devices),
+        said, len(shots), ", ".join(langs), " and ".join(shot_as),
         "; the pseudo-locale cut or overflowed %d strings (notes above)" % pseudo if pseudo else ""))
     return 0
 

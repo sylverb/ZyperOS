@@ -13,7 +13,7 @@
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitwalk \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-        check-release-devices check-installer release check-site-devices
+        check-release-devices check-installer release check-site-devices check-mergetrain check-checkrun
 
 all: check
 
@@ -54,19 +54,29 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portlibs check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-menu-tap check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild check-kitwalk check-ingame-colors
+         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild check-kitwalk check-ingame-colors \
+         check-mergetrain check-checkrun
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
 # prints a line as each ends and the whole log of any that failed. One after
 # another the suite took 167 s on an M3 (2026-11-06), with fifteen cores idle.
+# The heaviest (its HEAVY) wait for one of two slots this computer's runs
+# share (CHECK_HEAVY_SLOTS).
 .PHONY: $(CHECKS)
 # CHECKS_SKIP="check-a check-b" leaves those out: CI's Linux job names the
 # checks that do not pass on Linux yet, which its macOS job still runs.
+# CHECK_SHARD=I/N runs the I-th of N parts of the rest, as CI's macOS job
+# does, one part a runner (tools/check-run.py --shard).
 CHECKS_SKIP ?=
+CHECK_SHARD ?=
 check: check-prep
 	@$(if $(strip $(CHECKS_SKIP)),echo "check: left out (CHECKS_SKIP): $(strip $(CHECKS_SKIP))")
-	@python3 tools/check-run.py $(filter-out $(CHECKS_SKIP),$(CHECKS))
+	@python3 tools/check-run.py $(if $(CHECK_SHARD),--shard $(CHECK_SHARD)) $(filter-out $(CHECKS_SKIP),$(CHECKS))
+
+# make check's runner itself: the parts CI deals, and the heavy checks' slots
+check-checkrun:
+	@python3 tools/check-run-check.py
 
 # What more than one check builds, built once before any of them starts: the
 # host launcher, which nine checks draw with, and the ScreenScraper header it
@@ -134,6 +144,11 @@ check-discord-release:
 # res/update/min-system-<id>, which tools/update-pack.py reads
 check-release-devices:
 	@sh tools/release-devices.sh check
+
+# tools/merge-train.py's merges, in a scratch repository: the check lists
+# two PRs add to joined, anything else refused, and --merge's step on main
+check-mergetrain:
+	@python3 tools/merge-train-check.py
 
 # docs/building.md's table names every check in CHECKS and nothing else:
 # the table had 32 of 91 rows (2026-11-06) and said nothing of the rest.
@@ -1659,8 +1674,10 @@ check-strings:
 # stderr; the Brick's MENU is a word, wider than the Pixel 2's three dots),
 # and lists what the pseudo-locale's longer words do not fit. A row the Brick
 # has not (Strength, with no GPU shaders) is said, not failed.
+# CHECK_SHARD=I/N (CI's parts, tools/check-run.py) shoots the I-th of N
+# parts of the languages and handhelds
 check-i18n-shots:
-	@python3 tools/i18n-shots.py
+	@python3 tools/i18n-shots.py $(if $(CHECK_SHARD),--part $(CHECK_SHARD))
 
 # How the Brick's initramfs (plastron's brick-rootswitch) reads the kernel's
 # line: the slot's root the boot script names, and a developer's root update

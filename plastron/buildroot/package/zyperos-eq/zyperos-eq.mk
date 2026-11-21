@@ -15,6 +15,13 @@ ZYPEROS_EQ_DEPENDENCIES = alsa-lib
 
 # The five bands are ZyperOS's src/eqdsp.h, the same file MP4, the menu
 # music and Diatom shape their sound with
+#
+# That header is outside the package's own folder, so plastron's build.sh,
+# which rebuilds a local package when its source changes, is told to watch
+# it too. Without it rc.6 to rc.9 carried the plugin built for rc.5, missing
+# the 3 dB boost cells (#429), found 2026-11-21 building rc.10
+ZYPEROS_EQ_PLASTRON_INPUTS = /zyperos/src/eqdsp.h
+
 define ZYPEROS_EQ_BUILD_CMDS
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_LDFLAGS) -O2 -fPIC -shared -Wall -Wextra \
 		-I/zyperos/src -o $(@D)/zyperos_eq.so $(@D)/zyperos_eq.c -lm
