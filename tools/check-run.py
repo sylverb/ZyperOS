@@ -29,13 +29,16 @@ three cores (2026-11-21), longer than every other check together.
 view RUN --log, one log a part or all in one) into tools/check-times.tsv.
 
 A check in HEAVY (a launcher a language, Diatom's own suite and build, Docker,
-desk mode's timed presses) takes one of CHECK_HEAVY_SLOTS (2) slots in
-/tmp/zyperos-heavy first, the same slots for every make check on this
-computer, in any worktree: five sessions' runs at once once put the load past
-30 and desk mode's presses were lost (2026-11-20). A slot is a lock on a file
-there, so a run that dies lets go of it; the file says who holds it. While
-the heavy ones wait, the rest go on. Not on CI (CI is set): a runner is one
-run. CHECK_HEAVY_SLOTS=0 takes none.
+desk mode's timed presses) takes one of CHECK_HEAVY_SLOTS (2) slots first,
+the same slots for every make check of this user on this computer, in any
+worktree: five sessions' runs at once once put the load past 30 and desk
+mode's presses were lost (2026-11-20). A slot is a lock on a file in the
+user's own cache (~/Library/Caches/ZyperOS/heavy-slots on a Mac,
+~/.cache/zyperos/heavy-slots elsewhere; CHECK_HEAVY_DIR), so a run that dies
+lets go of it; the file says who holds it. The folder must be the user's
+own and written by nobody else, and a slot is never a link: anything else is
+refused. While the heavy ones wait, the rest go on. Not on CI (CI is set): a
+runner is one run. CHECK_HEAVY_SLOTS=0 takes none.
 
 Two checks never share a file: each writes its own build-native/ folder or a
 temp path with its process id in it (Makefile, check-* rules), and Hare's
@@ -47,6 +50,7 @@ import fcntl
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import threading
@@ -71,7 +75,9 @@ HEAVY = {'check-i18n-shots', 'check-diatom',
          'check-ingame-colors', 'check-pico8-display', 'check-pico8-keys', 'check-pico8-mp4',
          'check-p8fx'}
 DOCKER = {'check-gpu-upright': 'UPRIGHT_DOCKER', 'check-p8fx-gl': 'P8FX_DOCKER'}
-SLOTS_DIR = Path(os.environ.get('CHECK_HEAVY_DIR') or '/tmp/zyperos-heavy')
+SLOTS_DIR = Path(os.environ.get('CHECK_HEAVY_DIR') or
+                 (Path.home() / 'Library/Caches/ZyperOS/heavy-slots' if sys.platform == 'darwin' else
+                  Path(os.environ.get('XDG_CACHE_HOME') or Path.home() / '.cache') / 'zyperos/heavy-slots'))
 # How a check is run (tools/check-run-check.py runs a stand-in)
 MAKE = ['make', '--no-print-directory']
 
@@ -118,20 +124,48 @@ def shard(checks, i, n, times):
     return [c for c in checks if c in mine]
 
 
+class Refused(Exception):
+    pass
+
+
 class Slots:
     """CHECK_HEAVY_SLOTS locks in SLOTS_DIR, one heavy check each, shared by
-    every run on the computer. flock: let go when the holder ends, however."""
+    every run of this user on the computer. flock: let go when the holder
+    ends, however. The folder is made 0700 and must be the user's own and
+    written by nobody else, a slot a plain file of the user's opened with
+    O_NOFOLLOW: a folder or link another user planted is refused (Refused),
+    never written through."""
 
     def __init__(self, count, where=None):
         self.count, self.where = count, Path(where or SLOTS_DIR)
+
+    def folder(self):
+        self.where.mkdir(mode=0o700, parents=True, exist_ok=True)
+        st = os.lstat(self.where)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o022:
+            raise Refused(f'{self.where} is not a folder of this user\'s that only it writes '
+                          f'(owner {st.st_uid}, mode {stat.filemode(st.st_mode)}): remove it, or set '
+                          f'CHECK_HEAVY_DIR')
+        return self.where
+
+    def open_slot(self, k):
+        path = self.folder() / f'slot-{k}'
+        try:
+            fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        except OSError as e:
+            raise Refused(f'{path}: {e.strerror} (a link, or not this user\'s)') from e
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid():
+            os.close(fd)
+            raise Refused(f'{path} is not a plain file of this user\'s')
+        return os.fdopen(fd, 'r+')
 
     def take(self, check):
         """A held slot (an open file) or None when all are taken"""
         if self.count <= 0:
             return True
-        self.where.mkdir(parents=True, exist_ok=True)
         for k in range(1, self.count + 1):
-            f = open(self.where / f'slot-{k}', 'a+')
+            f = self.open_slot(k)
             try:
                 fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
@@ -158,8 +192,9 @@ class Slots:
         said = []
         for k in range(1, self.count + 1):
             try:
-                said.append((self.where / f'slot-{k}').read_text().strip())
-            except OSError:
+                with self.open_slot(k) as f:
+                    said.append(f.read().strip())
+            except (OSError, Refused):
                 pass
         return [s for s in said if s and s != 'free']
 
@@ -212,6 +247,12 @@ def main(argv=None):
     on_ci = bool(os.environ.get('CI'))
     slots = Slots(0 if on_ci else int(os.environ.get('CHECK_HEAVY_SLOTS') or 2))
     heavy = heavy_set() if slots.count > 0 else set()
+    if heavy:
+        try:
+            slots.folder()
+        except (OSError, Refused) as e:
+            print(f'check-run: the heavy checks\' slots: {e}', file=sys.stderr)
+            return 2
     lock = threading.Condition()
     took, failed, waited, said = {}, [], {}, [-60.0]
     width = max(len(c) for c in checks)
@@ -222,14 +263,27 @@ def main(argv=None):
         needs a slot; None when none are left"""
         with lock:
             while pending:
+                refused = False
                 for c in pending:
                     if c not in heavy:
                         pending.remove(c)
                         return c, None
-                    held = slots.take(c)
+                    try:
+                        held = slots.take(c)
+                    except (OSError, Refused) as e:
+                        # Never run past a planted slot: the check fails, said why
+                        pending.remove(c)
+                        (LOGS / f'{c}.log').write_text(f'check-run: its heavy slot: {e}\n')
+                        took[c] = 0.0
+                        failed.append(c)
+                        print(f'FAIL {c:<{width}}    0.0 s  (its heavy slot: {e})', flush=True)
+                        refused = True
+                        break
                     if held:
                         pending.remove(c)
                         return c, held
+                if refused:
+                    continue
                 # Only heavy ones left, every slot taken
                 t = time.monotonic()
                 if t - said[0] >= 60:

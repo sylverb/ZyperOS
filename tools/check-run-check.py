@@ -11,6 +11,9 @@
   by another process is waited for and taken once it ends, however it ends
   (a lock, not a folder left behind); and the time a check waited said on
   its line
+- the slots' folder: the user's own cache, not /tmp; one that another user
+  could write (mode 777) refused, and the run with it; a slot that is a link
+  refused, the file it points to left as it was
 
 make check-checkrun. No make, no launcher: the stand-in check is this file.
 """
@@ -175,6 +178,41 @@ def slots(cr):
     check(got not in (None, True), 'the slot is free again after the run')
     cr.Slots(1).give(got)
     check(cr.Slots(1).holders() == [], 'a slot let go says it is free')
+
+    # Planted: a folder anyone writes, a slot that is a link
+    where = str(load().SLOTS_DIR)
+    check(not where.startswith(('/tmp', '/private/tmp', '/var/tmp')),
+          f'the slots are in the user\'s own cache, not a shared temp folder ({where})')
+    open_dir = tmp / 'open'
+    open_dir.mkdir()
+    os.chmod(open_dir, 0o777)
+    try:
+        cr.Slots(1, open_dir).take('mine')
+        check(False, 'a slots folder anyone writes is refused')
+    except cr.Refused as e:
+        check('mode' in str(e), f'a slots folder anyone writes is refused ({e})')
+    cr.SLOTS_DIR = open_dir
+    trace.write_text('')
+    rc = cr.main(['-j', '2', 'heavy-1', 'light-1'])
+    check(rc == 2 and spans(trace) == {}, f'and the run with it, nothing run ({rc})')
+    linked = tmp / 'linked'
+    linked.mkdir(mode=0o700)
+    victim = tmp / 'victim.txt'
+    victim.write_text('the user\'s own file\n')
+    (linked / 'slot-1').symlink_to(victim)
+    try:
+        cr.Slots(1, linked).take('mine')
+        check(False, 'a slot that is a link is refused')
+    except cr.Refused as e:
+        check(True, f'a slot that is a link is refused ({e})')
+    check(victim.read_text() == 'the user\'s own file\n', 'the file the link points to is as it was')
+    cr.SLOTS_DIR = linked
+    trace.write_text('')
+    rc = cr.main(['-j', '2', 'heavy-1', 'light-1'])
+    sp = spans(trace)
+    check(rc == 1 and 'heavy-1' not in sp and 'light-1' in sp,
+          f'in a run, its check fails and is not run, the rest are ({rc}, {sorted(sp)})')
+    check(victim.read_text() == 'the user\'s own file\n', 'and the file is still as it was')
     subprocess.call(['rm', '-rf', str(tmp)])
 
 

@@ -57,9 +57,11 @@ Two runs at once, in two worktrees, do not meet: every check writes its own
 files and Hare's checks listen on a port the kernel picks. They share the
 computer, though: the heaviest checks (`HEAVY` in `tools/check-run.py`:
 `check-i18n-shots`, `check-diatom`, desk mode's, Docker's) each take one of
-`CHECK_HEAVY_SLOTS` (2) slots in `/tmp/zyperos-heavy` first, the same two for
-every run on the Mac, while the rest go on; `cat /tmp/zyperos-heavy/*` says
-who holds them. Five runs at once had put the load past 30 and desk mode's
+`CHECK_HEAVY_SLOTS` (2) slots first, the same two for every run of yours on
+the Mac, while the rest go on; `cat ~/Library/Caches/ZyperOS/heavy-slots/*`
+says who holds them (`~/.cache/zyperos/heavy-slots` on Linux,
+`CHECK_HEAVY_DIR` to move them; a folder anyone else can write, or a slot
+that is a link, is refused). Five runs at once had put the load past 30 and desk mode's
 presses were lost (2026-11-20). `python3 tools/check-run.py check-i18n-shots`
 runs one heavy check under a slot too.
 
