@@ -55,10 +55,11 @@ jobs:
           path: build-native/check-logs/
 
   # The macOS suite's one line on a pull request, green when every part is
-  # (the name the single job had, so "check" still means the whole suite)
+  # (the name the single job had, so "check" still means the whole suite);
+  # not run for a run that was cancelled (a newer push)
   check:
     needs: shard
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
