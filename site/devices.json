@@ -61,7 +61,7 @@
         "cores-n64-dc": null,
         "ports": null,
         "usb-tethering": null,
-        "usb-ask": null,
+        "usb-ask": "no SSH on its release image",
         "player2": null,
         "charge-limit": null,
         "side-lights": null
@@ -79,7 +79,7 @@
           "id": "brick-faq",
           "q": "Does it run on the TrimUI Brick?",
           "a": [
-            "Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card. It never writes to the Brick's own storage. Pick it in ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. The 3D systems are hidden on it for now, and ports, Flash Drive, Screen Colors, the old-screen shaders, NES Player 2, the charge limit and its lights are not there yet. Nobody has tried Bluetooth headphones on it yet. The Brick Hammer runs the same card, but nobody has tried one yet either. Not the Brick Pro yet.",
+            "Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card. It never writes to the Brick's own storage. Pick it in ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. Screen Colors, Night Mode and Flash Drive came to it in 1.1.0. The 3D systems are hidden on it for now, and ports, the old-screen shaders, rumble, NES Player 2, the charge limit and its lights are not there yet. Nobody has tried Bluetooth headphones on it yet. The Brick Hammer runs the same card, but nobody has tried one yet either. Not the Brick Pro yet.",
             "I don't have a Brick myself: players on the ZyperOS Discord test it for me, and their logs show me what to fix."
           ],
           "link": "See the page for the Brick"

@@ -160,11 +160,11 @@ make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
 
 The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons: the arrows for the d-pad, X Z S A for A B X Y, Q W E R for L1 R1 L2 R2, Return for START, Right Shift for SELECT and Esc for MENU. The mouse presses the drawn keys, Option shows each key's letter, and F1 lists the rest. Linux works too ([Building](docs/building.md#work-on-the-ui-without-a-device)).
 
-**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. Every release from 1.1.0 on has its QEMU image, and `tools/qemu-run.sh fetch` downloads it and checks it against the release's `SHA256SUMS`. Until 1.1.0 is out, you build the image with plastron, in Docker (`make -C plastron qemu`, [how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes. Either way there is no SSH key to set up: `tools/qemu-run.sh` hands the VM yours, or makes one for it.
+**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. Every release from 1.1.0 on has its QEMU image, and `tools/qemu-run.sh fetch` downloads the latest one and checks it against the release's `SHA256SUMS`. To build the image yourself instead, plastron does it in Docker (`make -C plastron qemu`, [how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes. Either way there is no SSH key to set up: `tools/qemu-run.sh` hands the VM yours, or makes one for it.
 
 ```sh
 brew install qemu
-tools/qemu-run.sh fetch          # from 1.1.0 on; until then, make -C plastron qemu
+tools/qemu-run.sh fetch          # the latest release's image; or make -C plastron qemu
 simulator/scripts/build-app.sh
 open "simulator/build/ZyperOS Simulator.app"
 ```
