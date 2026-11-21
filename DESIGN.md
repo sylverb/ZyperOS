@@ -6212,15 +6212,14 @@ first (`run:ZyperOS/pico8/PICO-8.sh`) and fake08 after it, and its `brings`
 line names the two files: the core counts as on the card only with both there.
 So once they are, carts open in it, and the shelf's **Core** row offers it
 beside fake08; before, the row names fake08 alone, as today. *(2026-11-19:
-adding it is the choice.)* It runs as OpenBOR does, a program of its own:
-the loading screen (11.11) until it draws, **MENU** ZyperOS's in-game menu
-over it with a game's tabs (below; **X** Quit from any row of any tab,
-11.28), its Controls the PICO-8 shelf's buttons (below), **START** PICO-8's own pause
-menu, the player's hotkeys (below), **MENU+START**
-held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
-**POWER** its end and the power-off. No save states: PICO-8 has none, so Save,
-Load, Undo Load and Resume stay fake08's. Full clocks, as every program of its
-own.
+adding it is the choice.)* It runs as OpenBOR does, a program of its own: the
+loading screen (11.11) until it draws, **MENU** ZyperOS's in-game menu over it
+with a game's tabs (below; **X** Quit from any row of any tab, 11.28), its
+Controls the PICO-8 shelf's buttons (below), **START** PICO-8's own pause
+menu, the player's hotkeys (below), **MENU+START** held a second home even
+when it hangs, the volume keys and **MENU+VOL** over it, **POWER** its end and
+the power-off. No save states: PICO-8 has none, so Save, Load, Undo Load and
+Resume stay fake08's. Full clocks, as every program of its own.
 
 **MP4 over it** *(2026-11-20: "mp4 should keep playing while pico 8 is
 running like we do on other systems. and menu and select should open the mp4
@@ -6354,14 +6353,14 @@ mode (above). Quick Save, Quick Load, Faster and Slower do nothing over it:
 PICO-8 has no states and no speed, so their keys stay PICO-8's under SELECT.
 
 **Reset** is a row of the Game tab over it, before Quit as in a game's, once
-PICO-8 has drawn, and the Reset Game hotkey's: both ask first, over the frame, as Reset Game's
-hotkey asks over a game, the cursor on Cancel: **Reset the game?**, "Play
-since the last save is lost.", **Reset** and Cancel. Reset is PICO-8's own
-CTRL-R ("Reload / Run / Restart cartridge", its manual): portkeys keeps a
-keyboard of its own for the run (uinput, which plastron's kernel has built in,
-as gptokeyb's keyboard is made) and presses CTRL and R on it once PICO-8 has
-its display and keys back. Cancel or B goes back to the menu, or with the
-hotkey to the cart.
+PICO-8 has drawn, and the Reset Game hotkey's: both ask first, over the frame,
+as Reset Game's hotkey asks over a game, the cursor on Cancel: **Reset the
+game?**, "Play since the last save is lost.", **Reset** and Cancel. Reset is
+PICO-8's own CTRL-R ("Reload / Run / Restart cartridge", its manual): portkeys
+keeps a keyboard of its own for the run (uinput, which plastron's kernel has
+built in, as gptokeyb's keyboard is made) and presses CTRL and R on it once
+PICO-8 has its display and keys back. Cancel or B goes back to the menu, or
+with the hotkey to the cart.
 
 **Its buttons** are the PICO-8 shelf's, as fake08's are (11.45): the menu
 over it has a game's Controls tab, the handheld beside it: Applies To (This
