@@ -54,7 +54,27 @@ once, then runs every check at once, as many at a time as there are cores
 one's output in `build-native/check-logs/CHECK.log`, and the whole log of any
 that failed at the end. About 46 s on an M3; one after another it was 167 s.
 Two runs at once, in two worktrees, do not meet: every check writes its own
-files and Hare's checks listen on a port the kernel picks.
+files and Hare's checks listen on a port the kernel picks. They share the
+computer, though: the heaviest checks (`HEAVY` in `tools/check-run.py`:
+`check-i18n-shots`, `check-diatom`, desk mode's, Docker's) each take one of
+`CHECK_HEAVY_SLOTS` (2) slots first, the same two for every run of yours on
+the Mac, while the rest go on; `cat ~/Library/Caches/ZyperOS/heavy-slots/*`
+says who holds them (`~/.cache/zyperos/heavy-slots` on Linux,
+`CHECK_HEAVY_DIR` to move them; a folder anyone else can write, or a slot
+that is a link, is refused). Five runs at once had put the load past 30 and desk mode's
+presses were lost (2026-11-20). `python3 tools/check-run.py check-i18n-shots`
+runs one heavy check under a slot too.
+
+On CI the macOS suite is four jobs, `check 1/4` to `check 4/4`, one runner
+each (`make check CHECK_SHARD=I/4`), and `check` is green when all four are.
+`tools/check-run.py --shard` deals the checks out by CI's own times
+(`tools/check-times.tsv`, longest first, each to the part with the least), and
+`check-i18n-shots` shoots its own part of the languages and handhelds in each
+(`--part`: dealt by cost, a Brick run counting as two and a half Pixel 2
+runs, each part with English on the handhelds it has, and the first with
+English on both for the strings no shot draws). One runner took 32 to 39 minutes, 26 of them `check-i18n-shots`.
+After a check is added or gets much slower, write the table again from a
+green run: `gh run view RUN --log | python3 tools/check-run.py --times-from -`.
 
 On a fresh Ubuntu 24.04 machine (a container, a VM, a cloud workspace),
 `tools/ubuntu-setup.sh` installs what CI's Linux jobs install, with the
@@ -335,6 +355,7 @@ something once broke in a way nothing noticed:
 | `check-px2sim` | px2sim's choice of the keyboard it takes in the QEMU image: QEMU's virtio or USB one, never a uinput one such as gptokeyb's Fake Keyboard (host compiler, no VM) |
 | `check-sidelights` | what the launcher tells the side lights' gauge: the lines as plastron's gauge reads them, the FIFO writer that never waits and never dies of SIGPIPE, when a File Transfer batch is over, and files moving on its page: a line at most every 500 ms with the speed over that time, a pause between two files kept, `move 0 0` a second after the last bytes and at once when the page closes, across the clock's wrap; and MENU > Side Lights' preview lines, said again each second, another row at once, `preview off` as the page closes |
 | `check-building-doc` | this table has a row for every check in the Makefile's CHECKS, and none for a check that is gone |
+| `check-checkrun` | make check's runner (`tools/check-run.py`) with stand-in checks: CI's parts (`--shard I/N`) hold every check once and `check-i18n-shots` in each, the same from the list in any order and within the longest check of each other; `check-i18n-shots`' own parts hold every language on every handheld, each with English on its handhelds and the first with English on both, within one Brick run of each other; never more heavy checks at once than `CHECK_HEAVY_SLOTS`, in one run or with another process holding a slot, the light ones going on meanwhile, a slot taken again once its holder dies, the wait said on the check's line |
 | `check-blog` | zyperos.com's blog, built as Cloudflare Pages builds the site (mk/blog.py): title and description lengths, structured data, every link and picture reaching a file (or a path in `_redirects`, such as `/tip`), every post in the sitemap and llms.txt, and the landing page's colors |
 | `check-discord-release` | The release notes as `tools/release.sh` posts them in the Discord's #releases (`tools/discord-release.py`): every `docs/releases/v*.md` within Discord's limits (4096 characters an embed, 6000 a message), with What's new, without Install, Tested and Thanks, and ending with the release's link |
 | `check-release-devices` | the devices a release carries (`config/devices`, `tools/release-devices.sh`): the release notes' `Tested on <id>: <who, on what>` lines read on sample notes (every device tested passes; a device missing, a misspelled or unlisted id, or a Tested line in another form fails) and sample lists; each listed device with its `src/device/<id>_profile.c` and its `res/update/min-system-<id>`, which `tools/update-pack.py` puts in that device's lists |
