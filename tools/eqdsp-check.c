@@ -182,6 +182,48 @@ int main(void)
 		s.seq = 2;
 		eq_share_put(&s, NULL, 4);
 		report(s.seq == 4 && s.gain == 4 && s.db[0] == 5, "the_gain_written_alone_keeps_the_bands", s.gain);
+
+		/* Your PICO-8's cut: a byte of its own, out of seq's count, so a
+		 * writer of the gain and a writer of the cut never leave seq odd */
+		report(!eq_share_cut_get(&s), "a_file_from_before_has_no_cut", 0);
+		eq_share_cut_put(&s, 1);
+		report(eq_share_cut_get(&s) && s.seq == 4 && s.gain == 4 && s.db[0] == 5,
+		       "the_cut_written_touches_nothing_else", s.seq);
+		s.seq = 5;
+		report(eq_share_cut_get(&s), "and_reads_while_the_bands_are_being_written", 0);
+		s.seq = 4;
+		eq_share_put(&s, NULL, 6);
+		report(eq_share_cut_get(&s), "the_gain_written_keeps_the_cut", 0);
+		eq_share_cut_put(&s, 0);
+		report(!eq_share_cut_get(&s), "cleared", 0);
+		s.magic = 0;
+		eq_share_cut_put(&s, 1);
+		report(!eq_share_cut_get(&s), "none_from_a_file_that_is_not_one", 0);
+	}
+
+	/* The cut, faded: down to silence in 20 ms, never louder, and back */
+	{
+		static float fl[RATE], fr[RATE];
+		const int ramp = RATE / 1000 * EQ_RAMP_MS;
+		eq_fade f;
+		int i, ok = 1;
+
+		eq_fade_init(&f, RATE);
+		report(!eq_fade_active(&f), "the_fade_starts_heard_at_rest", f.now);
+		for (i = 0; i < RATE; i++) fl[i] = fr[i] = 0.5f;
+		eq_fade_cut(&f, 1, 0);
+		eq_fade_run(&f, fl, fr, RATE);
+		for (i = 1; i < ramp && ok; i++)
+			if (!(fl[i] < fl[i - 1]) || fl[i] < 0.0f) ok = 0;
+		report(ok && fl[ramp - 1] == 0.0f && fl[RATE - 1] == 0.0f && fr[ramp] == 0.0f,
+		       "down_to_silence_in_20_ms_falling_all_the_way", fl[ramp / 2]);
+		for (i = 0; i < RATE; i++) fl[i] = fr[i] = 0.5f;
+		eq_fade_cut(&f, 0, 0);
+		eq_fade_run(&f, fl, fr, RATE);
+		report(fl[0] < 0.01f && fl[ramp - 1] == 0.5f && fl[RATE - 1] == 0.5f && !eq_fade_active(&f),
+		       "back_in_20_ms_then_at_rest_untouched", fl[ramp / 2]);
+		eq_fade_cut(&f, 1, 1);
+		report(f.now == 0.0f && eq_fade_active(&f), "a_jump_is_at_once", f.now);
 	}
 
 	/* What it costs: a second of stereo through five boosted bands */

@@ -222,6 +222,15 @@ bool eq_share_gain(int db)
 	return true;
 }
 
+bool eq_share_cut(bool cut)
+{
+	eq_share *map = share_map();
+
+	if (!map) return false;
+	eq_share_cut_put(map, cut);
+	return true;
+}
+
 /* The shared file, mapped once (and again for another path) */
 static eq_share *share_map(void)
 {
@@ -270,7 +279,8 @@ static eq_share *share_map(void)
 			map->seq = 0;
 			memset(map->db, 0, sizeof map->db);
 			map->gain = 0;
-			memset(map->pad, 0, sizeof map->pad);
+			map->cut = 0;
+			map->pad = 0;
 			map->magic = EQ_SHARE_MAGIC;
 		}
 	}
