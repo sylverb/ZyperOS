@@ -26,6 +26,11 @@ export PATH=/sdk/bin:$PATH
 CC=/sdk/bin/$target-gcc
 SYSROOT=/sdk/$target/sysroot
 STRIP=/sdk/bin/$target-strip
+# Stripped as Buildroot strips what an image carries (its STRIPCMD), the
+# compiler's .comment and .note gone too: a program built here from the same
+# source against the SDK of the image's own build is then the image's byte
+# for byte, and tools/px2 deploy sends only what a change changed
+strip_as_image() { "$STRIP" --remove-section=.comment --remove-section=.note "$@"; }
 JOBS=${JOBS:-4}
 
 cd /zyperos
@@ -66,15 +71,15 @@ rm -rf "$S"
 mkdir -p "$S/usr/lib/ladspa" "$S/usr/sbin" "$S/etc"
 "$CC" -O2 -fPIC -shared -Wall -Wextra -Isrc -o "$S/usr/lib/ladspa/zyperos_eq.so" \
 	$PL/package/zyperos-eq/src/zyperos_eq.c -lm
-"$STRIP" --strip-unneeded "$S/usr/lib/ladspa/zyperos_eq.so"
+strip_as_image --strip-unneeded "$S/usr/lib/ladspa/zyperos_eq.so"
 "$CC" -O2 -Wall -Wextra -o "$S/usr/sbin/gauge" $PL/package/gauge/src/gauge.c $PL/package/gauge/src/lights.c
-"$STRIP" "$S/usr/sbin/gauge"
+strip_as_image "$S/usr/sbin/gauge"
 cp $PL/board/px2/rootfs-overlay/etc/asound.conf "$S/etc/asound.conf"
 # and the one call a deploy needs from a release image's Developer SSH, whose
 # mount namespace is its own, to bind them where the rest of the device
 # looks (tools/initns.c)
 "$CC" -O2 -Wall -Wextra -o "$B/initns" tools/initns.c
-"$STRIP" "$B/initns"
+strip_as_image "$B/initns"
 
 # The programs alone (tools/px2-payload.sh --programs): stripped, as the
 # payload's are, where ZyperOS/ has them, with the card's scripts as the
@@ -85,13 +90,13 @@ if [ -n "${PROGRAMS_ONLY:-}" ]; then
 	rm -rf "$B/programs"
 	mkdir -p "$P"
 	for f in zyperos.elf mp4d portkeys zyperos-update zyhome p2d; do
-		[ -f "$B/$f" ] && "$STRIP" -o "$P/$f" "$B/$f" && chmod +x "$P/$f"
+		[ -f "$B/$f" ] && strip_as_image -o "$P/$f" "$B/$f" && chmod +x "$P/$f"
 	done
-	"$STRIP" -o "$P/diatom" "diatom/build/$PORT/diatom"
+	strip_as_image -o "$P/diatom" "diatom/build/$PORT/diatom"
 	chmod +x "$P/diatom"
 	# Your PICO-8's library, where the payload has it, its exported calls kept
 	mkdir -p "$P/pico8"
-	"$STRIP" --strip-unneeded -o "$P/pico8/p8fx.so" "$B/p8fx.so"
+	strip_as_image --strip-unneeded -o "$P/pico8/p8fx.so" "$B/p8fx.so"
 	DEVICE=pixel2 sh mk/card-scripts.sh "$P"
 	exit 0
 fi
@@ -105,10 +110,10 @@ DEVICE=pixel2 OUT=/zyperos/$B/payload VERSION="$VERSION" \
 # whose image is older than it
 for t in px2-shot px2-input px2-perf; do
 	"$CC" -O2 -Wall -Wextra -o "$B/$t" "tools/$t.c" -lm
-	"$STRIP" "$B/$t"
+	strip_as_image "$B/$t"
 done
 # Stripped, as plastron's image strips every program it carries
 for f in zyperos.elf mp4d portkeys zyperos-update zyhome p2d diatom; do
-	"$STRIP" "$B/payload/ZyperOS/$f"
+	strip_as_image "$B/payload/ZyperOS/$f"
 done
-"$STRIP" --strip-unneeded "$B/payload/ZyperOS/pico8/p8fx.so"
+strip_as_image --strip-unneeded "$B/payload/ZyperOS/pico8/p8fx.so"
