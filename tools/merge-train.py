@@ -616,8 +616,10 @@ def merge_on_github(prs, after, base_tree, repo):
                                cwd=ROOT, text=True, capture_output=True)
             if r.returncode == 0:
                 break
-            # GitHub works out a new head's mergeability a moment after the push
-            if "not mergeable" not in (r.stderr + r.stdout).lower() and "head branch was modified" not in r.stderr:
+            # GitHub takes a pushed head, and works out its mergeability, a
+            # moment after the push: until then a merge at that head is refused
+            said_now = (r.stderr + r.stdout).lower()
+            if differ is None and "not mergeable" not in said_now and "head branch was modified" not in said_now:
                 raise Stop("gh pr merge %d: %s" % (n, r.stderr.strip()))
             time.sleep(6)
         else:
