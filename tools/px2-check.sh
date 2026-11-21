@@ -501,6 +501,25 @@ out=$(dep restore --from-system 2>&1); rc=$?
 check "restore --from-system puts back this system's own copy" \
 	'[ $rc -eq 0 ] && grep -q "rc.10 launcher" "$D/card/ZyperOS/zyperos.elf" && said "restored zyperos.elf (the system'"'"'s own)" && [ ! -e "$D/card/.px2-deploy" ]'
 
+# Kept by an older deploy, which wrote down no system (the owner's card had
+# one, 2026-11-21): a restore would put a version long gone back over this one
+fresh; build
+mkdir -p "$D/card/.px2-deploy/orig"
+echo "a launcher from long ago" > "$D/card/.px2-deploy/orig/zyperos.elf"
+echo "2026-11-20 00:52:16" > "$D/card/.px2-deploy/since"
+rm -rf "$D/before"; cp -R "$D/card" "$D/before"
+elf "$P/zyperos.elf" "new launcher"
+out=$(dep deploy "$P" 2>&1); rc=$?
+check "files kept with no system written down: a deploy is refused (7), nothing sent" \
+	'[ $rc -eq 7 ] && said "of a system nobody wrote down" && said "nothing was sent" && cardsame && [ ! -e "$D/calls-scp" ]'
+out=$(dep restore 2>&1); rc=$?
+check "and a plain restore too, the long-gone launcher left where it is" '[ $rc -eq 7 ] && cardsame'
+out=$(dep restore --status 2>&1)
+check "restore --status says so" 'said "an older tools/px2-deploy.sh kept them"'
+out=$(dep restore --from-system 2>&1); rc=$?
+check "restore --from-system: this system's own launcher, and the folder gone" \
+	'[ $rc -eq 0 ] && grep -q "slot launcher" "$D/card/ZyperOS/zyperos.elf" && [ ! -e "$D/card/.px2-deploy" ]'
+
 FAKE_CARD=249737216 dep deploy "$P" > /dev/null 2>&1; rc=$?
 check "deploy holds the card to the test card like the rest" '[ $rc -eq 1 ]'
 

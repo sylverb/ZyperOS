@@ -56,9 +56,10 @@
 # the first one kept, so --restore always goes back to the card from before
 # the session's first deploy, says for each file whether it is the system's
 # own copy, and forgets it. Kept on another system (an update or a new slot
-# since) is a refusal until --restore --from-system, which takes the files
-# from the image's own ZyperOS. PX2_DEPLOY_KEEP=0 keeps nothing (a release's
-# payload meant to stay).
+# since), or by an older deploy that wrote no system down, is a refusal
+# until --restore --from-system, which takes the files from the image's own
+# ZyperOS (or the folder moved aside by hand). PX2_DEPLOY_KEEP=0 keeps
+# nothing (a release's payload meant to stay).
 #
 # The system's files are in the read-only image, so --system binds a copy in
 # /tmp over each one (in init's mount namespace, with build/px2/initns when
@@ -316,8 +317,8 @@ if [ "$NORESTART" != 1 ] && [ -n "$b" ]; then
 fi
 # The files kept belong to the system they were kept on
 id=$(sysid)
-if [ "$KEEP" = 1 ] && [ -s "$SAVE/system" ] && [ "$(cat "$SAVE/system")" != "$id" ]; then
-	fail "the card's files kept in $SAVE (since $(cat "$SAVE/since" 2> /dev/null)) are another system's ($(cat "$SAVE/system"); this one is $id): tools/px2 restore --from-system first; nothing was changed" 7
+if [ "$KEEP" = 1 ] && [ -d "$SAVE" ] && [ "$(cat "$SAVE/system" 2> /dev/null)" != "$id" ]; then
+	fail "the card's files kept in $SAVE (since $(cat "$SAVE/since" 2> /dev/null)) are $(cat "$SAVE/system" 2> /dev/null | sed 's/^\(..*\)$/another system'"'"'s (\1)/; s/^$/of a system nobody wrote down (an older tools\/px2-deploy.sh kept them)/'); this one is $id: tools/px2 restore --from-system first, or move the folder aside; nothing was changed" 7
 fi
 # The system's files: a copy in /tmp bound over each, in init's namespace
 if [ -s "$DTMP/sys.list" ]; then
@@ -563,7 +564,7 @@ if [ "$MODE" = status ]; then
 		device_head
 		cat <<'EOF'
 if [ -d "$SAVE" ]; then
-	echo "px2-deploy: kept since $(cat "$SAVE/since" 2> /dev/null || echo ?), on system $(cat "$SAVE/system" 2> /dev/null || echo ?) (this one is $(sysid))"
+	echo "px2-deploy: kept since $(cat "$SAVE/since" 2> /dev/null || echo ?), on system $(cat "$SAVE/system" 2> /dev/null || echo "? (an older tools/px2-deploy.sh kept them)") (this one is $(sysid))"
 	[ -d "$SAVE/orig" ] && (cd "$SAVE/orig" && find . -type f | sed 's|^\./|  replaced |')
 	[ -f "$SAVE/added" ] && sed 's|^|  added |' "$SAVE/added"
 else
@@ -594,8 +595,8 @@ if [ ! -d "$SAVE" ] && [ ! -s "$SYST/binds" ]; then
 	echo "px2-deploy: nothing kept, nothing to restore" >&2
 	exit 3
 fi
-if [ -d "$SAVE" ] && [ "$FROMSYS" != 1 ] && [ -s "$SAVE/system" ] && [ "$(cat "$SAVE/system")" != "$(sysid)" ]; then
-	echo "px2-deploy: the card's files in $SAVE were kept on another system ($(cat "$SAVE/system"); this one is $(sysid)): --from-system puts back this system's own; nothing was changed" >&2
+if [ -d "$SAVE" ] && [ "$FROMSYS" != 1 ] && [ "$(cat "$SAVE/system" 2> /dev/null)" != "$(sysid)" ]; then
+	echo "px2-deploy: the card's files in $SAVE were kept on $(cat "$SAVE/system" 2> /dev/null | sed 's/^\(..*\)$/another system (\1)/; s/^$/a system nobody wrote down (an older tools\/px2-deploy.sh kept them)/'); this one is $(sysid): --from-system puts back this system's own; nothing was changed" >&2
 	exit 7
 fi
 # Puts $2 (a file) at ZyperOS/$1: under a new name, then renamed
@@ -673,6 +674,13 @@ fi
 
 # What differs from the card: its files by checksum, the system's through a
 # stand-in already bound if there is one
+# Files kept on another system, or by an older deploy that wrote none down:
+# a restore would put them back over this one's, so nothing goes on top
+if [ "$KEEP" = 1 ] && grep -q '^kept=' "$W/facts" && [ "$(fact keptsys)" != "$(fact sysid)" ]; then
+	echo "px2-deploy: the card's files kept in $SAVE (since $(fact kept)) are $([ -n "$(fact keptsys)" ] && echo "another system's ($(fact keptsys))" || echo "of a system nobody wrote down (an older tools/px2-deploy.sh kept them)"); this one is $(fact sysid)" >&2
+	echo "px2-deploy: tools/px2 restore --from-system first (this system's own copies back), or move $SAVE aside; nothing was sent" >&2
+	exit 7
+fi
 awk -F"$TAB" '$1 == "sum" { print $2 "\t" $3 }' "$W/facts" > "$W/remote"
 awk -F"$TAB" 'NR == FNR { have[$2] = $1; next } have[$3] != $1' "$W/remote" "$W/local" > "$W/card.list"
 {

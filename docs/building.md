@@ -210,7 +210,7 @@ something once broke in a way nothing noticed:
 | `check-core-room` | the libretro cores systems.cfg names against the resident Diatom's room for them (`DIATOM_MAX_RESIDENT`): more cores than that, and the last in folder order would start every game in the one-off Diatom (1.0.5 had 34 for 32) |
 | `check-px2-perf` | px2-perf's arithmetic: percentiles as a spreadsheet gives them, the frame-time spread from the times new frames were seen, a process's CPU ticks from a /proc stat line whose name has spaces and parentheses, and the speed against the clock from two of Diatom's now files, refused across two games or a Diatom started again |
 | `check-px2-snap` | px2-snap on a scratch card: a game's .srm, states, slots and pictures, fbneo's, a NAOMI game's and a ScummVM game's own files, never another game's that starts with its name; its play sessions, favorite and Pak through the host launcher's `--game-rows`, and no other game's; a test's changes undone byte for byte, the files it made removed; an open game, a name that is a path, a name taken, another game's rows and a launcher with no `--game-rows` refused or said (builds the host launcher; skips without SDL2 or sqlite3) |
-| `check-px2` | tools/px2 with a stand-in for ssh: wrong uses refused before the lock or the device, the test card and a VM's card go ahead and any other only with `--real-card`, the lock's owner file, a lock held refused or waited for, the lock let go after a failure, a TERM and a Ctrl-C, and each argument one word on the device; `deploy` and `restore` against a device that is folders here (the card, `/tmp`, the image's own ZyperOS and system files, `/proc`, its commands): only what changed sent, in one copy, each program asked about by a stand-in loader as `ldd -r` asks and never run, a library or symbol the system lacks refused naming it and the SDK, a file spoiled on the way, a game open, a port and Flash Drive refused with the card unchanged, `--no-restart`, the card's own files kept once however many deploys with the system they were kept on, a restore that gives the card back byte for byte and says each file is the system's own, kept on another system refused until `--from-system`; the launcher restarted the way it restarts itself and seen running the new build, Diatom stopped before it, the device restarted for a `launch.sh` and waited for, nothing for a port's script; `--system` binding a stand-in in init's namespace (with initns from a namespace of its own), taken off for a newer one and at restore, gauge started again on it, bound again after the device's restart; and `find`, the Pixel by dropbear's greeting and its key on a stand-in network |
+| `check-px2` | tools/px2 with a stand-in for ssh: wrong uses refused before the lock or the device, the test card and a VM's card go ahead and any other only with `--real-card`, the lock's owner file, a lock held refused or waited for, the lock let go after a failure, a TERM and a Ctrl-C, and each argument one word on the device; `deploy` and `restore` against a device that is folders here (the card, `/tmp`, the image's own ZyperOS and system files, `/proc`, its commands): only what changed sent, in one copy, each program asked about by a stand-in loader as `ldd -r` asks and never run, a library or symbol the system lacks refused naming it and the SDK, a file spoiled on the way, a game open, a port and Flash Drive refused with the card unchanged, `--no-restart`, the card's own files kept once however many deploys with the system they were kept on, a restore that gives the card back byte for byte and says each file is the system's own, kept on another system, or by an older deploy with no system written down, refused until `--from-system`; the launcher restarted the way it restarts itself and seen running the new build, Diatom stopped before it, the device restarted for a `launch.sh` and waited for, nothing for a port's script; `--system` binding a stand-in in init's namespace (with initns from a namespace of its own), taken off for a newer one and at restore, gauge started again on it, bound again after the device's restart; and `find`, the Pixel by dropbear's greeting and its key on a stand-in network |
 | `check-powerhold` | MENU > Power Button's rule: a press turns the handheld off on Press, a hold of one second on Hold, once per time down, a hold the charging screen took never, even one it took after the second, and the pill's segments and the waits that move them |
 | `check-homesys` | MENU > Display > Home Systems' setting: the word of the shelves that are off, read and written back, a hand edit's spaces and repeats, whole tags only when it is cut |
 | `check-collect` | Collections on the card (src/collect.h): the lists read in their every form and kept as written, added to and taken from, made, renamed and deleted, a game's rename and delete followed into every list |
@@ -597,7 +597,15 @@ change, built as plastron's packages build them (the ports' equalizer
 `/usr/lib/ladspa/zyperos_eq.so` from `src/eqdsp.h`, the side lights'
 `/usr/sbin/gauge`, the sound's `/etc/asound.conf`), and `build/px2/initns`
 (`tools/initns.c`), and write `BUILT` beside `ZyperOS/`: the commit and the
-SDK it was built against.
+SDK it was built against. Everything is stripped as Buildroot strips what an
+image carries (`.comment` and `.note` gone too), so built from the same source
+against the SDK of the image's own build, a program is the image's byte for
+byte, and a deploy sends only what a change changed. Pack that SDK in
+plastron from the output the Pixel's system came from (`sh scripts/sdk.sh
+plastron-work plastron-builder output px2`, a few seconds; another output's
+name for another) and build with `PX2_SDK=plastron-sdk-px2-<id>`: without
+`PX2_SDK` the newest SDK volume is taken, which can be older than the
+system, and then every program differs.
 
 `tools/px2 deploy` is `tools/px2-deploy.sh` behind `tools/px2`'s door: the
 device's lock (`/tmp/px2-lock`, refused while another session holds it, or
@@ -635,9 +643,10 @@ first kept, so `tools/px2 restore` always puts back the card from before the
 session's first deploy, deletes what the deploys added, says for each file
 whether it is the system's own copy, and forgets it; `tools/px2 restore
 --status` says what it would put back. Kept on another system (System Update
-or a slot pushed since) is a refusal (exit 7) until `tools/px2 restore
---from-system`, which takes the files from the running image's own ZyperOS
-instead.
+or a slot pushed since), or by an older `tools/px2-deploy.sh` that wrote no
+system down, is a refusal (exit 7) before anything is sent, until `tools/px2
+restore --from-system`, which takes the files from the running image's own
+ZyperOS instead (or the folder is moved aside by hand).
 
 Then only what must start again does, the way ZyperOS restarts itself, never
 with `zyperos stop` (which ends SSH, with nothing to start ZyperOS again):
