@@ -251,7 +251,7 @@ OpenBOR games are modules, one `.pak` file each, run by OpenBOR itself rather th
 
 ### Saturn
 
-Saturn games run on YabaSanshiro and need the Saturn's BIOS in `Bios/` (above). The Saturn is the most a Pixel 2 is asked to run: it runs some games, and not at full speed. Flicky's Flock, a homebrew game, ran at about 37 frames a second of 60.
+Saturn games run on YabaSanshiro and need the Saturn's BIOS in `Bios/` (above). The Saturn is the most a Pixel 2 is asked to run: it runs some games, and not at full speed. Flicky's Flock, a homebrew game, ran at about 37 frames a second of 60; Virtua Fighter 2, in its high-resolution mode, at about a third of its speed.
 
 The Saturn pad has six face buttons, A, B and C in a row with X, Y and Z over them, and L and R on top. Each face cap is the Saturn button it names (A, B, X, Y), **R1** is **C**, **L1** is **Z**, and L2 and R2 are the Saturn's L and R, as most Saturn emulators lay them out. In a game played on A, B and C, such as Virtua Fighter 2, the third one is on R1. The Controls tab in the game's menu changes any of them.
 

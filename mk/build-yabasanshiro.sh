@@ -27,7 +27,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${1:-/tmp/zyperos-yabasanshiro}
 PIN=39535a6abcad5abf9f71c8b2a7975f005ee12ed6   # libretro/yabause, ROCKNIX's yabasanshiro-lr pin
 TAR_SHA=56aa4dc17f1c9e61e60274a66c71b33371786688df001ac0ca56569d94cc8b3b
-SHA=f747f8fa46f150edd65fd5496237358bcb4a444a435d93d34cfd6bf642594cf5
+SHA=7b53e41fc2e257b9933efcae017764b7be8050415c6ca43fa210026e93c249a3
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
 command -v curl   >/dev/null || { echo "need curl" >&2; exit 1; }
@@ -55,6 +55,21 @@ tar -xzf "$TAR" -C "$SRC"
 patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-unload.patch"
 grep -q "first_ctx_reset = 1;" "$SRC/yabause-$PIN/yabause/src/libretro/libretro.c" \
   || { echo "!! yabasanshiro-unload.patch did not apply" >&2; exit 1; }
+# And two for its speed on the Pixel 2 (1.1.0), each timed in the core on
+# Virtua Fighter 2 and Panzer Dragoon II (the patches' preambles have it):
+#   mk/patches/yabasanshiro-fastforward.patch  the auto frame skip on again
+#                                              when fast forward ends (it
+#                                              stayed off: 0.30x -> 0.20x)
+#   mk/patches/yabasanshiro-atlas.patch        the texture atlas in the CPU's
+#                                              own memory, uploaded from there
+#                                              (Panfrost read the pixel buffer
+#                                              back from uncached memory)
+patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-fastforward.patch"
+grep -q "ff_was = fastforward;" "$SRC/yabause-$PIN/yabause/src/libretro/libretro.c" \
+  || { echo "!! yabasanshiro-fastforward.patch did not apply" >&2; exit 1; }
+patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-atlas.patch"
+grep -q "Fail to grow the atlas" "$SRC/yabause-$PIN/yabause/src/ygles.c" \
+  || { echo "!! yabasanshiro-atlas.patch did not apply" >&2; exit 1; }
 
 # The source goes in read-only and is built in a copy inside the container,
 # and only the core comes out, to $SRC/out. Built where it was mounted, the
