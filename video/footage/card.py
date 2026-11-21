@@ -280,6 +280,96 @@ def build(card, cache=ART_CACHE, more=False):
     return card
 
 
+# ---- the 1.1 videos' card (src/v110, src/reddit110) ---------------------------
+# build(more=True), then what 1.1 brings to a card, as a player's would hold
+# it: your own PICO-8's place (stand-in files, never Lexaloffle's), carts
+# named on its shelf, three Collections, Screenshots, Recents with each game's
+# last screen, and a game's cheats (tools/readme-shots.py's stand-ins). A
+# screenshot or a last screen is the game's libretro snap from the art cache,
+# at its own size, as the Screenshot hotkey would write it: the games and
+# their art belong to their owners.
+P8_CARTS = ['Celeste Classic', 'Dank Tomb', 'Just One Boss', 'Porklike', 'Poom', 'Taco Rider']
+COLLECTIONS = {
+    'Couch Co-op': ['SNES/Super Mario Kart (USA).sfc', 'Game Boy Advance/Mario Kart - Super Circuit (USA).gba',
+                    'PlayStation/Tekken 3 (USA).chd', 'Nintendo 64/Super Smash Bros. (USA).z64',
+                    'Genesis/Streets of Rage 2 (USA).md'],
+    'RPGs to Finish': ['SNES/Chrono Trigger (USA).sfc', 'SNES/EarthBound (USA).sfc', 'PlayStation/Final Fantasy VII (USA).chd',
+                       'Game Boy Advance/Commercial Owned/Golden Sun (USA).gba', 'SNES/Secret of Mana (USA).sfc',
+                       'Nintendo 64/Paper Mario (USA).z64', 'Genesis/Phantasy Star IV (USA).md'],
+    'Speedruns': ['SNES/Super Metroid (USA).sfc', 'NES/Mega Man 2 (USA).nes', 'Nintendo 64/Super Mario 64 (USA).z64',
+                  'Genesis/Sonic The Hedgehog 2 (USA).md'],
+}
+# (Roms folder, file, libretro's name of its snap, when it was taken)
+SCREENSHOTS = [
+    ('SNES', 'Super Metroid (USA).sfc', 'Super Metroid (Japan, USA) (En,Ja)', '2026-11-20 21.12.40'),
+    ('Game Boy Advance', 'Metroid Fusion (USA).gba', 'Metroid Fusion (USA)', '2026-11-20 19.05.11'),
+    ('PlayStation', 'Castlevania - Symphony of the Night (USA).chd', 'Castlevania - Symphony of the Night (USA)',
+     '2026-11-20 12.44.09'),
+    ('SNES', 'Super Metroid (USA).sfc', 'Super Metroid (Japan, USA) (En,Ja)', '2026-11-19 22.40.05'),
+    ('Nintendo 64', 'Super Mario 64 (USA).z64', 'Super Mario 64 (USA)', '2026-11-19 18.20.48'),
+    ('Genesis', 'Sonic The Hedgehog 2 (USA).md', 'Sonic The Hedgehog 2 (World)', '2026-11-18 20.02.31'),
+    ('SNES', 'Chrono Trigger (USA).sfc', 'Chrono Trigger (USA)', '2026-11-18 09.15.00'),
+    ('Game Boy Advance', 'The Legend of Zelda - The Minish Cap (USA).gba', 'Legend of Zelda, The - The Minish Cap (USA)',
+     '2026-11-17 23.31.12'),
+]
+# Recents, newest first: (tag, Roms folder, file, libretro's name, hours before the take's 10:08)
+RECENTS = [('SFC', 'SNES', 'Super Metroid (USA).sfc', 'Super Metroid (Japan, USA) (En,Ja)', 1),
+           ('GBA', 'Game Boy Advance', 'Metroid Fusion (USA).gba', 'Metroid Fusion (USA)', 15),
+           ('PS1', 'PlayStation', 'Castlevania - Symphony of the Night (USA).chd',
+            'Castlevania - Symphony of the Night (USA)', 26),
+           ('N64', 'Nintendo 64', 'Super Mario 64 (USA).z64', 'Super Mario 64 (USA)', 50),
+           ('MD', 'Genesis', 'Sonic The Hedgehog 2 (USA).md', 'Sonic The Hedgehog 2 (World)', 75)]
+
+
+def v110(card, cache=ART_CACHE):
+    import time
+    # The BIOS files the demonstration's systems need, as stand-ins, so no
+    # game's line says one is missing (tools/readme-shots.py's)
+    rs.stand_in_bios(card)
+    # Your PICO-8: the payload's script and Splore's art, and the two files
+    # the player adds as empty stand-ins, so the shelf has it as on the card
+    p8 = card / 'ZyperOS/pico8'
+    p8.mkdir(parents=True, exist_ok=True)
+    shutil.copy(ROOT / 'sd/pixel2/PICO-8.sh', p8 / 'PICO-8.sh')
+    for art in ('cover-light.png', 'cover-dark.png', 'icon.png'):
+        shutil.copy(ROOT / 'res/pico8' / art, p8 / art)
+    bios = card / 'Bios/PICO-8'
+    bios.mkdir(parents=True, exist_ok=True)
+    for f in ('pico8_64', 'pico8.dat'):
+        (bios / f).write_bytes(b'\0')
+    (bios / 'version.txt').write_text('0.2.7\n')
+    carts = card / 'Roms/PICO-8'
+    carts.mkdir(parents=True, exist_ok=True)
+    for name in P8_CARTS:
+        (carts / f'{name}.p8').touch()
+    for name, games in COLLECTIONS.items():
+        (card / 'Collections').mkdir(exist_ok=True)
+        (card / 'Collections' / f'{name}.txt').write_text(''.join(f'/Roms/{g}\n' for g in games))
+    for folder, file, lr, when in SCREENSHOTS:
+        d = card / 'Screenshots' / folder
+        d.mkdir(parents=True, exist_ok=True)
+        repo = LR_REPO[folder]
+        shutil.copyfile(art_file(cache, repo, 'Named_Snaps', lr), d / f'{Path(file).stem} {when}.png')
+    # Each recent game's resume point and the picture Diatom writes beside
+    # it (a 24-bit BMP), and its play session, hours before the takes' 10:08
+    lt = time.localtime()
+    at = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 10, 8, 0, 0, 0, -1))
+    with sqlite3.connect(card / 'shared/.zyperos/library.db') as db:
+        for n, (tag, folder, file, lr, hours) in enumerate(RECENTS):
+            d = card / 'shared/.zyperos' / folder
+            d.mkdir(parents=True, exist_ok=True)
+            (d / f'{file}.auto.state').write_text('state')
+            subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-i', str(art_file(cache, LR_REPO[folder], 'Named_Snaps', lr)),
+                            '-pix_fmt', 'bgr24', str(d / f'{file}.auto.bmp')], check=True)
+            db.execute('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',
+                       (f'sess.{int(at - hours * 3600)}.{900 + n}.{tag}\t{file}', '1800\tquit'))
+        # Two of Tony Hawk's Pro Skater 2's stand-in cheats on (tools/readme-shots.py's)
+        db.execute('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',
+                   ('cheats.PS1.' + rs.CHEATS_GAME + '.chd', ','.join(rs.cheat_id(f, d, c) for f, d, c in rs.CHEATS_ON)))
+    rs.cheats_card(card)
+    return card
+
+
 def env_for(card):
     env = rs.env_for(card)
     # No sound from the computer, and the launcher's clock zone for REC_CLOCK
