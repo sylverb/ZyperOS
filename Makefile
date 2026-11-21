@@ -13,7 +13,7 @@
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitwalk \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-        check-release-devices check-installer release check-site-devices check-checkrun
+        check-release-devices check-installer release check-site-devices check-mergetrain check-checkrun
 
 all: check
 
@@ -55,7 +55,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild check-kitwalk check-ingame-colors \
-         check-checkrun
+         check-mergetrain check-checkrun
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
@@ -131,6 +131,11 @@ check-discord-release:
 # res/update/min-system-<id>, which tools/update-pack.py reads
 check-release-devices:
 	@sh tools/release-devices.sh check
+
+# tools/merge-train.py's merges, in a scratch repository: the check lists
+# two PRs add to joined, anything else refused, and --merge's step on main
+check-mergetrain:
+	@python3 tools/merge-train-check.py
 
 # docs/building.md's table names every check in CHECKS and nothing else:
 # the table had 32 of 91 rows (2026-11-06) and said nothing of the rest.
