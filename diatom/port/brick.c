@@ -1895,10 +1895,12 @@ static void cpu_border(const uint8_t *bgra, int w, int h)
  *
  * The drawing is the Pixel 2's (port/gles_state.h, gles_draw.h, gles_objects.h,
  * gles_present.h, gles_gpu.h); what differs is here: the EGL objects
- * (gl_start), where a frame is drawn (PRESENT_TARGET: a page), what drawn
- * means (PRESENT_SWAP: the alpha made opaque, then a fence waited), putting it
- * on the panel (show_frame: the flip thread) and the display handed back
- * (give_display: the park page).
+ * (gl_start), where a frame is drawn (PRESENT_TARGET: a page), which way up
+ * (PRESENT_TOP_DOWN: a page's first row is the top), what drawn means
+ * (PRESENT_SWAP: the alpha made opaque, then a fence waited), putting it on
+ * the panel (show_frame: the flip thread) and the display handed back
+ * (give_display: the park page). make check-gpu-upright draws every kind of
+ * picture through it into a page's stand-in on the host.
  *
  * DIATOM_PRESENT=cpu never starts it. DIATOM_PRESENT=gpu, or the card's
  * .userdata/brick/diatom-present saying "gpu", draws every frame with it, so
@@ -1960,6 +1962,15 @@ static void port_logf(diatom_log_level lvl, const char *fmt, ...)
 
 /* port/gles_present.h's, which the drawing needs first */
 static float ov_scale(void);
+
+/* A page's first row in memory is the panel's top: the display reads fb0
+ * from the page's first byte, the dma-buf import makes that byte the image's
+ * first texel, and GL draws a texture's first row at y 0, the bottom of a
+ * window surface. So the drawing's y goes the other way here (to_clip), and a
+ * capture's rows come back in order (capture_front). Without it every frame
+ * the GPU drew, a shader's or a GPU core's, the Border and every notice on
+ * it, reached the panel upside down (issue #419, 1.0.7-kit.1). */
+#define PRESENT_TOP_DOWN
 
 #include "gles_draw.h"
 
