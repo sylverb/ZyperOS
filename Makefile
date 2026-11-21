@@ -7,13 +7,13 @@
 
 .PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
-        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-port-menu check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-shotfeel check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
-        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitwalk \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-shotfeel check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-pico8-quit check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
+        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-recents-played check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitwalk \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-        check-release-devices check-installer release check-site-devices
+        check-release-devices check-installer release check-site-devices check-mergetrain check-checkrun
 
 all: check
 
@@ -45,28 +45,38 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-dl-recent check-dl-look check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
-         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-port-menu check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-mp4keys check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-mp4lib check-mp4queue check-mp4art check-mp4lock check-mp4look check-mp4views check-mp4resume check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-shotfeel check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portlibs check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
-         check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild check-kitwalk check-ingame-colors
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-pico8-quit check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portlibs check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-recents-played check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
+         check-installer check-from-rogue check-importers check-diatom check-menu-tap check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
+         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild check-kitwalk check-ingame-colors \
+         check-mergetrain check-checkrun
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
 # prints a line as each ends and the whole log of any that failed. One after
 # another the suite took 167 s on an M3 (2026-11-06), with fifteen cores idle.
+# The heaviest (its HEAVY) wait for one of two slots this computer's runs
+# share (CHECK_HEAVY_SLOTS).
 .PHONY: $(CHECKS)
 # CHECKS_SKIP="check-a check-b" leaves those out: CI's Linux job names the
 # checks that do not pass on Linux yet, which its macOS job still runs.
+# CHECK_SHARD=I/N runs the I-th of N parts of the rest, as CI's macOS job
+# does, one part a runner (tools/check-run.py --shard).
 CHECKS_SKIP ?=
+CHECK_SHARD ?=
 check: check-prep
 	@$(if $(strip $(CHECKS_SKIP)),echo "check: left out (CHECKS_SKIP): $(strip $(CHECKS_SKIP))")
-	@python3 tools/check-run.py $(filter-out $(CHECKS_SKIP),$(CHECKS))
+	@python3 tools/check-run.py $(if $(CHECK_SHARD),--shard $(CHECK_SHARD)) $(filter-out $(CHECKS_SKIP),$(CHECKS))
+
+# make check's runner itself: the parts CI deals, and the heavy checks' slots
+check-checkrun:
+	@python3 tools/check-run-check.py
 
 # What more than one check builds, built once before any of them starts: the
 # host launcher, which nine checks draw with, and the ScreenScraper header it
@@ -93,6 +103,19 @@ check-diatom:
 		./build-native/gamezone-check diatom/build/desktop/diatom; \
 	else \
 		echo "check-diatom: skipped, no SDL2"; \
+	fi
+
+# Diatom's own keys pressed quickly in a slow game (diatom/test/menutap.py):
+# the stub core at 10 fps, a Saturn game's rate on the Pixel 2, where an 80 ms
+# MENU never opened the menu (2026-11-20). Diatom's desktop port and the stub
+# are built into a folder of their own, so this never shares objects with
+# check-diatom's build running beside it. Skipped without SDL2.
+check-menu-tap:
+	@if pkg-config --exists sdl2 2>/dev/null || command -v sdl2-config > /dev/null; then \
+		$(MAKE) --no-print-directory -C diatom $(NATIVE_J) BUILD=build/menutap all stub && \
+		python3 diatom/test/menutap.py diatom/build/menutap; \
+	else \
+		echo "check-menu-tap: skipped, no SDL2"; \
 	fi
 
 # zyperos.com's blog (mk/blog.py): the whole site built in a scratch folder as
@@ -122,6 +145,11 @@ check-discord-release:
 check-release-devices:
 	@sh tools/release-devices.sh check
 
+# tools/merge-train.py's merges, in a scratch repository: the check lists
+# two PRs add to joined, anything else refused, and --merge's step on main
+check-mergetrain:
+	@python3 tools/merge-train-check.py
+
 # docs/building.md's table names every check in CHECKS and nothing else:
 # the table had 32 of 91 rows (2026-11-06) and said nothing of the rest.
 check-building-doc:
@@ -148,7 +176,7 @@ check-homekeys: native
 
 # The Video view in desk mode: its snap playing holds the screensaver
 check-videoview: native
-	@python3 tools/videoview-check.py
+	@'$(PYIMG)' tools/videoview-check.py
 
 # No button read twice by in_repeat in one step (a held one turned round)
 check-inrepeat:
@@ -816,10 +844,11 @@ check-pico8-mp4: build-native/mp4hand-check native
 # the restart file and USR2 (the program ended and started again with the
 # new Display, portkeys and the follower going on, a bad word a plain Quit, a
 # file from before none, POWER meanwhile starting nothing), then the real
-# launcher in desk mode's dummy window as portkeys starts it: the row, its
-# list, the question with the cursor on Cancel, Start Again's exit and what
-# it keeps, none over OpenBOR, and --display, the Next Display hotkey's
-# question alone (tools/pico8-display-check.py)
+# launcher in desk mode's dummy window as portkeys starts it: a game's tabs,
+# the Display tab's row, its list, the question with the cursor on Cancel,
+# Start Again's exit and what it keeps, X from that tab Quit, none over
+# OpenBOR, and --display, the Next Display hotkey's question alone
+# (tools/pico8-display-check.py)
 check-pico8-display: native
 	@python3 tools/pico8-display-check.py
 
@@ -828,18 +857,29 @@ check-pico8-display: native
 # stand-in pico8_64; then the real launcher in desk mode's dummy window: a
 # cart opened handing portkeys the hotkeys and the screenshot's folder,
 # PICO-8.sh the pad's line and the pop-up's slab with its empty square; the
-# menu's Reset row and question, --reset's question alone, and Controls over
-# it changing a button, with the start again it asks for
+# menu's Game tab and its Reset row and question, --reset's question alone,
+# and its Controls tab changing a button, with the start again it asks for
+# as the menu closes back to the cart, and the next menu where it was left
 check-pico8-keys: native
 	@python3 tools/pico8-keys-check.py
+
+# MENU, then X over your PICO-8 ends it at once (1.1.0-rc.8, "has to be done
+# twice"): launch.sh's run_port with stand-ins, a script that execs its
+# program (PICO-8.sh, OpenBOR.sh) TERMed within a second of the menu's Quit
+# and of POWER, not 2 s later, and a script that runs its program as a child
+# left to go on after it, as before. Linux only (port_end reads /proc);
+# elsewhere it says it skipped, and PICO8_QUIT_DOCKER=1 runs it in
+# tools/p8fx-gl.Dockerfile's Linux (tools/pico8-quit-check.py)
+check-pico8-quit:
+	@python3 tools/pico8-quit-check.py $(if $(PICO8_QUIT_DOCKER),--docker)
 
 # Your PICO-8's Shader and Border (src/p8fx.h), all but the drawing: the
 # look file, the shaders PICO-8 is offered (the launcher's SHADERS for its
 # shelf) and Next Shader on a scratch database, its picture out of PICO-8's
 # preblit (build-native/p8fx-check); sd/pixel2/PICO-8.sh loading p8fx.so
 # first, with a stand-in pico8_64; and the real launcher in desk mode's dummy
-# window as portkeys starts it over PICO-8: the Border, Shader and Strength
-# rows in the Display tab's order, each kept and written for the shim, Your
+# window as portkeys starts it over PICO-8: its Display tab's Border, Shader
+# and Strength rows in a game's order, each kept and written for the shim, Your
 # Own's picture file, none over OpenBOR, and the look file written as a cart
 # opens from the shelf (tools/p8fx-check.py)
 check-p8fx: build-native/p8fx-check native
@@ -981,9 +1021,21 @@ build-native/nightmode-check: tools/nightmode-check.c src/nightmode.c src/nightm
 # game against a Diatom of the check's own, the menu up: the Display tab's
 # Screen Colors row, A opening MENU's page over the paused game, a step kept
 # and on the panel (desk mode's stand-in for the table) with the game still
-# paused, B back to the menu and B again to the game; no row without a table
+# paused, B back to the menu and B again to the game; no row without a table;
+# and over your PICO-8 and OpenBOR (--port-menu, as portkeys starts it), the
+# same row on their Display tab and the page over the program
 check-ingame-colors: native
 	@python3 tools/ingame-colors-check.py
+
+# The in-game menu over OpenBOR, a PortMaster port and PortMaster itself, a
+# game's tabs since 1.1.0-rc.8: the real launcher in desk mode's dummy window
+# as portkeys starts it, as the host and as the Pixel 2: Game's Continue and
+# Quit, Display's Screen Colors alone where the display has a table,
+# Controls' All Controls opening the program's read-only pages, X Quit from
+# any tab, the next menu where the last was left, Keep Waiting while it
+# starts (tools/port-menu-check.py)
+check-port-menu: native
+	@python3 tools/port-menu-check.py
 
 # The display taken back after a game, a crashed one too (src/displayback.h):
 # master asked for until a dying Diatom lets go, and a CRTC left with nothing
@@ -1654,8 +1706,10 @@ check-strings:
 # stderr; the Brick's MENU is a word, wider than the Pixel 2's three dots),
 # and lists what the pseudo-locale's longer words do not fit. A row the Brick
 # has not (Strength, with no GPU shaders) is said, not failed.
+# CHECK_SHARD=I/N (CI's parts, tools/check-run.py) shoots the I-th of N
+# parts of the languages and handhelds
 check-i18n-shots:
-	@python3 tools/i18n-shots.py
+	@python3 tools/i18n-shots.py $(if $(CHECK_SHARD),--part $(CHECK_SHARD))
 
 # How the Brick's initramfs (plastron's brick-rootswitch) reads the kernel's
 # line: the slot's root the boot script names, and a developer's root update
@@ -1881,10 +1935,16 @@ build-native/eq-check: tools/eq-check.c src/eq.c src/eq.h src/eqdsp.h src/db.c s
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/eq-check.c src/eq.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3 -lm
 
+# And the volume boost's top cells there (cells 4 to 6, EQ_COMP_TAB): cells
+# 1 to 3 the boost as it was to the sample, against a copy of it in the
+# check; each top cell louder on PICO-8-like chip voices and a loud film,
+# the loud carts' targets at cell 6, no sample past -1 dB of full scale, a
+# sine's THD+N cell by cell, the compressor's swing, silence, the cost; the
+# table's rows against src/boost.h's cells
 check-eqdsp: build-native/eqdsp-check
 	@./build-native/eqdsp-check
 
-build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h FORCE
+build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h src/boost.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -O2 -o $@ tools/eqdsp-check.c -lm
 
@@ -3232,6 +3292,15 @@ check-favorites-shots: native
 .PHONY: check-homesys-groups
 check-homesys-groups: native
 	@'$(PYIMG)' tools/homesys-groups-check.py
+
+# A program of its own (your PICO-8 and Splore, OpenBOR, a port) reaches
+# Recents and Played (src/stats.h): the session the launcher hands over with
+# it, closed by launch.sh's --port-played as it ends, POWER too; and Recents
+# says when each game was last played, in Covers, Grid, List and Video, both
+# themes (tools/recents-played-check.py)
+.PHONY: check-recents-played
+check-recents-played: native
+	@python3 tools/recents-played-check.py
 
 # A late frame left undrawn reaches Diatom when the launcher starts a Diatom
 # of its own for the game (no resident one), as RUN's frameskip=late does
