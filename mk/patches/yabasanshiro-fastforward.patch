@@ -1,0 +1,50 @@
+yabasanshiro-fastforward.patch, ours (1.1.0): the auto frame skip comes back
+on when fast forward ends.
+
+retro_run turned YabaSanshiro's auto frame skip off while the frontend fast
+forwards (its speed limiter would hold the game at 1x), but the test ran only
+while fast forward was on, so it never turned the skip on again: after one
+SELECT+R2 every frame was drawn until the next game. On a GKD Pixel 2
+(1.1.0-rc.6, 2026-11-20) Virtua Fighter 2 went from 0.30x to 0.20x after five
+seconds of fast forward, its frames all drawn (the skip's state read from the
+core: off). Now the skip follows the answer to GET_FASTFORWARDING when it
+changes, and only then, as EnableAutoFrameSkip restarts its clock: after the
+same five seconds the skip is on again and the game back at 0.30x (rc.7).
+git apply skips this preamble.
+
+diff --color -ruN a/yabause/src/libretro/libretro.c c/yabause/src/libretro/libretro.c
+--- a/yabause/src/libretro/libretro.c
++++ b/yabause/src/libretro/libretro.c
+@@ -1390,12 +1390,27 @@
+          PERCore->Init();
+    }
+ 
+-   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &fastforward) && fastforward)
++   /* ZyperOS (yabasanshiro-fastforward.patch): the auto frame skip is off
++    * while the frontend fast-forwards (its speed limiter would hold the game
++    * at 1x) and on again when it stops. The test this replaced ran only
++    * while fast forward was on, so it turned the skip off and never back:
++    * after one fast forward every frame was drawn until the next game,
++    * Virtua Fighter 2 0.30x -> 0.20x on the GKD Pixel 2 (2026-11-20). Acted
++    * on at a change of the answer only: EnableAutoFrameSkip restarts its
++    * clock. */
+    {
+-      if (g_frame_skip == 1 && !fastforward)
+-         EnableAutoFrameSkip();
+-      else
+-         DisableAutoFrameSkip();
++      static bool ff_was = false;
++
++      if (!environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &fastforward))
++         fastforward = false;
++      if (fastforward != ff_was)
++      {
++         ff_was = fastforward;
++         if (fastforward)
++            DisableAutoFrameSkip();
++         else if (g_frame_skip == 1)
++            EnableAutoFrameSkip();
++      }
+    }
+ 
+    //YabauseExec(); runs from handle events
