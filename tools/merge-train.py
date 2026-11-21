@@ -38,8 +38,9 @@ a file a generator writes whole (src/i18n_ids.h, res/web/i18n/,
 src/design.h ...) is settled by writing the file again from the merged
 sources; one in a check list (the Makefile's CHECKS and .PHONY, made only of
 names, or docs/building.md's rows of checks) by keeping both sides' names and
-rows; a conflict anywhere else, or in a list's prose or rules, stops the
-train at that PR, which then needs main merged in by hand.
+rows, the table written again after the merges where tools/building-doc.py
+writes it; a conflict anywhere else, or in a list's prose or rules, stops
+the train at that PR, which then needs main merged in by hand.
 
 The gate is the CI the PRs would have had, here and once for all: a fresh
 worktree, so a fresh build-native/ (no object of another tree's), make check
