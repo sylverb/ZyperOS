@@ -3413,9 +3413,16 @@ room for the handheld on the Controls tab: its content is 864 units wide
 (`menu_most_w`; 860, 26 from the sides, off the grid, until 1.0.6).
 Over a port (OpenBOR, PortMaster) the menu is as it was, Continue, Controls
 and Quit with no tabs, and there Controls is the read-only pages below. Over
-your PICO-8 it has Display, On-Screen Stats, Border, Shader, Strength and Reset too, and
-Controls is the Controls tab's
-list, the buttons themselves (11.55).
+your PICO-8 it is this menu, the same tabs and rows in the same places, with
+only what a stopped PICO-8 can do (11.55): Game is Continue, Reset (once it
+has drawn) and Quit; Display is Display, Border, Shader, Strength, Screen
+Colors and On-Screen Stats where a game's would show them; Controls is this
+tab; and there is no Achievements tab, PICO-8 earning none. What it cannot
+do is not there, never greyed. Each MENU over it is a process of its own, so
+where it was left is kept in a file for the next (`PORT_MENU_MEM`), and a
+cart's first MENU opens on Game, on Continue, as a game's. *(1.1.0-rc.8,
+mine: "why pico 8 menu has no tabs? we should use the same component as in
+other systems".)*
 
 **X is Quit** from any row of any tab (gm_x_row, src/game_menu.h), in every
 in-game menu ZyperOS draws: over a Diatom game, over a "run:" program or a
@@ -4753,10 +4760,14 @@ panel and kept at once, the one setting it is everywhere, so the chart and
 the game round the panel show it before the game goes on, and the Look's
 list shows the look under its cursor there as over the shelf. B goes back
 to the menu, the game still paused. Night Mode's warmth stays on top, made
-in the same table in the same order as from MENU. Not in the menu over a
-port or your PICO-8, which has no Display tab. *(Asked for on the Discord,
-for a quick fix when a game's colors or contrast are off; mine for 1.1.0,
-2026-11-20.)*
+in the same table in the same order as from MENU. Over your PICO-8 the
+same row in the same place on its Display tab, and the same page over the
+paused cart's frame (11.55): the menu holds the display there as over a
+game, and the table stays on the panel after it, PICO-8 leaving it alone.
+Not in the menu over any other program (OpenBOR, a port), which has no
+Display tab. *(Asked for on the Discord, for a quick fix when a game's
+colors or contrast are off; mine for 1.1.0, 2026-11-20. Over PICO-8, mine
+on 1.1.0-rc.8: "i cant see screen colors option in pico 8".)*
 
 **Night Mode** (MENU > Display, under Screen Colors, where the display has
 a table) makes the whole screen warmer for the night, over the player's own
@@ -6202,10 +6213,9 @@ line names the two files: the core counts as on the card only with both there.
 So once they are, carts open in it, and the shelf's **Core** row offers it
 beside fake08; before, the row names fake08 alone, as today. *(2026-11-19:
 adding it is the choice.)* It runs as OpenBOR does, a program of its own:
-the loading screen (11.11) until it draws, **MENU** ZyperOS's menu over it
-(Continue, Display, On-Screen Stats, Border, Shader, Strength, Controls,
-Reset, Quit, **X** Quit from any row, 11.28),
-its Controls the PICO-8 shelf's buttons (below), **START** PICO-8's own pause
+the loading screen (11.11) until it draws, **MENU** ZyperOS's in-game menu
+over it with a game's tabs (below; **X** Quit from any row of any tab,
+11.28), its Controls the PICO-8 shelf's buttons (below), **START** PICO-8's own pause
 menu, the player's hotkeys (below), **MENU+START**
 held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
 **POWER** its end and the power-off. No save states: PICO-8 has none, so Save,
@@ -6281,12 +6291,28 @@ top, which no device has shown 0.2.7 taking: if it does not, one constant
 (`NEG_OK` in PICO-8.sh, `P8_NEG_OK` beside it) draws them as Sharp Pixels and
 Original Shape. On the Brick 6x is its full height (768 x 768).
 
-**Display in the game.** The menu over it has a **Display** row, after
-Continue (where the Display tab is, after the Game tab's first row), its
-value the mode on, and **On-Screen Stats** after it, as the Display tab's
-last row is over a game, then the picture's other rows (below): Continue,
-Display, On-Screen Stats, Border, Shader, Strength, Controls, Reset,
-Quit. PICO-8 draws its
+**The menu over it** is the in-game menu a game has (11.28), the same
+component, tabs and places *(1.1.0-rc.8, mine: "why pico 8 menu has no
+tabs? we should use the same component as in other systems")*, with only
+what a stopped PICO-8 answers to; what it cannot do is not there at all,
+never greyed:
+
+| Tab | Rows |
+|---|---|
+| **Game** | Continue (Keep Waiting while it starts), Reset (once it has drawn, below), Quit |
+| **Display** | Display, Border (where the mode leaves room), Shader, Strength (under an old screen), Screen Colors (a display with a table, 11.42), On-Screen Stats |
+| **Controls** | the Controls tab, a game's (below) |
+
+No Achievements tab: PICO-8 earns none, and no Save, Load, Undo Load, Quick
+Slot, Disc, Player 2 or Cheats row. MENU, then SELECT opens MP4 from any tab
+(above). Each MENU over it is a launcher of its own, so where it was left
+(the tab, the row each tab was on, Applies To) goes in a file for the next
+(`PORT_MENU_MEM`, src/portmenu.h), which the launcher removes as it hands a
+cart over: a cart's first MENU opens on Game, on Continue, as a game's.
+
+**Display in the game.** The Display tab's **Display** row, its value the
+mode on, and **On-Screen Stats** its last row, as over a game, the
+picture's other rows between them (below). PICO-8 draws its
 picture where it was told as it started and cannot move it, so a mode is one
 it starts again in. A opens the Display list, each mode's picture beside it
 (PICO-8's own screen, cut out of the frame the menu is over, drawn in that
@@ -6327,8 +6353,8 @@ Shader row and shows it at once (PICO-8's shader library reads its file), with
 mode (above). Quick Save, Quick Load, Faster and Slower do nothing over it:
 PICO-8 has no states and no speed, so their keys stay PICO-8's under SELECT.
 
-**Reset** is a row of the menu over it, before Quit, once PICO-8 has drawn,
-and the Reset Game hotkey's: both ask first, over the frame, as Reset Game's
+**Reset** is a row of the Game tab over it, before Quit as in a game's, once
+PICO-8 has drawn, and the Reset Game hotkey's: both ask first, over the frame, as Reset Game's
 hotkey asks over a game, the cursor on Cancel: **Reset the game?**, "Play
 since the last save is lost.", **Reset** and Cancel. Reset is PICO-8's own
 CTRL-R ("Reload / Run / Restart cartridge", its manual): portkeys keeps a
@@ -6337,19 +6363,22 @@ as gptokeyb's keyboard is made) and presses CTRL and R on it once PICO-8 has
 its display and keys back. Cancel or B goes back to the menu, or with the
 hotkey to the cart.
 
-**Its buttons** are the PICO-8 shelf's, as fake08's are (11.45): Controls in
-the menu over it opens the Controls tab's list itself, over the frame, the
-handheld beside it: Applies To (This Game, or every PICO-8 cart), the buttons
-with what each gives (O, X, the pause menu), Reset Buttons and Hotkeys. PICO-8
+**Its buttons** are the PICO-8 shelf's, as fake08's are (11.45): the menu
+over it has a game's Controls tab, the handheld beside it: Applies To (This
+Game, or every PICO-8 cart), the buttons with what each gives (O, X, the
+pause menu), Reset Buttons and Hotkeys. PICO-8
 reads its pad through SDL's mapping, which SDL takes as it starts, so the
 table in force becomes the pad's mapping line (src/p8pad.h: O on SDL's a, X
 on its b), which PICO-8.sh exports, the line that shipped when nothing is
-changed. A change cannot reach a PICO-8 that is running, so leaving the list
-with new buttons asks the Display row's question, "PICO-8 takes the new
-buttons as it starts again. Play since the cart last saved is lost.": **Start
-Again** starts it again with them, in the mode on; Cancel keeps them for its
-next start. A turbo is the plain button over it, and the N64's layer is no
-PICO-8's.
+changed. A change cannot reach a PICO-8 that is running, so the menu closing
+back to the cart with new buttons (Continue, B, MENU) asks the Display row's
+question, "PICO-8 takes the new buttons as it starts again. Play since the
+cart last saved is lost.": **Start Again** starts it again with them, in the
+mode on; Cancel, B or MENU keep them for its next start and the cart goes
+on. A Display mode's start again takes them as it starts, and Reset, Quit
+and POWER ask nothing, keeping them for the next start. *(Up to 1.1.0-rc.8
+a Controls row opened the list as a page, and leaving it asked.)* A turbo
+is the plain button over it, and the N64's layer is no PICO-8's.
 
 **Auto Off** runs over it as over a game, MENU > Auto Off's time with no key
 pressed, the charger holding the clock: portkeys counts it (the launcher's own
@@ -6362,9 +6391,9 @@ or a cutscene is no player gone.
 and Border rows)*. The PICO-8 shelf's own **Shader**, **Strength** and
 **Border** rows (`shader.PICO8`, `shader_strength.PICO8`, `border.PICO8`, the
 rows fake08 plays with) draw over your PICO-8 as over a game in Diatom, and
-the menu over it has them after Display and On-Screen Stats, in the Display
-tab's order: Continue, Display, On-Screen Stats, Border (where the mode
-leaves room), Shader, Strength (under an old screen), Controls, Reset, Quit. These change the picture from
+the menu over it has them on its Display tab, where a game's has them:
+Border (where the mode leaves room) under Display, Shader, Strength (under
+an old screen). These change the picture from
 PICO-8's next frame after Continue, with no start again. The shaders are
 fake08's on the Pixel 2: Off, Sharp-Shimmerless, CRT, CRT Curved, Scanlines
 and LCD Grid, Diatom's own (diatom/port/gles_shaders.h), so a cart looks the
@@ -6435,12 +6464,17 @@ until then its script is not in the Brick's payload, so the Brick's PICO-8
 shelf has no Splore and plays on fake08.
 
 Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
-page in both themes), and tools/i18n-shots.py's `pico8-menu-display`,
-`pico8-display-list` and `pico8-restart-<mode>` (the menu's Display row, its
-list, the question for each mode), `pico8-menu-shader` and `pico8-border-list`
-(Border, Shader and Strength in it, and Border's list). The rules: `make check-pico8`,
-`check-config`, `check-controls`, `check-pico8-display`, `check-pkover`,
-`check-p8fx`, `check-p8fx-gl`.
+page, and the menu's three tabs beside a game's in both themes), and
+tools/i18n-shots.py's `pico8-menu-game` and `pico8-menu-reset` (the Game
+tab), `pico8-menu-display`, `pico8-display-list` and `pico8-restart-<mode>`
+(the Display tab's Display row, its list, the question for each mode),
+`pico8-menu-shader` and `pico8-border-list` (Border, Shader and Strength,
+and Border's list), `pico8-menu-colors` and `pico8-colors-page` (Screen
+Colors and its page over the cart), `pico8-menu-hud`, `pico8-controls`
+(the Controls tab) and `pico8-restart-buttons`. The rules: `make check-pico8`,
+`check-config`, `check-controls`, `check-pico8-display`, `check-pico8-keys`,
+`check-pkover`, `check-p8fx`, `check-p8fx-gl`, `check-menus`,
+`check-ingame-colors`.
 
 ### 11.56 Collections
 *(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to

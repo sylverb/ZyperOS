@@ -216,39 +216,45 @@ const char *gm_tab_name(int t)
 	}
 }
 
+bool gm_tabbed(const gm_ui *u)
+{
+	return !u->port || u->port_display;
+}
+
+int gm_tab_count(const gm_ui *u)
+{
+	if (!u->port) return GT_TABS;
+	return u->port_display ? GT_ACHIEVEMENTS : 1;
+}
+
 int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 {
 	int n = 0;
 
-	/* Over a port: what a stopped program can still be asked, on no tabs */
-	if (u->port) {
+	/* Over a program of its own (OpenBOR, a port, PortMaster): what a
+	 * stopped program can still be asked, on no tabs */
+	if (!gm_tabbed(u)) {
 		ids[n++] = GM_CONTINUE;
-		if (u->port_display) ids[n++] = GM_DISPLAY;
-		if (u->port_hud) ids[n++] = GM_HUD;
-		/* Over your PICO-8, the Display tab's picture rows after those, in
-		 * its order, drawn by its shim (src/p8fx.h): Border where the mode
-		 * leaves room, Shader, and Strength under an old screen */
-		if (u->port_display) {
-			if (u->border) ids[n++] = GM_BORDER;
-			ids[n++] = GM_SHADER;
-			if (u->strength) ids[n++] = GM_STRENGTH;
-		}
 		ids[n++] = GM_CONTROLS;
-		if (u->port_reset) ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;
 		return n;
 	}
+	/* Over your PICO-8 (u->port), a game's tabs and places, with only what
+	 * a stopped PICO-8 can do: no states, discs, Player 2, cheats or
+	 * achievements; Reset once it has drawn (CTRL-R, src/portmenu.h) */
 	if (t == GT_GAME) {
 		ids[n++] = GM_CONTINUE;
-		ids[n++] = GM_SAVE;
-		ids[n++] = GM_LOAD;
-		if (u->undo) ids[n++] = GM_UNDO;
-		if (u->quick) ids[n++] = GM_QUICK;
-		if (u->discs > 1) ids[n++] = GM_DISC;
-		if (u->player2) ids[n++] = GM_PLAYER2;
-		if (u->cheats) ids[n++] = GM_CHEATS;
-		ids[n++] = GM_CHEEVOS;
-		ids[n++] = GM_RESET;
+		if (!u->port) {
+			ids[n++] = GM_SAVE;
+			ids[n++] = GM_LOAD;
+			if (u->undo) ids[n++] = GM_UNDO;
+			if (u->quick) ids[n++] = GM_QUICK;
+			if (u->discs > 1) ids[n++] = GM_DISC;
+			if (u->player2) ids[n++] = GM_PLAYER2;
+			if (u->cheats) ids[n++] = GM_CHEATS;
+			ids[n++] = GM_CHEEVOS;
+		}
+		if (!u->port || u->port_reset) ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;
 	} else if (t == GT_DISPLAY) {
 		ids[n++] = GM_DISPLAY;
@@ -259,7 +265,7 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 		/* Under its shader, and only while that is an old screen */
 		if (u->strength) ids[n++] = GM_STRENGTH;
 		/* A DS game's three belong with the picture */
-		if (u->screens) {
+		if (u->screens && !u->port) {
 			ids[n++] = GM_SCREENS;
 			ids[n++] = GM_SWAP;
 			ids[n++] = GM_STYLUS;
@@ -270,8 +276,9 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 		 * it has one */
 		if (u->screen_colors) ids[n++] = GM_SCREEN_COLORS;
 		/* How fast it runs, over the game: last, as it is about the
-		 * game's speed and not its picture */
-		ids[n++] = GM_HUD;
+		 * game's speed and not its picture; over your PICO-8 where
+		 * portkeys draws it (u->port_hud) */
+		if (!u->port || u->port_hud) ids[n++] = GM_HUD;
 	}
 	return n;
 }

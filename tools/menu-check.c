@@ -442,6 +442,13 @@ static void gm_screen_colors_row(void)
 	u.port = true;
 	ck(gm_row_at(&u, GT_GAME, GM_SCREEN_COLORS) < 0 && gm_row_at(&u, GT_DISPLAY, GM_SCREEN_COLORS) < 0,
 	   "and not over a port, whose menu has no Display tab");
+	/* Over your PICO-8, its Display tab's, in the same place (1.1.0-rc.8) */
+	u.port_display = u.port_hud = true;
+	u.screens = false;
+	n = gm_tab_rows(&u, GT_DISPLAY, ids);
+	at = gm_row_at(&u, GT_DISPLAY, GM_SCREEN_COLORS);
+	ck(at >= 0 && at == n - 2 && ids[n - 1] == GM_HUD && gm_row_at(&u, GT_GAME, GM_SCREEN_COLORS) < 0,
+	   "over your PICO-8, on its Display tab right over On-Screen Stats");
 }
 
 /* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the port's
@@ -2326,71 +2333,113 @@ static void ingame_rows(void)
 	   "X is its Quit too, with the glyph");
 	ck(reachable(rows, n, got, GM_MAX_ROWS) == 3, "every row a stop");
 	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 3, "whichever tab it is asked for");
-	/* Over your PICO-8 (src/portmenu.h's port_menu_display): Display after
-	 * Continue, its value the mode, A its list and Left and Right nothing;
-	 * then the Display tab's picture rows its shim draws (src/p8fx.h):
-	 * Shader always, Border where the mode leaves room, Strength under an
-	 * old screen */
+	ck(!gm_tabbed(&u) && gm_tab_count(&u) == 1, "no tabs over it");
+	/* Over your PICO-8 (src/portmenu.h's port_menu_display): a game's tabs
+	 * and places, with what a stopped PICO-8 can answer to (1.1.0-rc.8:
+	 * "we should use the same component as in other systems"). Display,
+	 * its value the mode, A its list and Left and Right nothing; then the
+	 * Display tab's picture rows its shim draws (src/p8fx.h): Shader
+	 * always, Border where the mode leaves room, Strength under an old
+	 * screen; Screen Colors where the display has a table; On-Screen Stats
+	 * where portkeys draws it */
 	printf("in-game menu over your PICO-8:\n");
 	u.port_display = true;
 	u.dmode = "Actual Size";
+	ck(gm_tabbed(&u) && gm_tab_count(&u) == 3 && gm_tab_count(&u) == GT_ACHIEVEMENTS,
+	   "a game's tabs, Game, Display and Controls, and no Achievements tab (PICO-8 earns none)");
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 5 && gm_tab_rows(&u, GT_GAME, ids) == 5 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
-	   ids[2] == GM_SHADER && ids[3] == GM_CONTROLS && ids[4] == GM_QUIT,
-	   "Continue, Display, Shader, Controls and Quit");
-	ck(!strcmp(rows[1].label, "Display") && rows[1].value && !strcmp(rows[1].value, "Actual Size"),
+	ck(n == 2 && gm_tab_rows(&u, GT_GAME, ids) == 2 && ids[0] == GM_CONTINUE && ids[1] == GM_QUIT,
+	   "the Game tab before it has drawn: Continue and Quit");
+	ck(!strcmp(rows[0].label, "Continue") && !strcmp(rows[1].label, "Quit") && rows[1].value == MENU_KEY_X,
+	   "labeled as over a game, Quit with X's glyph");
+	for (t = 0; t < GT_TABS; t++) {
+		static const gm_row none[] = { GM_SAVE, GM_LOAD, GM_UNDO, GM_QUICK, GM_DISC, GM_PLAYER2,
+		                               GM_CHEATS, GM_CHEEVOS, GM_CONTROLS, GM_PAK, GM_SCREENS,
+		                               GM_SWAP, GM_STYLUS };
+		size_t z;
+
+		for (z = 0; z < sizeof none / sizeof none[0]; z++)
+			if (gm_row_at(&u, (gm_tab)t, none[z]) >= 0) break;
+		if (z < sizeof none / sizeof none[0]) break;
+	}
+	ck(t == GT_TABS, "no Save, Load, Undo Load, Quick Slot, Disc, Player 2, Cheats, Achievements, "
+	   "Controls row, Pak or DS row on any tab: hidden, not greyed");
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	ck(n == 2 && gm_tab_rows(&u, GT_DISPLAY, ids) == 2 && ids[0] == GM_DISPLAY && ids[1] == GM_SHADER,
+	   "the Display tab: Display and Shader");
+	ck(!strcmp(rows[0].label, "Display") && rows[0].value && !strcmp(rows[0].value, "Actual Size"),
 	   "Display, its value the mode it draws");
-	ck(!(b.sound[1] & MENU_SND_RING), "Left and Right step nothing on it (no ring)");
-	ck(!strcmp(rows[2].label, "Shader") && rows[2].value && !strcmp(rows[2].value, "Off") &&
-	   (b.sound[2] & MENU_SND_RING), "Shader, Off, stepping round as over a game");
-	ck(rows[4].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 4, "X is still Quit");
-	ck(reachable(rows, n, got, GM_MAX_ROWS) == 5, "every row a stop");
-	/* And On-Screen Stats after Display, as the Display tab's last row is
-	 * over a game: its words, On or Off, Left and Right turning it */
+	ck(!(b.sound[0] & MENU_SND_RING), "Left and Right step nothing on it (no ring)");
+	ck(!strcmp(rows[1].label, "Shader") && rows[1].value && !strcmp(rows[1].value, "Off") &&
+	   (b.sound[1] & MENU_SND_RING), "Shader, Off, stepping round as over a game");
+	ck(reachable(rows, n, got, GM_MAX_ROWS) == 2, "every row a stop");
+	ck(gm_tab_rows(&u, GT_CONTROLS, ids) == 0 && gm_tab_rows(&u, GT_ACHIEVEMENTS, ids) == 0,
+	   "the Controls tab's rows are src/ctltab.c's, as a game's");
+	/* And On-Screen Stats, the Display tab's last row, as over a game: its
+	 * words, On or Off, Left and Right turning it */
 	u.port_hud = true;
 	u.hud = true;
-	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 6 && gm_tab_rows(&u, GT_GAME, ids) == 6 && ids[1] == GM_DISPLAY && ids[2] == GM_HUD &&
-	   ids[3] == GM_SHADER && ids[4] == GM_CONTROLS && ids[5] == GM_QUIT,
-	   "Continue, Display, On-Screen Stats, Shader, Controls and Quit");
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	ck(n == 3 && gm_tab_rows(&u, GT_DISPLAY, ids) == 3 && ids[2] == GM_HUD,
+	   "Display, Shader and On-Screen Stats");
 	ck(!strcmp(rows[2].label, "On-Screen Stats") && rows[2].value && !strcmp(rows[2].value, "On") &&
 	   (b.sound[2] & MENU_SND_RING), "On-Screen Stats, On, Left and Right turning it, as over a game");
 	u.hud = false;
-	gm_rows(&u, GT_GAME, rows, &b);
+	gm_rows(&u, GT_DISPLAY, rows, &b);
 	ck(rows[2].value && !strcmp(rows[2].value, "Off"), "Off when it is off");
-	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 5, "X still Quit");
-	/* With room round the picture and an old screen: Border before Shader
-	 * and Strength under it, after On-Screen Stats */
+	/* With room round the picture and an old screen: Border under Display
+	 * and Strength under Shader, as in a game's Display tab; Screen Colors
+	 * right over On-Screen Stats */
 	u.border = "Blur";
 	u.shader = "CRT";
 	u.strength = "70%";
-	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 8 && gm_tab_rows(&u, GT_GAME, ids) == 8 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
-	   ids[2] == GM_HUD && ids[3] == GM_BORDER && ids[4] == GM_SHADER && ids[5] == GM_STRENGTH &&
-	   ids[6] == GM_CONTROLS && ids[7] == GM_QUIT, "with room and an old screen: Continue, Display, "
-	   "On-Screen Stats, Border, Shader, Strength, Controls and Quit");
-	ck(!strcmp(rows[3].value, "Blur") && !strcmp(rows[4].value, "CRT") && !strcmp(rows[5].value, "70%"),
-	   "each its value");
-	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 7 && reachable(rows, n, got, GM_MAX_ROWS) == 8,
-	   "X still Quit, every row a stop");
+	u.screen_colors = "Vivid";
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	ck(n == 6 && gm_tab_rows(&u, GT_DISPLAY, ids) == 6 && ids[0] == GM_DISPLAY && ids[1] == GM_BORDER &&
+	   ids[2] == GM_SHADER && ids[3] == GM_STRENGTH && ids[4] == GM_SCREEN_COLORS && ids[5] == GM_HUD,
+	   "with room, an old screen and a table: Display, Border, Shader, Strength, Screen Colors, "
+	   "On-Screen Stats, a game's order");
+	ck(!strcmp(rows[1].value, "Blur") && !strcmp(rows[2].value, "CRT") && !strcmp(rows[3].value, "70%") &&
+	   !strcmp(rows[4].value, "Vivid"), "each its value");
+	ck(b.sound[4] == 0 && !b.choice[4].n && rows[4].live,
+	   "Screen Colors a plain stop, A its page, as over a game");
+	{
+		gm_ui g = u;
+		gm_row gi[GM_MAX_ROWS];
+		int gn, k2;
+
+		/* The same rows in the same places as a game's Display tab */
+		g.port = g.port_display = g.port_hud = false;
+		gn = gm_tab_rows(&g, GT_DISPLAY, gi);
+		n = gm_tab_rows(&u, GT_DISPLAY, ids);
+		for (k2 = 0; k2 < n && k2 < gn && ids[k2] == gi[k2]; k2++) ;
+		ck(gn == n && k2 == n, "the very rows of a game's Display tab, in its order");
+	}
+	ck(reachable(rows, n, got, GM_MAX_ROWS) == 6, "every row a stop");
 	u.port_hud = false;
-	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 7 && gm_tab_rows(&u, GT_GAME, ids) == 7 && ids[2] == GM_BORDER && ids[3] == GM_SHADER &&
-	   ids[4] == GM_STRENGTH, "with no On-Screen Stats row: Border, Shader and Strength after Display");
-	/* ...and Reset before Quit, once it has drawn (port_resets), asked
-	 * first: every row over it, a stop like the rest */
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	ck(n == 5 && gm_row_at(&u, GT_DISPLAY, GM_HUD) < 0, "with no On-Screen Stats: none");
+	/* ...and Reset before Quit on the Game tab, once it has drawn
+	 * (port_resets), asked first, as a game's Game tab has it */
 	u.port_hud = u.port_reset = true;
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 9 && gm_tab_rows(&u, GT_GAME, ids) == 9 && ids[2] == GM_HUD && ids[6] == GM_CONTROLS &&
-	   ids[7] == GM_RESET && ids[8] == GM_QUIT, "with Reset: Continue, Display, On-Screen Stats, Border, "
-	   "Shader, Strength, Controls, Reset and Quit");
-	ck(!strcmp(rows[7].label, "Reset") && rows[7].live, "Reset, as a game's Game tab says it");
-	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 8 && reachable(rows, n, got, GM_MAX_ROWS) == 9,
-	   "X still Quit, after it, every row a stop, Reset too");
+	ck(n == 3 && gm_tab_rows(&u, GT_GAME, ids) == 3 && ids[0] == GM_CONTINUE && ids[1] == GM_RESET &&
+	   ids[2] == GM_QUIT, "the Game tab once it has drawn: Continue, Reset and Quit");
+	ck(!strcmp(rows[1].label, "Reset") && rows[1].live, "Reset, as a game's Game tab says it");
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 2 && reachable(rows, n, got, GM_MAX_ROWS) == 3,
+	   "X still Quit, every row a stop, Reset too");
+	/* Still starting: Continue says Keep Waiting, and no Reset */
+	u.waiting = true;
+	u.port_reset = false;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 2 && !strcmp(rows[0].label, "Keep Waiting") && !strcmp(rows[1].label, "Quit"),
+	   "still starting: Keep Waiting and Quit");
+	u.waiting = false;
 	u.port_hud = u.port_reset = false;
 	u.border = NULL;
 	u.shader = NULL;
 	u.strength = NULL;
+	u.screen_colors = NULL;
 	u.port_display = false;
 	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display, Border, Shader or Reset row over any other program");
 	u.port = false;

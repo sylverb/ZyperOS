@@ -340,13 +340,27 @@ int gm_disc_step(int disc, int discs, int d);
  *             glance, and A on it turns to this tab, the one L1 would
  * GM_CONTROLS and GM_PAK are in no tab: Controls is a tab now and Pak is one
  * of its rows. A port's menu (u->port) has no tabs and is Continue, Controls
- * and Quit whichever tab is asked for; over your PICO-8 (u->port_display,
- * u->port_hud, u->port_reset) Continue, Display, On-Screen Stats, Border,
- * Shader, Strength, Controls, Reset and Quit, the Display tab's rows where
- * that tab is, after the Game tab's first row (Border and Strength where
- * they would show in a game: u->border, u->strength), and Reset before
- * Quit, as in a game's Game tab. */
+ * and Quit whichever tab is asked for; over your PICO-8 (u->port_display)
+ * it has the game's tabs (gm_tabbed), with the rows a stopped PICO-8 can
+ * answer to, in a game's places (1.1.0-rc.8, mine: "why pico 8 menu has no
+ * tabs? we should use the same component as in other systems"):
+ *   Game      Continue, Reset (once it has drawn: u->port_reset), Quit
+ *   Display   Display, Border and Strength where they would show in a game
+ *             (u->border, u->strength), Shader, Screen Colors (a display
+ *             with a table), On-Screen Stats (u->port_hud)
+ *   Controls  src/ctltab.c's, as a game's
+ * and no Achievements tab (gm_tab_count): PICO-8 earns none. What it cannot
+ * do is not there at all, not greyed: Save, Load, Undo Load, Quick Slot,
+ * Disc, Player 2, Cheats, Achievements. */
 typedef enum { GT_GAME, GT_DISPLAY, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
+
+/* Whether the menu has tabs: a game's, and your PICO-8's; no other
+ * program's */
+bool gm_tabbed(const gm_ui *u);
+/* How many tabs L1 and R1 go round, from GT_GAME: all of them over a game,
+ * all but Achievements over your PICO-8 (the last, so the others keep their
+ * places); 1 over any other program */
+int gm_tab_count(const gm_ui *u);
 
 /* On-Screen Stats' switch in the device's database, kept per player and
  * not per game: 1 draws the line over every game (src/hud.h, Diatom's

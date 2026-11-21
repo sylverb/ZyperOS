@@ -808,10 +808,11 @@ check-pico8-mp4: build-native/mp4hand-check native
 # the restart file and USR2 (the program ended and started again with the
 # new Display, portkeys and the follower going on, a bad word a plain Quit, a
 # file from before none, POWER meanwhile starting nothing), then the real
-# launcher in desk mode's dummy window as portkeys starts it: the row, its
-# list, the question with the cursor on Cancel, Start Again's exit and what
-# it keeps, none over OpenBOR, and --display, the Next Display hotkey's
-# question alone (tools/pico8-display-check.py)
+# launcher in desk mode's dummy window as portkeys starts it: a game's tabs,
+# the Display tab's row, its list, the question with the cursor on Cancel,
+# Start Again's exit and what it keeps, X from that tab Quit, none over
+# OpenBOR, and --display, the Next Display hotkey's question alone
+# (tools/pico8-display-check.py)
 check-pico8-display: native
 	@python3 tools/pico8-display-check.py
 
@@ -820,8 +821,9 @@ check-pico8-display: native
 # stand-in pico8_64; then the real launcher in desk mode's dummy window: a
 # cart opened handing portkeys the hotkeys and the screenshot's folder,
 # PICO-8.sh the pad's line and the pop-up's slab with its empty square; the
-# menu's Reset row and question, --reset's question alone, and Controls over
-# it changing a button, with the start again it asks for
+# menu's Game tab and its Reset row and question, --reset's question alone,
+# and its Controls tab changing a button, with the start again it asks for
+# as the menu closes back to the cart, and the next menu where it was left
 check-pico8-keys: native
 	@python3 tools/pico8-keys-check.py
 
@@ -830,8 +832,8 @@ check-pico8-keys: native
 # shelf) and Next Shader on a scratch database, its picture out of PICO-8's
 # preblit (build-native/p8fx-check); sd/pixel2/PICO-8.sh loading p8fx.so
 # first, with a stand-in pico8_64; and the real launcher in desk mode's dummy
-# window as portkeys starts it over PICO-8: the Border, Shader and Strength
-# rows in the Display tab's order, each kept and written for the shim, Your
+# window as portkeys starts it over PICO-8: its Display tab's Border, Shader
+# and Strength rows in a game's order, each kept and written for the shim, Your
 # Own's picture file, none over OpenBOR, and the look file written as a cart
 # opens from the shelf (tools/p8fx-check.py)
 check-p8fx: build-native/p8fx-check native
@@ -973,7 +975,9 @@ build-native/nightmode-check: tools/nightmode-check.c src/nightmode.c src/nightm
 # game against a Diatom of the check's own, the menu up: the Display tab's
 # Screen Colors row, A opening MENU's page over the paused game, a step kept
 # and on the panel (desk mode's stand-in for the table) with the game still
-# paused, B back to the menu and B again to the game; no row without a table
+# paused, B back to the menu and B again to the game; no row without a table;
+# and over your PICO-8 (--port-menu, as portkeys starts it), the same row on
+# its Display tab and the page over the cart, none over OpenBOR
 check-ingame-colors: native
 	@python3 tools/ingame-colors-check.py
 
