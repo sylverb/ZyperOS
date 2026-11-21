@@ -86,6 +86,7 @@ static const about_thanks ABOUT_THANKS[] = {
  * while this has a row. */
 static const struct { const char *who, *handheld; } ABOUT_HANDHELD_THANKS[] = {
 	{ "autobiogphnation", "TrimUI Brick" },   /* kit 2's first tester, all 12 steps */
+	{ "moroboshi69", "TrimUI Brick" },        /* kit 1.0.7-kit.1: the upside-down shaders (#419) */
 	{ NULL, NULL }
 };
 

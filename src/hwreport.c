@@ -38,6 +38,19 @@ size_t hwreport_build(const hw_facts *f, char *out, size_t n)
 	if (f->leds[0]) PUT("  LEDs: %s\n", f->leds);
 	if (f->motor_rail[0]) PUT("  Motor rail: %s\n", f->motor_rail);
 #ifdef ZYPEROS_KIT_BUILD
+	if (f->led_facts[0]) {
+		const char *p = f->led_facts;
+
+		/* A test kit's: the lights' facts, a line each, under the LEDs */
+		PUT("  LED facts:\n");
+		while (*p) {
+			size_t len = strcspn(p, "\n");
+
+			if (len) PUT("    %.*s\n", (int)len, p);
+			p += len;
+			if (*p == '\n') p++;
+		}
+	}
 	if (f->pmic_regs[0]) {
 		const char *p = f->pmic_regs;
 

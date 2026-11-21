@@ -31,16 +31,18 @@ typedef struct {
 	char motor_rail[96];
 #ifdef ZYPEROS_KIT_BUILD
 	/* A test kit's (src/kit.h): the PMIC's registers as its kernel's
-	 * regmap shows them, "addr: value" a line, "" where unread */
+	 * regmap shows them, "addr: value" a line, "" where unread; and the
+	 * lights' facts, a line each (src/device/brick_kit.c's hc_led_facts) */
 	char pmic_regs[6144];
+	char led_facts[2048];
 #endif
 	char boot_times[1024];   /* the start's own marks, a line each */
 } hw_facts;
 
 /* Room a test kit's report needs past a release's (src/xfer_screen.c's
- * buffers): its PMIC registers, eight a line */
+ * buffers): its PMIC registers, eight a line, and its lights' facts */
 #ifdef ZYPEROS_KIT_BUILD
-#define HWREPORT_KIT_ROOM 8192
+#define HWREPORT_KIT_ROOM 10240
 #else
 #define HWREPORT_KIT_ROOM 0
 #endif
