@@ -181,42 +181,66 @@ def shots(tmp):
     sock, p, log, logfile = got
     n = [0]
 
-    def look(what):
+    def look():
+        """(the band's foot clear, the name card gone, the top middle the
+        shot's): read off the panel"""
         n[0] += 1
         f = tmp / f'shots-{n[0]}.png'
         ask(sock, f'shot {f}')
         im = Image.open(f).convert('RGB')
         w, h = im.size
         near = lambda xy: all(abs(c - t) <= 24 for c, t in zip(im.getpixel(xy), SHOT_RGB))
-        # the band's middle near the foot, and the name card's middle at the top left
-        return near((w // 2, h - 30)), near((int(w * 0.17), int(h * 0.2)))
+        return near((w // 2, h - 30)), near((int(w * 0.17), int(h * 0.2))), near((w // 2, int(h * 0.17)))
 
+    def until(ok, secs=4.0):
+        """Looks until `ok` holds or `secs` pass (a busy runner draws late);
+        the last look"""
+        end = time.time() + secs
+        got = look()
+        while not ok(got) and time.time() < end:
+            time.sleep(0.15)
+            got = look()
+        return got
+
+    # A press held until the launcher has drawn two frames with it down, so
+    # a busy runner's slow pass cannot miss it, then let go: the shot's
+    # picture is fetched only while no key is held (shelf_snap's `!held`)
+    def tap(key):
+        ask(sock, f'press {key}')
+        ask(sock, 'wait-frames 2')
+        ask(sock, f'release {key}')
+
+    whole = lambda r: r[2]
     try:
-        ask(sock, 'state')
-        ask(sock, 'tap a')                # the shelf's first shot: the viewer
-        time.sleep(0.4)
-        foot, card = look('open')
-        check(not foot and not card, f'the viewer opens with its band and card up '
-              f'(the foot {"clear" if foot else "covered"}, the card {"gone" if card else "there"})')
-        ask(sock, 'tap a')                # A in the viewer: away at once, no 2 s rest
-        time.sleep(0.9)
-        foot, card = look('a')
+        # the shelf's first shot: the viewer (A again if the shelf was still
+        # coming in from the home and let the press go by)
+        for _ in range(4):
+            tap('a')
+            foot, card, top = until(whole, 4)
+            if top:
+                break
+        check(top and not foot and not card, f'the viewer opens with its band and card up '
+              f'(the shot {"whole" if top else "not open"}, the foot {"clear" if foot else "covered"}, '
+              f'the card {"gone" if card else "there"})')
+        tap('right')                                         # a press: the rest starts again
+        until(lambda r: r[2] and not r[0], 10)               # the next shot in, the band up
+        t0 = time.time()
+        tap('a')                                             # A: away at once, not 2 s on
+        foot, card, top = until(lambda r: r[0] and r[1], 1.5)
         check(foot and card, f'A puts the band and the card away at once, nothing left at the foot '
-              f'(the foot {"clear" if foot else "covered"}, the card {"gone" if card else "there"})')
-        ask(sock, 'tap a 600')            # A held: they stay away
-        time.sleep(1.0)
-        foot, card = look('held')
+              f'(the foot {"clear" if foot else "covered"}, the card {"gone" if card else "there"}, '
+              f'after {time.time() - t0:.1f} s; the rest would take 2 s)')
+        ask(sock, 'press a')                                 # A held: they stay away
+        time.sleep(1.2)
+        foot, card, top = look()
+        ask(sock, 'release a')
         check(foot and card, 'A held keeps them away')
-        ask(sock, 'tap right')            # any other press: back up
-        time.sleep(0.5)
-        foot, card = look('right')
+        tap('right')                                         # another press: back up
+        foot, card, top = until(lambda r: not r[0] and not r[1])
         check(not foot and not card, 'the next press brings the band and the card back')
-        ask(sock, 'tap a')
-        time.sleep(0.9)
-        ask(sock, 'tap b')                # B still goes back from the viewer
-        time.sleep(0.4)
-        foot, card = look('b')
-        check(not foot, 'B goes back to the shelf from the viewer')
+        tap('b')                                             # B still goes back from the viewer
+        foot, card, top = until(lambda r: not r[2])
+        check(not top, 'B goes back to the shelf from the viewer')
     finally:
         stop(sock, p, log)
 
