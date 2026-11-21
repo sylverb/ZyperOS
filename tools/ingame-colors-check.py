@@ -181,22 +181,34 @@ def walk(binary, desk, tmp, card, device):
                 return logp
 
             def tap(key):
-                ask(sock, f'tap {key} 40')
-                ask(sock, 'wait-frames 8')
+                # Held until two frames are drawn with it down, so a busy
+                # computer's slow pass cannot miss it (check-videoview's way)
+                ask(sock, f'press {key}')
+                ask(sock, 'wait-frames 2', timeout=30)
+                ask(sock, f'release {key}')
+                ask(sock, 'wait-frames 8', timeout=30)
+
+            def until(ok, secs=5.0):
+                """ok() again until it holds or `secs` pass (drawn late)"""
+                end = time.time() + secs
+                while not ok() and time.time() < end:
+                    time.sleep(0.1)
+                return ok()
 
             ask(sock, 'wait-frames 8')
             tap('r1')
             if not table:
                 check(not drawn(logp, 'Screen Colors'), f'{name}: no table, no Screen Colors row on the Display tab')
                 return logp
-            check(drawn(logp, 'Screen Colors'), f'{name}: R1, the Display tab: a Screen Colors row')
+            check(until(lambda: drawn(logp, 'Screen Colors')), f'{name}: R1, the Display tab: a Screen Colors row')
             tap('up')
             tap('up')
             tap('a')
-            check(drawn(logp, 'Temperature') and drawn(logp, 'Gamma'),
+            check(until(lambda: drawn(logp, 'Temperature') and drawn(logp, 'Gamma')),
                   f'{name}: A on it, right over On-Screen Stats: the Screen Colors page, its rows drawn')
             was = list(diatom.lines)
             tap('right')
+            until(lambda: kept(card) == VIVID)
             colors = ask(sock, 'state').get('colors')
             check(kept(card) == VIVID, f'{name}: Right on Look: Vivid kept at once ({kept(card)})')
             check(isinstance(colors, dict) and colors.get('kept') is True and

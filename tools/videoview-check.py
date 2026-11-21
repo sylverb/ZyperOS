@@ -50,6 +50,27 @@ def ask(sock, line, timeout=10):
     return json.loads(out.decode() or '{}')
 
 
+def press_once(sock, key):
+    """A press held until the launcher has drawn two frames with it down, so
+    a busy computer's slow pass cannot miss it, then let go: the viewer's
+    way below since 2026-11-20, when a tap timed in milliseconds was lost with five
+    make checks at once"""
+    ask(sock, f'press {key}')
+    ask(sock, 'wait-frames 2', timeout=30)
+    ask(sock, f'release {key}')
+
+
+def until(get, ok, secs=5.0):
+    """get() again until ok(it) holds or `secs` pass (a busy computer draws
+    late); the last one got"""
+    end = time.time() + secs
+    got = get()
+    while not ok(got) and time.time() < end:
+        time.sleep(0.1)
+        got = get()
+    return got
+
+
 def run(tmp, name, snaps, saver, extra):
     base = tmp / name
     for d in ('ZyperOS', 'Roms', 'userdata', 'shared', 'web'):
@@ -92,11 +113,12 @@ def run(tmp, name, snaps, saver, extra):
             print((tmp / f'{name}.log').read_text()[-2000:])
             return None
         time.sleep(0.5)
-        ask(sock, 'tap a')
-        for _ in range(100):
-            if ask(sock, 'state').get('screen') == 'games':
+        # A on the first system: its shelf (A again if the home was still
+        # coming in and let the press go by)
+        for _ in range(4):
+            press_once(sock, 'a')
+            if until(lambda: ask(sock, 'state').get('screen'), lambda s: s == 'games', 3.0) == 'games':
                 break
-            time.sleep(0.05)
         return sock, p, log, tmp / f'{name}.log'
     except Exception:
         p.kill()
@@ -125,9 +147,8 @@ def saver(tmp):
     try:
         time.sleep(6.0)                   # twice the screensaver's delay, nothing pressed
         c0 = ask(sock, 'state')['cursor']
-        ask(sock, 'tap right 40')
-        time.sleep(0.6)
-        c1 = ask(sock, 'state')['cursor']
+        press_once(sock, 'right')
+        c1 = until(lambda: ask(sock, 'state')['cursor'], lambda c: c != c0, 3.0)
         started = 'saver: starts' in logfile.read_text()
         check(not started and c1 == (c0 + 1) % len(GAMES),
               f'the snap playing holds the screensaver: Right steps on past its delay '
