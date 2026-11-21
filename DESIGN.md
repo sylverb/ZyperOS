@@ -1457,8 +1457,8 @@ beside the level (`volume_boost`, `brightness_boost`), so it is there at the
 next start. A plug going in or out closes the volume boost: the new output
 starts at the top without it.
 
-- **Volume:** six cells of 2 dB, up to +12 dB, near a step under the top
-  (1.8 dB on the Pixel 2's speaker, 2.3 on the Brick). The gain is software,
+- **Volume:** six cells of 3 dB, up to +18 dB (2 dB and +12 dB until 2026-11-20: "make each step a little higher db boost"), a bit more than a step under
+  the top (1.8 dB on the Pixel 2's speaker, 2.3 on the Brick). The gain is software,
   in src/eqdsp.h after the equalizer's bands, moving over 20 ms, with a
   limiter that keeps every peak under -1 dB of full scale (down at once, back
   over 100 ms, both channels together): a quiet film gets louder, a loud one

@@ -65,7 +65,7 @@ int main(void)
 	t = hold(&b, +1, 1000, 1650, BOOST_OPEN, &did);
 	ck(b.open && b.cells == 1, "held 1 s on the top (0.57 s to get there), it opens with one cell filled");
 	ck(did & BOOST_OPENED, "and says it opened, for the rumble");
-	ck(boost_db(&b) == BOOST_DB_CELL, "one cell is 2 dB");
+	ck(boost_db(&b) == BOOST_DB_CELL && BOOST_DB_CELL == 3, "one cell is 3 dB");
 
 	/* the key still held stops at the first cell */
 	did = 0;
@@ -76,7 +76,7 @@ int main(void)
 	tap(&b, +1, t + 200, BOOST_OPEN);
 	ck(b.cells == 3, "each press after that fills one more");
 	for (int i = 0; i < 6; i++) tap(&b, +1, t + 300 + i * 100, BOOST_OPEN);
-	ck(b.cells == BOOST_VOL_CELLS && boost_db(&b) == 12, "it stops at six cells, +12 dB");
+	ck(b.cells == BOOST_VOL_CELLS && boost_db(&b) == 18, "it stops at six cells, +18 dB");
 	boost_look(&b, OSDBAR_VOLUME, BOOST_OPEN, t + 900, &l);
 	ck(l.push > 0, "and a press on the full boost pushes the end");
 

@@ -39,8 +39,8 @@ trap 'rm -rf "$T"' EXIT
 trap 'exit 1' INT TERM
 
 # Strings and symbols only a kit has: its page, its log lines, its report's
-# PMIC lines, its file for Diatom, and its two hooks
-KIT_STRINGS='Hardware Check|hwcheck:|PMIC registers|diatom-present'
+# PMIC and lights lines, its file for Diatom, and its two hooks
+KIT_STRINGS='Hardware Check|hwcheck:|PMIC registers|LED facts|diatom-present'
 KIT_SYMBOLS='kit_page|kit_hw_facts|kit_present_seed'
 
 # ---- 1. the device build's line and sources ---------------------------------
@@ -94,6 +94,8 @@ if SDL=$(pkg-config --cflags sdl2 SDL2_image SDL2_ttf 2> /dev/null); then
 	ck $? "a kit's brick_hw.o reads its facts"
 	strings -a "$T/kit/hwreport.o" | grep -q 'PMIC registers'
 	ck $? "a kit's hwreport.o prints the PMIC's registers"
+	strings -a "$T/kit/hwreport.o" | grep -q 'LED facts'
+	ck $? "a kit's hwreport.o prints the lights' facts"
 	# Defined: T, or W where src/kit.h's weak declaration makes the definition
 	# weak too (GNU nm; the Mac's says T)
 	nm "$T/kit/brick_kit.o" | grep -Eq '[TW] _?kit_page$' && nm "$T/kit/brick_kit.o" | grep -Eq '[TW] _?kit_hw_facts$' &&
