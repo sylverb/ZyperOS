@@ -235,4 +235,30 @@ int pk_boost_lift(const pk_boost *b);
 /* The bar for `kind` at `now`, as osdbar_render_look draws it */
 void pk_boost_look(pk_boost *b, pk_kind kind, uint32_t now, osdbar_look *l);
 
+/* ---- the boost's buzz as it opens --------------------------------------------
+ *
+ * As the launcher gives it (src/levels.c) and Diatom in a game
+ * (diatom/src/levels.c): a short buzz of the motor as either boost opens, a
+ * press or a hold, PK_BUZZ_MS long, at MENU > Sound > Rumble's share of full
+ * strength (src/rumble.h: Off none, Low 35%, Medium 65%, Full all of it), the
+ * level the launcher's own buzz goes by. portkeys plays it on the joypad's
+ * force feedback (its boost_buzz). Before this, over a port nothing was felt:
+ * BOOST_OPENED came back from pk_press and pk_boost_tick and nothing read it. */
+#define PK_BUZZ_MS 40
+
+/* MENU > Sound > Rumble's share, percent, as src/rumble.c's rumble_menu and
+ * rumble_level_pct give it: the device database's "rumble" ("off" 0, "low"
+ * 35, "medium" 65), and 100 for "full", for none (a card that never chose)
+ * and for a word this release cannot read */
+int pk_rumble_pct(sqlite3 *db);
+
+/* What a step or the clock did (`did`, src/boost.h's BOOST_ flags, from
+ * pk_press or pk_boost_tick) asks of the motor: the share to buzz at when it
+ * says the boost opened, 0 for anything else or with Rumble Off */
+int pk_buzz_pct(sqlite3 *db, int did);
+
+/* The magnitude for the share, 0 to 0xFFFF, as the launcher scales it
+ * (plat_rumble_buzz, src/device/pixel2.c): full at 100, rounded */
+uint16_t pk_buzz_strength(int pct);
+
 #endif

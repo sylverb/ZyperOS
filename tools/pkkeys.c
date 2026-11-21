@@ -444,3 +444,42 @@ void pk_boost_look(pk_boost *b, pk_kind kind, uint32_t now, osdbar_look *l)
 
 	boost_look(&b->bar[bright], bright ? OSDBAR_BRIGHT : OSDBAR_VOLUME, BOOST_OPEN, now, l);
 }
+
+/* ---- the boost's buzz as it opens ------------------------------------------------ */
+
+/* src/rumble.c's words and shares: the launcher's IDS and PCT, in its order.
+ * tools/pkkeys-check.c holds the two the same through the launcher's own
+ * rumble_level_parse and rumble_level_pct. */
+static const char *const RUMBLE_WORD[] = { "off", "low", "medium", "full" };
+static const int RUMBLE_PCT[] = { 0, 35, 65, 100 };
+
+int pk_rumble_pct(sqlite3 *db)
+{
+	sqlite3_stmt *st;
+	int pct = 100;
+	unsigned i;
+
+	if (db && sqlite3_prepare_v2(db, "SELECT value FROM settings WHERE key='rumble';", -1, &st, NULL) ==
+	          SQLITE_OK) {
+		if (sqlite3_step(st) == SQLITE_ROW) {
+			const char *v = (const char *)sqlite3_column_text(st, 0);
+
+			for (i = 0; v && i < sizeof RUMBLE_WORD / sizeof RUMBLE_WORD[0]; i++)
+				if (!strcmp(v, RUMBLE_WORD[i])) pct = RUMBLE_PCT[i];
+		}
+		sqlite3_finalize(st);
+	}
+	return pct;
+}
+
+int pk_buzz_pct(sqlite3 *db, int did)
+{
+	return (did & BOOST_OPENED) ? pk_rumble_pct(db) : 0;
+}
+
+uint16_t pk_buzz_strength(int pct)
+{
+	if (pct <= 0) return 0;
+	if (pct >= 100) return 0xFFFF;
+	return (uint16_t)((float)0xFFFF * ((float)pct / 100.0f) + 0.5f);
+}

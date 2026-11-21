@@ -32,6 +32,7 @@
 #include "pkshot.h"
 #include "pkvpad.h"
 #include "../src/p8draw.h"
+#include "../src/rumble.h"
 
 #include <zlib.h>
 
@@ -71,7 +72,21 @@ typedef struct {
 	pk_boost *bo;               /* when set, the steps go through the boost (pk_press) */
 	int       did;              /* what the boost did, every step and tick ORed */
 	int       opened;           /* how often it opened */
+	int       buzzes;           /* how often portkeys would buzz for it (pk_buzz_pct) */
+	int       buzz_pct;         /* and at what share, the last time */
 } rig;
+
+/* What portkeys's press() and boost_clock() hand boost_buzz: each step's and
+ * each tick's `did`, the share pk_buzz_pct asks of the motor for it */
+static void buzz_of(rig *r, int did)
+{
+	const int pct = pk_buzz_pct(r->db, did);
+
+	if (pct > 0) {
+		r->buzzes++;
+		r->buzz_pct = pct;
+	}
+}
 
 static void rig_init(rig *r, int vol, int bright)
 {
@@ -92,6 +107,7 @@ static void take(rig *r, const pk_step *s, int m)
 
 			r->did |= did;
 			r->opened += !!(did & BOOST_OPENED);
+			buzz_of(r, did);
 		} else {
 			pk_apply(r->db, &r->l, &s[i], line, sizeof line);
 		}
@@ -121,6 +137,7 @@ static void pass(rig *r, const pk_key *ev, int n, int64_t cutoff)
 
 			r->did |= did;
 			r->opened += !!(did & BOOST_OPENED);
+			buzz_of(r, did);
 		}
 	}
 }
@@ -1148,6 +1165,111 @@ static void the_boost_closing(void)
 	scratch_drop(&sc);
 }
 
+/* The launcher's own buzz length, the number src/levels.c hands
+ * plat_rumble_buzz as its boost opens; -1 when it cannot be read */
+static long launcher_buzz_ms(void)
+{
+	FILE *f = fopen("src/levels.c", "r");
+	char line[256];
+	long ms = -1;
+
+	if (!f) return -1;
+	while (fgets(line, sizeof line, f)) {
+		char *at = strstr(line, "plat_rumble_buzz("), *comma;
+
+		if (at && (comma = strrchr(at, ',')) && sscanf(comma + 1, " %ld", &ms) == 1) break;
+		ms = -1;
+	}
+	fclose(f);
+	return ms;
+}
+
+/* The boost's buzz as it opens (pk_buzz_pct), as the launcher gives its
+ * own (src/levels.c): at MENU > Sound > Rumble's share, the word written and
+ * read back through the launcher's src/db.c and src/rumble.c; once for each
+ * opening of either boost, by presses or by a hold; never for a step, a cell
+ * filled or emptied or a fold; none with Rumble Off. Its length is the
+ * launcher's and Diatom's, its strength the launcher's scale. On 1.1.0-rc.8
+ * portkeys gave none: nothing read BOOST_OPENED. */
+static void the_boost_buzz(void)
+{
+	static const char *const words[] = { NULL, "off", "low", "medium", "full", "louder" };
+	unsigned w;
+	int pct;
+
+	for (w = 0; w < sizeof words / sizeof words[0]; w++) {
+		const char *name = words[w] ? words[w] : "(none)";
+		const int want = rumble_level_pct(rumble_level_parse(words[w], RUMBLE_DEFAULT));
+		const int felt = want > 0 ? 1 : 0;
+		pk_boost bo;
+		scratch sc;
+		rig r;
+		db *d;
+		int i;
+
+		if (!scratch_make(&sc, VOL_MAX, BRIGHT_MAX, -1, -1) || !(d = db_open(sc.db, DB_DEVICE))) {
+			ck(0, "buzz: a scratch database");
+			return;
+		}
+		if (words[w]) db_set_str(d, "rumble", words[w]);
+		db_close(d);
+		if (!rig_boost(&r, &bo, &sc)) {
+			ck(0, "buzz: portkeys over the scratch database");
+			scratch_drop(&sc);
+			return;
+		}
+		ck(pk_rumble_pct(r.db) == want, "buzz: Rumble %s is %d%%, as the launcher reads it; got %d%%", name,
+		   want, pk_rumble_pct(r.db));
+		ck(!pk_buzz_pct(r.db, BOOST_LEVEL) && !pk_buzz_pct(r.db, BOOST_GAIN) &&
+		   !pk_buzz_pct(r.db, BOOST_LEVEL | BOOST_GAIN) && pk_buzz_pct(r.db, BOOST_GAIN | BOOST_OPENED) == want,
+		   "buzz: Rumble %s, only an opening asks the motor", name);
+
+		/* Three presses on the top: one buzz */
+		for (i = 0; i < BOOST_TAPS; i++) hold(&r, PK_KEY_VOLUMEUP, 80, 200);
+		ck(r.opened == 1 && r.buzzes == felt && (!felt || r.buzz_pct == want),
+		   "buzz: Rumble %s, three presses open the volume's, %d buzz at %d%%; got %d at %d%%", name, felt,
+		   want, r.buzzes, r.buzz_pct);
+		/* Filled by a held key, emptied, folded under the top: none more */
+		hold(&r, PK_KEY_VOLUMEUP, REPEAT_DELAY_MS + 3 * REPEAT_RATE_MS + 20, 200);
+		for (i = 0; i <= BOOST_VOL_CELLS; i++) hold(&r, PK_KEY_VOLUMEDOWN, 80, 150);
+		hold(&r, PK_KEY_VOLUMEUP, 80, 200);
+		ck(r.l.vol == VOL_MAX && !bo.bar[PK_VOLUME].open && r.buzzes == felt,
+		   "buzz: Rumble %s, the cells filled, emptied and folded, and a step back to the top: no buzz; "
+		   "got %d", name, r.buzzes - felt);
+		/* A hold on the top: the second */
+		key(&r, PK_KEY_VOLUMEUP, 1);
+		frames_to(&r, r.now + BOOST_HOLD_MS + 20);
+		key(&r, PK_KEY_VOLUMEUP, 0);
+		frames_to(&r, r.now + 200);
+		ck(r.opened == 2 && r.buzzes == 2 * felt,
+		   "buzz: Rumble %s, held on the top it opens again, buzzing again; got %d buzzes", name, r.buzzes);
+		/* MENU+VOL+ three times on the top rung: the backlight's, the third */
+		for (i = 0; i < BOOST_TAPS; i++) {
+			menu_chord(&r, PK_KEY_VOLUMEUP, i & 1, BOTH);
+			frames_to(&r, r.now + 200);
+		}
+		ck(r.opened == 3 && pk_boost_lift(&bo) == 1 && r.buzzes == 3 * felt,
+		   "buzz: Rumble %s, the backlight's opening buzzes as the volume's; got %d buzzes", name, r.buzzes);
+		rig_done(&r);
+		scratch_drop(&sc);
+	}
+	ck(pk_rumble_pct(NULL) == rumble_level_pct(RUMBLE_DEFAULT),
+	   "buzz: with no database, the launcher's own default, %d%%", rumble_level_pct(RUMBLE_DEFAULT));
+
+	/* As long as the launcher's and Diatom's, as strong as the launcher's */
+	ck(launcher_buzz_ms() == PK_BUZZ_MS && define_in("diatom/src/levels.c", "BUZZ_MS") == PK_BUZZ_MS,
+	   "buzz: %d ms, as the launcher's (src/levels.c, %ld) and Diatom's (BUZZ_MS, %ld)", PK_BUZZ_MS,
+	   launcher_buzz_ms(), define_in("diatom/src/levels.c", "BUZZ_MS"));
+	for (pct = 0; pct <= 100; pct++) {
+		const float scale = (float)pct / 100.0f;
+		const uint16_t v = pct <= 0 ? 0 : scale >= 1.0f ? 0xFFFF : (uint16_t)((float)0xFFFF * scale + 0.5f);
+
+		if (pk_buzz_strength(pct) != v) break;
+	}
+	ck(pct > 100 && pk_buzz_strength(100) == 0xFFFF && pk_buzz_strength(0) == 0 && pk_buzz_strength(1) > 0,
+	   "buzz: the strength at every share as plat_rumble_buzz scales it; first apart at %d%%", pct);
+}
+
 /* ---- over your PICO-8: SELECT's hotkeys, and its keyboard ------------------
  *
  * tools/pkhot.c, Diatom's chord rule on the joypad's events with the table
@@ -1507,6 +1629,7 @@ int main(void)
 	the_boost_hold();
 	the_boost_bright();
 	the_boost_closing();
+	the_boost_buzz();
 	the_hotkeys();
 	the_keyboard();
 	the_game_pad();

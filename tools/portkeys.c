@@ -1535,13 +1535,67 @@ static void lift_start(void)
 	release(false);
 }
 
+/* The boost's buzz as it opens (tools/pkkeys.h's pk_buzz_pct), on the
+ * joypad's motor, as the launcher gives it (plat_rumble_buzz,
+ * src/device/pixel2.c): the motor is the joypad's force feedback (PWM0, the
+ * joypad driver's), so the joypad's node, found by its FF_RUMBLE as portkeys
+ * starts (buzz_node), is opened again to write at the first buzz and kept.
+ * The effect is this file's alone: a port's own rumble (SDL's, on its own
+ * file) plays beside it. The joypad held over your PICO-8 (EVIOCGRAB) still
+ * takes it: a grab keeps the joypad's events from other readers, not writes
+ * to it, as px2-input's injected presses show. ff-memless ends it after
+ * PK_BUZZ_MS and tells the driver 0, whatever portkeys does next. Before
+ * this, a boost opened over a port gave no buzz at all. */
+static char buzz_node[300];   /* as the scan's path */
+static int buzz_fd = -1, buzz_id = -1;
+static bool buzz_failed;
+
+static void boost_buzz(int did)
+{
+	const int pct = pk_buzz_pct(db, did);
+	struct ff_effect e;
+	struct input_event ev;
+	const char *why = NULL;
+
+	if (pct <= 0) return;      /* not an opening, or Rumble Off: nothing to feel */
+	if (buzz_fd < 0 && buzz_node[0]) buzz_fd = open(buzz_node, O_RDWR | O_NONBLOCK | O_CLOEXEC);
+	if (buzz_fd < 0) {
+		why = buzz_node[0] ? strerror(errno) : "no joypad with a motor was found";
+	} else {
+		memset(&e, 0, sizeof e);
+		e.type = FF_RUMBLE;
+		e.id = (int16_t)buzz_id;
+		/* The driver runs the motor from the strong one; both, as SDL sends */
+		e.u.rumble.strong_magnitude = pk_buzz_strength(pct);
+		e.u.rumble.weak_magnitude = pk_buzz_strength(pct);
+		e.replay.length = PK_BUZZ_MS;
+		if (ioctl(buzz_fd, EVIOCSFF, &e) < 0) {
+			why = strerror(errno);
+			buzz_id = -1;
+		} else {
+			buzz_id = e.id;
+			memset(&ev, 0, sizeof ev);
+			ev.type = EV_FF;
+			ev.code = (uint16_t)buzz_id;
+			ev.value = 1;
+			if (write(buzz_fd, &ev, sizeof ev) != (ssize_t)sizeof ev) why = strerror(errno);
+		}
+	}
+	if (!why)
+		fprintf(stderr, "portkeys: the boost's buzz, %d ms at %d%%\n", PK_BUZZ_MS, pct);
+	else if (!buzz_failed)
+		fprintf(stderr, "portkeys: no buzz for the boost (%s): %s\n", buzz_node[0] ? buzz_node : "-", why);
+	buzz_failed = buzz_failed || why;
+}
+
 /* One step from tools/pkkeys.c, through the boost past the top (pk_press):
  * the level, saved when it moved, its line in the log, the hardware and the
  * bar. A press writes the hardware even at an end of the scale, as it always
  * has, which puts the level back if the port moved the mixer itself; a repeat
  * that moved nothing writes nothing, and keeps the bar up. The boost's cells
  * moving are kept, and the volume's gain written, by pk_press; their lift is
- * loaded here, on the display the bar has just borrowed. */
+ * loaded here, on the display the bar has just borrowed; and a press that
+ * opens it buzzes (boost_buzz). */
 static void press(const pk_step *s)
 {
 	char line[96];
@@ -1563,14 +1617,15 @@ static void press(const pk_step *s)
 		                       vol ? VOL_MAX : BRIGHT_MAX);
 		side_lights_say_to(SIDE_LIGHTS_FIFO, line);
 	}
+	boost_buzz(did);
 }
 
 /* The boost's clock, on every pass of the loop after its steps
  * (pk_boost_tick): VOL+ let go, a hold on the top charging and, held
  * BOOST_HOLD_MS, opening; presses that stopped draining. A hold that opens it
  * is shown and loaded as a press that does: the bar, and for the backlight
- * the lift; the gain is in the file already. The launcher's rumble as it
- * opens is not given over a port. */
+ * the lift; the gain is in the file already. And the buzz, as the
+ * launcher's as it opens (boost_buzz). */
 static void boost_clock(const pkkeys *k)
 {
 	const uint32_t now = (uint32_t)now_ms();
@@ -1578,8 +1633,9 @@ static void boost_clock(const pkkeys *k)
 
 	for (i = 0; i < 2; i++) {
 		const pk_kind kind = i ? PK_BRIGHT : PK_VOLUME;
+		const int did = pk_boost_tick(db, &BO, k, kind, now);
 
-		if (!(pk_boost_tick(db, &BO, k, kind, now) & BOOST_GAIN)) continue;
+		if (!(did & BOOST_GAIN)) continue;
 		if (kind == PK_BRIGHT) {
 			fprintf(stderr, "portkeys: brightness boost 0 -> %d (MENU+VOL+ held)\n", pk_boost_lift(&BO));
 			bar_show(OSDBAR_BRIGHT, L.bright, BRIGHT_MAX);
@@ -1588,6 +1644,7 @@ static void boost_clock(const pkkeys *k)
 			fprintf(stderr, "portkeys: volume boost +0 -> +%d dB (VOL+ held)\n", pk_boost_gain(&BO));
 			bar_show(OSDBAR_VOLUME, L.vol, VOL_MAX);
 		}
+		boost_buzz(did);
 	}
 }
 
@@ -3233,6 +3290,14 @@ int main(int argc, char **argv)
 		if (ioctl(fd, EVIOCSCLOCKID, &clk) < 0 && !clk_err) clk_err = errno ? errno : EINVAL;
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
+		/* The motor for the boost's buzz (boost_buzz): the first device
+		 * with force feedback that rumbles, the joypad */
+		if (!buzz_node[0]) {
+			unsigned long ff[NLONGS(FF_MAX + 1)] = { 0 };
+
+			if (ioctl(fd, EVIOCGBIT(EV_FF, sizeof ff), ff) >= 0 && HAS(ff, FF_RUMBLE))
+				snprintf(buzz_node, sizeof buzz_node, "%s", path);
+		}
 		/* The power key, on a file of its own (power_read) */
 		if (powfd < 0 && HAS(keys, KEY_POWER))
 			powfd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
