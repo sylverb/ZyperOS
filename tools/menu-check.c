@@ -952,10 +952,6 @@ static void system_menu(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(rows[sm_at(&u, SM_DISPLAY)].live && rows[sm_at(&u, SM_RESCAN)].live, "the two live rows are live");
 	ck(!rows[sm_at(&u, SM_GAMES)].live && !rows[sm_at(&u, SM_CORE)].live, "reported facts are not rows to press");
-	ck(sm_at(&u, SM_COREOPTS) == sm_at(&u, SM_CORE) + 1 &&
-	   !strcmp(rows[sm_at(&u, SM_COREOPTS)].label, "Core Settings") &&
-	   rows[sm_at(&u, SM_COREOPTS)].live,
-	   "Core Settings under Core (no Game Language here), a stop that opens its page");
 	ck(rows[sm_at(&u, SM_BOXART)].live && !strcmp(rows[sm_at(&u, SM_BOXART)].label, T(S_DOWNLOADS_HEADING)),
 	   "Box Art is Downloads, this console's page, live on a network");
 	u.sys_downloads = "41 to fetch";
@@ -1292,24 +1288,23 @@ static void dslang_row(void)
 	 * row for it) */
 	ck(!has_label(rows, n, "When Slow"), "and no When Slow under it");
 
-	/* Timing (src/pacing.h): under Core Settings on the DS's shelf (Game
-	 * Language, then Core Settings, then Timing), and under Core Settings
-	 * on a shelf without Game Language (the GBA's) */
+	/* Timing (src/pacing.h): under Game Language on the DS's shelf, and under
+	 * Core on a shelf without Game Language (the GBA's) */
 	printf("system menu, Timing:\n");
 	u.pace = "Smooth";
 	n = sys_menu_build(&u, rows, &b, &heading);
 	{
-		int gl = sm_at(&u, SM_DSLANG), co = sm_at(&u, SM_COREOPTS), tr = sm_at(&u, SM_PACE);
+		int gl = sm_at(&u, SM_DSLANG), tr = sm_at(&u, SM_PACE);
 
 		ck(n == SM_ROWS - 2, "with Timing too, every row but the Game Boys' Super Game Boy and Handheld Color");
-		ck(tr == co + 1 && co == gl + 1, "right under Core Settings, which is under Game Language");
+		ck(tr == gl + 1, "right under Game Language");
 		ck(!strcmp(rows[tr].label, "Timing"), "named Timing");
 		ck(!strcmp(val(&rows[tr]), "Smooth"), "saying what it is set to");
 		ck(rows[tr].live, "a row to press");
 		ck(menu_sound_at(b.sound, n, tr) == MENU_SND_RING, "that steps round, on A too");
 		ck(sys_menu_system_rows(&u, sm) == n && sm[tr] == SM_PACE, "the build and the list agree");
-		ck(!strcmp(rows[gl].label, "Game Language") && !strcmp(rows[co].label, "Core Settings") &&
-		   !strcmp(rows[tr + 1].label, plain[at + 1].label),
+		ck(!strcmp(rows[gl].label, "Game Language") &&
+		   !strcmp(rows[tr + 1].label, plain[at].label),
 		   "and the rows round it are as they were");
 		u.pace = "Exact";
 		sys_menu_build(&u, rows, &b, &heading);
@@ -1323,13 +1318,13 @@ static void dslang_row(void)
 		int tr = sm_at(&u, SM_PACE);
 
 		ck(n == SM_ROWS - 3, "on a shelf without the DS's row, one row more than its own");
-		ck(tr == sm_at(&u, SM_COREOPTS) + 1 && !strcmp(rows[tr].label, "Timing"),
-		   "Timing right under Core Settings");
+		ck(tr == sm_at(&u, SM_CORE) + 1 && !strcmp(rows[tr].label, "Timing"),
+		   "Timing right under Core");
 		ck(!has_label(rows, n, "Game Language"), "and no DS row with it");
 		ck(!has_label(rows, n, "Super Game Boy"), "nor the Game Boys' Super Game Boy");
 	}
 
-	/* Super Game Boy (src/sgbmode.h): under Core Settings on the Game Boy's and the
+	/* Super Game Boy (src/sgbmode.h): under Core on the Game Boy's and the
 	 * Color's shelves, Timing under it */
 	printf("system menu, Super Game Boy:\n");
 	u.sys_name = "Game Boy";
@@ -1339,7 +1334,7 @@ static void dslang_row(void)
 		int sg = sm_at(&u, SM_SGB), tr = sm_at(&u, SM_PACE);
 
 		ck(n == SM_ROWS - 2, "with Timing, every row but the DS's and Handheld Color");
-		ck(sg == sm_at(&u, SM_COREOPTS) + 1, "right under Core Settings");
+		ck(sg == sm_at(&u, SM_CORE) + 1, "right under Core");
 		ck(tr == sg + 1 && !strcmp(rows[tr].label, "Timing"), "Timing under it");
 		ck(!strcmp(rows[sg].label, "Super Game Boy"), "named Super Game Boy");
 		ck(!strcmp(val(&rows[sg]), "Its Games"), "saying what it is set to");
@@ -1422,9 +1417,8 @@ static void cursor_reaches(void)
 	k = reachable(rows, n, got, MENU_MAX_ROWS);
 
 	printf("system menu, what the cursor can reach:\n");
-	ck(k == 9, "nine rows, not the facts (Strength and Core Settings among them)");
+	ck(k == 8, "eight rows, not the facts (Strength among them)");
 	ck(holds(got, k, sm_at(&u, SM_RANDOM)), "Random Game, with games on the shelf");
-	ck(holds(got, k, sm_at(&u, SM_COREOPTS)), "Core Settings");
 	/* 1.0.5: the shelf's covers or a list, under Sort By */
 	ck(holds(got, k, sm_at(&u, SM_VIEW)), "View");
 	ck(sm_at(&u, SM_VIEW) == sm_at(&u, SM_SORT) + 1, "right under Sort By");
@@ -1520,7 +1514,7 @@ static void radio_less(void)
 	ck(k == PM_ROWS && ok, "every ZyperOS row, in the enum's order");
 	k = sys_menu_system_rows(&u, sm);
 	{
-		/* Every row but the five that only some shelves have; Core Settings stays */
+		/* Every row but the five that only some shelves have */
 		int j = 0;
 
 		ok = true;

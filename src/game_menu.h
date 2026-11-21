@@ -203,8 +203,8 @@ typedef enum {
 	/* On-Screen Stats over the game (src/hud.h), on or off, and A opens
 	 * its page (src/hudmenu.h): the Display tab's last row */
 	GM_HUD,
-	/* Core Settings (src/coreopts_page.h): A opens the page of this system's
-	 * core options, as the shelf's Core Settings row does */
+	/* Core Settings (src/coreopts_page.h): A opens the running core's options
+	 * over the paused game (live OPTIONS from Diatom) */
 	GM_COREOPTS,
 	/* Border (src/border.h), under Display, while the mode leaves room */
 	GM_BORDER,

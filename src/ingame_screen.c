@@ -2370,8 +2370,8 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		sysview *sv = &a->view[a->sys_cursor];
 		const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
 
-		/* Same page as the shelf's Core Settings, live over the paused game */
-		coreopts_page(a, q->tag, q->core, c->bg, true);
+		/* Live OPTIONS from the resident, over the paused game */
+		coreopts_page(a, q->tag, q->core, c->bg);
 		break;
 	}
 	case GM_PLAYER2:

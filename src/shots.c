@@ -114,7 +114,7 @@ int shot_tab_from = -1, shot_tab_ms;
 const char *shot_look, *shot_look_page;
 int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
 int shot_lights = -1;      /* --lights-page ROW: MENU > Side Lights' page */
-int shot_coreopts = -1;    /* --coreopts-page ROW: a system's Core Settings page */
+int shot_coreopts = -1;    /* --coreopts-page ROW: Core Settings host shot */
 int shot_look_row;
 int shot_kb, shot_kb_layer;
 static keyboard_transition shot_keyboard;

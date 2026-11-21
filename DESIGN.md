@@ -7495,22 +7495,22 @@ by their files' times, A in the viewer starting nothing, and Delete
 Screenshot.
 
 ### 11.69 Core Settings
-A system's **Core Settings** row (the shelf's menu, under Core / Timing) and
-the in-game menu's Game-tab row of the same name open one page: every option
-that core offers (mapper, palette, sound cart, …), or only the keys listed
-for it in `config/coreopts-show.cfg` when that file names some.
+The in-game menu's Game-tab **Core Settings** row opens one page while a
+game is running: every option that core offers (mapper, palette, sound
+cart, …), or only the keys listed for it in `config/coreopts-show.cfg`
+when that file names some. There is no shelf row: without a running core
+there is nothing to ask.
 
-**Where the list comes from.** In a game, Diatom's `OPTIONS` lines fill it
-live and are written to `$userdata/coreopt-defs/<core>.txt`. On the shelf,
-or before a first launch, that cache is what the page reads; with neither,
-the page says **No options.** Values the player picks are kept as
-`coreopt.<TAG>.<key>` in the library, and dropped again when they match the
-option's default so a later device default can still apply.
+**Where the list comes from.** Diatom's `OPTIONS` lines fill it live over
+the paused game. With none, the page says **No options.** Values the
+player picks are kept as `coreopt.<TAG>.<key>` in the library, sent to the
+resident with `SETOPT`, and dropped again when they match the option's
+default so a later device default can still apply.
 
 **The page.** Heading **Core Settings**, one option a row (its description
 at the left, the current value at the right). Left and Right step the value;
 A opens the list when there are more than two, as every option row does
 (11.3). B closes. Each option's allowed values live as one heap string
 (`codef.blob`), not a fixed `vals[64][128]` table, so opening the page no
-longer stacks nearly a megabyte. Host shots: `--coreopts-page ROW` on a
-system's shelf (tools/i18n-shots.py: `coreopts-page`, `coreopts-page-empty`).
+longer stacks nearly a megabyte. Host shots: `--coreopts-page ROW`
+(tools/i18n-shots.py: `coreopts-page`, `coreopts-page-empty`).

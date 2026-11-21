@@ -4,8 +4,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <errno.h>
 
 #include "db.h"
 #include "i18n.h"
@@ -14,18 +12,6 @@
 #include "panel.h"
 #include "platform.h"
 #include "ui.h"
-
-static void mkdir_p_parent(const char *path)
-{
-	char dir[512];
-	char *slash;
-
-	snprintf(dir, sizeof dir, "%s", path);
-	slash = strrchr(dir, '/');
-	if (!slash) return;
-	*slash = '\0';
-	if (mkdir(dir, 0755) < 0 && errno != EEXIST) { /* best-effort */ }
-}
 
 static void on_option_line(const char *line, void *ctx)
 {
@@ -65,6 +51,8 @@ static void load_current(coreopts_ui *ui)
 	}
 }
 
+/* Live OPTIONS from the resident only. No userdata cache: Core Settings is
+ * in-game, and without a running core there is nothing to show. */
 static void gather(coreopts_ui *ui)
 {
 	char path[512];
@@ -74,18 +62,8 @@ static void gather(coreopts_ui *ui)
 	codefs_clear(&ui->defs);
 	ui->empty = false;
 
-	if (ui->live && plat_resident_ready()) {
-		if (plat_resident_options(on_option_line, &ui->defs, 400) && ui->defs.n > 0) {
-			codefs_cache_path(P_USERDATA, ui->core, path, sizeof path);
-			mkdir_p_parent(path);
-			codefs_save_file(&ui->defs, path);
-		}
-	}
-	if (ui->defs.n == 0) {
-		codefs_cache_path(P_USERDATA, ui->core, path, sizeof path);
-		if (!codefs_load_file(&ui->defs, path))
-			codefs_seed(&ui->defs, ui->core);
-	}
+	if (plat_resident_ready())
+		plat_resident_options(on_option_line, &ui->defs, 400);
 
 	snprintf(path, sizeof path, "%s/coreopts-show.cfg", P_ROOT);
 	n_allow = codefs_load_allow(path, ui->core, allow, CODEFS_ALLOW_MAX);
@@ -112,17 +90,14 @@ static void keep(coreopts_ui *ui, int i)
 	else
 		db_set_str(db_lib(), key, ui->cur[i]);
 	plat_coreopts_invalidate();
-	if (ui->live)
-		plat_resident_line("SETOPT\tkey=%s\tvalue=%s", o->key, ui->cur[i]);
+	plat_resident_line("SETOPT\tkey=%s\tvalue=%s", o->key, ui->cur[i]);
 }
 
-void coreopts_ui_init(coreopts_ui *ui, const char *tag, const char *core,
-                      bool live)
+void coreopts_ui_init(coreopts_ui *ui, const char *tag, const char *core)
 {
 	memset(ui, 0, sizeof *ui);
 	snprintf(ui->tag, sizeof ui->tag, "%s", tag ? tag : "");
 	snprintf(ui->core, sizeof ui->core, "%s", core ? core : "");
-	ui->live = live;
 	gather(ui);
 }
 
@@ -232,28 +207,45 @@ static menu_result cop_power(app *a, void *ctx)
 	return MENU_DONE;
 }
 
-void coreopts_page(app *a, const char *tag, const char *core,
-                   SDL_Texture *bg, bool live)
+void coreopts_page(app *a, const char *tag, const char *core, SDL_Texture *bg)
 {
 	cop_page pg;
 	menu_style st;
 
 	memset(&pg, 0, sizeof pg);
-	coreopts_ui_init(&pg.ui, tag, core, live && bg != NULL);
+	coreopts_ui_init(&pg.ui, tag, core);
 	pg.bg = bg;
 
 	memset(&st, 0, sizeof st);
-	st.fixed_w = bg ? gm_width(a) : menu_std_width(a);
-	st.follow_tint = bg != NULL;
+	st.fixed_w = gm_width(a);
+	st.follow_tint = true;
 	st.sound = pg.ui.sound;
 	st.choices = pg.ui.choice;
 	st.sel_out = &pg.ui.sel;
-	if (bg) {
-		st.backdrop = cop_backdrop;
-		st.on_power = cop_power;
-	}
+	st.backdrop = cop_backdrop;
+	st.on_power = cop_power;
 	menu_run(a, &st, cop_build, cop_key, &pg);
 	coreopts_ui_finish(&pg.ui);
+}
+
+/* Host shots only: load the fixture cache so the page can be drawn without
+ * a resident. The real page never reads that cache. */
+static void gather_shot(coreopts_ui *ui)
+{
+	char path[512];
+	char allow[CODEFS_ALLOW_MAX][CODEFS_KEY_MAX];
+	int n_allow;
+
+	codefs_clear(&ui->defs);
+	ui->empty = false;
+	codefs_cache_path(P_USERDATA, ui->core, path, sizeof path);
+	if (!codefs_load_file(&ui->defs, path))
+		ui->empty = true;
+	snprintf(path, sizeof path, "%s/coreopts-show.cfg", P_ROOT);
+	n_allow = codefs_load_allow(path, ui->core, allow, CODEFS_ALLOW_MAX);
+	codefs_filter(&ui->defs, allow, n_allow);
+	if (ui->defs.n == 0) ui->empty = true;
+	else load_current(ui);
 }
 
 void coreopts_shot_draw(app *a, int row)
@@ -265,13 +257,16 @@ void coreopts_shot_draw(app *a, int row)
 
 	if (!a || a->sys.count <= 0) return;
 	s = &a->sys.systems[a->sys_cursor];
-	coreopts_ui_init(&ui, s->tag, s->core, false);
+	memset(&ui, 0, sizeof ui);
+	snprintf(ui.tag, sizeof ui.tag, "%s", s->tag);
+	snprintf(ui.core, sizeof ui.core, "%s", s->core);
+	gather_shot(&ui);
 	n = coreopts_ui_rows(&ui, rows, CODEFS_MAX + 4);
 	if (n > 0) {
 		sel = row >= 0 && row < n ? row : 0;
 		ui_scrim(a->r, 0);
 		menu_draw(a, T(S_SYSMENU_CORE_SETTINGS), rows, n, sel,
-		          menu_std_width(a), MENU_ZYPEROS);
+		          gm_width(a), MENU_ZYPEROS);
 	}
 	coreopts_ui_finish(&ui);
 }
