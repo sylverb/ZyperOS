@@ -73,7 +73,7 @@ typedef struct {
 	float   lim_rel;                /* how much of it is left after a frame */
 } eq_state;
 
-#define EQ_GAIN_MAX    12           /* dB: src/boost.h's six cells */
+#define EQ_GAIN_MAX    18           /* dB: src/boost.h's six cells of 3 dB */
 #define EQ_LIM_T       (0.8913f * 32768.0f)   /* -1 dB of full scale */
 #define EQ_LIM_REL_MS  100
 

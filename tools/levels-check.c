@@ -178,17 +178,17 @@ int main(void)
 	/* MP4 heard behind the home, a boost of three cells set in the player */
 	heard = true;
 	start(PLAT_VOL_MAX, 3);
-	ck(mp4_gain == 6 && port_gain == 6, "MP4 heard on the home: the boost set while playing stays, +6 dB told");
+	ck(mp4_gain == 3 * BOOST_DB_CELL && port_gain == 3 * BOOST_DB_CELL, "MP4 heard on the home: the boost set while playing stays, 3 cells told");
 	l = look();
 	ck(l.ncells == BOOST_VOL_CELLS && cells_shown(&l) == 3,
 	   "the home's bar shows the boost cells, three filled");
 	press(IN_VOLDN, BOOST_HIDE);
 	ck(vol == PLAT_VOL_MAX && levels_boost(OSDBAR_VOLUME) == 2,
 	   "VOL- on the home empties one cell, the level stays at the top");
-	ck(mp4_gain == 4 && port_gain == 4 && kept_boost[0] == 2, "and MP4 is told +4 dB, the two kept");
+	ck(mp4_gain == 2 * BOOST_DB_CELL && port_gain == 2 * BOOST_DB_CELL && kept_boost[0] == 2, "and MP4 is told 2 cells, the two kept");
 	press(IN_VOLUP, BOOST_HIDE);
 	press(IN_VOLUP, BOOST_HIDE);
-	ck(levels_boost(OSDBAR_VOLUME) == 4 && mp4_gain == 8, "VOL+ on the home fills the next cells, +8 dB to MP4");
+	ck(levels_boost(OSDBAR_VOLUME) == 4 && mp4_gain == 4 * BOOST_DB_CELL, "VOL+ on the home fills the next cells, 4 cells to MP4");
 	for (int i = 0; i < 4; i++) press(IN_VOLDN, BOOST_HIDE);
 	ck(vol == PLAT_VOL_MAX && levels_boost(OSDBAR_VOLUME) == 0 && mp4_gain == 0,
 	   "four presses down empty it; it waits at the top, MP4 back to 0 dB");
@@ -198,11 +198,11 @@ int main(void)
 	/* opened on the home, the player's way */
 	start(PLAT_VOL_MAX, 0);
 	for (int i = 0; i < BOOST_TAPS; i++) press(IN_VOLUP, BOOST_HIDE);
-	ck(levels_boost(OSDBAR_VOLUME) == 1 && mp4_gain == 2 && buzzes == 1,
-	   "three presses on the top of the home open it, +2 dB to MP4, the rumble felt");
+	ck(levels_boost(OSDBAR_VOLUME) == 1 && mp4_gain == 1 * BOOST_DB_CELL && buzzes == 1,
+	   "three presses on the top of the home open it, 1 cell to MP4, the rumble felt");
 	start(PLAT_VOL_MAX, 0);
 	hold(IN_VOLUP, BOOST_HOLD_MS + 100, BOOST_HIDE);
-	ck(levels_boost(OSDBAR_VOLUME) == 1 && mp4_gain == 2, "VOL+ held a second on the top of the home opens it");
+	ck(levels_boost(OSDBAR_VOLUME) == 1 && mp4_gain == 1 * BOOST_DB_CELL, "VOL+ held a second on the top of the home opens it");
 	press(IN_VOLUP, BOOST_HIDE);
 	ck(kept_boost[0] == 2, "a cell filled on the home is kept like the level");
 
@@ -240,7 +240,7 @@ int main(void)
 	/* MP4's own screens open it heard or not, as before */
 	start(PLAT_VOL_MAX, 0);
 	for (int i = 0; i < BOOST_TAPS; i++) press(IN_VOLUP, BOOST_OPEN);
-	ck(levels_boost(OSDBAR_VOLUME) == 1 && mp4_gain == 2, "MP4's own screens open it with nothing heard");
+	ck(levels_boost(OSDBAR_VOLUME) == 1 && mp4_gain == 1 * BOOST_DB_CELL, "MP4's own screens open it with nothing heard");
 
 	/* the in-game menu over a paused game, nothing heard: the game's place */
 	heard = false;
@@ -253,7 +253,7 @@ int main(void)
 	press(IN_VOLDN, BOOST_HIDE);
 	ck(vol == PLAT_VOL_MAX && levels_boost(OSDBAR_VOLUME) == 2,
 	   "VOL- in the in-game menu empties one cell, as in the game; the level stays at the top");
-	ck(kept_boost[0] == 2 && mp4_gain == 4, "  ...two kept, the two RESUME hands the game (levels_boost)");
+	ck(kept_boost[0] == 2 && mp4_gain == 2 * BOOST_DB_CELL, "  ...two kept, the two RESUME hands the game (levels_boost)");
 	press(IN_VOLUP, BOOST_HIDE);
 	ck(levels_boost(OSDBAR_VOLUME) == 3, "VOL+ there fills one again");
 	start(PLAT_VOL_MAX, 0);
@@ -269,18 +269,18 @@ int main(void)
 	heard = true;
 	start(PLAT_VOL_MAX, 0);
 	levels_game_boost(OSDBAR_VOLUME, 1);
-	ck(mp4_gain == 2, "a game's hold opens its boost: MP4 at +2 dB at once");
+	ck(mp4_gain == 1 * BOOST_DB_CELL, "a game's hold opens its boost: MP4 at 1 cell at once");
 	levels_game_boost(OSDBAR_VOLUME, 2);
 	levels_game_boost(OSDBAR_VOLUME, 3);
-	ck(mp4_gain == 6, "each press in the game: +4, then +6 dB");
+	ck(mp4_gain == 3 * BOOST_DB_CELL, "each press in the game: 2 cells, then 3");
 	levels_game_boost(OSDBAR_VOLUME, 2);
-	ck(mp4_gain == 4, "VOL- in the game: +4 dB");
+	ck(mp4_gain == 2 * BOOST_DB_CELL, "VOL- in the game: 2 cells");
 	ck(kept_boost[0] == 0 && levels_boost(OSDBAR_VOLUME) == 0 && port_gain == 0,
 	   "  ...nothing kept and the ports' file left until the game pauses or ends");
 	levels_game_boost(OSDBAR_BRIGHT, 2);
-	ck(mp4_gain == 4, "the brightness's is Diatom's own: MP4 not told");
+	ck(mp4_gain == 2 * BOOST_DB_CELL, "the brightness's is Diatom's own: MP4 not told");
 	levels_from_game(OSDBAR_VOLUME, PLAT_VOL_MAX, 2);
-	ck(kept_boost[0] == 2 && mp4_gain == 4 && port_gain == 4, "the end hands the two back: kept, the same gain");
+	ck(kept_boost[0] == 2 && mp4_gain == 2 * BOOST_DB_CELL && port_gain == 2 * BOOST_DB_CELL, "the end hands the two back: kept, the same gain");
 
 	if (fails) { printf("levels: %d FAILED\n", fails); return 1; }
 	printf("levels: ok\n");

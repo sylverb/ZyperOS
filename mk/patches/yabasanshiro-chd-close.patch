@@ -1,0 +1,94 @@
+yabasanshiro-chd-close.patch, ours (1.1.0): a CHD's files closed when its
+game ends.
+
+ISOCDInit opens the image to read its header, and every loader but the
+CHD's closes that file or keeps it as a track's; LoadCHD left it open. And
+LoadCHD reads the disc through chd_open's own file, which nothing closed:
+ISOCDDeInit closes the tracks' files, and a CHD's tracks have none. Under a
+frontend that keeps the core loaded between games, every CHD played stayed
+open, two files a game, until the frontend quit: on a GKD Pixel 2
+(1.1.0-rc.8, 2026-11-20) a resident Diatom held two descriptors for each
+Saturn .chd played, and four test games deleted from the card still held
+about 1.3 GB of it. Now LoadCHD closes the header's file once the CHD is
+open, and ISOCDDeInit (retro_unload_game, through YabauseDeInit and
+Cs2DeInit) closes the CHD and frees its buffers. The file is CRLF, so are
+the lines below. git apply skips this preamble.
+
+--- a/yabause/src/cd-libretro.c
++++ b/yabause/src/cd-libretro.c
+@@ -432,6 +432,7 @@
+ 
+ static int LoadCHD(const char *chd_filename, RFILE *iso_file);
+ static int ISOCDReadSectorFADFromCHD(u32 FAD, void *buffer);
++static void CloseCHD(void);
+ 
+ static int LoadBinCue(const char *cuefilename, RFILE *iso_file)
+ {
+@@ -1599,6 +1600,10 @@
+       if (disc.endRecord != NULL)
+         disc.endRecord = NULL;
+    }
++   /* ZyperOS (yabasanshiro-chd-close.patch): and a CHD's own file, which
++    * LoadCHD opened with chd_open and no track holds, so the loop above
++    * never closed it */
++   CloseCHD();
+ }
+ 
+ //////////////////////////////////////////////////////////////////////////////
+@@ -1785,6 +1790,23 @@
+ } ChdInfo;
+ 
+ ChdInfo * pChdInfo = NULL;
++
++/* ZyperOS (yabasanshiro-chd-close.patch): the CHD put down, its file closed.
++ * Nothing closed it: ISOCDDeInit closes the tracks' files, and a CHD's
++ * tracks have none. A frontend that keeps the core loaded between games
++ * kept every CHD it had played open until it quit, two files a game with
++ * the one LoadCHD left (a resident Diatom on the GKD Pixel 2, 1.1.0-rc.8,
++ * 2026-11-20: four deleted games held 1.3 GB of the card). */
++static void CloseCHD(void)
++{
++  if (pChdInfo == NULL)
++    return;
++  if (pChdInfo->chd != NULL)
++    chd_close(pChdInfo->chd);
++  free(pChdInfo->hunk_buffer);
++  free(pChdInfo);
++  pChdInfo = NULL;
++}
+ 
+ static int LoadCHD(const char *chd_filename, RFILE *iso_file)
+ {
+@@ -1803,9 +1825,7 @@
+   u32 resulttag;
+   u8 resultflags;
+ 
+-  if (pChdInfo != NULL) {
+-    free(pChdInfo);
+-  }
++  CloseCHD();
+ 
+   pChdInfo = malloc(sizeof(ChdInfo));
+   memset(pChdInfo, 0, sizeof(ChdInfo));
+@@ -1817,6 +1837,8 @@
+ 
+   chd_error error = chd_open(chd_filename, CHD_OPEN_READ, NULL, &pChdInfo->chd);
+   if (error != CHDERR_NONE) {
++    pChdInfo->chd = NULL;
++    free(buf);
+     return -1;
+   }
+ 
+@@ -1990,6 +2012,12 @@
+   chd_read(pChdInfo->chd, 0, pChdInfo->hunk_buffer);
+   pChdInfo->current_hunk_id = 0;
+ 
++  /* ZyperOS (yabasanshiro-chd-close.patch): the file ISOCDInit opened to
++   * read the image's header. Every other loader closes it or keeps it as a
++   * track's; a CHD is read through chd_open's own file, so this one was left
++   * open, the second file of every CHD game */
++  filestream_close(iso_file);
++
+   return 0;
+ }
+ 
