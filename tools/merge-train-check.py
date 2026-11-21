@@ -8,6 +8,8 @@ GitHub, no network):
   PR does, merge one after the other with both checks in both lists and
   both rows kept, each list's other names as they were
 - a name added in the middle of a list, and one at a list's start
+- a row added by one PR next to a row the other rewrote: both, the row as
+  rewritten (the merge base says which side changed it)
 - refused, the train stopped and the file named: a conflict in a rule's
   body made of plain words (not a list, though it looks like one), the same
   row written two ways, prose beside the rows, and a conflict in any other
@@ -220,8 +222,20 @@ def main():
         check(err is None and got == {'check-mid', 'check-first', 'check-one', 'check-two', 'check-three', 'check-four'},
               f'a name in the middle and one at the start: both kept ({err or sorted(got)})')
 
-        # Refused
+        # A row added beside one the other PR rewrote (#426 and #430,
+        # 2026-11-21: check-pico8-quit's row before check-pico8-mp4's, whose
+        # words #430 changed)
         root = sh(d, 'git', 'rev-list', '--max-parents=0', 'main')
+        added = branch(d, 'added', [('docs/building.md', ('| `check-two` |', '| `check-new` | a new one |\n| `check-two` |'))],
+                       base=root)
+        edited = branch(d, 'edited', [('docs/building.md', ('the second |', 'the second, said better |'))], base=root)
+        tree, _, err = train(d, tmp, [added, edited], 'train-ae')
+        doc = (tree / 'docs/building.md').read_text() if err is None else ''
+        check(err is None and '| `check-new` | a new one |' in doc and '| `check-two` | the second, said better |' in doc
+              and 'the second |' not in doc,
+              f'a row added beside one the other rewrote: both, the row as rewritten ({err})')
+
+        # Refused
         cases = [
             ('a rule\'s body of plain words', 'Makefile',
              [('Makefile', ('\t@true\ncheck-two', '\ttrue one\ncheck-two'))],

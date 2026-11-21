@@ -157,11 +157,14 @@ def ignored(tree, path):
 
 # ---- the check lists ----------------------------------------------------------
 
-HUNK = re.compile(r"^<<<<<<< [^\n]*\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]*\n", re.S | re.M)
+# A conflict as git writes it with merge.conflictStyle=diff3: ours, the
+# merge base's lines, theirs
+HUNK = re.compile(r"^<<<<<<< [^\n]*\n(.*?)^\|\|\|\|\|\|\|[^\n]*\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]*\n",
+                  re.S | re.M)
 # A line of a make list: names, a continuation, at most the list's own start
 LIST_LINE = re.compile(r"^\s*(?:\.PHONY:|CHECKS\s*=)?\s*(?:[\w.$()-]+(?:\s+[\w.$()-]+)*)?\s*\\?\s*$")
 LIST_START = re.compile(r"^(?:\.PHONY:|CHECKS\s*=)")
-MARK = re.compile(r"^(?:<<<<<<<|=======|>>>>>>>)")
+MARK = re.compile(r"^(?:<<<<<<<|\|\|\|\|\|\|\||=======|>>>>>>>)")
 ROW = re.compile(r"^\| `([\w-]+)` \|.*\|\s*$")
 
 
@@ -172,13 +175,14 @@ def words(text):
 
 def join_makefile(text):
     """The Makefile with every conflict between two check lists joined: our
-    side as it is, each name only theirs has put after the name it follows
-    there (first, when it is first). None when a conflict is anything but
-    names, so a rule or a variable is never joined."""
+    side as it is, each name theirs added (not in the merge base) put after
+    the name it follows there (first, when it is first). None when a
+    conflict is anything but names, so a rule or a variable is never
+    joined, or when theirs took out a name ours still has."""
     def in_list(m):
         """The hunk starts one of the two lists, or is inside one: the lines
         before it run on (a backslash) back to the list's start"""
-        if any(LIST_START.match(side) for side in (m.group(1), m.group(2))):
+        if any(LIST_START.match(side) for side in (m.group(1), m.group(2), m.group(3))):
             return True
         before = m.string[:m.start()].splitlines()
         k = len(before)
@@ -187,16 +191,18 @@ def join_makefile(text):
         return k < len(before) and bool(LIST_START.match(before[k]))
 
     def one(m):
-        ours, theirs = m.group(1), m.group(2)
-        lines = (ours + theirs).splitlines()
+        ours, base, theirs = m.group(1), m.group(2), m.group(3)
+        lines = (ours + base + theirs).splitlines()
         if not lines or not all(LIST_LINE.match(line) for line in lines) or not in_list(m):
             raise Stop("not a list")
+        have, bw, tw = words(ours), set(words(base)), words(theirs)
+        if (bw - set(tw)) & set(have):
+            raise Stop("theirs took a name out")
         if not ours.strip():
             return theirs
-        have, tw = words(ours), words(theirs)
         out = ours
         for i, w in enumerate(tw):
-            if w in have:
+            if w in have or w in bw:
                 continue
             before = next((tw[j] for j in range(i - 1, -1, -1) if tw[j] in have), None)
             if before is None:
@@ -215,21 +221,29 @@ def join_makefile(text):
 
 def join_rows(text):
     """docs/building.md with every conflict between rows of the checks' table
-    joined: our rows, then each row of a check only theirs has. None when a
-    conflict holds prose, or both sides wrote the same check's row
-    differently (a real conflict, a hand's)."""
+    joined, row by row against the merge base: a row only one side changed
+    (or added, or took out) as that side has it, our rows in their order and
+    then theirs that are new. None when a conflict holds prose, or both
+    sides wrote the same check's row differently (a real conflict, a
+    hand's)."""
     def one(m):
-        ours, theirs = m.group(1).splitlines(True), m.group(2).splitlines(True)
-        if not all(ROW.match(line) for line in ours + theirs):
+        sides = [m.group(k).splitlines(True) for k in (1, 2, 3)]
+        if not all(ROW.match(line) for side in sides for line in side):
             raise Stop("not rows")
-        mine = {ROW.match(line).group(1): line for line in ours}
-        out = list(ours)
-        for line in theirs:
-            name = ROW.match(line).group(1)
-            if name not in mine:
-                out.append(line)
-            elif mine[name] != line:
+        ours, base, theirs = ({ROW.match(line).group(1): line for line in side} for side in sides)
+        order = [ROW.match(line).group(1) for line in sides[0]]
+        order += [ROW.match(line).group(1) for line in sides[2] if ROW.match(line).group(1) not in ours]
+        out = []
+        for name in order:
+            o, b, t = ours.get(name), base.get(name), theirs.get(name)
+            if o == t or t == b:
+                got = o
+            elif o == b:
+                got = t
+            else:
                 raise Stop("the same row twice")
+            if got is not None:
+                out.append(got)
         return "".join(out)
     try:
         return HUNK.sub(one, text)
@@ -279,7 +293,7 @@ def merge_one(tree, ref, message):
     lists joined and in generated files written again. What was settled, a
     list of (path, how); Stop naming the files when another conflict is
     left."""
-    r = git("-c", "merge.conflictStyle=merge", "merge", "--no-ff", "-m", message, ref, cwd=tree, check=False)
+    r = git("-c", "merge.conflictStyle=diff3", "merge", "--no-ff", "-m", message, ref, cwd=tree, check=False)
     if r.returncode == 0:
         return []
     conflicted = git("diff", "--name-only", "--diff-filter=U", cwd=tree).stdout.split()
@@ -666,6 +680,7 @@ def main():
     ap.add_argument("--name", help="the branch (train-<numbers>)")
     ap.add_argument("--base", default="main", help="the branch the train is for (main)")
     args = ap.parse_args()
+    asked_keep = args.keep
     if args.integrate_only:
         args.no_check = args.keep = True
     if args.merge and args.no_check:
@@ -774,6 +789,9 @@ def main():
     finally:
         for pr in prs:
             git("update-ref", "-d", "refs/train/%s/%d" % (name, pr["number"]), check=False)
+        # An integration that stopped at a PR is nothing to build from
+        if args.integrate_only and not done and not asked_keep:
+            args.keep = False
         if tree is not None:
             if args.keep:
                 if not args.integrate_only:
