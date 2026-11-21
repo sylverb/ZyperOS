@@ -101,6 +101,11 @@ typedef struct {
 	 * (plat_gpu_frames), and its games refused there with the reason. From
 	 * a `needs|tag|gpu-frames` line. */
 	bool needs_gpu_frames;
+	/* A frame that starts late is run undrawn, at 1x too, where the core can
+	 * leave a frame's drawing out (Diatom's RUN frameskip=late): the PSP's.
+	 * From a `frameskip|tag|late` line; the DS has it with its two screens,
+	 * without a line. Any other word is no line. */
+	bool late_skip;
 	/* The buttons, where this system's core reads the pad its own way: a
 	 * Diatom map (`a:b,b:a`, the SETMAP form), applied after RUN and
 	 * joined with the system's turbo. Empty is the pad as it is. From a

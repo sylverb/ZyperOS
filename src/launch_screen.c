@@ -897,7 +897,8 @@ void launch(app *a)
 	int  console = 0;
 	bool first_play = false;
 	/* 22 fixed entries (the shader's two and its strength's since 1.0.5)
-	 * plus NULL, seven more for a DS game's two screens, two for Timing's
+	 * plus NULL, seven more for a DS game's two screens (or two for a late skip,
+	 * frameskip|tag|late), two for Timing's
 	 * --pace (1.0.6), then two per core option. Sized off the loader's own cap so the two cannot drift apart:
 	 * the previous 20 was already 18 full, and a silent bound check would
 	 * have dropped every option rather than failing loudly. */
@@ -1557,6 +1558,12 @@ void launch(app *a)
 			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
 			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
 			if (sw) argv[n++] = (char *)"--swap";
+		} else if (s->late_skip) {
+			/* And a late frame left undrawn, as RUN's frameskip=late
+			 * (config/systems.cfg, frameskip|PSP|late). Left out here, the
+			 * first PSP game after the resident Diatom ended drew every
+			 * frame (1.1.0-rc.6, 2026-11-20). */
+			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
 		}
 		/* Timing, as RUN's pace= gives it to the resident one (src/pacing.h) */
 		if (s->pace[0]) {
