@@ -121,13 +121,9 @@ EOF
 			${DEVICE_PROFILES:-} ${DEVICE_BUILDS:-} 2> "$T/err" ||
 			{ ck 1 "$mode: the profiles link ($(head -3 "$T/err"))"; continue; }
 		got=$("$T/prof-$mode")
-		if [ "$mode" = rel ]; then
-			[ "$got" = "0 0" ]
-			ck $? "a release's Brick: GPU shaders and GPU frames off (got $got)"
-		else
-			[ "$got" = "1 1" ]
-			ck $? "a kit's Brick: GPU shaders and GPU frames on (got $got)"
-		fi
+		# on in a release too from 1.1.0 (it was kit-only before)
+		[ "$got" = "1 1" ]
+		ck $? "a $mode build's Brick: GPU shaders and GPU frames on (got $got)"
 	done
 else
 	echo "  skipped: the hooks' files need SDL2's headers (pkg-config sdl2 SDL2_image SDL2_ttf)"

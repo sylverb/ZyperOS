@@ -715,19 +715,55 @@ def border_png(path):
     R.png_rgb(path, 320, 240, rows)
 
 
+# The folders a shot's files made on a card, by the card, taken away with
+# them: a disc set's folder left empty would be a folder the next shot's scan
+# reads (and counts as left out)
+MADE_DIRS = {}
+
+
+def make_parent(card, path):
+    """path's folder on the card, made with each folder above it it lacks,
+    which are kept to go after the shot (drop_parents)"""
+    missing = []
+    d = path.parent
+    while d != card and not d.exists():
+        missing.append(d)
+        d = d.parent
+    path.parent.mkdir(parents=True, exist_ok=True)
+    MADE_DIRS.setdefault(card, []).extend(missing)
+
+
+def drop_parents(card):
+    """The folders make_parent made on the card, the deepest first, each once
+    it is empty; one still holding a file (SHOT_TEXT's, taken after
+    SHOT_FILES') is kept for the next call"""
+    kept = []
+    for d in sorted(set(MADE_DIRS.pop(card, [])), key=lambda p: len(p.parts), reverse=True):
+        try:
+            d.rmdir()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            kept.append(d)
+    if kept:
+        MADE_DIRS[card] = kept
+
+
 def set_files(card, files, on):
     """A shot's files (SHOT_FILES) on the card, empty, or off it; a .png
     under Borders/ a real picture (border_png)"""
     for f in files or []:
         path = card / f
         if on:
-            path.parent.mkdir(parents=True, exist_ok=True)
+            make_parent(card, path)
             if f.startswith("Borders/") and f.endswith(".png"):
                 border_png(path)
                 continue
             path.touch()
         elif path.exists():
             path.unlink()
+    if not on:
+        drop_parents(card)
 
 
 # The in-game menu's Shader at each old screen, so each name is drawn and fit
@@ -841,9 +877,10 @@ CTL_FOCUS = {"gamemenu-pak": "Mario Kart 64 (USA).z64",
              "gamemenu-rumble-own-list": "Mario Kart 64 (USA).z64",
              "gamemenu-controls-n64-end": "Mario Kart 64 (USA).z64",
              **{"gamemenu-controls-" + _n: _SONIC for _n in ("dc", "dc-end", "dc-place", "dc-mixed")}}
-# A game's details with its own buttons (Buttons, This Game), and the page that
-# row opens
-EXTRA.setdefault("info-buttons", ("demo", "PS1", ["--screen", "games", "--info"]))
+# A game's details with its own buttons (Buttons, This Game), the cursor on
+# the row (below the first screenful since File, DESIGN.md 11.69), and the
+# page that row opens
+EXTRA.setdefault("info-buttons", ("demo", "PS1", ["--screen", "games", "--info-on-buttons"]))
 EXTRA.setdefault("info-buttons-page", ("demo", "PS1", ["--screen", "games", "--info-buttons"]))
 SHOT_LIB = {"gamemenu-rumble-own-list": {"rumble.N64.Mario Kart 64 (USA).z64": "low"},
             "info-buttons": {_MGS: "1;b:y,y:b"},
@@ -868,12 +905,33 @@ SHOT_LIB = {"gamemenu-rumble-own-list": {"rumble.N64.Mario Kart 64 (USA).z64": "
 # MENU > Display > Home Systems (src/homesys.h, DESIGN.md 11.48): its row with
 # two systems off ("8 of 10"), its page at the top, and on the one-system card
 # with both its notes; and Recents, the games played last, on the home and as
-# a shelf, from play sessions put in the card's library for the shot alone
+# a shelf, from play sessions put in the card's library for the shot alone.
+# Each game's line says when it was last played (1.1.0-rc.8: "the recents
+# page should show when was it last played"), so the sessions are this
+# morning, last night at 21:40 and three days ago, on the card's clock (its
+# zone as it ships), as the Screenshots shelf's shots are of days near now
+
+
+def _recent_times():
+    import time as _time
+    from datetime import datetime, timedelta
+    try:
+        from zoneinfo import ZoneInfo
+        zone = ZoneInfo("America/New_York")
+    except Exception:          # no zone data: the C library's own
+        zone = None
+    now = datetime.now(zone)
+    at = lambda d, h, m: datetime(d.year, d.month, d.day, h, m, tzinfo=zone).timestamp()
+    today = min(at(now, 9, 12), _time.time() - 60)
+    return (today, at(now - timedelta(days=1), 21, 40), at(now - timedelta(days=3), 18, 5))
+
+
 _HS_OFF = {"home.hidden": "GB,DC"}
-_RECENT_LIB = {"sess.%d.%d.%s\t%s" % (1763000000 - 3600 * _i, 900 + _i, _t, _f): "600\tquit"
-               for _i, (_t, _f) in enumerate((("GBA", "The Legend of Zelda - The Minish Cap (USA).gba"),
-                                              ("SFC", "Super Metroid (USA).sfc"),
-                                              ("PS1", "Metal Gear Solid (USA).chd")))}
+_RECENT_LIB = {"sess.%d.%d.%s\t%s" % (_w, 900 + _i, _t, _f): "600\tquit"
+               for _i, (_w, (_t, _f)) in enumerate(zip(_recent_times(),
+                                                       (("GBA", "The Legend of Zelda - The Minish Cap (USA).gba"),
+                                                        ("SFC", "Super Metroid (USA).sfc"),
+                                                        ("PS1", "Metal Gear Solid (USA).chd"))))}
 EXTRA.setdefault("menu-homesys", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Home Systems"]))
 SHOT_SETTINGS["menu-homesys"] = _HS_OFF
 EXTRA.setdefault("homesys-page", ("demo", "PS1", ["--homesys-page", "4"]))
@@ -883,10 +941,23 @@ EXTRA.setdefault("homesys-last", ("openbor", "OPENBOR", ["--homesys-page", "3"])
 # Pixel 2; nothing over the shelf on the Brick): its page, the cursor on
 # Battery Level, Off as on a new card
 EXTRA.setdefault("lights-page", ("demo", "PS1", ["--lights-page", "2"]))
-for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "games"])):
+for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "games"]),
+                      # when each was last played, under its name, in every View
+                      ("shelf-recents-grid", ["--screen", "games", "--view", "grid"]),
+                      ("shelf-recents-list", ["--screen", "games", "--view", "list"]),
+                      ("shelf-recents-video", ["--screen", "games", "--view", "video"]),
+                      ("shelf-recents-yesterday", ["--screen", "games"]),
+                      ("shelf-recents-days", ["--screen", "games", "--view", "list"])):
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
-    CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
+    # The list's panel is narrow: a system's name as long as "Game Boy
+    # Advance" takes the line to itself, the time under it (gl_fact_origin)
+    # and Played one line, which Spanish's words pass; a SNES game's line
+    # leaves Played the two lines Spanish needs
+    CTL_FOCUS[_name] = {"shelf-recents-yesterday": "Super Metroid (USA).sfc",
+                        "shelf-recents-list": "Super Metroid (USA).sfc",
+                        "shelf-recents-days": "Metal Gear Solid (USA).chd"}.get(
+        _name, "The Legend of Zelda - The Minish Cap (USA).gba")
 
 
 # Collections (src/collect.h, DESIGN.md 11.56): three lists on the card, one
@@ -936,13 +1007,15 @@ def set_text(card, files, on):
     for f, text in (files or {}).items():
         path = card / f
         if on:
-            path.parent.mkdir(parents=True, exist_ok=True)
+            make_parent(card, path)
             if isinstance(text, bytes):
                 path.write_bytes(text)
             else:
                 path.write_text(text)
         elif path.exists():
             path.unlink()
+    if not on:
+        drop_parents(card)
 
 
 def scene_rgb(x, y, w, h, sky, ground, hue):
@@ -1086,6 +1159,26 @@ EXTRA.setdefault("launch-zip-method", ("demo", "SFC", ["--screen", "games", "--z
 # on Core, and a game's details with its Core fact
 EXTRA.setdefault("system-menu-core-gb", ("demo", "GB", ["--screen", "games", "--menu", "Core"]))
 EXTRA.setdefault("info-core-gb", ("demo", "GB", ["--screen", "games", "--info"]))
+# A game's file on its details (DESIGN.md 11.69), the brackets its title
+# leaves out: a long tagged name, sliding in every language (as it is drawn
+# at --phase 3200, and at rest at its start); a disc set in a folder of its
+# own, its folder and first disc and how many discs; and an .m3u beside its
+# discs. The files are made for the shot and taken away after it.
+_PSX = "Roms/PlayStation/"
+_LONG = "Final Fantasy VII (USA) (Rev 1) (Disc 1).chd"
+_SET = "Final Fantasy IX (USA)"
+_M3U = ["Final Fantasy VIII (USA) (Disc %d).chd" % k for k in range(1, 5)]
+for _name, _flags in (("info-file-long", []), ("info-file-long-start", ["--phase", "0"])):
+    EXTRA.setdefault(_name, ("demo", "PS1", ["--screen", "games", "--info", *_flags]))
+    SHOT_FILES[_name] = [_PSX + _LONG]
+    CTL_FOCUS[_name] = _LONG
+EXTRA.setdefault("info-file-discs", ("demo", "PS1", ["--screen", "games", "--info"]))
+SHOT_FILES["info-file-discs"] = [_PSX + "%s/%s (Disc %d).chd" % (_SET, _SET, k) for k in range(1, 5)]
+CTL_FOCUS["info-file-discs"] = "%s/%s (Disc 1).chd" % (_SET, _SET)
+EXTRA.setdefault("info-file-m3u", ("demo", "PS1", ["--screen", "games", "--info"]))
+SHOT_FILES["info-file-m3u"] = [_PSX + _d for _d in _M3U]
+SHOT_TEXT["info-file-m3u"] = {_PSX + "Final Fantasy VIII (USA).m3u": "".join(_d + "\n" for _d in _M3U)}
+CTL_FOCUS["info-file-m3u"] = "Final Fantasy VIII (USA).m3u"
 
 
 def set_lib(card, settings, on):
@@ -1584,46 +1677,77 @@ EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view",
 EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
 for _k in range(7):
     EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
-# The in-game menu over your PICO-8 (src/portmenu.h's port_menu_display): its
-# Display row, on Sharp Pixels; the Display list A opens there, the cursor on
-# Actual Size; and the question a mode other than the one on asks before
-# PICO-8 starts again in it, the cursor on Cancel, for each mode it can name.
-# The Pixel 2's alone in effect: the Brick has no PICO-8 of its own yet
-EXTRA["pico8-menu-display"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port"])
-EXTRA["pico8-display-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+# The in-game menu over your PICO-8 (src/portmenu.h's port_menu_display): a
+# game's tabs, Game, Display and Controls (gm_tab_count: no Achievements),
+# with the rows a stopped PICO-8 answers to (1.1.0-rc.8). The Game tab, on
+# Continue and on Reset, and the question Reset asks (the Reset Game
+# hotkey's too), the cursor on Cancel. The Pixel 2's alone in effect: the
+# Brick has no PICO-8 of its own yet
+EXTRA["pico8-menu-game"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "0", "port"])
+EXTRA["pico8-menu-reset"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port"])
+EXTRA["pico8-reset-ask"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port", "--gm-reset"])
+# The Display tab, on Sharp Pixels: its Display row; the Display list A
+# opens there, the cursor on Actual Size; and the question a mode other than
+# the one on asks before PICO-8 starts again in it, the cursor on Cancel,
+# for each mode it can name
+EXTRA["pico8-menu-display"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "0", "port", "--gm-tab", "1"])
+EXTRA["pico8-display-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "0", "port", "--gm-tab", "1",
                                                   "--gm-choose", "--pick-at", "7"])
 for _k, _m in enumerate(("stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")):
-    EXTRA["pico8-restart-" + _m] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
-                                                       "--gm-restart", "--pick-at", str(_k)])
-for _name in ["pico8-menu-display", "pico8-display-list"] + ["pico8-restart-" + _m for _m in (
-        "stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")]:
-    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
-# ...and its On-Screen Stats row, after Display, Off and On
-EXTRA["pico8-menu-hud"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
-EXTRA["pico8-menu-hud-on"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
-SHOT_SETTINGS["pico8-menu-hud"] = {"display.PICO8": "integer"}
-SHOT_SETTINGS["pico8-menu-hud-on"] = {"display.PICO8": "integer", "hud": "1"}
-# ...and its picture's other rows, drawn by its shim (src/p8fx.h): Border,
-# Shader and Strength after On-Screen Stats in the Display tab's order, the
-# cursor on Shader at CRT 70% with Blur round it; and Border's list, the
-# cursor on Blur
-EXTRA["pico8-menu-shader"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port"])
-EXTRA["pico8-border-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "3", "port",
+    EXTRA["pico8-restart-" + _m] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "0", "port",
+                                                       "--gm-tab", "1", "--gm-restart", "--pick-at", str(_k)])
+# ...its picture's rows, drawn by its shim (src/p8fx.h), in the Display tab's
+# order: the cursor on Shader at CRT 70% with Blur round it, Strength under
+# it; and Border's list, the cursor on Blur
+EXTRA["pico8-menu-shader"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port", "--gm-tab", "1"])
+EXTRA["pico8-border-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port", "--gm-tab", "1",
                                                  "--gm-choose", "--pick-at", "1"])
-for _name in ("pico8-menu-shader", "pico8-border-list"):
+# ...its Screen Colors row (1.1.0, the whole panel's), at Custom, its longest
+# value, right over On-Screen Stats, and the page A opens over the paused
+# cart; and On-Screen Stats, the tab's last, Off and On
+EXTRA["pico8-menu-colors"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port", "--gm-tab", "1"])
+EXTRA["pico8-colors-page"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "0", "port",
+                                                 "--look-page", "screen", "1"])
+EXTRA["pico8-menu-hud"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "5", "port", "--gm-tab", "1"])
+EXTRA["pico8-menu-hud-on"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "5", "port", "--gm-tab", "1"])
+# ...and the Controls tab, a game's, the cursor on the A cap's row, the
+# handheld beside it; and the start again new buttons ask for as the menu
+# closes back to the cart
+EXTRA["pico8-controls"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port", "--gm-tab", "2"])
+EXTRA["pico8-restart-buttons"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "0", "port",
+                                                     "--gm-restart", "buttons"])
+for _name in [n for n in EXTRA if n.startswith("pico8-") and n not in (
+        "pico8-splore", "pico8-splore-video", "pico8-page") and not n.startswith("pico8-said-")]:
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
+for _name in ("pico8-menu-shader", "pico8-border-list", "pico8-menu-colors", "pico8-colors-page",
+              "pico8-menu-hud", "pico8-menu-hud-on"):
     SHOT_SETTINGS[_name] = {"display.PICO8": "integer", "shader.PICO8": "crt", "shader_strength.PICO8": "70",
                             "border.PICO8": "blur"}
-# ...and its Reset row, the cursor on it, and the question it asks (the Reset
-# Game hotkey's too), the cursor on Cancel; the Controls list its Controls row
-# opens, the cursor on the A cap's row; and the start again new buttons ask for
-EXTRA["pico8-menu-reset"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port"])
-EXTRA["pico8-reset-ask"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port", "--gm-reset"])
-EXTRA["pico8-controls"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
-                                              "--gm-port-controls"])
-EXTRA["pico8-restart-buttons"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port",
-                                                     "--gm-restart", "buttons"])
-for _name in ("pico8-menu-reset", "pico8-reset-ask", "pico8-controls", "pico8-restart-buttons"):
-    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
+for _name in ("pico8-menu-colors", "pico8-colors-page"):
+    SHOT_SETTINGS[_name].update(SHOT_SETTINGS["screen-colors-custom"])
+SHOT_SETTINGS["pico8-menu-hud-on"]["hud"] = "1"
+
+
+# The in-game menu over OpenBOR and over a port (src/portmenu.h), a game's
+# tabs since 1.1.0-rc.8 (the README's 'openbor' and 'ports-menu' are their
+# Game tabs): the Display tab's Screen Colors alone, at Custom, its longest
+# value, and its page over the program; and the Controls tab's All
+# Controls, the read-only pages behind it (port-<script>-<page>, above)
+for _name, _shot in (("openbor-menu-display", ("openbor", "OPENBOR", ["--screen", "games", "--gamemenu", "0",
+                                                                      "port", "--gm-tab", "1"])),
+                     ("openbor-menu-controls", ("openbor", "OPENBOR", ["--screen", "games", "--gamemenu", "0",
+                                                                       "port", "--gm-tab", "2"])),
+                     ("openbor-colors-page", ("openbor", "OPENBOR", ["--screen", "games", "--gamemenu", "0",
+                                                                     "port", "--look-page", "screen", "1"])),
+                     ("ports-menu-display", ("portdocs", "PRT", ["--screen", "games", "--gamemenu", "0", "port",
+                                                                 "--gm-tab", "1"])),
+                     ("ports-menu-controls", ("portdocs", "PRT", ["--screen", "games", "--gamemenu", "0", "port",
+                                                                  "--gm-tab", "2"]))):
+    EXTRA[_name] = _shot
+for _name in ("openbor-menu-display", "openbor-colors-page", "ports-menu-display"):
+    SHOT_SETTINGS[_name] = dict(SHOT_SETTINGS["screen-colors-custom"])
+for _name in ("ports-menu-display", "ports-menu-controls"):
+    PORT_FOCUS[_name] = "Star Farm.sh"
 
 
 # The demonstration card with one game in each system that has none (a name
