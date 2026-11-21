@@ -102,10 +102,11 @@ static uint32_t name_card(SDL_Renderer *r, const vv_info *in, uint32_t phase)
 {
 	TTF_Font *meta = page_font(PAGE_META), *title = page_font(PAGE_GAME_TITLE);
 	TTF_Font *chrome = page_font(PAGE_CHROME);
-	char head[512], facts[256] = "";
+	char head[512], facts[256] = "", more[256] = "";
 	const char *name = in->count > 0 && in->title && in->title[0] ? in->title : T(S_SHELF_NO_GAMES);
 	uint32_t wait = UINT32_MAX;
-	int dot = 14, w, tw, x, y, h;
+	int dot = 14, w, tw, x, y, h, lines;
+	size_t lead = 0;
 	SDL_Rect q;
 
 	snprintf(head, sizeof head, "%s \xc2\xb7 %d / %d", in->heading ? in->heading : "",
@@ -116,6 +117,7 @@ static uint32_t name_card(SDL_Renderer *r, const vv_info *in, uint32_t phase)
 		size_t at = 0;
 
 		if (in->origin && *in->origin) at += (size_t)snprintf(facts + at, sizeof facts - at, "%s", in->origin);
+		lead = at < sizeof facts ? at : 0;
 		if ((in->install || in->howto) && at < sizeof facts)
 			at += (size_t)snprintf(facts + at, sizeof facts - at, "%s%s", at ? "  \xc2\xb7  " : "",
 			                       T(S_PORTMASTER_NOT_INSTALLED));
@@ -135,13 +137,25 @@ static uint32_t name_card(SDL_Renderer *r, const vv_info *in, uint32_t phase)
 		if (in->cheats && *in->cheats && at < sizeof facts)
 			snprintf(facts + at, sizeof facts - at, "%s%s", at ? "  \xc2\xb7  " : "", in->cheats);
 	}
+	/* The line under the name wider than the card holds: the first part (its
+	 * system, and on Recents when it was played, on Screenshots when taken)
+	 * alone, the rest on a line of its own, so the time is read whole rather
+	 * than sliding past (French's "aujourd'hui" and "Temps de jeu") */
+	if (lead > 0 && facts[lead] && ui_text_width(chrome, facts) > VV_CARD_TEXT) {
+		ui_fit_drawn(facts);    /* drawn in lines, said whole to the host's check */
+		snprintf(more, sizeof more, "%s", facts + lead + strlen("  \xc2\xb7  "));
+		facts[lead] = '\0';
+	}
+	lines = facts[0] ? (more[0] ? 2 : 1) : 0;
 	tw = ui_text_width(title, name);
 	if (tw > VV_CARD_TEXT) tw = VV_CARD_TEXT;
 	w = ui_text_width(meta, head) + dot + 12;
 	if (tw > w) w = tw;
 	if (facts[0] && ui_text_width(chrome, facts) > w)
 		w = ui_text_width(chrome, facts) < VV_CARD_TEXT ? ui_text_width(chrome, facts) : VV_CARD_TEXT;
-	h = VV_CARD_PAD_Y * 2 + DS_LINE_META + 12 + ui_font_line(UI_F_TITLE) + (facts[0] ? DS_LINE_META : 0);
+	if (more[0] && ui_text_width(chrome, more) > w)
+		w = ui_text_width(chrome, more) < VV_CARD_TEXT ? ui_text_width(chrome, more) : VV_CARD_TEXT;
+	h = VV_CARD_PAD_Y * 2 + DS_LINE_META + 12 + ui_font_line(UI_F_TITLE) + lines * DS_LINE_META;
 	q = (SDL_Rect){ VV_CARD_X, VV_CARD_Y, w + 2 * VV_CARD_PAD_X, h };
 	ui_round_rect(r, &q, DS_RADIUS_CARD, ui_col(theme()->edge, VV_BAND_ALPHA));
 	q = (SDL_Rect){ q.x + UI_PANEL_BORDER, q.y + UI_PANEL_BORDER, q.w - 2 * UI_PANEL_BORDER, q.h - 2 * UI_PANEL_BORDER };
@@ -164,15 +178,17 @@ static uint32_t name_card(SDL_Renderer *r, const vv_info *in, uint32_t phase)
 		ui_text_marquee(r, title, name, x, ui_cap_y(title, y), VV_CARD_TEXT, phase, UI_TEXT);
 		wait = ui_pingpong_wait(ui_text_width(title, name) - VV_CARD_TEXT, phase);
 	}
-	if (facts[0]) {
-		y += ui_font_line(UI_F_TITLE) / 2 + DS_LINE_META / 2;
-		if (ui_text_width(chrome, facts) <= VV_CARD_TEXT) {
-			ui_text(r, chrome, facts, x, ui_cap_y(chrome, y), -1, UI_TEXT_DIM);
+	for (int l = 0; l < lines; l++) {
+		const char *t = l ? more : facts;
+
+		y += l ? DS_LINE_META : ui_font_line(UI_F_TITLE) / 2 + DS_LINE_META / 2;
+		if (ui_text_width(chrome, t) <= VV_CARD_TEXT) {
+			ui_text(r, chrome, t, x, ui_cap_y(chrome, y), -1, UI_TEXT_DIM);
 		} else {
 			uint32_t next;
 
-			ui_text_marquee(r, chrome, facts, x, ui_cap_y(chrome, y), VV_CARD_TEXT, phase, UI_TEXT_DIM);
-			next = ui_pingpong_wait(ui_text_width(chrome, facts) - VV_CARD_TEXT, phase);
+			ui_text_marquee(r, chrome, t, x, ui_cap_y(chrome, y), VV_CARD_TEXT, phase, UI_TEXT_DIM);
+			next = ui_pingpong_wait(ui_text_width(chrome, t) - VV_CARD_TEXT, phase);
 			if (next < wait) wait = next;
 		}
 	}
