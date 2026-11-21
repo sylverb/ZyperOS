@@ -1274,6 +1274,135 @@ static void the_boost_buzz(void)
 	   "buzz: the strength at every share as plat_rumble_buzz scales it; first apart at %d%%", pct);
 }
 
+/* ---- whose display may be borrowed (pk_looks) ---------------------------------
+ *
+ * A display file is copied only once settled: seen open by the same process
+ * under the same number at a look PK_SETTLE_MS before, with no gap longer
+ * than PK_LOOK_GAP_MS, or of a process whose master was held. And the rc.9
+ * failure as a timeline: SDL 2.32's two looks at the display as a program
+ * starts (open, take the master, check, close; a few ms each), then its own
+ * file for good; portkeys looking once a second, or as a sighting settles:
+ * at no start phase is a copy allowed inside SDL's looks, and the program's
+ * own file is copied within PK_SETTLE_MS and a look of its opening. */
+static void the_display_looks(void)
+{
+	pk_looks l;
+	bool ok;
+	int t0, bad = 0, late = 0, worst = 0;
+
+	pk_looks_init(&l);
+	pk_looks_begin(&l, 1000);
+	ok = pk_looks_seen(&l, 935, 7, 1000);
+	pk_looks_end(&l, true);
+	ck(!ok && pk_looks_wait(&l, 1000) == PK_SETTLE_MS,
+	   "looks: a display file seen once is not copied, settling in %d ms; got %ld", PK_SETTLE_MS,
+	   pk_looks_wait(&l, 1000));
+	pk_looks_begin(&l, 1000 + PK_SETTLE_MS);
+	ok = pk_looks_seen(&l, 935, 7, 1000 + PK_SETTLE_MS);
+	pk_looks_end(&l, true);
+	ck(ok && pk_looks_wait(&l, 1000 + PK_SETTLE_MS) == -1, "looks: still open %d ms on, it is", PK_SETTLE_MS);
+
+	/* Gone at a look, then open again: from the start again */
+	pk_looks_init(&l);
+	pk_looks_begin(&l, 1000);
+	pk_looks_seen(&l, 935, 7, 1000);
+	pk_looks_end(&l, true);
+	pk_looks_begin(&l, 1300);
+	pk_looks_end(&l, true);
+	pk_looks_begin(&l, 1600);
+	ok = pk_looks_seen(&l, 935, 7, 1600);
+	pk_looks_end(&l, true);
+	ck(!ok && l.n == 1, "looks: closed at a look and open again, it settles afresh");
+
+	/* A gap in the looks longer than PK_LOOK_GAP_MS: afresh too */
+	pk_looks_init(&l);
+	pk_looks_begin(&l, 1000);
+	pk_looks_seen(&l, 935, 7, 1000);
+	pk_looks_end(&l, true);
+	pk_looks_begin(&l, 1001 + PK_LOOK_GAP_MS);
+	ok = pk_looks_seen(&l, 935, 7, 1001 + PK_LOOK_GAP_MS);
+	pk_looks_end(&l, true);
+	ck(!ok, "looks: after a gap of more than %d ms between looks, afresh", PK_LOOK_GAP_MS);
+
+	/* A process whose master was held: at once; any other: not */
+	pk_looks_trust(&l, 935);
+	pk_looks_begin(&l, 5000);
+	ok = pk_looks_seen(&l, 935, 9, 5000) && !pk_looks_seen(&l, 1051, 7, 5000);
+	pk_looks_end(&l, true);
+	ck(ok, "looks: the process whose master was held at once, another one not");
+
+	/* A look stopped at the master it found keeps what it did not reach */
+	pk_looks_init(&l);
+	pk_looks_begin(&l, 1000);
+	pk_looks_seen(&l, 700, 4, 1000);
+	pk_looks_seen(&l, 935, 7, 1000);
+	pk_looks_end(&l, true);
+	pk_looks_begin(&l, 1400);
+	pk_looks_seen(&l, 700, 4, 1400);
+	pk_looks_end(&l, false);
+	pk_looks_begin(&l, 1500);
+	ok = pk_looks_seen(&l, 935, 7, 1500);
+	pk_looks_end(&l, true);
+	ck(ok, "looks: one a stopped look did not reach keeps its time");
+
+	/* The timeline, at every start phase to the millisecond: portkeys's
+	 * looks from 0, once a second or as a sighting settles; the program's
+	 * SDL looks at t0 (3 ms) and t0 + 3 (3 ms), its own file from t0 + 8 */
+	for (t0 = 0; t0 < 2000; t0++) {
+		long t = 0, copied = -1;
+		int guard = 0;
+
+		pk_looks_init(&l);
+		while (t < t0 + 4000 && copied < 0 && guard++ < 1000) {
+			const bool probe = (t >= t0 && t < t0 + 6), real = t >= t0 + 8;
+			long w;
+
+			pk_looks_begin(&l, t);
+			/* splash's file, open all the while and never the master */
+			pk_looks_seen(&l, 600, 5, t);
+			if ((probe || real) && pk_looks_seen(&l, 935, 7, t)) {
+				if (probe) bad++;
+				else copied = t;
+			}
+			pk_looks_end(&l, true);
+			w = pk_looks_wait(&l, t);
+			t += w >= 0 ? (w < 10 ? 10 : w) : 1000;
+		}
+		if (copied < 0) late++;
+		else if (copied - (t0 + 8) > worst) worst = (int)(copied - (t0 + 8));
+	}
+	ck(!bad, "looks: at no start phase a copy inside SDL's look at the display; got %d", bad);
+	ck(!late && worst <= 1000 + PK_SETTLE_MS + 10,
+	   "looks: the program's own display copied within a look and %d ms of its opening; worst %d ms, %d never",
+	   PK_SETTLE_MS, worst, late);
+}
+
+/* A boost kept from before, as portkeys starts over it (pk_boost_load): it
+ * is open, its gain in the file, and nothing of it moves or opens - no
+ * charge, no flash, no buzz - so nothing asks for the bar or the display
+ * until a key is pressed (on 1.1.0-rc.9 the display was looked for at the
+ * start, for On-Screen Stats, not for this; the_display_looks holds that) */
+static void the_kept_boost_at_start(void)
+{
+	pk_boost bo;
+	scratch sc;
+	rig r;
+
+	if (!scratch_make(&sc, VOL_MAX, BRIGHT_MAX, BOOST_VOL_CELLS, BOOST_BRIGHT_CELLS) || !rig_boost(&r, &bo, &sc)) {
+		ck(0, "kept: a scratch database");
+		return;
+	}
+	ck(pk_boost_cells(&bo, PK_VOLUME) == BOOST_VOL_CELLS && pk_boost_lift(&bo) == BOOST_BRIGHT_CELLS &&
+	   file_gain(sc.share, NULL) == BOOST_VOL_CELLS * BOOST_DB_CELL,
+	   "kept: both boosts back as portkeys starts, the gain in the file");
+	ck(!pk_boost_moving(&bo, (uint32_t)r.now), "kept: nothing of them moves at the start");
+	frames_to(&r, r.now + 3000);
+	ck(!r.did && !r.opened && !r.buzzes && !pk_boost_moving(&bo, (uint32_t)r.now) && r.n == 0,
+	   "kept: 3 s with no key: no step, no opening, no buzz, nothing to draw; got did %d", r.did);
+	rig_done(&r);
+	scratch_drop(&sc);
+}
+
 /* ---- over your PICO-8: SELECT's hotkeys, and its keyboard ------------------
  *
  * tools/pkhot.c, Diatom's chord rule on the joypad's events with the table
@@ -1634,6 +1763,8 @@ int main(void)
 	the_boost_bright();
 	the_boost_closing();
 	the_boost_buzz();
+	the_kept_boost_at_start();
+	the_display_looks();
 	the_hotkeys();
 	the_keyboard();
 	the_game_pad();

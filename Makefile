@@ -708,7 +708,10 @@ build-native/themefile-check: tools/themefile-check.c src/themefile.c src/themef
 # its cells are kept beside the levels; and its opening, either boost's, by
 # presses or a hold, asks the motor for the launcher's 40 ms buzz at MENU >
 # Sound > Rumble's share (src/rumble.c's words, read through src/db.c), once,
-# never a step or a cell, none at Off. And over your PICO-8, SELECT's
+# never a step or a cell, none at Off; a boost kept from before shows
+# nothing at the start; and whose display may be borrowed (pk_looks): only a
+# settled file, never one inside SDL's look at the display as a program
+# starts (1.1.0-rc.9's "kmsdrm not available"). And over your PICO-8, SELECT's
 # hotkeys by Diatom's chord rule (tools/pkhot.c), the keyboard's CTRL-R
 # (tools/pkkbd.c), written into a pipe, and the screenshot (tools/pkshot.c):
 # PICO-8's 128 out of the panel in every Display mode's rect, the PNG, the
