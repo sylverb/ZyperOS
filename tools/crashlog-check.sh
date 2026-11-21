@@ -11,6 +11,14 @@ set -u
 CRASHLOG=plastron/buildroot/board/px2/rootfs-overlay/usr/sbin/crashlog
 T=$(mktemp -d "${TMPDIR:-/tmp}/crashlog-check.XXXXXX")
 trap 'rm -rf "$T"' EXIT
+# As root with the right to mount (a cloud VM, a privileged container),
+# crashlog's own `mount -t pstore` put the computer's pstore over the
+# stand-in folder: nothing could be written in it, and it stayed mounted.
+# This mount refuses, as mount does for a user on CI.
+mkdir "$T/bin"
+printf '#!/bin/sh\nexit 32\n' > "$T/bin/mount"
+chmod +x "$T/bin/mount"
+PATH=$T/bin:$PATH
 fails=0
 ok() { echo "  ok   $1"; }
 bad() { echo "  FAIL $1"; fails=$((fails + 1)); }

@@ -1353,6 +1353,16 @@ for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"
                      ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", str(_k)]))
 EXTRA.setdefault("screen-colors-look-custom",
                  ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
+# Screen Colors in a game (1.1.0): the in-game menu's Display tab, its cursor
+# on the row (right over On-Screen Stats), at Custom, its longest value; and
+# A on it, the same page over the paused game, in Custom with its numbers,
+# and its Look's list there
+EXTRA.setdefault("gamemenu-screen-colors", ("demo", "PS1", ["--gamemenu", "2", "--gm-tab", "1"]))
+SHOT_SETTINGS["gamemenu-screen-colors"] = dict(SHOT_SETTINGS["screen-colors-custom"])
+EXTRA.setdefault("gamemenu-screen-colors-page", ("demo", "PS1", ["--gamemenu", "0", "--look-page", "screen", "1"]))
+SHOT_SETTINGS["gamemenu-screen-colors-page"] = dict(SHOT_SETTINGS["screen-colors-custom"])
+EXTRA.setdefault("gamemenu-screen-colors-looks",
+                 ("demo", "PS1", ["--gamemenu", "0", "--look-page", "screen-looks", "0", "--pick-at", "1"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "6"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a

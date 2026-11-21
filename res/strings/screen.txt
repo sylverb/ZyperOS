@@ -5,7 +5,7 @@
 # The rows' values are signed numbers, -10 to +10, with no words of their own.
 
 [screen.title]
-note = A MENU row on Display, its last, and the heading of its page: the whole screen's colors (Temperature, Tint, Contrast, Saturation, Gamma) and the looks made of them. Its value is the look (screen.standard, screen.vivid... or screen.custom). Title Case in English
+note = A MENU row on Display, its last, a row of the in-game menu's Display tab too, and the heading of its page: the whole screen's colors (Temperature, Tint, Contrast, Saturation, Gamma) and the looks made of them. Its value is the look (screen.standard, screen.vivid... or screen.custom), so the row holds this and Custom side by side. Title Case in English
 en = Screen Colors
 zh-Hans = 屏幕色彩
 es = Colores de pantalla
@@ -13,7 +13,7 @@ pt-BR = Cores da tela
 fr = Couleurs de l'écran
 de = Bildschirmfarben
 ja = 画面の色
-it = Colori dello schermo
+it = Colori schermo
 
 [screen.look]
 note = A row of the Screen Colors page and the heading of its list: a ready-made set of the five rows under it (Standard, Vivid, Intense, Warm, Cool, Muted); Custom when a row was changed by hand

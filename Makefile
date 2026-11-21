@@ -54,7 +54,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portlibs check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
+         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild check-ingame-colors
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
@@ -963,6 +963,15 @@ build-native/nightmode-check: tools/nightmode-check.c src/nightmode.c src/nightm
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -o $@ tools/nightmode-check.c \
 	      src/nightmode.c src/nightkeep.c src/panelgamma.c src/db.c src/atomic.c \
 	      src/theme.c src/themefile.c src/look.c $(I18N_SRC) -lsqlite3 -lpthread -lm
+
+# Screen Colors in a game (DESIGN.md 11.42, 1.1.0): the real launcher in desk
+# mode's dummy window, as the Pixel 2 and as the Brick, started back into a
+# game against a Diatom of the check's own, the menu up: the Display tab's
+# Screen Colors row, A opening MENU's page over the paused game, a step kept
+# and on the panel (desk mode's stand-in for the table) with the game still
+# paused, B back to the menu and B again to the game; no row without a table
+check-ingame-colors: native
+	@python3 tools/ingame-colors-check.py
 
 # The display taken back after a game, a crashed one too (src/displayback.h):
 # master asked for until a dying Diatom lets go, and a CRTC left with nothing

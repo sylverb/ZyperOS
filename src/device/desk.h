@@ -59,6 +59,11 @@ in_button desk_key_button(SDL_Scancode sc);
  * comes or ms go by, so a key wakes the launcher at once */
 void desk_wait(unsigned ms);
 
+/* The Screen Colors last put on the panel (plat_screen_colors), and whether
+ * kept or a list's preview, for `state`: the host has no gamma table, so
+ * this is where a script reads what the display's would hold */
+void desk_note_colors(const screen_colors *c, bool keep);
+
 /* A game, from the launcher's device_display_release to its
  * device_display_take: Diatom's frames from the desk frame file
  * (ZYPEROS_DESK_FB, diatom/include/diatom_deskfb.h) in the window, the keys,
