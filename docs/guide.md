@@ -153,7 +153,8 @@ From 1.0.6, ZyperOS runs on a second handheld, the TrimUI Brick (TG3040), drawn 
 - **Install it with ZyperOS Installer.** Pick **TrimUI Brick**. The Brick's graphics and Wi-Fi need closed files made for its chips (Imagination's GPU driver and XRadio's Wi-Fi firmware), which ZyperOS does not pass on, so the installer downloads them from where they are published, Creality's Sonic Pad SDK on GitHub, checks each one, and puts them only on your card. An image writer gives the card none of them, so use the installer.
 - **Wi-Fi is built in,** so File Transfer, box art, achievements and System Update need no adapter.
 - **The 3D systems are hidden for now:** Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the GPU. They come once those cores run on the Brick's graphics chip.
-- **Not there yet:** PortMaster's ports, your own PICO-8 and Splore (FAKE-08 plays the carts), Flash Drive, Screen Colors, the old-screen shaders (CRT, CRT Curved, Scanlines and LCD Grid; Sharp-Shimmerless is there), NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
+- **There since 1.1.0:** [Screen Colors and Night Mode](#screen-colors-and-night-mode), and [Flash Drive](#plugging-into-a-computer) with the question a computer's cable asks.
+- **Not there yet:** PortMaster's ports, your own PICO-8 and Splore (FAKE-08 plays the carts), the old-screen shaders (CRT, CRT Curved, Scanlines, LCD Grid and LCD No Backlight; Sharp-Shimmerless is there), Border's Blur, rumble, NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
 - **The Brick Hammer** runs the same card, but nobody has tried one yet. The Brick Pro isn't supported yet.
 
 I don't have a Brick myself: players on [the ZyperOS Discord](https://discord.gg/Ust8sE22Tm) test it for me. If you have one, your logs help a lot (**Download logs** on File Transfer's page, or the card's `.userdata/brick/logs`).
@@ -1240,7 +1241,7 @@ ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Displ
 
 ## Screen Colors and Night Mode
 
-On the GKD Pixel 2.
+On the GKD Pixel 2 and the TrimUI Brick.
 
 ### Screen Colors
 
@@ -1468,8 +1469,9 @@ used.
 
 ### Plugging into a computer
 
-On the Pixel 2 the USB port only charges until you say otherwise: a computer
-sees no device at first. When a computer is plugged in, the shelf asks once
+On the Pixel 2 and the TrimUI Brick the USB port only charges until you say
+otherwise: a computer sees no device at first (on the Brick, for up to 3
+seconds as the cable goes in, while it tells a computer from a charger). When a computer is plugged in, the shelf asks once
 (with MENU open, MENU closes and the question comes at once; during a game,
 it comes when you are back on the shelf),
 with three tiles (left and right to move, A to choose; it starts on Charge
