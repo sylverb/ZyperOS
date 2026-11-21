@@ -996,8 +996,12 @@ static void the_boost_taps(bool one_pass)
 	   file_gain(sc.share, NULL));
 	ck(pk_db_get(r.db, PK_VOL_BOOST, -1) == 1 && pk_db_get(r.db, "volume", -1) == VOL_MAX,
 	   "boost: kept, one cell beside the top%s", how);
-	ck(strstr(r.log, "portkeys: volume boost +0 -> +2 dB (VOL+)\n") != NULL,
-	   "boost: the log says it opened; got\n%s", r.log);
+	{
+		char want[64];
+
+		snprintf(want, sizeof want, "portkeys: volume boost +0 -> +%d dB (VOL+)\n", BOOST_DB_CELL);
+		ck(strstr(r.log, want) != NULL, "boost: the log says it opened; got\n%s", r.log);
+	}
 
 	/* A press and a held key fill it, each repeat a cell, to the last */
 	hold(&r, PK_KEY_VOLUMEUP, REPEAT_DELAY_MS + 3 * REPEAT_RATE_MS + 20, 200);
@@ -1009,7 +1013,7 @@ static void the_boost_taps(bool one_pass)
 
 	/* Going down empties a cell and leaves the level */
 	hold(&r, PK_KEY_VOLUMEDOWN, 80, 200);
-	ck(pk_boost_cells(&bo, PK_VOLUME) == 5 && r.l.vol == VOL_MAX && file_gain(sc.share, NULL) == 10 &&
+	ck(pk_boost_cells(&bo, PK_VOLUME) == 5 && r.l.vol == VOL_MAX && file_gain(sc.share, NULL) == 5 * BOOST_DB_CELL &&
 	   pk_db_get(r.db, PK_VOL_BOOST, -1) == 5 && pk_db_get(r.db, "volume", -1) == VOL_MAX,
 	   "boost: VOL- takes a cell off and leaves the level; got %d cells, volume %d",
 	   pk_boost_cells(&bo, PK_VOLUME), r.l.vol);
@@ -1019,8 +1023,8 @@ static void the_boost_taps(bool one_pass)
 
 	/* Kept: portkeys started again, with the file gone, and the launcher */
 	unlink(sc.share);
-	ck(rig_boost(&r, &bo, &sc) && pk_boost_cells(&bo, PK_VOLUME) == 5 && file_gain(sc.share, NULL) == 10,
-	   "boost: kept, the five cells back as portkeys starts, their 10 dB in the file; got %d cells, %d dB",
+	ck(rig_boost(&r, &bo, &sc) && pk_boost_cells(&bo, PK_VOLUME) == 5 && file_gain(sc.share, NULL) == 5 * BOOST_DB_CELL,
+	   "boost: kept, the five cells back as portkeys starts, their 5 cells' dB in the file; got %d cells, %d dB",
 	   pk_boost_cells(&bo, PK_VOLUME), file_gain(sc.share, NULL));
 	if ((d = db_open(sc.db, DB_DEVICE))) {
 		ck(db_get_int(d, PK_VOL_BOOST, -1) == 5, "boost: and the launcher reads them (src/db.c)");

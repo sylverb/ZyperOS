@@ -1151,8 +1151,8 @@ Some films and games are quiet even at the top of the volume. At the top,
 within a second of the last. The bar's end pushes out and a big red cell
 fills as you hold or press; let go early and it drains back. Full, it opens
 red boost cells past the top, each a little taller than the last, and you
-feel a short buzz (at your Rumble level). Each cell makes the sound 2 dB
-louder, up to six cells, +12 dB; a limiter keeps the loudest moments from
+feel a short buzz (at your Rumble level). Each cell makes the sound 3 dB
+louder, up to six cells, +18 dB; a limiter keeps the loudest moments from
 clipping, so a quiet film gets louder and a loud one only gets flatter. A
 held key stops at the first cell: press for each next one. **VOL-** empties
 the cells one by one, stops at the top, and the next press folds them away.

@@ -40,7 +40,10 @@
 #include "osdbar.h"
 
 #define BOOST_VOL_CELLS    6                 /* volume cells past the top...         */
-#define BOOST_DB_CELL      2                 /* ...each this many dB of gain         */
+#define BOOST_DB_CELL      3                 /* ...each this many dB of gain (2 until
+                                               * 2026-11-20: "i believe there is more
+                                               * room for software audio boost. make
+                                               * each step a little higher db boost") */
 #define BOOST_BRIGHT_CELLS 3                 /* brightness cells, each a lift step  */
 #define BOOST_TAPS         3                 /* presses on the top that open it...  */
 #define BOOST_GAP_MS       DS_MS_TAP_GAP     /* ...each within this of the last     */
