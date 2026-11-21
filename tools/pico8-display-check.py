@@ -34,7 +34,7 @@ it asks for, since PICO-8 draws its picture where it was told as it started.
    the next mode with no menu, Cancel 10 and nothing kept, Start Again 14;
    and On-Screen Stats the Display tab's last row, Off, Right turning it On
    in the device's database (portkeys reads it as the menu closes); over
-   OpenBOR no tabs.
+   OpenBOR no Display row and no On-Screen Stats.
 Every wait in the walks is for an event, never a time or a count of frames
 (tools/deskwalk.py): the panel a key lands on, as desk's `state` says it, a
 setting, a file, the launcher's end. On a runner busy with other checks the
@@ -466,10 +466,11 @@ def launcher(tmp):
 
         print('over OpenBOR:')
         m = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
-        ok = m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
+        ok = m.up('Game', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
+        m.step('r1', 'Display')
         seen = m.drawn()
-        check(ok and 'Continue' in seen and 'Display' not in seen and 'On-Screen Stats' not in seen and
-              'Game' not in seen, 'no tabs, no Display row and no On-Screen Stats')
+        check(ok and 'Continue' in seen and 'Sharp Pixels' not in seen and 'On-Screen Stats' not in seen,
+              'its Display tab has no Display row and no On-Screen Stats (its picture is its own)')
         m.ends('b')
 
         print('--display, the Next Display hotkey\'s question alone:')

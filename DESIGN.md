@@ -3411,18 +3411,25 @@ MENU, with the cursor where it was. Applies To keeps its value with them. The
 panel stands 24 units from the screen's sides, the most 11.3 allows, to make
 room for the handheld on the Controls tab: its content is 864 units wide
 (`menu_most_w`; 860, 26 from the sides, off the grid, until 1.0.6).
-Over a port (OpenBOR, PortMaster) the menu is as it was, Continue, Controls
-and Quit with no tabs, and there Controls is the read-only pages below. Over
-your PICO-8 it is this menu, the same tabs and rows in the same places, with
-only what a stopped PICO-8 can do (11.55): Game is Continue, Reset (once it
-has drawn) and Quit; Display is Display, Border, Shader, Strength, Screen
-Colors and On-Screen Stats where a game's would show them; Controls is this
-tab; and there is no Achievements tab, PICO-8 earning none. What it cannot
-do is not there, never greyed. Each MENU over it is a process of its own, so
-where it was left is kept in a file for the next (`PORT_MENU_MEM`), and a
-cart's first MENU opens on Game, on Continue, as a game's. *(1.1.0-rc.8,
+Over a program of its own, your PICO-8, OpenBOR, a port, PortMaster and the
+standalone Flycast, it is this menu too, the same tabs and rows in the same
+places, with only what the stopped program can do, and no Achievements tab,
+as none earns any. What it cannot do is not there, never greyed:
+
+| Tab | Your PICO-8 (11.55) | OpenBOR, a port, PortMaster, Flycast |
+|---|---|---|
+| **Game** | Continue, Reset (once it has drawn), Quit | Continue, Quit |
+| **Display** | Display, Border, Shader, Strength, Screen Colors, On-Screen Stats, where a game's would show them | Screen Colors (11.42): its picture is its own |
+| **Controls** | this tab, its buttons | **All Controls**, the read-only pages below |
+
+Continue reads **Keep Waiting** over a program still starting, over its
+loading screen. Each MENU over a program is a process of its own, so where
+it was left is kept in a file for the next (`PORT_MENU_MEM`), and a game's
+first MENU opens on Game, on Continue, as over a Diatom game. *(1.1.0-rc.8,
 mine: "why pico 8 menu has no tabs? we should use the same component as in
-other systems".)*
+other systems", "openbor is also missing the menu as we have in other
+systems", "yeah have the same menu in ports as well". Until then OpenBOR's
+and the ports' menu was Continue, Controls and Quit with no tabs.)*
 
 **X is Quit** from any row of any tab (gm_x_row, src/game_menu.h), in every
 in-game menu ZyperOS draws: over a Diatom game, over a "run:" program or a
@@ -3474,15 +3481,16 @@ the rows, under the tab row, and is drawn only here and on a button's choices
 (11.45).
 
 **The read-only pages** are what the Controls row opened before the tab,
-behind the Hotkeys row now and at their own width, with no handheld (their
-rows do not fit beside it in every language). Over the paused game, in the
-standard panel with the system's rule color: Left/Right turns the pages and
-comes round, B goes back to the tab, MENU to the game, and POWER stops the
-game as it does from the achievements. **By button**, as the home's pages
-are: the handheld's button at the left, what it does here at the right. **This
-game only**: what works in this game, on this system and core, and nothing
-else. Which page of how many is at the heading's right, "1 / 3" (11.3). The
-system's own buttons are the tab's rows, so they are not a page here.
+behind the Hotkeys row now (All Controls), and over a program of its own its
+Controls tab's one row, All Controls, and at their own width, with no handheld
+(their rows do not fit beside it in every language). Over the paused game, in
+the standard panel with the system's rule color: Left/Right turns the pages
+and comes round, B goes back to the tab, MENU to the game, and POWER stops the
+game as it does from the achievements. **By button**, as the home's pages are:
+the handheld's button at the left, what it does here at the right. **This game
+only**: what works in this game, on this system and core, and nothing else.
+Which page of how many is at the heading's right, "1 / 3" (11.3). The system's
+own buttons are the tab's rows, so they are not a page here.
 
 - **What a system adds**, a page of its own: the Nintendo 64's C buttons
   (SELECT held with X, A, B, Y), and its own D-pad (SELECT, then the d-pad:
@@ -4764,8 +4772,8 @@ in the same table in the same order as from MENU. Over your PICO-8 the
 same row in the same place on its Display tab, and the same page over the
 paused cart's frame (11.55): the menu holds the display there as over a
 game, and the table stays on the panel after it, PICO-8 leaving it alone.
-Not in the menu over any other program (OpenBOR, a port), which has no
-Display tab. *(Asked for on the Discord, for a quick fix when a game's
+Over any other program of its own (OpenBOR, a port, PortMaster) it is the
+Display tab's one row, its picture being its own, and the page the same. *(Asked for on the Discord, for a quick fix when a game's
 colors or contrast are off; mine for 1.1.0, 2026-11-20. Over PICO-8, mine
 on 1.1.0-rc.8: "i cant see screen colors option in pico 8".)*
 

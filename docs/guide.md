@@ -243,7 +243,7 @@ J2ME games are the `.jar` files of the Java phones. They run on FreeJ2ME-Plus, w
 
 ### OpenBOR
 
-<img align="right" width="320" src="../res/readme/openbor.png" alt="The in-game menu over a paused OpenBOR game: Continue, Controls and Quit">
+<img align="right" width="320" src="../res/readme/openbor.png" alt="The in-game menu over a paused OpenBOR game: the Game tab, with Continue and Quit">
 
 OpenBOR games are modules, one `.pak` file each, run by OpenBOR itself rather than a libretro core. A module that came as a folder has to be packed into a `.pak` first. The Pixel 2 only. Its buttons, and the in-game menu over it, are under [Controls and menus](#controls-and-menus).
 
@@ -484,15 +484,19 @@ goes back to the game.
 
 **OpenBOR has the in-game menu too**, though it runs as a program of its
 own rather than a libretro core. MENU stops the game where it is and opens
-the menu over it with three rows: Continue, Controls and Quit. Controls lists
-OpenBOR's buttons (A attacks, B jumps, X is the second attack, Y the special,
-L1 and R1 the third and fourth, START pauses into OpenBOR's own menu, SELECT
-saves a screenshot) and then In a game, where POWER quits and turns the
-handheld off. OpenBOR keeps its own saves and has no save states, so there is
-no Save, Load or Reset. Quit ends the game and goes back to the shelf, and X
-does the same from any row, as in every in-game menu.
+the same menu as in any game, with its **Game**, **Display** and **Controls**
+tabs (**L1** and **R1**), and only the rows that work over OpenBOR. **Game**
+has Continue and Quit. **Display** has **Screen Colors**, as in a game;
+OpenBOR draws its own picture, so it has no Display mode, Shader or Border
+there. **Controls** has **All Controls**, which lists OpenBOR's buttons (A
+attacks, B jumps, X is the second attack, Y the special, L1 and R1 the third
+and fourth, START pauses into OpenBOR's own menu, SELECT saves a screenshot)
+and then In a game, where POWER quits and turns the handheld off. OpenBOR
+keeps its own saves and has no save states, so there is no Save, Load or
+Reset. Quit ends the game and goes back to the shelf, and X does the same
+from any tab, as in every in-game menu.
 The standalone Flycast, when a card has it for the Dreamcast, gets the same
-three rows. Its buttons are set in its own menus, so Controls there has only
+tabs. Its buttons are set in its own menus, so All Controls there has only
 the In a game page.
 
 **About ZyperOS has two pages**, changed with Left/Right. The first shows the
@@ -1572,7 +1576,7 @@ If PortMaster closes with an error, ZyperOS says so when it comes back, with the
 
 <img align="right" width="320" src="../res/readme/ports-controls.png" alt="Controls over a port: the d-pad, A, B, X, L1/R1 and START+SELECT as its README says them">
 
-**MENU** over a port, or over PortMaster, pauses it under the in-game menu: **Continue**, **Controls** and **Quit**, back to the Ports shelf. **X** quits from any row, as in every in-game menu. The game stops where it is and nothing you press in the menu reaches it. **Controls** reads the port's own files: what its README says each button does, the keyboard key each button types for it (its gptokeyb keymap), the buttons that work in every port (**MENU**, **MENU** then **X** to quit, the volume keys, **MENU + VOL** for brightness, **SELECT + START**, PortMaster's own way to end a port, and **POWER**), and, last, what its PortMaster entry says to copy where. Over PortMaster it lists PortMaster's own buttons: **Up/Down** move, **L1/R1** a page, **A** chooses, **B** goes back, **X** filters the list, **Y** uninstalls a port. **Quit** ends the port, its helpers and the runtime it mounted, then the shelf comes back.
+**MENU** over a port, or over PortMaster, pauses it under the same in-game menu as in any game, with its **Game**, **Display** and **Controls** tabs: **Game** has **Continue** and **Quit**, back to the Ports shelf; **Display** has **Screen Colors**; **Controls** has **All Controls**. **X** quits from any tab, as in every in-game menu. The game stops where it is and nothing you press in the menu reaches it. **All Controls** reads the port's own files: what its README says each button does, the keyboard key each button types for it (its gptokeyb keymap), the buttons that work in every port (**MENU**, **MENU** then **X** to quit, the volume keys, **MENU + VOL** for brightness, **SELECT + START**, PortMaster's own way to end a port, and **POWER**), and, last, what its PortMaster entry says to copy where. Over PortMaster it lists PortMaster's own buttons: **Up/Down** move, **L1/R1** a page, **A** chooses, **B** goes back, **X** filters the list, **Y** uninstalls a port. **Quit** ends the port, its helpers and the runtime it mounted, then the shelf comes back.
 
 <br clear="right">
 
@@ -2141,8 +2145,8 @@ port and PortMaster print, as it changes (the file being downloaded, how far
 along it is), so you can see that it still runs. A window of PortMaster's own, such as its patcher, shows
 over the loading screen. After a minute, the screen says that a first start
 can install for hours, and how to leave: hold **MENU** and **START**. **MENU**
-opens the port's menu over the loading screen, with **Keep Waiting**,
-**Controls** and **Quit**. Everything a port prints is also in File Transfer's
+opens the port's menu over the loading screen, with **Keep Waiting** and
+**Quit** on its Game tab. Everything a port prints is also in File Transfer's
 **Download logs**. On the Pixel 2.
 
 ## Coming from EmulationStation

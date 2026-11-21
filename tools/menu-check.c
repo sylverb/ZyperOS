@@ -440,8 +440,8 @@ static void gm_screen_colors_row(void)
 		if (t != GT_DISPLAY && gm_row_at(&u, (gm_tab)t, GM_SCREEN_COLORS) >= 0) break;
 	ck(t == GT_TABS, "on no other tab");
 	u.port = true;
-	ck(gm_row_at(&u, GT_GAME, GM_SCREEN_COLORS) < 0 && gm_row_at(&u, GT_DISPLAY, GM_SCREEN_COLORS) < 0,
-	   "and not over a port, whose menu has no Display tab");
+	ck(gm_row_at(&u, GT_GAME, GM_SCREEN_COLORS) < 0 && gm_row_at(&u, GT_DISPLAY, GM_SCREEN_COLORS) == 0,
+	   "over a program of its own (OpenBOR, a port), its Display tab's one row");
 	/* Over your PICO-8, its Display tab's, in the same place (1.1.0-rc.8) */
 	u.port_display = u.port_hud = true;
 	u.screens = false;
@@ -451,8 +451,8 @@ static void gm_screen_colors_row(void)
 	   "over your PICO-8, on its Display tab right over On-Screen Stats");
 }
 
-/* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the port's
- * three rows, Continue named Keep Waiting */
+/* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the Game tab's
+ * Continue named Keep Waiting, and its Controls tab as over it running */
 static void gm_port_waiting(void)
 {
 	gm_ui u = { 0 };
@@ -463,11 +463,13 @@ static void gm_port_waiting(void)
 	printf("in-game menu over a port still starting:\n");
 	u.dmode = "Full Screen"; u.port = true;
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 3 && !strcmp(rows[0].label, "Continue"), "over a running port: Continue");
+	ck(n == 2 && !strcmp(rows[0].label, "Continue"), "over a running port: Continue");
 	u.waiting = true;
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 3 && !strcmp(rows[0].label, "Keep Waiting") && !strcmp(rows[2].label, "Quit"),
-	   "over one still starting: Keep Waiting, Controls, Quit");
+	ck(n == 2 && !strcmp(rows[0].label, "Keep Waiting") && !strcmp(rows[1].label, "Quit"),
+	   "over one still starting: Keep Waiting and Quit");
+	n = gm_rows(&u, GT_CONTROLS, rows, &b);
+	ck(n == 1 && !strcmp(rows[0].label, "All Controls"), "and its Controls tab: All Controls");
 	u.port = false;
 	n = gm_rows(&u, GT_GAME, rows, &b);
 	ck(!strcmp(rows[0].label, "Continue"), "and a game's menu is not touched by it");
@@ -2320,20 +2322,47 @@ static void ingame_rows(void)
 	   "the Controls tab has no rows of this file's until task 7");
 	u.pak = NULL; u.player2 = false; u.screens = false;
 
-	/* Over a port (OpenBOR, src/portmenu.h): what a stopped program can
-	 * still be asked, no tabs, every one a stop, in the game menu's order */
+	/* Over a program of its own (OpenBOR, a port, PortMaster,
+	 * src/portmenu.h): a game's tabs and places, with what a stopped
+	 * program can still be asked (1.1.0-rc.8: "openbor is also missing the
+	 * menu as we have in other systems", "yeah have the same menu in ports
+	 * as well"), every one a stop */
 	u.port = true;
-	printf("in-game menu over a port:\n");
+	printf("in-game menu over a program of its own (OpenBOR, a port):\n");
+	ck(gm_tab_count(&u) == 3 && gm_tab_count(&u) == GT_ACHIEVEMENTS && !gm_ctltab(&u),
+	   "a game's tabs, Game, Display and Controls, no Achievements tab, and no buttons to change");
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 3 && gm_tab_rows(&u, GT_GAME, ids) == 3 && ids[0] == GM_CONTINUE &&
-	   ids[1] == GM_CONTROLS && ids[2] == GM_QUIT, "gm_port_untabbed: Continue, Controls and Quit");
-	ck(!strcmp(rows[0].label, "Continue") && !strcmp(rows[1].label, "Controls") &&
-	   !strcmp(rows[2].label, "Quit"), "labeled as over a game");
-	ck(rows[2].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 2,
+	ck(n == 2 && gm_tab_rows(&u, GT_GAME, ids) == 2 && ids[0] == GM_CONTINUE && ids[1] == GM_QUIT,
+	   "the Game tab: Continue and Quit");
+	ck(!strcmp(rows[0].label, "Continue") && !strcmp(rows[1].label, "Quit"), "labeled as over a game");
+	ck(rows[1].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 1,
 	   "X is its Quit too, with the glyph");
-	ck(reachable(rows, n, got, GM_MAX_ROWS) == 3, "every row a stop");
-	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 3, "whichever tab it is asked for");
-	ck(!gm_tabbed(&u) && gm_tab_count(&u) == 1, "no tabs over it");
+	ck(reachable(rows, n, got, GM_MAX_ROWS) == 2, "every row a stop");
+	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 0, "the Display tab with no table: nothing of the program's picture");
+	u.screen_colors = "Standard";
+	u.shader = "CRT"; u.strength = "70%"; u.border = "Blur";
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	ck(n == 1 && gm_tab_rows(&u, GT_DISPLAY, ids) == 1 && ids[0] == GM_SCREEN_COLORS &&
+	   !strcmp(rows[0].label, "Screen Colors") && rows[0].live,
+	   "with a table: Screen Colors alone, the panel's; no Display, Border, Shader, Strength or "
+	   "On-Screen Stats, its picture being its own");
+	u.screen_colors = NULL;
+	u.shader = NULL; u.strength = NULL; u.border = NULL;
+	n = gm_rows(&u, GT_CONTROLS, rows, &b);
+	ck(n == 1 && gm_tab_rows(&u, GT_CONTROLS, ids) == 1 && ids[0] == GM_CONTROLS &&
+	   !strcmp(rows[0].label, "All Controls") && rows[0].live && !b.sound[0],
+	   "the Controls tab: All Controls, a plain stop, its read-only pages");
+	for (t = 0; t < GT_TABS; t++) {
+		static const gm_row none[] = { GM_SAVE, GM_LOAD, GM_UNDO, GM_QUICK, GM_DISC, GM_PLAYER2,
+		                               GM_CHEATS, GM_CHEEVOS, GM_RESET, GM_PAK, GM_DISPLAY,
+		                               GM_SHADER, GM_HUD };
+		size_t z;
+
+		for (z = 0; z < sizeof none / sizeof none[0]; z++)
+			if (gm_row_at(&u, (gm_tab)t, none[z]) >= 0) break;
+		if (z < sizeof none / sizeof none[0]) break;
+	}
+	ck(t == GT_TABS, "nothing it cannot do on any tab: hidden, not greyed");
 	/* Over your PICO-8 (src/portmenu.h's port_menu_display): a game's tabs
 	 * and places, with what a stopped PICO-8 can answer to (1.1.0-rc.8:
 	 * "we should use the same component as in other systems"). Display,
@@ -2344,9 +2373,11 @@ static void ingame_rows(void)
 	 * where portkeys draws it */
 	printf("in-game menu over your PICO-8:\n");
 	u.port_display = true;
+	u.port_buttons = true;
 	u.dmode = "Actual Size";
-	ck(gm_tabbed(&u) && gm_tab_count(&u) == 3 && gm_tab_count(&u) == GT_ACHIEVEMENTS,
-	   "a game's tabs, Game, Display and Controls, and no Achievements tab (PICO-8 earns none)");
+	ck(gm_ctltab(&u) && gm_tab_count(&u) == 3 && gm_tab_count(&u) == GT_ACHIEVEMENTS,
+	   "a game's tabs, Game, Display and Controls, its buttons a game's Controls tab, "
+	   "and no Achievements tab (PICO-8 earns none)");
 	n = gm_rows(&u, GT_GAME, rows, &b);
 	ck(n == 2 && gm_tab_rows(&u, GT_GAME, ids) == 2 && ids[0] == GM_CONTINUE && ids[1] == GM_QUIT,
 	   "the Game tab before it has drawn: Continue and Quit");
@@ -2409,7 +2440,7 @@ static void ingame_rows(void)
 		int gn, k2;
 
 		/* The same rows in the same places as a game's Display tab */
-		g.port = g.port_display = g.port_hud = false;
+		g.port = g.port_display = g.port_hud = g.port_buttons = false;
 		gn = gm_tab_rows(&g, GT_DISPLAY, gi);
 		n = gm_tab_rows(&u, GT_DISPLAY, ids);
 		for (k2 = 0; k2 < n && k2 < gn && ids[k2] == gi[k2]; k2++) ;
@@ -2441,7 +2472,9 @@ static void ingame_rows(void)
 	u.strength = NULL;
 	u.screen_colors = NULL;
 	u.port_display = false;
-	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display, Border, Shader or Reset row over any other program");
+	u.port_buttons = false;
+	ck(gm_tab_rows(&u, GT_GAME, ids) == 2 && gm_tab_rows(&u, GT_DISPLAY, ids) == 0,
+	   "and no Display, Border, Shader or Reset row over any other program");
 	u.port = false;
 }
 

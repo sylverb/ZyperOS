@@ -40,7 +40,7 @@ CTRL-R, Auto Off) is check-pkkeys's and check-portkeys-flow's.
    - the menu opens where the last one over the cart was left (its tab and
      row, src/portmenu.h's PORT_MENU_MEM), and on Game, on Continue, with
      no memory;
-   - over OpenBOR there is no Reset row and no tab.
+   - over OpenBOR there is no Reset row.
 Every wait in the walks is for an event, never a time or a count of frames
 (tools/deskwalk.py): the panel a key lands on, as desk's `state` says it, a
 setting, a file, the launcher's end. On a runner busy with other checks the
@@ -398,9 +398,9 @@ def launcher(tmp):
 
         print('over OpenBOR:')
         w = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
-        up = w.up('', 'Continue') and dw.until(lambda: 'Quit' in w.drawn())
-        check(up and 'Continue' in w.drawn() and 'Reset' not in w.drawn() and 'Game' not in w.drawn(),
-              'no Reset row and no tabs')
+        up = w.up('Game', 'Continue') and dw.until(lambda: 'Quit' in w.drawn())
+        rows = w.rows() if up else []
+        check(rows == ['Continue', 'Quit'], f'its Game tab has no Reset row ({rows})')
         w.ends('b')
     finally:
         for p in procs:

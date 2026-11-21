@@ -640,6 +640,9 @@ void gm_gather(app *a, gm_ui *out)
 	u.port_hud = g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
 	             port_menu_overlays(a->sys.systems[a->sys_cursor].tag);
 	/* ...and restarts a cart on CTRL-R, once it has drawn (src/portmenu.h) */
+	/* ...and whose buttons it hands it, so its Controls tab is a game's */
+	u.port_buttons = g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	                 port_hotkeys(a->sys.systems[a->sys_cursor].tag);
 	u.port_reset = g_port_menu && !g_port_waiting && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
 	               port_resets(a->sys.systems[a->sys_cursor].tag);
 	/* The game's own system, on Favorites too (shelf_owner); none where its
@@ -698,12 +701,13 @@ void gm_gather(app *a, gm_ui *out)
 		u.swap   = plat_resident_swap();
 		u.stylus = plat_resident_stylus();
 	}
-	/* Screen Colors' look, over a game Diatom runs and over your PICO-8,
-	 * where the display has a table (1.1.0): the Display tab's row, MENU's
-	 * page behind it. The menu over PICO-8 holds the display as it holds
-	 * it over a game, and the table stays on the panel after it, PICO-8
-	 * leaving it alone; portkeys reads the colors' file for its steps */
-	if ((!u.port || u.port_display) && plat_screen_colors_here()) u.screen_colors = screen_colors_value();
+	/* Screen Colors' look, over a game Diatom runs and over a program of
+	 * its own, where the display has a table (1.1.0): the Display tab's
+	 * row, MENU's page behind it. The menu over a program holds the display
+	 * as it holds it over a game, and the table stays on the panel after
+	 * it, the program leaving it alone; portkeys reads the colors' file for
+	 * its steps over it */
+	if (plat_screen_colors_here()) u.screen_colors = screen_colors_value();
 	*out = u;
 }
 
@@ -1477,9 +1481,9 @@ void game_controls_pages(app *a, const menu_style *over, void *ctx)
  * tabs and no values to cycle, is as wide as its rows. */
 int gm_width(app *a)
 {
-	/* A program's menu sizes itself, but your PICO-8's, which has the
-	 * game's tabs and the handheld beside the Controls tab's rows */
-	return g_port_menu && !gm_over_pico8(a) ? 0 : menu_most_w();
+	/* A program's too, with the game's tabs since 1.1.0-rc.8 */
+	(void)a;
+	return menu_most_w();
 }
 
 /* The DS rows: the layout steps through the three, the swap and the stylus
@@ -1608,7 +1612,7 @@ static int gm_ids(app *a, gm_ctx *c, const gm_ui *u, int tab, int *ids, int max)
 	gm_row r[GM_MAX_ROWS];
 	int n, i;
 
-	if (gm_tabbed(u) && tab == GT_CONTROLS) {
+	if (gm_ctltab(u) && tab == GT_CONTROLS) {
 		ctlscr_game g;
 		menu_row rows[CT_MAX_ROWS];
 		unsigned vcol[CT_MAX_ROWS];
@@ -1857,14 +1861,13 @@ static int gm_menu_build(void *ctx, menu_row *rows, int max,
 	int n;
 
 	gm_gather(c->a, &u);
-	/* A game's menu names its tab in the heading's place (menu_draw draws the
-	 * tab row there, which MENU's does the same), and your PICO-8's; another
-	 * program's has no title: the game behind it is the title */
-	*heading = gm_tabbed(&u) ? gm_tab_name(c->tabs.at) : NULL;
+	/* The menu names its tab in the heading's place (menu_draw draws the
+	 * tab row there, which MENU's does the same), a program's as a game's */
+	*heading = gm_tab_name(c->tabs.at);
 	/* The Controls tab's rows are src/ctltab.c's, beside the handheld, a
 	 * changed value in accent-ink; the other tabs' gm_rows', in the whole
-	 * width */
-	if (gm_tabbed(&u) && c->tabs.at == GT_CONTROLS) {
+	 * width, and a program's All Controls */
+	if (gm_ctltab(&u) && c->tabs.at == GT_CONTROLS) {
 		ctlscr_game g;
 
 		gm_ctl_game(c->a, c, &g);
@@ -2208,10 +2211,10 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		gm_gather(a, &u);
 		n = gm_ids(a, c, &u, c->tabs.at, ids, GM_IDS_MAX);
 		/* The row this tab is on is kept, for MENU's next press */
-		if (gm_tabbed(&u) && sel >= 0 && sel < n) g_gm_mem.row[c->tabs.at] = ids[sel];
+		if (sel >= 0 && sel < n) g_gm_mem.row[c->tabs.at] = ids[sel];
 		/* L1 and R1 go round the tabs, as MENU's do: the row each tab was
 		 * on is kept and the cursor lands on the next tab's own */
-		if (gm_tabbed(&u) && (key == IN_L1 || key == IN_R1)) {
+		if (key == IN_L1 || key == IN_R1) {
 			int k;
 
 			tabs_turn(&c->tabs, key == IN_R1 ? +1 : -1);
@@ -2235,7 +2238,7 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		}
 		/* The Controls tab's rows, but X, which quits from any tab, and the
 		 * Pak, below as before */
-		if (gm_tabbed(&u) && c->tabs.at == GT_CONTROLS && key != IN_X) {
+		if (gm_ctltab(&u) && c->tabs.at == GT_CONTROLS && key != IN_X) {
 			ctlscr_game g;
 			int id = sel >= 0 && sel < n ? ids[sel] : -1;
 
@@ -2411,7 +2414,8 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	case GM_DISPLAY:
 		gm_cycle_display(a, +1);
 		break;
-	/* A program's menu with no tabs (OpenBOR's, a port's): its pages */
+	/* A program's All Controls (OpenBOR's, a port's, PortMaster's): its
+	 * read-only pages, as its Controls row opened them before its tabs */
 	case GM_CONTROLS:
 		game_controls_screen(a, c->bg);
 		break;
@@ -2714,11 +2718,10 @@ void gm_hotkey_step(app *a, bool shader, char *out, size_t n)
 
 /* The in-game menu over a port (src/portmenu.h): this process started by
  * portkeys for it alone, with the port stopped and its last frame saved. The
- * same menu as over a Diatom game, over that frame, with the rows a stopped
- * program can answer to (gm_tab_rows): Continue, Controls - the port's system's
- * page and In a game's - and Quit. Over your PICO-8 the game's own tabs, as
- * game_menu sets them up: Game, Display and Controls, opened where the last
- * menu over the cart was left (PORT_MENU_MEM). Its exit status says which:
+ * same menu as over a Diatom game, its tabs set up as game_menu sets them,
+ * over that frame, with the rows a stopped program can answer to
+ * (gm_tab_rows): Game, Display and Controls, opened where the last menu over
+ * the game was left (PORT_MENU_MEM). Its exit status says which:
  * Continue, and B or MENU, go back to the game; Quit ends it and the shelf
  * comes back; POWER, here or on the Controls page, or the battery run flat,
  * end it and turn the handheld off. The opening and the closing are the
@@ -2745,26 +2748,29 @@ int port_menu(app *a)
 	c.st.backdrop    = gm_backdrop;
 	c.st.on_power    = gm_power;
 	gm_gather(a, &u);
-	c.tabs = (menu_tabs){ .count = gm_tab_count(&u), .name = gm_tab_name_i };
-	if (gm_tabbed(&u)) {
+	{
 		int ids[GM_IDS_MAX];
 		int n, k;
 
-		/* MENU's tab row, opened where the last menu over this cart was
-		 * closed, as a game's (game_menu); the handheld beside the
-		 * Controls tab's rows; the buttons as they are, to tell new ones by */
+		/* MENU's tab row, opened where the last menu over this game was
+		 * closed, as a game's (game_menu); the handheld beside a Controls
+		 * tab of buttons (your PICO-8's), and the buttons as they are, to
+		 * tell new ones by */
 		port_mem_load();
+		c.tabs = (menu_tabs){ .count = gm_tab_count(&u), .name = gm_tab_name_i };
 		if (g_gm_mem.tab >= c.tabs.count) g_gm_mem.tab = GT_GAME;
 		c.tabs.at = c.tabs.from = g_gm_mem.tab;
 		c.st.tabs = &c.tabs;
 		c.st.sel_out = &c.seen;
-		c.st.side = ctlscr_side;
-		ctlscr_open();
+		if (gm_ctltab(&u)) {
+			c.st.side = ctlscr_side;
+			ctlscr_open();
+			port_pad_line(a, g_p8_pad0, sizeof g_p8_pad0);
+		}
 		n = gm_ids(a, &c, &u, c.tabs.at, ids, GM_IDS_MAX);
 		for (k = 0; k < n && ids[k] != g_gm_mem.row[c.tabs.at]; k++) ;
 		c.st.start_sel = k < n ? k : 0;
 		g_menu_epoch++;
-		port_pad_line(a, g_p8_pad0, sizeof g_p8_pad0);
 	}
 
 	g_menu_closing = false;
@@ -2773,21 +2779,21 @@ int port_menu(app *a)
 		c.resume = true;
 	g_in_game_menu = false;
 	g_menu_closing = false;
-	if (c.st.tabs) {
+	{
 		int ids[GM_IDS_MAX];
 		int n;
 
-		/* Where it was closed, for the next MENU over the cart: the cursor
+		/* Where it was closed, for the next MENU over the game: the cursor
 		 * moves without asking gm_key, so it is read from the runner */
 		gm_gather(a, &u);
 		n = gm_ids(a, &c, &u, c.tabs.at, ids, GM_IDS_MAX);
 		g_gm_mem.tab = c.tabs.at;
 		if (c.seen >= 0 && c.seen < n) g_gm_mem.row[c.tabs.at] = ids[c.seen];
 		port_mem_save();
-		/* New buttons kept for PICO-8's next start, and, back to the cart,
-		 * asked about before it goes on */
-		if (port_buttons_kept(a) && c.resume && !c.reset && !want_quit && !plat_run_power_pressed() &&
-		    port_buttons_close(a, &c))
+		/* Over your PICO-8, new buttons kept for its next start, and, back
+		 * to the cart, asked about before it goes on */
+		if (u.port_buttons && port_buttons_kept(a) && c.resume && !c.reset && !want_quit &&
+		    !plat_run_power_pressed() && port_buttons_close(a, &c))
 			c.resume = false;
 	}
 	if (c.resume && !plat_run_power_pressed()) {
@@ -2797,7 +2803,7 @@ int port_menu(app *a)
 		if (how == LEAVE_QUIT) c.resume = true;      /* asked to stop: the game goes on */
 	}
 	mm_leaving_cut();
-	if (c.st.tabs) ctlscr_close();
+	if (c.st.side) ctlscr_close();
 	if (p8) {
 		gm_preview_frame(NULL);
 		SDL_DestroyTexture(p8);

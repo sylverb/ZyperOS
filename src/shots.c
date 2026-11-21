@@ -831,7 +831,7 @@ static void shot_draw_gamemenu(app *a)
 		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
-	/* Over your PICO-8 a game's tabs but Achievements (gm_tab_count) */
+	/* Over a program of its own a game's tabs but Achievements (gm_tab_count) */
 	tabs.count = gm_tab_count(&u);
 	tabs.at = tabs.from = shot_gamemenu_tab % tabs.count;
 	/* The tab move a shot pressed (shot_motion), from where it was */
@@ -848,8 +848,9 @@ static void shot_draw_gamemenu(app *a)
 	}
 	gm_backdrop(a, &(gm_ctx){ .a = a, .bg = bg }, 1.0f);
 	gm_preview_frame(bg);
-	/* The Controls tab, a game's and your PICO-8's alike */
-	if (gm_tabbed(&u) && tabs.at == GT_CONTROLS) {
+	/* The Controls tab of buttons, a game's and your PICO-8's alike; a
+	 * program's All Controls is drawn below as the other tabs are */
+	if (gm_ctltab(&u) && tabs.at == GT_CONTROLS) {
 		shot_draw_ctltab(a, &tabs);
 		if (bg) SDL_DestroyTexture(bg);
 		return;
@@ -885,9 +886,9 @@ static void shot_draw_gamemenu(app *a)
 	}
 	n = gm_rows(&u, (gm_tab)tabs.at, rows, &b);
 	if (n == 0) rows[n++] = MENU_NOTE("");
-	g_menu_tabs = gm_tabbed(&u) ? &tabs : NULL;
-	/* The handheld leaving with the Controls tab's name */
-	g_menu_side = gm_tabbed(&u) ? ctlscr_side : NULL;
+	g_menu_tabs = &tabs;
+	/* The handheld leaving with the Controls tab's name, where it has one */
+	g_menu_side = gm_ctltab(&u) ? ctlscr_side : NULL;
 	/* --gm-choose: A on the row, as the runner answers an option row of
 	 * more than two (menu_choose): its list over the paused game. Over your
 	 * PICO-8 the Display row's own list (port_display_pick), its picture
@@ -944,7 +945,7 @@ static void shot_draw_gamemenu(app *a)
 		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
-	menu_draw(a, gm_tabbed(&u) ? gm_tab_name(tabs.at) : NULL, rows, n,
+	menu_draw(a, gm_tab_name(tabs.at), rows, n,
 	          shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1,
 	          gm_width(a), a->tint);
 	g_menu_side = NULL;

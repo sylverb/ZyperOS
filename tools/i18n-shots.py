@@ -1632,6 +1632,28 @@ for _name in ("pico8-menu-colors", "pico8-colors-page"):
 SHOT_SETTINGS["pico8-menu-hud-on"]["hud"] = "1"
 
 
+# The in-game menu over OpenBOR and over a port (src/portmenu.h), a game's
+# tabs since 1.1.0-rc.8 (the README's 'openbor' and 'ports-menu' are their
+# Game tabs): the Display tab's Screen Colors alone, at Custom, its longest
+# value, and its page over the program; and the Controls tab's All
+# Controls, the read-only pages behind it (port-<script>-<page>, above)
+for _name, _shot in (("openbor-menu-display", ("openbor", "OPENBOR", ["--screen", "games", "--gamemenu", "0",
+                                                                      "port", "--gm-tab", "1"])),
+                     ("openbor-menu-controls", ("openbor", "OPENBOR", ["--screen", "games", "--gamemenu", "0",
+                                                                       "port", "--gm-tab", "2"])),
+                     ("openbor-colors-page", ("openbor", "OPENBOR", ["--screen", "games", "--gamemenu", "0",
+                                                                     "port", "--look-page", "screen", "1"])),
+                     ("ports-menu-display", ("portdocs", "PRT", ["--screen", "games", "--gamemenu", "0", "port",
+                                                                 "--gm-tab", "1"])),
+                     ("ports-menu-controls", ("portdocs", "PRT", ["--screen", "games", "--gamemenu", "0", "port",
+                                                                  "--gm-tab", "2"]))):
+    EXTRA[_name] = _shot
+for _name in ("openbor-menu-display", "openbor-colors-page", "ports-menu-display"):
+    SHOT_SETTINGS[_name] = dict(SHOT_SETTINGS["screen-colors-custom"])
+for _name in ("ports-menu-display", "ports-menu-controls"):
+    PORT_FOCUS[_name] = "Star Farm.sh"
+
+
 # The demonstration card with one game in each system that has none (a name
 # and its first extension, from config/systems.cfg), so that every system is
 # a shelf, and its in-game menu and Controls are the ones of its games

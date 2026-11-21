@@ -290,7 +290,7 @@ def launcher(tmp):
 
         print('over OpenBOR:')
         m = start('openbor', ['--port-menu', 'OPENBOR', f'{card}/Roms/OpenBOR/x.pak'])
-        ok = m.up('', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
+        ok = m.up('Game', 'Continue') and dw.until(lambda: 'Quit' in m.drawn())
         seen = m.drawn()
         check(ok and 'Continue' in seen and 'Shader' not in seen and 'Border' not in seen,
               'no Shader and no Border')
