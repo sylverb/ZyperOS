@@ -41,7 +41,7 @@
 ## Two handhelds
 
 - **GKD Pixel 2:** the handheld ZyperOS began on. It has no Wi-Fi of its own: a USB Wi-Fi adapter gives it Wi-Fi, and the USB cable moves files without one.
-- **TrimUI Brick (TG3040), from 1.0.6:** drawn for its own 1024x768 screen and its keys, with Wi-Fi built in. It runs from its own microSD card and never writes to the Brick's storage: take the card out, and the Brick starts its own system again. The 3D systems, PortMaster's ports and a few extras are not there yet ([the list](docs/guide.md#the-trimui-brick)).
+- **TrimUI Brick (TG3040), from 1.0.6:** drawn for its own 1024x768 screen and its keys, with Wi-Fi built in. It runs from its own microSD card and never writes to the Brick's storage: take the card out, and the Brick starts its own system again. PortMaster's ports and a few extras are not there yet ([the list](docs/guide.md#the-trimui-brick)).
 
 ## Install in three steps
 
