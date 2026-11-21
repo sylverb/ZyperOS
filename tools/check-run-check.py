@@ -6,6 +6,10 @@
   but the SPLIT ones, in every part; the same parts from the list in any
   order; no part more than the longest check over another; a check the
   table has not met counted as NEW_CHECK
+- check-i18n-shots' own parts (--part I/N): every language on every
+  handheld in one part at least, a part's languages with English on the
+  same handheld, the first part with English on every handheld, and the
+  parts within one Brick run of each other
 - the heavy slots: never more heavy checks at once than slots, in one run or
   across two; the rest go on while the heavy ones wait for one; a slot held
   by another process is waited for and taken once it ends, however it ends
@@ -216,9 +220,33 @@ def slots(cr):
     subprocess.call(['rm', '-rf', str(tmp)])
 
 
+def i18n_parts():
+    spec = importlib.util.spec_from_file_location('i18n_shots', ROOT / 'tools' / 'i18n-shots.py')
+    s = importlib.util.module_from_spec(spec)
+    argv, sys.argv = sys.argv, ['i18n-shots']
+    try:
+        spec.loader.exec_module(s)
+    finally:
+        sys.argv = argv
+    langs = s.i18n.CODES + [s.i18n.PSEUDO]
+    runs = [(d, c) for d in s.DEVICES for c in langs]
+    for n in (1, 2, 3, 4, 6, 18, 30):
+        parts = [s.part_of(runs, s.DEVICES, i, n) for i in range(1, n + 1)]
+        check(set().union(*map(set, parts)) == set(runs), f'i18n, {n} parts: every language on every handheld')
+        check(all((d, 'en') in p for p in parts for d, _ in p), f'i18n, {n} parts: each with its handhelds\' English')
+        check(all((d, 'en') in parts[0] for d in s.DEVICES), f'i18n, {n} parts: the first with English on each')
+        cost = [sum(s.COST.get(d, 1.0) for d, _ in p) for p in parts]
+        if n <= len(runs) // 2:
+            check(max(cost) - min(cost) <= max(s.COST.values()),
+                  f'i18n, {n} parts: within one Brick run of each other ({min(cost)} to {max(cost)})')
+        again = [s.part_of(list(runs), s.DEVICES, i, n) for i in range(1, n + 1)]
+        check(again == parts, f'i18n, {n} parts: the same deal again')
+
+
 def main():
     cr = load()
     shards(cr)
+    i18n_parts()
     slots(cr)
     print(f'check-checkrun: {"all passed" if not fails else f"{len(fails)} FAILED"}')
     return 1 if fails else 0

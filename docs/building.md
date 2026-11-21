@@ -70,8 +70,9 @@ each (`make check CHECK_SHARD=I/4`), and `check` is green when all four are.
 `tools/check-run.py --shard` deals the checks out by CI's own times
 (`tools/check-times.tsv`, longest first, each to the part with the least), and
 `check-i18n-shots` shoots its own part of the languages and handhelds in each
-(`--part`; the first part has English on both handhelds for the strings no
-shot draws). One runner took 32 to 39 minutes, 26 of them `check-i18n-shots`.
+(`--part`: dealt by cost, a Brick run counting as two and a half Pixel 2
+runs, each part with English on the handhelds it has, and the first with
+English on both for the strings no shot draws). One runner took 32 to 39 minutes, 26 of them `check-i18n-shots`.
 After a check is added or gets much slower, write the table again from a
 green run: `gh run view RUN --log | python3 tools/check-run.py --times-from -`.
 
@@ -353,7 +354,7 @@ something once broke in a way nothing noticed:
 | `check-px2sim` | px2sim's choice of the keyboard it takes in the QEMU image: QEMU's virtio or USB one, never a uinput one such as gptokeyb's Fake Keyboard (host compiler, no VM) |
 | `check-sidelights` | what the launcher tells the side lights' gauge: the lines as plastron's gauge reads them, the FIFO writer that never waits and never dies of SIGPIPE, when a File Transfer batch is over, and files moving on its page: a line at most every 500 ms with the speed over that time, a pause between two files kept, `move 0 0` a second after the last bytes and at once when the page closes, across the clock's wrap; and MENU > Side Lights' preview lines, said again each second, another row at once, `preview off` as the page closes |
 | `check-building-doc` | this table has a row for every check in the Makefile's CHECKS, and none for a check that is gone |
-| `check-checkrun` | make check's runner (`tools/check-run.py`) with stand-in checks: CI's parts (`--shard I/N`) hold every check once and `check-i18n-shots` in each, the same from the list in any order and within the longest check of each other; never more heavy checks at once than `CHECK_HEAVY_SLOTS`, in one run or with another process holding a slot, the light ones going on meanwhile, a slot taken again once its holder dies, the wait said on the check's line |
+| `check-checkrun` | make check's runner (`tools/check-run.py`) with stand-in checks: CI's parts (`--shard I/N`) hold every check once and `check-i18n-shots` in each, the same from the list in any order and within the longest check of each other; `check-i18n-shots`' own parts hold every language on every handheld, each with English on its handhelds and the first with English on both, within one Brick run of each other; never more heavy checks at once than `CHECK_HEAVY_SLOTS`, in one run or with another process holding a slot, the light ones going on meanwhile, a slot taken again once its holder dies, the wait said on the check's line |
 | `check-blog` | zyperos.com's blog, built as Cloudflare Pages builds the site (mk/blog.py): title and description lengths, structured data, every link and picture reaching a file (or a path in `_redirects`, such as `/tip`), every post in the sitemap and llms.txt, and the landing page's colors |
 | `check-discord-release` | The release notes as `tools/release.sh` posts them in the Discord's #releases (`tools/discord-release.py`): every `docs/releases/v*.md` within Discord's limits (4096 characters an embed, 6000 a message), with What's new, without Install, Tested and Thanks, and ending with the release's link |
 | `check-release-devices` | the devices a release carries (`config/devices`, `tools/release-devices.sh`): the release notes' `Tested on <id>: <who, on what>` lines read on sample notes (every device tested passes; a device missing, a misspelled or unlisted id, or a Tested line in another form fails) and sample lists; each listed device with its `src/device/<id>_profile.c` and its `res/update/min-system-<id>`, which `tools/update-pack.py` puts in that device's lists |

@@ -1946,17 +1946,39 @@ def part_arg(s):
     return int(m.group(1)), int(m.group(2))
 
 
+# What one language's shots cost on each handheld, against the Pixel 2's:
+# the Brick's panel has 2.6 times its pixels, and on CI's runners a part of
+# five Brick runs took 932 s where five Pixel 2 runs took 402 (2026-11-21)
+COST = {"pixel2": 1.0, "brick": 2.5}
+
+
 def part_of(runs, devices, i, n):
     """The I-th of N parts of the runs (handheld, language), for CI's
-    runners: the languages other than English dealt out in order, a handheld's
-    together where they can be, and English on each handheld a part has, as
-    its other languages are read against English's on the same handheld. The
-    first part has English on every handheld, so the strings no shot draws
-    (tools/i18n-unshot.txt) are still looked for, in that part."""
-    rest = [r for r in runs if r[1] != "en"]
-    mine = rest[(i - 1) * len(rest) // n:i * len(rest) // n]
-    want = set(devices) if i == 1 else {d for d, _ in mine}
-    return [r for r in runs if r in mine or (r[1] == "en" and r[0] in want)]
+    runners, as even as their cost (COST) lets them be: the languages other
+    than English dealt out the dearest first, each to the part it adds the
+    least to, which counts the English run of its handheld too when the
+    part has none yet, as a language is read against English's on the same
+    handheld. The first part has English on every handheld from the start,
+    so the strings no shot draws (tools/i18n-unshot.txt) are still looked
+    for, in that part. The same runs give every part the same deal."""
+    cost = lambda d: COST.get(d, 1.0)
+    english = {d for d, c in runs if c == "en"}
+    parts = [set() for _ in range(n)]
+    load = [0.0] * n
+    for d in devices:
+        if d in english:
+            parts[0].add((d, "en"))
+            load[0] += cost(d)
+    order = {r: k for k, r in enumerate(runs)}
+    for r in sorted((r for r in runs if r[1] != "en"), key=lambda r: (-cost(r[0]), order[r])):
+        d = r[0]
+        extra = lambda k: cost(d) + (cost(d) if d in english and (d, "en") not in parts[k] else 0.0)
+        k = min(range(n), key=lambda k: (load[k] + extra(k), k))
+        load[k] += extra(k)
+        parts[k].add(r)
+        if d in english:
+            parts[k].add((d, "en"))
+    return [r for r in runs if r in parts[i - 1]]
 
 
 def main():
