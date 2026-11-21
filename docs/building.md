@@ -355,6 +355,7 @@ something once broke in a way nothing noticed:
 | `check-px2sim` | px2sim's choice of the keyboard it takes in the QEMU image: QEMU's virtio or USB one, never a uinput one such as gptokeyb's Fake Keyboard (host compiler, no VM) |
 | `check-sidelights` | what the launcher tells the side lights' gauge: the lines as plastron's gauge reads them, the FIFO writer that never waits and never dies of SIGPIPE, when a File Transfer batch is over, and files moving on its page: a line at most every 500 ms with the speed over that time, a pause between two files kept, `move 0 0` a second after the last bytes and at once when the page closes, across the clock's wrap; and MENU > Side Lights' preview lines, said again each second, another row at once, `preview off` as the page closes |
 | `check-building-doc` | this table has a row for every check in the Makefile's CHECKS, and none for a check that is gone |
+| `check-mergetrain` | `tools/merge-train.py`'s merges in a scratch repository: two branches that each add a check to the Makefile's `.PHONY` and `CHECKS` and a row here merge with both kept, a name in the middle or at the start of a list too, and a row added beside one the other PR rewrote (both, the rewrite kept); a rule's body of plain words, one row written two ways, prose by the rows and any other file stop the train at that PR, the train as it was; the table written again after the merges (`tools/building-doc.py`, a stand-in); and `--merge`'s step played here: the second PR on a main with the first would not land the train's tree, main merged into its branch with that tree does, a difference outside the lists refused |
 | `check-checkrun` | make check's runner (`tools/check-run.py`) with stand-in checks: CI's parts (`--shard I/N`) hold every check once and `check-i18n-shots` in each, the same from the list in any order and within the longest check of each other; `check-i18n-shots`' own parts hold every language on every handheld, each with English on its handhelds and the first with English on both, within one Brick run of each other; never more heavy checks at once than `CHECK_HEAVY_SLOTS`, in one run or with another process holding a slot, the light ones going on meanwhile, a slot taken again once its holder dies, the wait said on the check's line |
 | `check-blog` | zyperos.com's blog, built as Cloudflare Pages builds the site (mk/blog.py): title and description lengths, structured data, every link and picture reaching a file (or a path in `_redirects`, such as `/tip`), every post in the sitemap and llms.txt, and the landing page's colors |
 | `check-discord-release` | The release notes as `tools/release.sh` posts them in the Discord's #releases (`tools/discord-release.py`): every `docs/releases/v*.md` within Discord's limits (4096 characters an embed, 6000 a message), with What's new, without Install, Tested and Thanks, and ending with the release's link |
@@ -524,17 +525,60 @@ the refresh steps.
 
 ## Merging several pull requests
 
-`python3 tools/merge-train.py 281 283 284` merges those pull requests' heads
-onto `origin/main`, in that order, in a scratch worktree; writes again what
-`tools/i18n.py` and `tools/designdef.py` write whole (a conflict in one of
-those files is settled that way, and two PRs that each added a string merge
-cleanly but leave the IDs stale); and runs one `make check` (`CHECK_JOBS` as
-given). A conflict in any other file stops the train at that PR. The branch
-`train-281-283-284` stays here; `--push` pushes it and opens its pull
-request, which merged with a merge commit (`gh pr merge N --merge`) lands
-every PR's own commits in main, so GitHub marks each one merged. One check
-for the lot, where merging them one by one sent every other PR back to merge
-main and check again. `--no-check` for the merges alone, `--keep` keeps the
+For maintainers: `tools/merge-train.py` puts open pull requests together on
+`origin/main`, in the order given, in a scratch worktree of its own, and
+checks the lot once instead of each PR after each merge.
+
+    python3 tools/merge-train.py --integrate-only 425 426 428
+    python3 tools/merge-train.py --merge 425 426 428
+
+`--integrate-only` makes the integration alone and prints its path (the
+worktree and its branch `train-425-426-428` stay): what a test card is built
+from while the PRs are still open. Then, once the card is tested,
+`--merge` runs the gate and merges each PR on GitHub (`gh pr merge N
+--merge`), in that order. Without either it runs the gate and keeps the
+branch here; `--push` pushes the branch and opens one pull request for the
+lot instead.
+
+The merges: each PR's head (fetched by its number) merged with a merge
+commit. A conflict in what every PR that adds a check adds a line to, the
+Makefile's `.PHONY` and `CHECKS` lists and the rows of the table above, is
+joined, both sides' names and rows kept, when the conflict is nothing but
+names or rows (`join_makefile`, `join_rows`; against the merge base, so a
+row one PR rewrote and the other left keeps the rewrite); a generated file
+(`tools/i18n.py`'s, `tools/designdef.py`'s) is written again from the merged
+sources, and once more at the end for two PRs that each added a string;
+and where `tools/building-doc.py` writes the table of checks, it writes it
+again after the merges, joined rows in the names' order.
+Any other conflict, or a list's conflict that holds a rule or prose, or one
+row written two ways, stops the train at that PR, which then needs main
+merged in by hand.
+
+The gate is the CI the PRs would have had, here and once for all, under a
+check slot (`/tmp/zyperos-check-1` or `-2`, as every full check takes one;
+it waits while both are taken): the fresh worktree's `make check`, then the
+Linux jobs' own commands from `.github/workflows/check.yml` (check-linux's
+`make check` with its `CHECKS_SKIP`, the devices job's `make
+check-device-compile`) in `ubuntu:24.04` set up by `tools/ubuntu-setup.sh`,
+on a copy of the tree, as a user that is not root, as on the runner. The
+image is built once a version of that script (`zyperos-ubuntu-ci`, a few
+minutes) and kept; it is arm64 on a Mac, where CI is x86_64. `--no-docker`
+leaves the Linux half out; `CHECK_JOBS` goes to both as it is (4 in Docker
+unless set).
+
+What it found is kept in `~/Library/Caches/ZyperOS/merge-train/` (the base,
+each head, the train's tree, each part's verdict and time), and the report's
+path is printed. `--merge` on the same main with the same heads as a gate
+that passed merges without running it again (`--recheck` runs it anyway),
+so the gate can run beside the test card and the merge come after.
+`--merge` refuses a draft, a PR whose head moved since the gate, or a main
+that moved; it merges each PR at the head the gate took
+(`--match-head-commit`), and checks after each that main's tree is the
+train's. A PR whose own merge would not land that tree (its lists needed
+joining, or a generated file writing again) first gets main merged into its
+branch, with the train's tree, pushed to that branch; a PR from another
+repository that needs this is left to a hand. Nothing else is pushed, and
+never to main. `--no-check` for the merges alone, `--keep` keeps the
 worktree.
 
 ## Devices

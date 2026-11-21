@@ -70,6 +70,28 @@ def solid_png(path, w, h, rgb):
                      + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
 
 
+def press_once(sock, key):
+    """One press and no repeat, however slowly the launcher draws: desk
+    mode's own tap (src/device/desk.c), down at once and let go by a timer's
+    event 40 ms on. The let-go is read at a poll after the one that read the
+    press, so the pass that read it sees the key down; and it comes long
+    before the repeat's 300 ms (src/keyrepeat.h), so no pass sees it held
+    that long. A press held instead for two drawn frames repeated on a slow
+    runner (2026-11-21, CI: a tap of Down two groups on, Right three games)"""
+    ask(sock, f'tap {key} 40')
+
+
+def until(get, ok, secs=5.0):
+    """get() again until ok(it) holds or `secs` pass (a busy computer draws
+    late); the last one got"""
+    end = time.time() + secs
+    got = get()
+    while not ok(got) and time.time() < end:
+        time.sleep(0.1)
+        got = get()
+    return got
+
+
 def run(tmp, name, snaps, saver, extra, setup=None, last='SFC\nAlpha.sfc\n\n'):
     base = tmp / name
     for d in ('ZyperOS', 'Roms', 'userdata', 'shared', 'web'):
@@ -114,11 +136,10 @@ def run(tmp, name, snaps, saver, extra, setup=None, last='SFC\nAlpha.sfc\n\n'):
             print((tmp / f'{name}.log').read_text()[-2000:])
             return None
         time.sleep(0.5)
-        ask(sock, 'tap a')
-        for _ in range(100):
-            if ask(sock, 'state').get('screen') == 'games':
-                break
-            time.sleep(0.05)
+        # A on the first system: its shelf, looked for as late as a slow
+        # runner draws it (once: a second A would be on the shelf's game)
+        press_once(sock, 'a')
+        until(lambda: ask(sock, 'state').get('screen'), lambda s: s == 'games', 10.0)
         return sock, p, log, tmp / f'{name}.log'
     except Exception:
         p.kill()
@@ -147,9 +168,8 @@ def saver(tmp):
     try:
         time.sleep(6.0)                   # twice the screensaver's delay, nothing pressed
         c0 = ask(sock, 'state')['cursor']
-        ask(sock, 'tap right 40')
-        time.sleep(0.6)
-        c1 = ask(sock, 'state')['cursor']
+        press_once(sock, 'right')
+        c1 = until(lambda: ask(sock, 'state')['cursor'], lambda c: c != c0, 3.0)
         started = 'saver: starts' in logfile.read_text()
         check(not started and c1 == (c0 + 1) % len(GAMES),
               f'the snap playing holds the screensaver: Right steps on past its delay '
