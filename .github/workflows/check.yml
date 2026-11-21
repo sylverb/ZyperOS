@@ -54,19 +54,23 @@ jobs:
           name: check-logs-${{ matrix.shard }}
           path: build-native/check-logs/
 
-  # The macOS suite's one line on a pull request, green when every part is
-  # (the name the single job had, so "check" still means the whole suite);
-  # not run for a run that was cancelled (a newer push)
+  # The macOS suite's one line on a pull request, green only when every part
+  # passed (the name the single job had, so "check" still means the whole
+  # suite). Run whatever the parts did, a cancelled run too: a skipped job
+  # reads as passed to whatever looks at conclusions alone, so a part that
+  # failed, was cancelled or never ran makes this red, never absent.
   check:
     needs: shard
-    if: ${{ !cancelled() }}
+    if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: every part of make check passed
+        env:
+          PARTS: ${{ needs.shard.result }}
         run: |
-          echo "the parts: ${{ needs.shard.result }}"
-          test "${{ needs.shard.result }}" = success
+          echo "the parts: $PARTS"
+          test "$PARTS" = success
 
   # The same suite on Linux, beside the macOS job and not instead of it:
   # Linux runners are many more than macOS ones, and this is the start of
