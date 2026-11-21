@@ -14,7 +14,9 @@
 # through the same chain as PICO-8 plays into it (tools/eqchain-gain.c:
 # 22050 Hz mono, the gain written into the equalizer's file half way, as
 # portkeys writes it), its mix a file this time: the second half louder by
-# the gain written. On 1.1.0-rc.8 the boost over PICO-8 was not heard.
+# the gain written. On 1.1.0-rc.8 the boost over PICO-8 was not heard. And a
+# loud cart at cell 3 then at the most: the top cells louder still, no
+# sample past -1 dB of full scale.
 #
 #     sh tools/eqchain-check.sh            (check-eqplugin runs it on Linux)
 #
@@ -68,6 +70,11 @@ printf 'ZEQ1\002\000\000\000\000\000\000\000\000\000\000\000' > "$W/eq"
 echo "eqchain: the volume boost through a port's chain, as portkeys writes it:"
 XDG_CONFIG_HOME=$W/gxdg HOME=$W ZYPEROS_EQ_FILE=$W/eq ALSA_CONFIG_PATH=$ALSA_CONF:$W/gport.hook \
 	$RUN "$W/gain" "$W/gain.wav" 6 2>> "$W/err" || fails=$((fails + 1))
+# And a loud cart through the top cells (src/eqdsp.h's EQ_COMP_TAB): louder
+# at the most than at cell 3, no sample past the ceiling
+printf 'ZEQ1\002\000\000\000\000\000\000\000\000\000\000\000' > "$W/eq"
+XDG_CONFIG_HOME=$W/gxdg HOME=$W ZYPEROS_EQ_FILE=$W/eq ALSA_CONFIG_PATH=$ALSA_CONF:$W/gport.hook \
+	$RUN "$W/gain" "$W/gain.wav" top 2>> "$W/err" || fails=$((fails + 1))
 if [ "$fails" != 0 ]; then
 	sed 's/^/  alsa-lib: /' "$W/err" | sort -u | head -n 10
 	echo "eqchain: FAILED"

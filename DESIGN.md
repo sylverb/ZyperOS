@@ -1463,7 +1463,21 @@ starts at the top without it.
   limiter that keeps every peak under -1 dB of full scale (down at once, back
   over 100 ms, both channels together): a quiet film gets louder, a loud one
   only flatter, and the speaker never gets more than a loud game gives it at
-  20. It opens in MP4 (MP4, told with a GAIN line), in a game (Diatom) and
+  20. That is cells 1 to 3, to the sample. Cells 4 to 6 compress harder: a
+  compressor (stereo-linked, a soft knee, a 5 ms attack and a 300 ms
+  release) and a soft clip into the same ceiling come between the gain and
+  the limiter, each harder a cell (src/eqdsp.h's EQ_COMP_TAB), so a loud game
+  or cart, whose peaks were at the ceiling already, gets louder too by
+  giving up some cleanness. On PICO-8-like chip voices a three-voice tune is
+  about 6, 7.3 and 8.8 dB louder at cells 4, 5 and 6 (4.6 at cell 3), every
+  voice at full about 3.5, 4.5 and 5.7 (1.6), a loud film about 8.5, 11 and
+  14.5 (6.4); a sine at -12 dB of full scale comes out with about 3%, 11%
+  and 32% THD+N, nothing at cells 1 to 3; a held note moves the compressor
+  under 0.2 dB (`check-eqdsp`). *(Tarik, 2026-11-20, on 1.1.0-rc.8, of a
+  loud PICO-8 cart the limiter left only flatter: "Yes, compress harder";
+  his pick: "compressing harder only in the top cells, so cells 1 to 3 sound
+  as clean as now, and cells 4 to 6 trade some cleanness for loudness.")*
+  It opens in MP4 (MP4, told with a GAIN line), in a game (Diatom) and
   over a port (the zyperos-eq plugin, now in every port's chain, the gain in
   the shared file that portkeys writes during the port). Over your PICO-8
   with MP4's music behind it (PICO-8 quiet, 11.55), MP4's follower passes
