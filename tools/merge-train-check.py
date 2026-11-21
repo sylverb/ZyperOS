@@ -12,6 +12,9 @@ GitHub, no network):
   body made of plain words (not a list, though it looks like one), the same
   row written two ways, prose beside the rows, and a conflict in any other
   file
+- after the merges, the table written again by tools/building-doc.py (a
+  stand-in here that puts the rows in the names' order), in a commit of
+  its own
 - --merge's step on GitHub, played here: the second branch merged onto a
   main that has the first, as GitHub merges, would not land the train's
   tree; main merged into the branch with the train's tree does, and a
@@ -21,6 +24,7 @@ make check-mergetrain.
 """
 import importlib.util
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -71,6 +75,18 @@ Prose after the table.
 """
 
 
+# tools/building-doc.py's part here: the rows in the names' order
+BUILDING_DOC = """import re
+p = 'docs/building.md'
+lines = open(p).read().split('\\n')
+idx = [i for i, l in enumerate(lines) if l.startswith('| `')]
+rows = sorted(lines[i] for i in idx)
+for i, r in zip(idx, rows):
+    lines[i] = r
+open(p, 'w').write('\\n'.join(lines))
+"""
+
+
 def sh(cwd, *args):
     r = subprocess.run(args, cwd=cwd, text=True, capture_output=True)
     if r.returncode:
@@ -89,6 +105,8 @@ def repo(tmp):
     (d / 'Makefile').write_text(MAKEFILE)
     (d / 'docs/building.md').write_text(DOC)
     (d / 'src/a.c').write_text('int a = 1;\n')
+    (d / 'tools').mkdir()
+    (d / 'tools/building-doc.py').write_text(BUILDING_DOC)
     sh(d, 'git', 'add', '-A')
     sh(d, 'git', 'commit', '-qm', 'base')
     return d
@@ -159,8 +177,12 @@ def main():
                   'docs/building.md keeps both rows')
             check(doc.count('| `check-four` |') == 1 and 'Prose after the table.' in doc and '<<<<<<<' not in doc,
                   'and every other line once')
-            log = sh(tree, 'git', 'log', '--format=%s', '-3')
-            check(log.splitlines()[0].startswith('Merge pull request #2'), 'each PR is a merge commit of its own')
+            names = re.findall(r'^\| `([\w-]+)`', doc, re.M)
+            check(names == sorted(names), f'and the rows in the names\' order after the merges ({names})')
+            log = sh(tree, 'git', 'log', '--format=%s', '-3').splitlines()
+            check(log[0].startswith('Write the generated files again') and log[1].startswith('Merge pull request #2')
+                  and log[2].startswith('Merge pull request #1'),
+                  f'each PR a merge commit of its own, the table written again in one after them ({log})')
 
             # GitHub's half of --merge: main with alpha merged, then beta
             sh(d, 'git', 'checkout', '-q', 'main')

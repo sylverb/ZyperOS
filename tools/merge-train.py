@@ -95,6 +95,12 @@ GENERATED = {
 # (join_makefile, join_rows), never chosen between
 LISTS = ("Makefile", "docs/building.md")
 
+# Written after the merges, not to settle a conflict: a part of a file, whose
+# other parts are a hand's. docs/building.md's table of checks, once each
+# check has its own file in mk/checks (tools/building-doc.py), joined rows
+# put back in the names' order
+AFTER = [(("python3", "tools/building-doc.py", "--write"), ("docs/building.md",))]
+
 SLOTS = [Path("/tmp/zyperos-check-1"), Path("/tmp/zyperos-check-2")]
 IMAGE = "zyperos-ubuntu-ci"
 if sys.platform == "darwin":
@@ -329,8 +335,8 @@ def integrate(tree, prs, refs):
         print("merge train: #%d %s: %s" % (n, pr["title"], said), flush=True)
         notes.append("#%d %s (head %s): %s" % (n, pr["title"], pr["headRefOid"][:12], said))
         after.append(git("rev-parse", "HEAD", cwd=tree).stdout.strip())
-    regenerate(tree, list(GENERATED))
-    outs = [o for outs in GENERATED.values() for o in outs
+    regenerate(tree, list(GENERATED) + [gen for gen, _ in AFTER])
+    outs = [o for outs in list(GENERATED.values()) + [outs for _, outs in AFTER] for o in outs
             if (tree / o).exists() and not ignored(tree, o.rstrip("/"))]
     git("add", "-A", "--", *outs, cwd=tree)
     if git("diff", "--cached", "--quiet", cwd=tree, check=False).returncode:
