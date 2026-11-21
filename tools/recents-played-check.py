@@ -272,7 +272,10 @@ def note(flags):
 
 def back(note_fields, flags, secs):
     """The note as the launcher wrote it, its monotonic start `secs` earlier:
-    a session of that length once it is closed"""
+    a session of that length once it is closed. On a computer up for less
+    than that (a CI runner) the start is before the clock's zero, a negative
+    number, which the launcher takes as it takes any: the seconds are the
+    difference"""
     start, key, mono, tag, file = note_fields
     (flags / 'zyperos_port_played').write_text(f'{start}\t{key}\t{int(mono) - secs * 1000}\t{tag}\t{file}\n')
 

@@ -460,6 +460,10 @@ static void a_program_of_its_own(void)
 	f = fopen(NOTE, "w");
 	if (f) { fprintf(f, "%ld\t5\t5\tPICO8\t\n", now); fclose(f); }
 	ck(!stats_handed_back(NOTE, 6000) && rows() == 0, "a note with no file: nothing written");
+	f = fopen(NOTE, "w");
+	if (f) { fprintf(f, "%ld\t7\t-5000\tPICO8\tceleste.p8\n", now); fclose(f); }
+	ck(stats_handed_back(NOTE, 1000) && rows() == 1 && !strcmp(only_value(), "6\tquit"),
+	   "a start before the clock's zero (a check's, on a computer just started): the difference");
 	scrub();
 }
 

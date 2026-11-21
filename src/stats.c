@@ -199,7 +199,11 @@ bool stats_handed_back(const char *note, long long mono_ms)
 	start = strtol(line, NULL, 10);
 	kn = strtoul(t1 + 1, NULL, 10);
 	t0 = strtoll(t2 + 1, NULL, 10);
-	if (start <= 0 || t0 < 0) return false;
+	/* The clock is not held to be past zero: a launcher writes it at or
+	 * after boot, and a check that puts the start an hour back on a computer
+	 * up for minutes (CI's Linux runners, 2026-11-21) puts it before boot.
+	 * The seconds are only ever the difference */
+	if (start <= 0) return false;
 	snprintf(tag, sizeof tag, "%.*s", (int)(t4 - t3 - 1), t3 + 1);
 	/* A clock that went back is a boot between the two, which /tmp does
 	 * not outlive: nothing honest to claim, so nothing is */
