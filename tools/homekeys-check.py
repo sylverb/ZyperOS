@@ -56,13 +56,14 @@ def ask(sock, line, timeout=10):
 
 
 def tap(sock, key):
-    """A press held until the launcher has drawn two frames with it down, so
-    a busy computer's slow pass cannot miss it, then let go: check-videoview's
-    way since 2026-11-20, when a tap timed in milliseconds was lost with five
-    make checks at once"""
-    ask(sock, f'press {key}')
-    ask(sock, 'wait-frames 2', timeout=30)
-    ask(sock, f'release {key}')
+    """One press and no repeat, however slowly the launcher draws: desk
+    mode's own tap (src/device/desk.c), down at once and let go by a timer's
+    event 40 ms on. The let-go is read at a poll after the one that read the
+    press, so the pass that read it sees the key down; and it comes long
+    before the repeat's 300 ms (src/keyrepeat.h), so no pass sees it held
+    that long. A press held instead for two drawn frames repeated on a slow
+    runner (2026-11-21, CI: a tap of Down two groups on, Right three games)"""
+    ask(sock, f'tap {key} 40')
 
 
 def until(get, ok, secs=5.0):
@@ -132,7 +133,8 @@ def hold(sock, button, done, limit=10.0, on_frames=12, on_ms=700):
 
 
 def settle(sock):
-    ask(sock, 'wait-frames 6')
+    # A slow runner draws 6 frames in more than the socket's usual 10 s
+    ask(sock, 'wait-frames 6', timeout=60)
     time.sleep(0.1)
 
 

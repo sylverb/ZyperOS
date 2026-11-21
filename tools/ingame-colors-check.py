@@ -181,11 +181,11 @@ def walk(binary, desk, tmp, card, device):
                 return logp
 
             def tap(key):
-                # Held until two frames are drawn with it down, so a busy
-                # computer's slow pass cannot miss it (check-videoview's way)
-                ask(sock, f'press {key}')
-                ask(sock, 'wait-frames 2', timeout=30)
-                ask(sock, f'release {key}')
+                # Desk mode's own tap: one press, let go 40 ms on at a later
+                # poll, so it is seen and never repeats (a press held for
+                # frames repeated on a slow runner, 2026-11-21); the frames
+                # after it waited for as long as a slow runner takes
+                ask(sock, f'tap {key} 40')
                 ask(sock, 'wait-frames 8', timeout=30)
 
             def until(ok, secs=5.0):
@@ -195,7 +195,7 @@ def walk(binary, desk, tmp, card, device):
                     time.sleep(0.1)
                 return ok()
 
-            ask(sock, 'wait-frames 8')
+            ask(sock, 'wait-frames 8', timeout=30)
             tap('r1')
             if not table:
                 check(not drawn(logp, 'Screen Colors'), f'{name}: no table, no Screen Colors row on the Display tab')
