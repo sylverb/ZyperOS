@@ -102,7 +102,15 @@ static GLuint link_program(const char *fragment)
  * 90 degrees counter-clockwise, which on this panel ("Left Side Up") is the
  * right way up - checked by eye 2026-10-01 with a marker drawn top-left.
  * Landscape (x, y) lands on portrait (y, W - x). For a capture the target is
- * the surface itself and nothing turns. */
+ * the surface itself and nothing turns.
+ *
+ * Clip y 1 is the picture's top, which GL puts in the target's last row: the
+ * top of a window surface, the row its display shows first (the Pixel 2's).
+ * A port whose target's first row is the panel's top defines
+ * PRESENT_TOP_DOWN (the Brick's pages of fb0: its display reads a page from
+ * the first byte, which GL, drawing into the page as a texture, holds at
+ * y 0), and there y goes the other way. Without it the whole picture came
+ * out upside down on the Brick (issue #419). */
 static void to_clip(float x, float y, bool turned, float *out)
 {
 	if (turned) {
@@ -113,6 +121,9 @@ static void to_clip(float x, float y, bool turned, float *out)
 		out[0] = x / (float)g_surface_w * 2.0f - 1.0f;
 		out[1] = 1.0f - y / (float)g_surface_h * 2.0f;
 	}
+#ifdef PRESENT_TOP_DOWN
+	out[1] = -out[1];
+#endif
 }
 
 /* One textured or solid quad. `src` is in texels, matching the rect's corners:
