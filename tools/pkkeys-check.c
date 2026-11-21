@@ -26,6 +26,7 @@
 #include "../src/device/pixel2_levels.h"
 #include "../src/eqdsp.h"
 #include "../src/keyrepeat.h"
+#include "pkfeel.h"
 #include "pkhot.h"
 #include "pkkbd.h"
 #include "pkkeys.h"
@@ -33,6 +34,7 @@
 #include "pkvpad.h"
 #include "../src/p8draw.h"
 #include "../src/rumble.h"
+#include "../src/uisound.h"
 
 #include <zlib.h>
 
@@ -1274,6 +1276,86 @@ static void the_boost_buzz(void)
 	   "buzz: the strength at every share as plat_rumble_buzz scales it; first apart at %d%%", pct);
 }
 
+/* ---- a screenshot's feel over your PICO-8 (tools/pkfeel.h) --------------------
+ *
+ * What a shot asks of the motor and the shutter, from the launcher's own
+ * words as it writes them (src/db.c): the buzz at MENU > Sound > Rumble's
+ * share, none at Off; the shutter in the voice MENU > UI Sounds has, none at
+ * Off, Wood on a card that never chose; on the system's mix, the DAC's with
+ * one in, as the launcher's own sounds go; on the sides Audio Channels gives
+ * them where they play, a side on the speaker being plain mono. */
+static void the_screenshot_feel(void)
+{
+	static const char *const rumbles[] = { NULL, "off", "low", "medium", "full", "louder" };
+	static const char *const sounds[] = { NULL, "wood", "glass", "bubble", "off", "chime" };
+	static const char *const channels[] = { NULL, "stereo", "mono", "left", "right", "auto" };
+	unsigned a, b, c;
+	int place;
+
+	for (a = 0; a < sizeof rumbles / sizeof rumbles[0]; a++)
+		for (b = 0; b < sizeof sounds / sizeof sounds[0]; b++)
+			for (c = 0; c < sizeof channels / sizeof channels[0]; c++)
+				for (place = 0; place < 3; place++) {
+					const bool dac = place == 2, wired = place == 1;
+					const int want_pct = rumble_level_pct(rumble_level_parse(rumbles[a], RUMBLE_DEFAULT));
+					const int setting = uisound_setting_parse(sounds[b]);
+					const int want_voice = setting < DS_VOICES ? setting : -1;
+					const aout_state st = { AOUT_AUTO, wired, dac, NULL };
+					bool wl, wr;
+					sqlite3 *q = NULL;
+					pk_feel f;
+					scratch sc;
+					db *d;
+
+					if (!scratch_make(&sc, -1, -1, -1, -1) || !(d = db_open(sc.db, DB_DEVICE))) {
+						ck(0, "feel: a scratch database");
+						return;
+					}
+					if (rumbles[a]) db_set_str(d, "rumble", rumbles[a]);
+					if (sounds[b]) db_set_str(d, "uisounds", sounds[b]);
+					if (channels[c]) db_set_str(d, "channels", channels[c]);
+					db_close(d);
+					sqlite3_open_v2(sc.db, &q, SQLITE_OPEN_READONLY, NULL);
+					pk_shot_feel(q, dac, wired, &f);
+					uisound_sides(aout_channels_parse(channels[c] ? channels[c] : "auto"), aout_resolve(&st),
+					              &wl, &wr);
+					ck(f.buzz_pct == want_pct,
+					   "feel: Rumble %s, the shot's buzz at %d%%, as the launcher reads it; got %d%%",
+					   rumbles[a] ? rumbles[a] : "(none)", want_pct, f.buzz_pct);
+					ck(f.voice == want_voice,
+					   "feel: UI Sounds %s, the shutter in voice %d (-1 none); got %d",
+					   sounds[b] ? sounds[b] : "(none)", want_voice, f.voice);
+					ck(f.device && !strcmp(f.device, uisound_device(&st)),
+					   "feel: %s, the shutter on %s, as the launcher's own sounds; got %s",
+					   dac ? "a DAC in" : wired ? "headphones" : "the speaker", uisound_device(&st),
+					   f.device ? f.device : "(none)");
+					ck(f.left == wl && f.right == wr,
+					   "feel: Audio Channels %s on %s, sides %d %d; got %d %d",
+					   channels[c] ? channels[c] : "(none)", dac ? "a DAC" : wired ? "headphones" : "the speaker",
+					   wl, wr, f.left, f.right);
+					sqlite3_close(q);
+					scratch_drop(&sc);
+				}
+	/* The cases a player meets, said plainly */
+	{
+		const aout_state spk = { AOUT_AUTO, false, false, NULL }, hp = { AOUT_AUTO, true, false, NULL };
+		bool l, r;
+
+		uisound_sides(AOUT_MONO_LEFT, aout_resolve(&hp), &l, &r);
+		ck(l && !r, "feel: Mono Left on headphones, the shutter in the left ear alone");
+		uisound_sides(AOUT_MONO_LEFT, aout_resolve(&spk), &l, &r);
+		ck(l && r, "feel: Mono Left on the speaker, the shutter whole (a side on the speaker is mono)");
+	}
+	{
+		pk_feel f;
+
+		pk_shot_feel(NULL, false, false, &f);
+		ck(f.buzz_pct == rumble_level_pct(RUMBLE_DEFAULT) && f.voice == DS_VOICE_DEFAULT &&
+		   !strcmp(f.device, "default") && f.left && f.right,
+		   "feel: with no database, the launcher's defaults: a full buzz and Wood's shutter, both sides");
+	}
+}
+
 /* ---- whose display may be borrowed (pk_looks) ---------------------------------
  *
  * A display file is copied only once settled: seen open by the same process
@@ -1763,6 +1845,7 @@ int main(void)
 	the_boost_bright();
 	the_boost_closing();
 	the_boost_buzz();
+	the_screenshot_feel();
 	the_kept_boost_at_start();
 	the_display_looks();
 	the_hotkeys();

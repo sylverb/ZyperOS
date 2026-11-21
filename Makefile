@@ -10,7 +10,7 @@
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-shotfeel check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitwalk \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release check-site-devices
@@ -50,7 +50,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-mp4lib check-mp4queue check-mp4art check-mp4lock check-mp4look check-mp4views check-mp4resume check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
-         check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
+         check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-shotfeel check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-gpu-upright check-pmhelper check-portlibs check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
@@ -728,12 +728,13 @@ build-native/pkkeys-check: tools/pkkeys-check.c tools/pkkeys.c tools/pkkeys.h sr
                            tools/pkkbd.c tools/pkkbd.h tools/pkshot.c tools/pkshot.h src/p8draw.c src/p8draw.h \
                            tools/pkvpad.c tools/pkvpad.h \
                            src/dmodefit.c src/dmodefit.h src/rumble.c src/rumble.h \
+                           tools/pkfeel.c tools/pkfeel.h src/uisound.c src/uisound.h \
                            src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -Idiatom/src -Idiatom/include \
 	      -o $@ tools/pkkeys-check.c tools/pkkeys.c tools/pkhot.c diatom/src/chord.c tools/pkkbd.c \
 	      tools/pkshot.c tools/pkvpad.c src/p8draw.c src/dmodefit.c src/audioout.c src/rumble.c src/db.c \
-	      src/atomic.c $(I18N_SRC) -lsqlite3 -lz -lm
+	      tools/pkfeel.c src/uisound.c src/atomic.c $(I18N_SRC) -lsqlite3 -lz -lm
 
 # Which theme is on: MENU > Appearance's three settings, Auto's seven to seven
 # by the handheld's clock and the minute it may be late by, and the file the
@@ -1774,6 +1775,17 @@ check-sounds:
 sounds:
 	python3 -B tools/gensounds.py
 
+# A screenshot felt and heard as it is taken (DESIGN.md 9 and 11.61): over
+# your PICO-8, portkeys's shutter player on alsa-lib into stand-ins that write
+# down what reaches them, PICO-8's own stream beside it (Linux; skipped
+# elsewhere); in a Diatom game, diatom/test/shotfeel.py against the stub core:
+# one buzz a shot at the Rumble level and none at Off, HOTKEY key=shot as it
+# is taken and before its file, the file the frame pixel for pixel, the game's
+# sound as it was (when diatom/build/desktop is there: check-diatom builds it
+# and runs the same test). tools/shotfeel-check.sh says which part is which.
+check-shotfeel:
+	@CC="$(CC)" sh tools/shotfeel-check.sh
+
 # Python with Pillow, for the Plain Jane cards and their check. The first
 # python3 on the PATH may have none (Homebrew's does not), so this is the first
 # of it and pyenv's whose Pillow has Raqm (libraqm), for text image generation
@@ -2058,7 +2070,8 @@ check-device-compile:
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
 	echo "  portkeys: tools/portkeys.c, the Pixel 2's keys, bar and motor over a port, whole"; \
-	$(CC) $$F -Isrc -Idiatom/src -Idiatom/include tools/portkeys.c tools/pkkeys.c; \
+	$(CC) $$F -Isrc -Idiatom/src -Idiatom/include tools/portkeys.c tools/pkkeys.c tools/pkfeel.c \
+		tools/pkshutter.c src/pcm_out.c; \
 	echo "ok: every device file compiles"
 
 # The handhelds' models (src/device/td_model.h): every key once, the GKD
