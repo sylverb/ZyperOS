@@ -572,3 +572,6 @@ downloads.for_on_n.one
 downloads.for_on_n.other
 downloads.names_requests.one
 downloads.n_games.one
+
+# lights: drawn only with every part on
+lights.all_on  # MENU > Side Lights reads All on only when every part is on (#443); a new card reads "5 on", and the host shots cannot set the device's /mnt/SDCARD side-lights file

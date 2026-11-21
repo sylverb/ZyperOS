@@ -3352,9 +3352,9 @@ battery level over all of it, four times in 2 s, in every setting.
 on", "3 on", "Off"); A opens its page ("A page of switches"): Charging Bar,
 Low Battery, Battery Level, Volume and Brightness, Files and Covers,
 Achievements, each On or Off, stepped by Left, Right or A and heard as a
-ring. All on counts every part a new card has on, so a card that kept the
-default still reads All on with Battery Level off; once another part is
-off, Battery Level counts like the rest. Every change is
+ring. All on means every part, Battery Level too, so a card that kept the
+default (Battery Level off) reads "5 on" *(my ask, 2026-11-21: "on the led
+settings Battery level was off and it said all on")*. Every change is
 written to the card at once and the gauge reads it again, so the lights
 follow the row. The row under the cursor plays its part on the lights in a
 loop, On or Off, for as long as the cursor stays on it (my ask, 2026-11-13):

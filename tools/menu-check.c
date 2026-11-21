@@ -3672,13 +3672,13 @@ static void lights_row(void)
 	   !strcmp(side_lights_value(0, buf, sizeof buf), "Off") &&
 	   !strcmp(side_lights_value((1u << LP_BAR) | (1u << LP_CHEER), buf, sizeof buf), "2 on"),
 	   "the row's words");
-	ck(!strcmp(side_lights_value(LIGHTS_DEFAULT, buf, sizeof buf), "All on"),
-	   "a new card still reads All on, Battery Level off to start");
+	ck(!strcmp(side_lights_value(LIGHTS_DEFAULT, buf, sizeof buf), "5 on"),
+	   "a new card, Battery Level off to start, reads 5 on, not All on");
 	ck(!strcmp(side_lights_value(1u << LP_BATTERY, buf, sizeof buf), "1 on") &&
 	   !strcmp(side_lights_value((1u << LP_BAR) | (1u << LP_CHEER) | (1u << LP_BATTERY), buf, sizeof buf), "3 on") &&
 	   !strcmp(side_lights_value(LIGHTS_DEFAULT & ~(1u << LP_DONE), buf, sizeof buf), "4 on") &&
 	   !strcmp(side_lights_value(LIGHTS_ALL & ~(1u << LP_DONE), buf, sizeof buf), "5 on"),
-	   "Battery Level counts once another part is off");
+	   "Battery Level counts like every other part");
 }
 
 /* How each row sounds (DESIGN.md 9): the class each build sets beside its
