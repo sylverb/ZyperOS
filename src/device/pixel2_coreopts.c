@@ -68,13 +68,18 @@ const dev_default dev_coreopts_pixel2[] = {
 	 * skipped, no anisotropic filtering (the core's default is 16x, and the
 	 * Mali-G31 has little bandwidth to spare) and no texture scaling. Each
 	 * key and value as libretro/libretro_core_options.h has them at the pin.
-	 * Every frame is drawn: frameskip and auto frameskip off, the core's own
+	 * PPSSPP's own frameskip and auto frameskip off, the core's own
 	 * defaults. With Knulli's auto frameskip of up to 2 in a row, LocoRoco
 	 * drew one frame in three on the Pixel 2 (20 a second, each Diatom turn
 	 * three PSP frames) while PPSSPP's emulation thread was 29% busy: it
 	 * was not behind, and Diatom paces each turn by its sound (1.0.5's
 	 * paced_by_sound), so a skipped frame only makes the next turn longer
-	 * (2026-11-13). */
+	 * (2026-11-13). TwigUI's auto frameskip of up to 2 did the same to
+	 * Daxter, which keeps up (30 pictures a second down to 21, 2026-11-20).
+	 * A late frame is left undrawn by Diatom's word instead: the core's
+	 * ppsspp_frontend_frameskip (auto, its default) on the PSP's
+	 * frameskip|PSP|late in config/systems.cfg, which marks only a frame
+	 * that really is late. */
 	{ "coreopt.PSP.ppsspp_backend",                       "opengl" },
 	{ "coreopt.PSP.ppsspp_cpu_core",                      "JIT" },
 	{ "coreopt.PSP.ppsspp_fast_memory",                   "enabled" },

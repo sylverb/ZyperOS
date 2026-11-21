@@ -156,6 +156,7 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") || !strcmp(fld[0], "pace") ||
 		               !strcmp(fld[0], "controller") || !strcmp(fld[0], "stick") ||
 		               !strcmp(fld[0], "rumble") || !strcmp(fld[0], "needs") ||
+		               !strcmp(fld[0], "frameskip") ||
 	               !strcmp(fld[0], "bios") || !strcmp(fld[0], "es"))) {
 			if (nextra < (int)(sizeof extra / sizeof extra[0])) {
 				snprintf(extra[nextra].kind, sizeof extra[0].kind, "%s", fld[0]);
@@ -212,6 +213,9 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 				/* only what the launcher knows to ask the device */
 				if (!strcmp(extra[i].value, "gpu-frames")) s->needs_gpu_frames = true;
 			}
+			else if (!strcmp(extra[i].kind, "frameskip")) {
+				if (!strcmp(extra[i].value, "late")) s->late_skip = true;
+			}
 			else if (!strcmp(extra[i].kind, "rumble")) {
 				int pct = atoi(extra[i].value);
 
@@ -252,6 +256,7 @@ void cfg_run_keys_at(const system_cfg *s, bool dual, const char *pace, int rumbl
 
 	out[0] = '\0';
 	if (dual) n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=late");
+	else if (s->late_skip) n += snprintf(out + n, (size_t)(cap - n), "frameskip=late");
 	if (s->power[0] && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%spower=%s", n ? "\t" : "", s->power);
 	if (s->controller && n < cap)

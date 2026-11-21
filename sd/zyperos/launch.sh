@@ -35,7 +35,9 @@ SDCARD=/mnt/SDCARD
 #                    started for (plastron's lastoff, the power-off's last step)
 #
 # EQ_SLAVE, the dmix a port mixes into, for the equalizer over a port's
-# sound (eq-port.sh): unset, a port plays as it always did.
+# sound (eq-port.sh): unset, a port plays as it always did. EQ_SLAVE_USB,
+# the PCM in /etc/asound.conf your PICO-8 plays into instead while a USB-C
+# DAC is in (run_port): unset, the DAC is not followed.
 #
 # BACKLIGHT, the system's tool that lights the panel at each start of the
 # launcher, where the launcher does not light it itself; WIFI_DOWN, what the
@@ -448,6 +450,12 @@ port_still() {
 		still=$!
 	fi
 }
+# The port's ALSA config (eq-port.sh): its PCMs into $1, and the hook file
+# $2 for its ALSA_CONFIG_PATH that loads them
+port_chain() {
+	sh "$ZYPEROS_DIR/eq-port.sh" "$1" > /tmp/zyperos_port_eq.conf &&
+		sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$2"
+}
 run_port() {
 	local pid i rc
 	# Only a pid that is still a Diatom's: the file names the one that
@@ -577,13 +585,36 @@ run_port() {
 	# nowhere in its chain. Two files:
 	# its PCMs, and the one in its ALSA_CONFIG_PATH that loads them after
 	# /etc/asound.conf, whose default would replace them (eq-port.sh)
-	local eqcfg=
+	# A USB-C DAC in (card 1 with a USB id, as the launcher tells one,
+	# plat_usb_audio_present): your PICO-8's sound into it, as Diatom's and
+	# MP4's go, a cable winning in every Audio Output policy (src/audioout.c);
+	# through the system's own chain for it (EQ_SLAVE_USB, device.sh's), so
+	# its volume is "USB Playback Volume", which portkeys writes with every
+	# step. That chain has a softvol stage, and rc.4 showed PICO-8 failing to
+	# open one where 44100 Hz stereo opened it: so it is opened first as
+	# PICO-8 opens it (zyperos.elf --alsa-try, src/alsatry.h), and PICO-8
+	# stays in the mix, as before, when it does not open, or when
+	# /etc/asound.conf has no such PCM. Your PICO-8 alone: what other ports
+	# ask of ALSA is not known, so they stay in the mix. Chosen as it
+	# starts: a DAC plugged in or out while it plays is heard at the next
+	# start. A Bluetooth headset stays MP4's, as bluealsa gives a headset to
+	# one program at a time
+	local eqcfg= into=${EQ_SLAVE:-}
+	if [ "$5" = mp4 ] && [ -n "${EQ_SLAVE_USB:-}" ] && [ -e /proc/asound/card1/usbid ] &&
+	   grep -q "^pcm\.$EQ_SLAVE_USB[ {]" /etc/asound.conf 2> /dev/null; then
+		into=$EQ_SLAVE_USB
+	fi
 	if [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
 	   sh "$ZYPEROS_DIR/eq-port.sh" --on; then
 		eqcfg=/tmp/zyperos_port_eq.hook
-		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > /tmp/zyperos_port_eq.conf &&
-		   sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$eqcfg"; then
-			echo "port: the equalizer over its sound (into $EQ_SLAVE)" >> "$LOG"
+		if [ "$into" != "$EQ_SLAVE" ] && ! { port_chain "$into" "$eqcfg" &&
+		     ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg \
+		       "$ZYPEROS_DIR/zyperos.elf" --alsa-try >> "$LOG" 2>&1; }; then
+			echo "port: its sound would not open into $into as PICO-8 opens it; into $EQ_SLAVE, as before" >> "$LOG"
+			into=$EQ_SLAVE
+		fi
+		if port_chain "$into" "$eqcfg"; then
+			echo "port: the equalizer over its sound (into $into)" >> "$LOG"
 		else
 			eqcfg=
 		fi

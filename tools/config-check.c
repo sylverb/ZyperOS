@@ -257,6 +257,8 @@ int main(void)
 	      "needs|NAM|gpu-frames\n"
 	      "needs|LOW|teleporter\n"
 	      "needs|NOPE|gpu-frames\n"
+	      "frameskip|WRD|late\n"
+	      "frameskip|BLK|always\n"
 	      "es|NAM|famicom, fds\n"
 	      "sys|Two|two|run:Emulators/Two/Two.sh,core|TWO|T.png|C4443A|gb\n"
 	      "brings|TWO|run:Emulators/Two/Two.sh|Bios/Two/a,Bios/Two/b\n"
@@ -359,6 +361,20 @@ int main(void)
 		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone, frameskip=late");
 		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "and one screen sends no frameskip at all");
+
+		/* frameskip|tag|late: the late skip without two screens (the PSP's) */
+		s = find(&c, "Word");
+		ck(s && s->late_skip, "frameskip|tag|late gives the system the late skip");
+		s = find(&c, "Black");
+		ck(s && !s->late_skip, "a word that is not late is no line");
+		s = find(&c, "Named");
+		ck(s && !s->late_skip, "nor has a system with no frameskip line it");
+		cfg_run_keys(find(&c, "Word"), false, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "frameskip=late"), "frameskip=late, with one screen");
+		cfg_run_keys(find(&c, "Word"), true, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "screens=2\tframeskip=late"), "and two screens send it once, after screens=2");
+		cfg_run_keys(find(&c, "Lower"), false, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "controller=517\tpace=smooth"), "a system without the line sends none");
 	}
 
 	printf("EmulationStation's folder names:\n");
@@ -426,6 +442,22 @@ int main(void)
 				}
 			ck(!strcmp(gpu, "AW DC NAOMI N64 PSP SATURN "),
 			   "GPU frames for the Atomiswave, Dreamcast, NAOMI, N64, PSP and Saturn, no other");
+		}
+		{
+			char late[128] = "", keys[96];
+
+			/* The late skip by a line: the PSP's (its core leaves a late
+			 * frame's drawing out, mk/patches/ppsspp-frontend-frameskip.patch);
+			 * the DS has it with its two screens, without one */
+			for (i = 0; i < c.count; i++)
+				if (c.systems[i].late_skip) {
+					strcat(late, c.systems[i].tag);
+					strcat(late, " ");
+				}
+			ck(!strcmp(late, "PSP "), "frameskip=late by a line for the PSP, no other");
+			for (i = 0; i < c.count && strcmp(c.systems[i].tag, "PSP"); i++) {}
+			if (i < c.count) cfg_run_keys(&c.systems[i], false, NULL, keys, (int)sizeof keys);
+			ck(i < c.count && !strncmp(keys, "frameskip=late", 14), "and a PSP game's RUN sends frameskip=late");
 		}
 		/* Your PICO-8: the player's files, never shipped, for the core
 		 * listed first, with fake08 after it for every other card */

@@ -64,6 +64,10 @@ CONF
 	run $W/out.wav flat
 	printf "ZEQ1\004\000\000\000\376\000\003\003\000\000\000\000" > $W/eq
 	run $W/out.wav voice
+	# Flat with the cut set (eqdsp.h, byte 14): your PICO-8 quiet while MP4
+	# plays, through the same chain, nothing added to it
+	printf "ZEQ1\006\000\000\000\000\000\000\000\000\000\001\000" > $W/eq
+	run $W/out.wav cut
 	echo "eqplugin-alsa: the port config:"; sed "s/^/  /" $W/port.hook $W/port.conf
 	# And the chain opened as SDL opens it at every rate a program asks,
 	# over a stand-in for the dmix, on the same alsa-lib (tools/eqchain-check.sh)

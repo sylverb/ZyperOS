@@ -115,6 +115,7 @@
 #include "mp4lock.h"
 #include "mp4resume.h"   /* MP4 back after a power-off (DESIGN.md 11.67) */
 #include "mp4hand.h"     /* MP4 handed over a program of its own (DESIGN.md 11.55) */
+#include "alsatry.h"     /* --alsa-try: a port's ALSA chain opened as PICO-8 opens it */
 #include "topbar.h"
 #include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
@@ -168,6 +169,7 @@
 #include "charging.h"
 #include "app.h"
 #include "aout_route.h"
+#include "eq.h"         /* eq_share_cut: your PICO-8 quiet while MP4 plays */
 #include "bt_screen.h"
 #include "panel.h"
 #include "place.h"
@@ -1879,6 +1881,44 @@ bool mp4_hand_save(void)
 	        h.n ? h.pos + 1 : 0);
 	mp4hand_free(&h);
 	return ok;
+}
+
+/* YOUR PICO-8 QUIET WHILE MP4 PLAYS, as a Diatom game is (QUIET, DESIGN.md
+ * 11.55): the equalizer's shared file's cut (eq_share_cut), which the
+ * plugin already in every port's ALSA chain plays silence for, faded; no
+ * stage of its own in the chain, which stays the one every port has. Said
+ * by MP4's follower beside PICO-8 and by the in-game menu over it; 0 again
+ * from the launcher as it starts and as it hands over (port_quiet_hand). */
+static int g_port_quiet_said = -1;
+
+/* Said when MP4's playing changes, or at once with `force`: by the follower
+ * ten times a second, as the launcher says QUIET over a game, and by the
+ * in-game menu over PICO-8 as it closes, before PICO-8 goes on */
+static void port_quiet_follow(bool force)
+{
+	int q = mp4c_playing() ? 1 : 0;
+
+	if (!force && q == g_port_quiet_said) return;
+	if (!eq_share_cut(q)) {
+		if (g_port_quiet_said != -2) fprintf(stderr, "quiet: no equalizer's file; PICO-8 heard\n");
+		g_port_quiet_said = -2;
+		return;
+	}
+	g_port_quiet_said = q;
+	fprintf(stderr, "quiet: PICO-8 %s\n", q ? "quiet, MP4 plays" : "heard");
+}
+
+/* As the launcher hands over to a program (launch_port) and as it starts:
+ * your PICO-8 quiet from its first sound when MP4 plays (`pico8`), any other
+ * program never, MP4 being stopped for it */
+void port_quiet_hand(bool pico8)
+{
+	if (!pico8) {
+		eq_share_cut(false);
+		return;
+	}
+	g_port_quiet_said = -1;
+	port_quiet_follow(true);
 }
 
 /* ...and taken on: the queue the file holds made this process's, where the
@@ -6044,6 +6084,7 @@ static int mp4_follow_main(void)
 	taken = hand_bytes(hand, &taken_n);
 	mp4_hand_take();
 	fprintf(stderr, "mp4 follow: beside the program%s\n", taken ? "" : ", with no queue handed over");
+	port_quiet_follow(true);
 	while (!want_quit) {
 		struct timespec nap = { 0, 100 * 1000000L };
 		bool look = g_follow_cont;
@@ -6066,14 +6107,19 @@ static int mp4_follow_main(void)
 				taken_n = n;
 				fprintf(stderr, "mp4 follow: the queue again, from the in-game menu\n");
 				mp4_hand_take();
+				port_quiet_follow(true);
 			} else {
 				free(now);
 			}
 		}
 		mp4_poll();
+		/* PICO-8 quiet while MP4 plays, heard again at a pause or the end */
+		port_quiet_follow(false);
 		nanosleep(&nap, NULL);
 	}
 	free(taken);
+	/* PICO-8 has ended: no cut left for the next program */
+	eq_share_cut(false);
 	book_keep(true);
 	mp4_hand_save();
 	db_shutdown();
@@ -6235,6 +6281,9 @@ static int port_menu_main(int argc, char **argv)
 		book_keep(true);
 		mp4_hand_save();
 		texload_stop();
+		/* And PICO-8 quiet or heard for what MP4 does now, before it goes
+		 * on: Continue's QUIET over a Diatom game (gm_resume) */
+		port_quiet_follow(true);
 	}
 	/* The window closed, which puts back on the panel the frame SDL found
 	 * there - the port's - before the port has the display again */
@@ -6259,6 +6308,7 @@ int main(int argc, char *argv[])
 
 	if (argc > 1 && !strcmp(argv[1], PORT_MENU_ARG)) return port_menu_main(argc, argv);
 	if (argc > 1 && !strcmp(argv[1], MP4_FOLLOW_ARG)) return mp4_follow_main();
+	if (argc > 1 && !strcmp(argv[1], ALSA_TRY_ARG)) return alsa_try_main(argc, argv);
 
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--shot") && i + 1 < argc) {
@@ -8040,6 +8090,9 @@ int main(int argc, char *argv[])
 	/* Back from a program of its own that kept MP4 playing (your PICO-8):
 	 * its queue taken on, where the daemon is, and the file gone with it
 	 * (src/mp4hand.h). Whatever comes next, the music goes on. */
+	/* No cut left in the equalizer's file from a PICO-8 that ended under
+	 * MP4 (its follower killed before it could clear it) */
+	if (!shot_path) port_quiet_hand(false);
 	hand_back = !shot_path && access(plat_flag(MP4HAND_PATH), F_OK) == 0;
 	if (hand_back) {
 		mp4_hand_take();

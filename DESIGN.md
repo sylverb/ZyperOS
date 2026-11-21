@@ -5513,10 +5513,10 @@ when its change lands.
   **text-dim** (2.7:1). A frame that bright in that corner is rare; holding
   them would take a shape behind the corner, which the lab did not pick.
 - Five one-line message holds (900 to 2200 ms), where 11.8 has two.
-- Over your PICO-8, MP4 plays on (11.55), but PICO-8's own sound is not
-  quieted while it plays, as a Diatom game's is (QUIET): PICO-8 runs as a
-  program of its own, its sound through the port's ALSA chain
-  (sd/zyperos/eq-port.sh), which nothing in it can cut yet.
+- Your PICO-8's sound follows a USB-C DAC only from its start, and other
+  ports' not at all (11.55): plugged in or out while PICO-8 plays, it goes
+  on where it began, or loses its sound until it is started again. Diatom
+  and MP4 follow at once.
 
 ### 11.23 File Transfer while files move
 File Transfer is a session of its own, and its screen (the transfer panel,
@@ -6231,8 +6231,31 @@ gives PICO-8 its frame and its keys as before (portkeys empties what was
 pressed). portkeys stops the follower while the menu is up, so the menu's
 MP4 is the one that talks to the daemon then, and the follower goes on from
 the queue the menu leaves. Where MP4's sound goes (a headset, a DAC) stays
-where the launcher left it until the menu opens MP4. PICO-8's own sound is
-not quieted while MP4 plays (section 14).
+where the launcher left it until the menu opens MP4.
+
+**Quiet while MP4 plays**, as a Diatom game is (QUIET): the equalizer's
+plugin, already in every port's ALSA chain, plays silence while the shared
+file it reads (`/run/zyperos/eq`) says `cut`, faded in and out over 20 ms.
+MP4's follower sets and clears the cut as MP4 plays, pauses or runs out,
+within a tenth of a second; the in-game menu sets it as it closes when MP4
+was opened there, before PICO-8 goes on, as Continue says QUIET over a
+game; the launcher sets it as it hands over and clears it as it starts and
+for any other program. Nothing is added to PICO-8's chain for it: rc.4 put
+a softvol stage there and PICO-8 could not open its sound at its own
+period, so the chain stays the one every port has. A plugin
+from before (an older system image) reads no cut, and PICO-8 is heard.
+
+**A USB-C DAC** takes your PICO-8's sound while it is in, as it takes
+Diatom's and MP4's (a cable wins in every Audio Output policy): its chain
+goes into the system's own `usb` PCM, its volume the "USB Playback Volume"
+that portkeys writes. That PCM has a softvol stage, so launch.sh first opens
+the chain as PICO-8 opens it (`zyperos.elf --alsa-try`: SDL 2's calls for
+22050 Hz, 16-bit mono, 1024 frames a period) and leaves PICO-8 in the mix,
+as before, when that fails, or when the system's ALSA config has no `usb`
+PCM. Other ports stay in the mix: what they ask of ALSA is not known. It is
+chosen as PICO-8 starts; a DAC plugged in or out while it plays is heard at
+its next start. A Bluetooth headset stays MP4's: bluealsa gives a headset
+to one program at a time.
 
 **The picture** follows the shelf's **Display** row (launch.sh hands the
 row's name to the script), each mode where Diatom puts a 128 x 128 picture,

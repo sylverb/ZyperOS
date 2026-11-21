@@ -378,7 +378,16 @@ static inline void eq_run(eq_state *e, int16_t *buf, int frames)
  *
  * `gain` is the volume boost's, dB (eq_gain): the launcher writes it with
  * every change and portkeys while a port runs, the launcher being gone
- * then. A file from before the boost has 0 there, its padding. */
+ * then. A file from before the boost has 0 there, its padding.
+ *
+ * `cut` is your PICO-8's quiet while MP4 plays (DESIGN.md 11.55), as a
+ * Diatom game's QUIET: 1, and the port's plugin plays silence, faded over
+ * EQ_RAMP_MS; 0, its sound as before. One byte, stored and read whole, out
+ * of `seq`'s count: MP4's follower and the in-game menu over PICO-8 write it
+ * while portkeys writes the gain, and two writers of `seq` could leave it
+ * odd. The launcher sets it to 0 as it starts and as it hands over to any
+ * other program. A file from before has 0 there; a plugin from before reads
+ * none, and PICO-8 is heard, as before. */
 #define EQ_SHARE_PATH  "/run/zyperos/eq"
 #define EQ_SHARE_MAGIC 0x3151455aU    /* "ZEQ1" */
 
@@ -387,7 +396,8 @@ typedef struct {
 	uint32_t seq;
 	int8_t   db[EQ_BANDS];
 	int8_t   gain;
-	uint8_t  pad[2];
+	uint8_t  cut;
+	uint8_t  pad;
 } eq_share;
 
 /* `s`'s bands into `db` and its gain into `*gain` (when not NULL), as a
@@ -425,6 +435,71 @@ static inline void eq_share_put(volatile eq_share *s, const int8_t *db, int gain
 		for (b = 0; b < EQ_BANDS; b++) s->db[b] = db[b];
 	if (gain >= 0) s->gain = (int8_t)(gain > EQ_GAIN_MAX ? EQ_GAIN_MAX : gain);
 	__atomic_store_n(&s->seq, s->seq + 1, __ATOMIC_RELEASE);
+}
+
+/* The cut, as a reader takes it, and written: one byte, whole (see above) */
+static inline int eq_share_cut_get(const volatile eq_share *s)
+{
+	return s && s->magic == EQ_SHARE_MAGIC && __atomic_load_n(&s->cut, __ATOMIC_ACQUIRE) == 1;
+}
+
+static inline void eq_share_cut_put(volatile eq_share *s, int cut)
+{
+	__atomic_store_n(&s->cut, (uint8_t)(cut ? 1 : 0), __ATOMIC_RELEASE);
+}
+
+/* ---- the cut, faded: a port's plugin playing silence while MP4 plays ---- */
+
+/* 1 heard, 0 silence, moving over EQ_RAMP_MS a frame at a time, so a cut is
+ * no click */
+typedef struct {
+	float now, want, step;
+	int   left;              /* frames left in the move, 0 at rest */
+	int   frames;            /* a move's frames, at the stream's rate */
+} eq_fade;
+
+static inline void eq_fade_init(eq_fade *f, int rate)
+{
+	f->now = f->want = 1.0f;
+	f->step = 0.0f;
+	f->left = 0;
+	f->frames = (rate > 0 ? rate : 48000) / 1000 * EQ_RAMP_MS;
+	if (f->frames < 1) f->frames = 1;
+}
+
+/* Cut (silence) or not, faded to; at once with `jump`, for a stream that is
+ * starting */
+static inline void eq_fade_cut(eq_fade *f, int cut, int jump)
+{
+	const float want = cut ? 0.0f : 1.0f;
+
+	if (jump) {
+		f->now = f->want = want;
+		f->left = 0;
+		return;
+	}
+	if (want == f->want) return;
+	f->want = want;
+	f->step = (want - f->now) / (float)f->frames;
+	f->left = f->frames;
+}
+
+/* Whether it does anything: a move, or silence */
+static inline int eq_fade_active(const eq_fade *f)
+{
+	return f->left > 0 || f->now != 1.0f;
+}
+
+/* Two channels of `n` frames, each its own buffer, in place */
+static inline void eq_fade_run(eq_fade *f, float *l, float *r, int n)
+{
+	int i;
+
+	for (i = 0; i < n; i++) {
+		if (f->left > 0) f->now = --f->left ? f->now + f->step : f->want;
+		l[i] *= f->now;
+		r[i] *= f->now;
+	}
 }
 
 #endif

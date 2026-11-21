@@ -369,6 +369,10 @@ void mp4_poll(void);
  * (src/mp4hand.h): written, and taken on (true when a queue came) */
 bool mp4_hand_save(void);
 bool mp4_hand_take(void);
+/* Your PICO-8 quiet while MP4 plays (src/main.c): the equalizer's file's cut
+ * set for what MP4 does as the launcher hands over to your PICO-8 (`pico8`),
+ * cleared for any other program and as the launcher starts */
+void port_quiet_hand(bool pico8);
 /* SELECT in the in-game menu over such a program: MP4 made ready there,
  * false over any other (src/main.c) */
 bool port_mp4_ready(app *a);
