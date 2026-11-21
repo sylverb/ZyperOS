@@ -1351,6 +1351,10 @@ void plat_screen_colors(const screen_colors *c, bool keep)
 {
 	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0, 0 };
 
+#ifdef ZYPEROS_DESK
+	desk_note_colors(c, keep);   /* a Linux host's desk mode, which has no /dev/disp */
+#endif
+
 	panelgamma_color_clamp(&want);
 	if (keep) {
 		screen_kept = want;
@@ -1499,7 +1503,16 @@ static void mute_forget(void) { }
 void plat_backlight(bool on) { (void)on; }
 void plat_backlight_dim(bool dim) { (void)dim; }
 void plat_display_plain(void) { }
-void plat_screen_colors(const screen_colors *c, bool keep) { (void)c; (void)keep; }
+/* No table on a computer: desk mode keeps what the panel's would hold, for
+ * `tools/desk state` (src/device/desk.h) */
+void plat_screen_colors(const screen_colors *c, bool keep)
+{
+#ifdef ZYPEROS_DESK
+	desk_note_colors(c, keep);
+#else
+	(void)c; (void)keep;
+#endif
+}
 void plat_brightness_lift(int lift) { (void)lift; }
 void plat_screen_colors_tick(bool now) { (void)now; }
 void plat_night(const struct night_cfg *n) { (void)n; }

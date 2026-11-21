@@ -40,6 +40,7 @@
 #include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "homesys_screen.h"
+#include "shots_screen.h"
 #include "levels.h"
 #include "osdbar.h"
 #include "panel.h"
@@ -227,6 +228,7 @@ int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
 int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
+int shot_shots_delete, shot_shots_said, shot_shots_delete_now;
 int shot_zip_said;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
@@ -851,6 +853,36 @@ static void shot_draw_gamemenu(app *a)
 		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
+	/* --gm-port-controls: over your PICO-8, the Controls list its Controls
+	 * row opens (port_controls, ctlscr_over), the cursor on --gamemenu's
+	 * row, the handheld beside it, headed Controls and no tab row */
+	if (shot_gm_port_controls && u.port_reset) {
+		static menu_row crows[CT_MAX_ROWS];
+		unsigned vcol[CT_MAX_ROWS];
+		menu_style over = { .fixed_w = menu_most_w(), .follow_tint = true };
+		menu_style st = over;
+		ctlscr_game g;
+		int cn, sel;
+
+		gm_ctl_game(a, NULL, &g);
+		g.running = false;
+		g.over = &over;
+		g_gm_mem.scope_all = shot_gm_all;
+		if (!shot_gm_open) ctlscr_open();
+		shot_gm_open = true;
+		cn = ctlscr_rows(a, &g, crows, vcol, NULL, NULL);
+		sel = shot_gamemenu_sel < cn ? shot_gamemenu_sel : cn - 1;
+		if (!crows[sel].live) {
+			sel = menu_step_sel(crows, cn, sel, +1);
+			if (!crows[sel].live) sel = menu_step_sel(crows, cn, sel, -1);
+		}
+		st.side = ctlscr_side;
+		st.side_w = CTLSCR_SIDE_W;
+		st.vcolors = vcol;
+		menu_draw_styled(a, &st, gm_tab_name(GT_CONTROLS), crows, cn, sel);
+		if (bg) SDL_DestroyTexture(bg);
+		return;
+	}
 	/* The Achievements tab, as gm_menu_build makes it and menu_run draws it:
 	 * the set on the card's game, or --achtab's state with a made-up set */
 	if (!u.port && tabs.at == GT_ACHIEVEMENTS) {
@@ -886,17 +918,60 @@ static void shot_draw_gamemenu(app *a)
 	/* The handheld leaving with the Controls tab's name */
 	g_menu_side = u.port ? NULL : ctlscr_side;
 	/* --gm-choose: A on the row, as the runner answers an option row of
-	 * more than two (menu_choose): its list over the paused game */
-	if (shot_gm_choose && !u.port) {
+	 * more than two (menu_choose): its list over the paused game. Over your
+	 * PICO-8 the Display row's own list (port_display_pick), its picture
+	 * PICO-8's screen cut out of the frame */
+	if (shot_gm_choose && (!u.port || u.port_display)) {
 		gm_row ids[GM_MAX_ROWS];
 		int ni = gm_tab_rows(&u, (gm_tab)tabs.at, ids), sel = shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1;
 		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
 
 		if (ch && (ch->n > 2 || ch->list)) {
+			SDL_Texture *p8 = u.port ? port_screen_of(a, bg, owner_view(a)->dmode) : NULL;
+
+			if (p8) gm_preview_frame(p8);
 			shot_list_draw(a, rows[sel].label, ch, gm_width(a), a->tint);
+			gm_preview_frame(NULL);
+			if (p8) SDL_DestroyTexture(p8);
 			if (bg) SDL_DestroyTexture(bg);
 			return;
 		}
+	}
+	/* --gm-restart: over your PICO-8, the question a Display mode asks
+	 * before it starts again (port_restart_ask), the mode --pick-at names
+	 * (Actual Size without), the cursor on Cancel */
+	if (shot_gm_restart && u.port_display) {
+		char q[256], lines[DEL_ASK_LINES][CHV_WRAP_COLS];
+		menu_row ask[DEL_ASK_LINES + 2];
+		int k = shot_pick_at >= 0 && shot_pick_at < DMODE_COUNT ? shot_pick_at : DMODE_COUNT - 1, nq;
+
+		/* --gm-restart buttons: the same question after a button changed
+		 * in the Controls list over it (port_controls) */
+		if (shot_gm_restart == 2) snprintf(q, sizeof q, "%s", T(S_PICO8_RESTART_BUTTONS));
+		else snprintf(q, sizeof q, T(S_PICO8_RESTART_DISPLAY), dmode_label(k));
+		nq = store_ask_rows(a, q, lines, ask);
+		ask[nq] = (menu_row){ T(S_PICO8_RESTART_YES), NULL, true };
+		ask[nq + 1] = (menu_row){ T(S_PANEL_CANCEL), NULL, true };
+		g_menu_tabs = NULL;
+		g_menu_side = NULL;
+		menu_draw(a, T(S_PICO8_RESTART_ASK), ask, nq + 2, nq + 1, menu_std_width(a), a->tint);
+		if (bg) SDL_DestroyTexture(bg);
+		return;
+	}
+	/* --gm-reset: over your PICO-8, Reset's question (reset_question, the
+	 * Reset row's and the hotkey's), the cursor on Cancel */
+	if (shot_gm_reset && u.port_reset) {
+		char lines[DEL_ASK_LINES][CHV_WRAP_COLS];
+		menu_row ask[DEL_ASK_LINES + 2];
+		int nq = store_ask_rows(a, T(S_HOTKEYS_RESET_LOST), lines, ask);
+
+		ask[nq] = (menu_row){ T(S_GAMEMENU_RESET), NULL, true };
+		ask[nq + 1] = (menu_row){ T(S_PANEL_CANCEL), NULL, true };
+		g_menu_tabs = NULL;
+		g_menu_side = NULL;
+		menu_draw(a, T(S_HOTKEYS_RESET_ASK), ask, nq + 2, nq + 1, menu_std_width(a), a->tint);
+		if (bg) SDL_DestroyTexture(bg);
+		return;
 	}
 	menu_draw(a, u.port ? NULL : gm_tab_name(tabs.at), rows, n,
 	          shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1,
@@ -1148,6 +1223,9 @@ int shot_key = -1;   /* not shot_press, which is --shot-at's */
 static menu_choice shot_pick;          /* --press a on an option row: its list */
 static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
+int shot_gm_restart;    /* --gm-restart: over your PICO-8, a Display mode's question; 2 the buttons' */
+int shot_gm_reset;      /* --gm-reset: over your PICO-8, Reset's question */
+int shot_gm_port_controls; /* --gm-port-controls: over your PICO-8, its Controls list */
 int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
 bool shot_cheats;          /* --cheats: the cursor's game as the running one */
 int  shot_cheats_page = -1; /* --cheats-page ROW: its cheat list */
@@ -1332,6 +1410,15 @@ static void mp4_covers_settle(void)
 	}
 }
 
+/* --look-page screen or screen-looks with --gamemenu: Screen Colors' page or
+ * its Look's list over the paused game, as the in-game menu's Display tab
+ * opens them (1.1.0), on --gamemenu's made-up frame or --backdrop's picture */
+static bool shot_look_over_game(const app *a)
+{
+	return shot_look_page && shot_gamemenu && a->sys.count > 0 &&
+	       (!strcmp(shot_look_page, "screen") || !strcmp(shot_look_page, "screen-looks"));
+}
+
 /* --look-page: Theme's page, Night Mode's or Screen Colors', over the shelf,
  * as menu_run draws them, the cursor on --look-page's row */
 static void shot_draw_look(app *a)
@@ -1343,8 +1430,17 @@ static void shot_draw_look(app *a)
 	bool night = night_list || !strcmp(shot_look_page, "night"), screen = !strcmp(shot_look_page, "screen");
 	int n = night ? night_page_build(&nv, rows, NP_ROWS, &heading)
 	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
+	/* Over a game, in the in-game pages' accent, the game's (follow_tint) */
+	const bool over_game = shot_look_over_game(a);
+	const unsigned sc_accent = over_game ? a->tint : MENU_ZYPEROS;
+	SDL_Texture *bg = NULL;
 
-	ui_scrim(a->r, 0);
+	if (over_game) {
+		bg = shot_backdrop ? IMG_LoadTexture(a->r, shot_backdrop) : fake_frame(a->r, 4.0f / 3);
+		gm_backdrop(a, &(gm_ctx){ .a = a, .bg = bg }, 1.0f);
+	} else {
+		ui_scrim(a->r, 0);
+	}
 	/* --look-page theme-list ROW: Theme's row ROW's list, Accent's or a
 	 * ground's (--pick-at for the cursor, the whole screen showing it) */
 	if (!strcmp(shot_look_page, "theme-list")) {
@@ -1388,7 +1484,8 @@ static void shot_draw_look(app *a)
 		menu_choice ch;
 
 		sc_look_choice(&ch);
-		shot_list_draw(a, T(S_SCREEN_LOOK), &ch, menu_most_w(), MENU_ZYPEROS);
+		shot_list_draw(a, T(S_SCREEN_LOOK), &ch, menu_most_w(), sc_accent);
+		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
 	if (screen) {
@@ -1400,11 +1497,12 @@ static void shot_draw_look(app *a)
 		g_menu_header_h = 150;
 	}
 	menu_draw(a, heading, rows, n, shot_look_row < n ? shot_look_row : 0,
-	          screen ? menu_most_w() : menu_std_width(a), MENU_ZYPEROS);
+	          screen ? menu_most_w() : menu_std_width(a), screen ? sc_accent : MENU_ZYPEROS);
 	g_row_mark = NULL;
 	g_menu_header = NULL;
 	g_menu_side = NULL;
 	g_menu_side_w = 0;
+	if (bg) SDL_DestroyTexture(bg);
 }
 
 /* Everything a shot draws, in the theme that is on. */
@@ -1685,7 +1783,7 @@ static void shot_compose_once(app *a)
 	if (shot_coreopts >= 0) coreopts_shot_draw(a, shot_coreopts);
 	if (shot_slots) shot_draw_slots(a);
 	if (shot_cheats_crash) cheats_crash_shot(a);
-	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
+	if (shot_gamemenu && a->sys.count > 0 && !shot_look_over_game(a)) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
 	if (shot_controls_fit) controls_fit_report(a);
@@ -1752,6 +1850,8 @@ static void shot_compose_once(app *a)
 	if (shot_delete_ask) delete_ask_preview(a);
 	if (shot_collect_page >= 0) collect_page_preview(a, shot_collect_page);
 	if (shot_collect_delete) collect_delete_preview(a);
+	if (shot_shots_delete) shots_delete_preview(a);
+	if (shot_shots_said) result_preview(a, T(S_SHOTS_DELETE), T(S_SHOTS_FAILED));
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
 	/* --zip-said: a zip whose game Diatom cannot unpack, said under its name */

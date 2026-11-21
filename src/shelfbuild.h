@@ -13,6 +13,9 @@
 
 /* Every shelf read from the card again, keeping the system */
 void rescan_all(app *a);
+/* MP4's card alone, at the end of `a`'s systems: for a process with no other
+ * shelf (src/mp4hand.h) */
+void mp4_shelf_alone(app *a);
 
 /* EmulationStation's folders (config/systems.cfg, es lines): each system's
  * folder set to the one its shelf reads, after a load of
@@ -119,6 +122,14 @@ void refresh_recents_shelf(app *a);
  * again after a collection or a game in one changed, keeping the shelf stood
  * on and its place in Collections */
 void refresh_collections_shelf(app *a);
+/* Screenshots (src/shotname.h, DESIGN.md 11.68), the group after them,
+ * read again after a game that took a shot or a shot deleted, keeping the
+ * shelf stood on and the shot it was on */
+void refresh_shots_shelf(app *a);
+/* Its index, or -1 when the home has none; and whether the card had a shot
+ * at the last read, on the home or turned off it (Home Systems' row) */
+int shelf_shots_at(const app *a);
+bool shelf_shots_have(void);
 /* The Collections shelf's index, or -1 when the home has none */
 int shelf_coll_at(const app *a);
 /* Recents' (src/homesys.h), the same */
@@ -131,8 +142,8 @@ int shelf_coll_games(void);
  * textures made again, its cursor kept in range, not sorted (sort_shelf).
  * False when `s` is not Collections or there was no memory. */
 bool shelf_coll_show(app *a, int s, const char *dir);
-/* The groups' names, Favorites, Recents and Collections, in the language
- * that is on */
+/* The groups' names, Favorites, Recents, Collections and Screenshots, in
+ * the language that is on */
 void shelf_groups_rename(app *a);
 /* Every shelf built again from the saved library, keeping the place: MENU >
  * Display > Home Systems, after a change */

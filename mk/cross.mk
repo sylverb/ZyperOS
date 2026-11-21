@@ -156,24 +156,57 @@ $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p
 # (src/theme.c, for Auto's hours) and the theme file the bar falls back on,
 # Date & Time's zone list (src/clock.c), the settings it reads for the bar
 # (tools/pkset.c) and SQLite for them, the side lights' line for a level
-# (src/sidelights.c), the heat warning's rules (src/heat.c), and the boost past the top (src/boost.h,
-# its gain in src/eqdsp.h's shared file); no SDL. Developer SSH for the port's length
+# (src/sidelights.c), the heat warning's rules (src/heat.c), the boost past the top (src/boost.h,
+# its gain in src/eqdsp.h's shared file), and the battery run flat's (src/battempty.c);
+# no SDL. Over your PICO-8, SELECT's hotkeys by Diatom's own chord rule
+# (tools/pkhot.c, diatom/src/chord.c), its keyboard for CTRL-R
+# (tools/pkkbd.c), Auto Off's clock (src/idle.c), where PICO-8 draws, for a
+# screenshot (src/p8draw.c, src/dmodefit.c), its Next Shader (src/p8fx.c,
+# src/p8fx_step.c), and the screenshot's crop, its PNG with zlib and its
+# pop-up (tools/pkshot.c), and the pad it gives PICO-8 while it holds the
+# joypad for the hotkeys (tools/pkvpad.c). Developer SSH for the port's length
 # (tools/pkssh.c), on the launcher's own sshlink, its run folder's clean and zyperos.local (src/sshlink.c,
 # src/rmtree.c, src/mdns.c). The bar's colors are src/design.h's,
 # which osdbar.h, theme.h and themefile.h include, so it is listed beside
 # them: a token changed there rebuilds this. The string tables (src/i18n.h)
 # because those files name their rows' words through them; read-only data
 # with no relocations, so portkeys pays file size, not memory or start time.
+# Over your PICO-8, the low-battery disc and On-Screen Stats in one picture
+# with the bar (tools/pkover.c): the line src/hud.c's, its settings' words
+# src/hudmenu.c's, the battery's rule src/status.c's.
 PORTKEYS_SRC := tools/portkeys.c tools/pkkeys.c tools/pkset.c src/audioout.c src/osdbar.c src/theme.c \
                 src/themefile.c src/look.c src/clock.c src/sidelights.c src/i18n.c src/i18n_tables.c src/heat.c \
-                src/powerhold.c tools/pkssh.c src/sshlink.c src/rmtree.c src/mdns.c src/panelgamma.c
+                src/powerhold.c tools/pkssh.c src/sshlink.c src/rmtree.c src/mdns.c src/panelgamma.c src/battempty.c \
+                tools/pkhot.c diatom/src/chord.c tools/pkkbd.c src/idle.c src/p8draw.c src/dmodefit.c \
+                src/p8fx.c src/p8fx_step.c tools/pkover.c src/hud.c src/hudmenu.c src/status.c tools/pkshot.c \
+                tools/pkvpad.c
 $(BUILD)/portkeys: $(PORTKEYS_SRC) tools/pkkeys.h src/keyrepeat.h tools/pkset.h src/osdbar.h src/theme.h src/themefile.h \
                    src/clock.h src/design.h src/look.h src/audioout.h src/device/pixel2_levels.h src/sidelights.h \
                    src/heat.h src/portmenu.h src/powerhold.h tools/pkssh.h src/sshlink.h src/rmtree.h src/mdns.h \
-                   src/panelgamma.h src/boost.h src/eqdsp.h
+                   src/panelgamma.h src/boost.h src/eqdsp.h src/battempty.h src/status.h tools/pkhot.h \
+                   diatom/src/chord.h tools/pkkbd.h src/idle.h src/p8draw.h src/dmodefit.h src/p8fx.h \
+                   tools/pkover.h src/hud.h src/hudglyphs.h src/hudmenu.h tools/pkshot.h tools/pkvpad.h \
+                   src/ctl.h tools/zychord.h
 	mkdir -p $(BUILD)
-	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc -I$(SYSROOT)/usr/include \
-	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lm
+	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc -Idiatom/src -Idiatom/include -I$(SYSROOT)/usr/include \
+	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lz -lm
+
+# Your PICO-8's Shader and Border (src/p8fx.h, DESIGN.md 11.55): a library
+# pico8_64 loads before the system's SDL2 (LD_PRELOAD, sd/pixel2/PICO-8.sh),
+# which draws PICO-8's screen through Diatom's own shaders
+# (diatom/port/gles_shaders.h) with the Border under it (Diatom's blur and its
+# picture file, diatom/src/border.c), the shaders by Diatom's names for them
+# (diatom/src/scale.c). SDL's functions and GL's are looked up as it runs, as
+# SDL's renderer looks up GL's, so it links libdl alone: where SDL or GL is not
+# what it needs, it loads and does nothing. tools/p8fx-gl-check.py builds the
+# same files for the computer it runs on.
+P8FX_SRC := src/p8fx/shim.c src/p8fx.c diatom/src/scale.c diatom/src/border.c
+$(BUILD)/p8fx.so: $(P8FX_SRC) src/p8fx.h src/strength.h src/i18n_ids.h diatom/port/gles_shaders.h \
+                  diatom/src/border.h diatom/src/diatom.h diatom/include/diatom_port.h
+	mkdir -p $(BUILD)
+	$(CC) -shared -fPIC -fvisibility=hidden -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 -D_GNU_SOURCE \
+	      -Isrc -Idiatom/include -Idiatom/src -I$(SYSROOT)/usr/include/SDL2 -I$(SYSROOT)/usr/include \
+	      $(LDFLAGS) -o $@ $(P8FX_SRC) -ldl
 
 # MENU+START held a second, back to the home from anything (tools/zyhome.c),
 # run by launch.sh beside everything
@@ -202,11 +235,12 @@ $(BUILD)/zyperos-update: $(UPDATE_SRC) update/update.h
 	      $(LDFLAGS) -o $@ $(UPDATE_SRC) -lcurl -lcrypto -lz
 
 # The device's programs: the launcher, MP4, and its helpers' (ZYDEV_HELPERS;
-# ports and Bluetooth sound are files, no program)
+# ports and Bluetooth sound are files, no program; p8fx is a library)
 HELPER_ELF_portkeys := $(BUILD)/portkeys
 HELPER_ELF_zyhome := $(BUILD)/zyhome
 HELPER_ELF_update := $(BUILD)/zyperos-update
 HELPER_ELF_p2d := $(BUILD)/p2d
 HELPER_ELF_btplayer := $(BUILD)/btplayer
+HELPER_ELF_p8fx := $(BUILD)/p8fx.so
 .PHONY: device-programs
 device-programs: $(BUILD)/zyperos.elf $(BUILD)/mp4d $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))

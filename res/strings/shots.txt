@@ -1,0 +1,37 @@
+# Screenshots (src/shotname.h, DESIGN.md 11.68): the Screenshot hotkey's
+# pictures on the home, after Collections. The group's name is
+# library.screenshots (home.screenshots on the home), its count
+# shelf.screenshots, and A's word on a shot games.view.
+
+[shots.delete]
+note = The heading of the question X asks on a screenshot (the Screenshots shelf, or a shot on the whole screen): delete that picture from the card, never its game. tight
+en = Delete Screenshot
+zh-Hans = 删除截图
+es = Borrar captura
+pt-BR = Apagar captura
+fr = Supprimer la capture
+de = Screenshot löschen
+ja = スクショを削除
+it = Elimina screenshot
+
+[shots.delete_ask]
+note = The question Delete Screenshot asks, wrapped into lines over its two answers (Delete, Cancel); %s is the game's name as the shelf shows it. Says the game stays and that it cannot be undone.
+en = Delete this screenshot of %s? The game stays. This cannot be undone.
+zh-Hans = 要删除 %s 的这张截图吗？游戏会保留。此操作无法撤销。
+es = ¿Borrar esta captura de %s? El juego se queda. No se puede deshacer.
+pt-BR = Apagar esta captura de %s? O jogo fica. Não é possível desfazer.
+fr = Supprimer cette capture de %s ? Le jeu reste. Impossible d'annuler.
+de = Diesen Screenshot von %s löschen? Das Spiel bleibt. Das lässt sich nicht rückgängig machen.
+ja = %s のこのスクショを削除しますか？ゲームは残ります。元に戻せません。
+it = Eliminare questo screenshot di %s? Il gioco resta. Non si può annullare.
+
+[shots.failed]
+note = The message when the card would not let a screenshot go (a card read only, or taken out). Nothing changed.
+en = The screenshot was not deleted. Check the card and try again.
+zh-Hans = 截图没有删除。请检查存储卡后重试。
+es = La captura no se borró. Revisa la tarjeta e inténtalo de nuevo.
+pt-BR = A captura não foi apagada. Verifique o cartão e tente de novo.
+fr = La capture n'a pas été supprimée. Vérifiez la carte et réessayez.
+de = Der Screenshot wurde nicht gelöscht. Prüfe die Karte und versuche es erneut.
+ja = スクショは削除されませんでした。カードを確認して、もう一度お試しください。
+it = Lo screenshot non è stato eliminato. Controlla la scheda e riprova.

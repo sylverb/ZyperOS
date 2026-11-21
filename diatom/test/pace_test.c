@@ -439,6 +439,14 @@ int main(void)
 		ck(fabs(a.silence - b.silence) <= 4 * PERIOD, "always slow: the same silence");
 	}
 
+	/* frameskip=late: a frame handed over on a turn run undrawn */
+	ck(!pace_present_undrawn(false, false, true),
+	   "late, a software frame (the DS's): not presented, the last drawn one is on the panel");
+	ck(pace_present_undrawn(true, false, true),
+	   "late, a GPU frame at 1x (PPSSPP's, drawn ahead): presented");
+	ck(!pace_present_undrawn(true, true, true), "fast forward: only a turn's last frame, as before");
+	ck(!pace_present_undrawn(true, false, false), "no frameskip=late: as before");
+
 	printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

@@ -40,7 +40,10 @@
 #include "osdbar.h"
 
 #define BOOST_VOL_CELLS    6                 /* volume cells past the top...         */
-#define BOOST_DB_CELL      2                 /* ...each this many dB of gain         */
+#define BOOST_DB_CELL      3                 /* ...each this many dB of gain (2 until
+                                               * 2026-11-20: "i believe there is more
+                                               * room for software audio boost. make
+                                               * each step a little higher db boost") */
 #define BOOST_BRIGHT_CELLS 3                 /* brightness cells, each a lift step  */
 #define BOOST_TAPS         3                 /* presses on the top that open it...  */
 #define BOOST_GAP_MS       DS_MS_TAP_GAP     /* ...each within this of the last     */
@@ -51,7 +54,9 @@
  * FILL where an open one fills and empties but none opens (MP4's lock
  * screen: a held key in a pocket must not open it), HIDE where the bar is
  * the bar as it was, a press at the top does nothing more and a press under
- * the top folds a kept boost away (the menus). */
+ * the top folds a kept boost away (the menus, with nothing heard behind
+ * them: the launcher takes a menu over MP4 playing, or over a paused game,
+ * as OPEN, src/levels.c). */
 enum { BOOST_OPEN, BOOST_FILL, BOOST_HIDE };
 
 /* What a press or the clock did, for the host to act on */

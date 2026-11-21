@@ -35,6 +35,7 @@
 #ifndef DIATOM_PACE_H
 #define DIATOM_PACE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef enum {
@@ -42,6 +43,22 @@ typedef enum {
 	PACE_RESYNC,     /* more than four frames behind: drop it all */
 	PACE_CAUGHT_UP,  /* keep the queue's depth of it, drop the rest */
 } pace_late;
+
+/* frameskip=late: whether the frame a core handed over on a turn the loop
+ * ran undrawn is put on the panel. A software frame is not: its pixels are
+ * the last drawn frame's, already there (DSperate, the DS's core, leaves out
+ * the drawing at once), and presenting them would spend on the upload what
+ * the skip saved. A GPU frame at 1x is: a core that draws on a thread of its
+ * own (PPSSPP) is told to leave out a frame it has not started, so the
+ * picture it hands over on that turn is a new one, drawn already. On the
+ * Pixel 2 (1.1.0-rc.6), Tekken 6 ran at 0.97x with 16.6 pictures a second
+ * when those were left off the panel, where a core that left out one frame
+ * in two showed 30. Fast forward puts only a turn's last frame on the panel,
+ * as before. */
+static inline bool pace_present_undrawn(bool gpu_frame, bool fast, bool late_skip)
+{
+	return gpu_frame && !fast && late_skip;
+}
 
 /* The queue's depth in frames, for a queue of `capacity`: half its target */
 static inline double pace_depth_frames(int capacity) { return capacity / 4.0; }

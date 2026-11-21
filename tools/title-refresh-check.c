@@ -36,6 +36,9 @@ static void dated(const char *rel, bool dir, long when)
 }
 static bool is_mp4(const system_cfg *s) { return !strcmp(s->tag, "MUSE"); }
 static void mp4_order_view(sysview *v) { (void)v; failures++; }
+/* The Screenshots shelf's own order (src/shots_screen.h): no shelf here is it */
+static bool shots_shelf(app *a, int s) { (void)a; (void)s; return false; }
+static void shots_sort(app *a, int s) { (void)a; (void)s; failures++; }
 static int shelf_owner(app *a, int s, int i) { return a->view[s].owner ? a->view[s].owner[i] : s; }
 static void free_view_textures(sysview *v) { v->dropped++; }
 static void cf_reset(coverflow *cf, int cursor) { cf->cursor = cursor; }

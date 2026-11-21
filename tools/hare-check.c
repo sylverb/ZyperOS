@@ -837,6 +837,23 @@ int main(void)
 			st = req("GET", "/api/list?p=roms/SNES", g_cookie, NULL, 0, body, sizeof body);
 			CHECK(st == 200, "a folder of 1,800 games with covers did not list: %d", st);
 			CHECK(strstr(body, "\"cover\"") != NULL, "the big listing has no covers: %.80s", body);
+			/* A game in a folder of games wears the cover the shelf gives
+			 * it, from its console's .media (src/esmedia.h's game_media) */
+			snprintf(p, sizeof p, "%s/Hacks", dir);
+			mkdir(p, 0777);
+			snprintf(p, sizeof p, "%s/Hacks/A Rather Long Game Name Number 0007 (USA) (Rev 1).sfc", dir);
+			mkfile(p, "R");
+			st = req("GET", "/api/list?p=roms/SNES/Hacks", g_cookie, NULL, 0, body, sizeof body);
+			CHECK(st == 200 && strstr(body, "\"cover\":\"roms/SNES/.media/A Rather Long Game Name Number 0007 "
+			                                "(USA) (Rev 1).png\"") != NULL,
+			      "a game in a folder of games has not its console's cover: %.300s", body);
+			/* and the covers themselves, listed, are no games with covers */
+			st = req("GET", "/api/list?p=roms/SNES/.media&hidden=1", g_cookie, NULL, 0, body, sizeof body);
+			CHECK(st == 200 && strstr(body, "\"cover\"") == NULL,
+			      "a listing of .media named covers for its pictures: %.200s", body);
+			remove(p);
+			snprintf(p, sizeof p, "%s/Hacks", dir);
+			rmdir(p);
 		}
 
 		CHECK(req("GET", "/api/file?p=roms/NES/Contra.nes", g_cookie, NULL, 0,

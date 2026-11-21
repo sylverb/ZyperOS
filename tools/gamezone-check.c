@@ -72,6 +72,7 @@ void plat_volume_set_pct(int pct) { (void)pct; }
 /* The boost past the top (src/levels.c): none kept, none taken back */
 int  levels_boost(int kind) { (void)kind; return 0; }
 void levels_from_game(int kind, int level, int boost) { (void)kind; (void)level; (void)boost; }
+void levels_game_boost(int kind, int boost) { (void)kind; (void)boost; }
 int  side_lights_level_line(char *out, size_t cap, bool volume, int val, int max)
 {
 	(void)volume; (void)val; (void)max;

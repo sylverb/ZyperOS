@@ -20,6 +20,9 @@
 #include "zyperdraw.h"
 #include "zyperrig.h"
 #include "levels.h"
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -339,9 +342,9 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		 * borrows its backdrop and its power rule for as long as it is up.
 		 * Rebuilt on the way back, because anything may have changed while
 		 * MP4 covered it - a Bluetooth headset connecting, for one. */
-		/* Not over a port's: MP4 is stopped for a port (launch.sh), and
-		 * this process starts none for its menu */
-		if (a->in.pressed[IN_SELECT] && !g_port_menu) {
+		/* Over a port's only when MP4 is kept playing over it (your
+		 * PICO-8, port_mp4_ready): launch.sh stops MP4 for every other */
+		if (a->in.pressed[IN_SELECT] && (!g_port_menu || port_mp4_ready(a))) {
 			if (mp4_open(a, st, ctx)) return MENU_LEFT_GONE;
 			continue;
 		}
@@ -482,6 +485,12 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		g_menu_zyper_at = plat_now_ms();
 		menu_draw_styled(a, st, heading, rows, n, sel);
 		g_menu_zyper = NULL;
+#ifdef ZYPEROS_DESK
+		/* tools/desk's `state`: the panel as drawn, its heading ("" for none)
+		 * and the row under the cursor, for a check that waits for a key's
+		 * screen rather than for a time */
+		desk_note_focus(heading ? heading : "", sel, sel >= 0 && sel < n && rows[sel].label ? rows[sel].label : "");
+#endif
 		plat_draw_osd(a->r);
 		plat_present();
 		ui_frame_rest(8);

@@ -26,7 +26,14 @@
 #include "../src/device/pixel2_levels.h"
 #include "../src/eqdsp.h"
 #include "../src/keyrepeat.h"
+#include "pkhot.h"
+#include "pkkbd.h"
 #include "pkkeys.h"
+#include "pkshot.h"
+#include "pkvpad.h"
+#include "../src/p8draw.h"
+
+#include <zlib.h>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -164,7 +171,7 @@ static void tap(rig *r, int code, int ms)
  *              joypad was still empty and gpio-keys had VOL+ (MENU comes in
  *              the next pass); read gpio-keys first, both were there by then */
 enum { BOTH, BETWEEN, PAD_EARLY };
-static void chord(rig *r, int vol_code, bool keys_first, int how)
+static void menu_chord(rig *r, int vol_code, bool keys_first, int how)
 {
 	int64_t t = r->now * 1000;
 	pk_key menu = ev(t, PK_BTN_MENU, 1), vol = ev(t + 5, vol_code, 1), two[2];
@@ -209,7 +216,7 @@ static void the_chord(void)
 
 				rig_init(&r, 4, 7);
 				r.now = 1000;
-				chord(&r, vc, kf, how);
+				menu_chord(&r, vc, kf, how);
 				ck(r.l.bright == want && r.l.vol == 4 && r.n == 1,
 				   "chord: menu+%s, %s, %s read first: brightness 7 -> %d and volume 4; got brightness %d, volume %d, %d step(s)",
 				   code ? "voldown" : "volup", how_name[how], kf ? "gpio-keys" : "the joypad",
@@ -220,7 +227,7 @@ static void the_chord(void)
 	/* VOL+ alone after a chord is the volume again */
 	rig_init(&r, 4, 7);
 	r.now = 1000;
-	chord(&r, PK_KEY_VOLUMEUP, true, BOTH);
+	menu_chord(&r, PK_KEY_VOLUMEUP, true, BOTH);
 	run_to(&r, r.now + 150);
 	tap(&r, PK_KEY_VOLUMEUP, 80);
 	ck(r.l.vol == 5 && r.l.bright == 8, "chord then volup: volume 4 -> 5, brightness 8 kept; got %d, %d", r.l.vol, r.l.bright);
@@ -649,8 +656,8 @@ static void the_database(bool boost)
 	tap(&r, PK_KEY_VOLUMEUP, 80);    run_to(&r, r.now + 150);
 	tap(&r, PK_KEY_VOLUMEDOWN, 80);  run_to(&r, r.now + 150);
 	tap(&r, PK_KEY_VOLUMEUP, 80);    run_to(&r, r.now + 150);
-	chord(&r, PK_KEY_VOLUMEUP, true, BOTH);     run_to(&r, r.now + 150);
-	chord(&r, PK_KEY_VOLUMEDOWN, true, BETWEEN);
+	menu_chord(&r, PK_KEY_VOLUMEUP, true, BOTH);     run_to(&r, r.now + 150);
+	menu_chord(&r, PK_KEY_VOLUMEDOWN, true, BETWEEN);
 	if (boost) {
 		ck(!r.did || r.did == BOOST_LEVEL, "db: through the boost, steps and nothing else; got %d", r.did);
 		ck(pk_db_get(r.db, PK_VOL_BOOST, -1) == -1 && pk_db_get(r.db, PK_BRIGHT_BOOST, -1) == -1,
@@ -989,8 +996,12 @@ static void the_boost_taps(bool one_pass)
 	   file_gain(sc.share, NULL));
 	ck(pk_db_get(r.db, PK_VOL_BOOST, -1) == 1 && pk_db_get(r.db, "volume", -1) == VOL_MAX,
 	   "boost: kept, one cell beside the top%s", how);
-	ck(strstr(r.log, "portkeys: volume boost +0 -> +2 dB (VOL+)\n") != NULL,
-	   "boost: the log says it opened; got\n%s", r.log);
+	{
+		char want[64];
+
+		snprintf(want, sizeof want, "portkeys: volume boost +0 -> +%d dB (VOL+)\n", BOOST_DB_CELL);
+		ck(strstr(r.log, want) != NULL, "boost: the log says it opened; got\n%s", r.log);
+	}
 
 	/* A press and a held key fill it, each repeat a cell, to the last */
 	hold(&r, PK_KEY_VOLUMEUP, REPEAT_DELAY_MS + 3 * REPEAT_RATE_MS + 20, 200);
@@ -1002,7 +1013,7 @@ static void the_boost_taps(bool one_pass)
 
 	/* Going down empties a cell and leaves the level */
 	hold(&r, PK_KEY_VOLUMEDOWN, 80, 200);
-	ck(pk_boost_cells(&bo, PK_VOLUME) == 5 && r.l.vol == VOL_MAX && file_gain(sc.share, NULL) == 10 &&
+	ck(pk_boost_cells(&bo, PK_VOLUME) == 5 && r.l.vol == VOL_MAX && file_gain(sc.share, NULL) == 5 * BOOST_DB_CELL &&
 	   pk_db_get(r.db, PK_VOL_BOOST, -1) == 5 && pk_db_get(r.db, "volume", -1) == VOL_MAX,
 	   "boost: VOL- takes a cell off and leaves the level; got %d cells, volume %d",
 	   pk_boost_cells(&bo, PK_VOLUME), r.l.vol);
@@ -1012,8 +1023,8 @@ static void the_boost_taps(bool one_pass)
 
 	/* Kept: portkeys started again, with the file gone, and the launcher */
 	unlink(sc.share);
-	ck(rig_boost(&r, &bo, &sc) && pk_boost_cells(&bo, PK_VOLUME) == 5 && file_gain(sc.share, NULL) == 10,
-	   "boost: kept, the five cells back as portkeys starts, their 10 dB in the file; got %d cells, %d dB",
+	ck(rig_boost(&r, &bo, &sc) && pk_boost_cells(&bo, PK_VOLUME) == 5 && file_gain(sc.share, NULL) == 5 * BOOST_DB_CELL,
+	   "boost: kept, the five cells back as portkeys starts, their 5 cells' dB in the file; got %d cells, %d dB",
 	   pk_boost_cells(&bo, PK_VOLUME), file_gain(sc.share, NULL));
 	if ((d = db_open(sc.db, DB_DEVICE))) {
 		ck(db_get_int(d, PK_VOL_BOOST, -1) == 5, "boost: and the launcher reads them (src/db.c)");
@@ -1086,7 +1097,7 @@ static void the_boost_bright(void)
 		return;
 	}
 	for (i = 0; i < BOOST_TAPS; i++) {
-		chord(&r, PK_KEY_VOLUMEUP, i & 1, BOTH);
+		menu_chord(&r, PK_KEY_VOLUMEUP, i & 1, BOTH);
 		frames_to(&r, r.now + 200);
 	}
 	ck(r.opened == 1 && pk_boost_lift(&bo) == 1 && !pk_boost_cells(&bo, PK_VOLUME) &&
@@ -1141,6 +1152,347 @@ static void the_boost_closing(void)
 	scratch_drop(&sc);
 }
 
+/* ---- over your PICO-8: SELECT's hotkeys, and its keyboard ------------------
+ *
+ * tools/pkhot.c, Diatom's chord rule on the joypad's events with the table
+ * the launcher hands over: SELECT then the button is the act, the button a
+ * moment before SELECT too, the d-pad first makes SELECT the game's, the
+ * acts portkeys cannot do (Quick Save) are none, a SELECT held alone long is
+ * still a hotkey's holder, the kernel's autorepeat is nothing, and a resync
+ * that finds SELECT down starts no chord. And tools/pkkbd.c's CTRL-R as the
+ * kernel reads it from uinput: Left Ctrl down, R down, then R up and Left
+ * Ctrl up, each with a report, the keys held across the wait. */
+static unsigned hot_ev(pkhot *h, uint16_t code, int value, uint64_t ms)
+{
+	return pkhot_key(h, code, value, ms);
+}
+
+static void the_hotkeys(void)
+{
+	pkhot h;
+	unsigned a;
+
+	pkhot_init(&h);
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 1000) | hot_ev(&h, PKHOT_BTN_WEST, 1, 1050);
+	ck(a == 0, "hotkeys: none handed over, SELECT+Y is the game's");
+	ck(pkhot_set(&h, "save:r1,load:l1,faster:r2,slower:l2,shot:y,reset:b,quit:x"),
+	   "hotkeys: hk_run's form is read");
+	ck(!pkhot_set(&h, "shot:menu") && !h.on, "hotkeys: MENU as a key is refused, and none kept");
+	pkhot_init(&h);
+	pkhot_set(&h, "save:r1,load:l1,faster:r2,slower:l2,shot:y,reset:b,quit:x");
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 1000);
+	a |= hot_ev(&h, PKHOT_BTN_WEST, 1, 1050);
+	ck(a == (1u << CHORD_SHOT), "hotkeys: SELECT then Y is the screenshot (%x)", a);
+	a = hot_ev(&h, PKHOT_BTN_WEST, 0, 1100) | hot_ev(&h, PKHOT_BTN_EAST, 1, 1150);
+	ck(a == (1u << CHORD_RESET), "hotkeys: B under the same SELECT is Reset Game (%x)", a);
+	a = hot_ev(&h, PKHOT_BTN_EAST, 0, 1200) | hot_ev(&h, PKHOT_BTN_SELECT, 0, 1250);
+	ck(a == 0, "hotkeys: the let-goes are nothing");
+
+	a = hot_ev(&h, PKHOT_BTN_NORTH, 1, 2000) | hot_ev(&h, PKHOT_BTN_SELECT, 1, 2000 + CHORD_LEAD_MS);
+	ck(a == (1u << CHORD_QUIT), "hotkeys: X a moment before SELECT is Quit (%x)", a);
+	hot_ev(&h, PKHOT_BTN_NORTH, 0, 2200);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 2210);
+	a = hot_ev(&h, PKHOT_BTN_NORTH, 1, 3000) | hot_ev(&h, PKHOT_BTN_SELECT, 1, 3000 + CHORD_LEAD_MS + 50);
+	ck(a == 0, "hotkeys: X held longer before SELECT is the game's");
+	hot_ev(&h, PKHOT_BTN_NORTH, 0, 3300);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 3310);
+
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 4000) | hot_ev(&h, PKHOT_BTN_UP, 1, 4020) |
+	    hot_ev(&h, PKHOT_BTN_WEST, 1, 4040);
+	ck(a == 0, "hotkeys: SELECT with the d-pad first is the game's, Y after it too");
+	hot_ev(&h, PKHOT_BTN_UP, 0, 4100);
+	hot_ev(&h, PKHOT_BTN_WEST, 0, 4110);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 4120);
+
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 5000) | hot_ev(&h, PKHOT_BTN_TR, 1, 5050);
+	ck(a == 0, "hotkeys: SELECT+R1, Quick Save, is no act over your PICO-8");
+	hot_ev(&h, PKHOT_BTN_TR, 0, 5100);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 5110);
+
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 6000) | hot_ev(&h, PKHOT_BTN_SELECT, 2, 6300) |
+	    hot_ev(&h, PKHOT_BTN_WEST, 1, 6000 + CHORD_HOLD_MS + 200);
+	ck(a == (1u << CHORD_SHOT), "hotkeys: SELECT held alone long, then Y, is still the screenshot");
+	hot_ev(&h, PKHOT_BTN_WEST, 0, 7000);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 7010);
+
+	pkhot_resync(&h, pkhot_bit(PKHOT_BTN_SELECT));
+	a = hot_ev(&h, PKHOT_BTN_WEST, 1, 8000);
+	ck(a == 0, "hotkeys: a SELECT a resync found down starts no chord");
+	hot_ev(&h, PKHOT_BTN_WEST, 0, 8050);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 8060);
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 9000) | hot_ev(&h, PKHOT_BTN_WEST, 1, 9050);
+	ck(a == (1u << CHORD_SHOT), "hotkeys: and the next SELECT is one again");
+}
+
+/* What PICO-8 reads while portkeys holds the joypad (pkhot_out, fed to
+ * tools/pkvpad.c's pad): every button at once, MENU never; with hotkeys, a
+ * chord never (SELECT and its button, the button a moment before SELECT
+ * too), SELECT alone given back as it is let go for at least two turns, or
+ * the game's once held CHORD_HOLD_MS or pressed with another button; and the
+ * pad's writes, one event a button that changed and a report */
+#define B_(x) DIATOM_BIT(DIATOM_BTN_##x)
+
+/* Turns between events up to `until`, as portkeys's loop takes them */
+static void pad_ticks_to(pkhot *h, uint64_t *t, uint64_t until)
+{
+	while (*t < until) {
+		int w = pkhot_wait(h, *t);
+
+		if (w < 0) {
+			*t = until;
+			break;
+		}
+		*t += (uint64_t)(w > 0 ? w : 1);
+		if (*t > until) *t = until;
+		pkhot_tick(h, *t);
+	}
+}
+
+static void the_game_pad(void)
+{
+	pkhot h;
+	uint64_t t;
+	bool given = false;
+
+	pkhot_init(&h);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, 1000);
+	ck(pkhot_out(&h) == B_(SELECT), "game pad: no hotkeys, SELECT at once");
+	pkhot_key(&h, 0x2c0, 1, 1010);
+	ck(pkhot_out(&h) == B_(SELECT), "game pad: MENU never reaches the game");
+	pkhot_key(&h, 0x2c0, 0, 1020);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, 1030);
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, 1030) < 0, "game pad: no hotkeys, nothing waits");
+
+	pkhot_set(&h, "save:r1,load:l1,faster:r2,slower:l2,shot:y,quit:x");
+	t = 2000;
+	pkhot_key(&h, PKHOT_BTN_SOUTH, 1, t);
+	ck(pkhot_out(&h) == B_(A), "game pad: A at once, the event it came in");
+	pkhot_key(&h, PKHOT_BTN_SOUTH, 0, t += 30);
+	ck(pkhot_out(&h) == 0, "game pad: and let go at once");
+
+	t = 3000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, t) == PKHOT_TICK_MS, "game pad: SELECT waits to see whose it is");
+	pad_ticks_to(&h, &t, 3050);
+	ck(pkhot_key(&h, PKHOT_BTN_WEST, 1, t) == (1u << CHORD_SHOT) && pkhot_out(&h) == 0,
+	   "game pad: SELECT+Y is the screenshot, and the game sees neither");
+	pkhot_key(&h, PKHOT_BTN_WEST, 0, t += 40);
+	pad_ticks_to(&h, &t, 3150);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t);
+	pad_ticks_to(&h, &t, 3400);
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, t) < 0, "game pad: nor SELECT after the chord, nothing owed");
+
+	t = 4000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	pad_ticks_to(&h, &t, 4120);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t);
+	{
+		int turns = 0;
+
+		while (pkhot_wait(&h, t) >= 0 && turns < 40) {
+			t += (uint64_t)PKHOT_TICK_MS;
+			pkhot_tick(&h, t);
+			if (pkhot_out(&h) & B_(SELECT)) given = true, turns++;
+			else if (given) break;
+		}
+		ck(given && turns >= 2, "game pad: SELECT alone given as it is let go, two turns at least (%d)", turns);
+	}
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, t) < 0, "game pad: and taken back after");
+
+	t = 5000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	pkhot_key(&h, PKHOT_BTN_UP, 1, t += 20);
+	ck(pkhot_out(&h) == (B_(SELECT) | B_(UP)), "game pad: SELECT with the d-pad, both the game's at once");
+	pkhot_key(&h, PKHOT_BTN_UP, 0, t += 20);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t += 20);
+	ck(pkhot_out(&h) == 0, "game pad: and let go");
+
+	t = 6000;
+	pkhot_key(&h, PKHOT_BTN_NORTH, 1, t);
+	ck(pkhot_out(&h) == B_(X), "game pad: X alone, the game's at once");
+	ck(pkhot_key(&h, PKHOT_BTN_SELECT, 1, t += 60) == (1u << CHORD_QUIT) && pkhot_out(&h) == 0,
+	   "game pad: SELECT a moment after it, Quit, and X taken back from the game");
+	pkhot_key(&h, PKHOT_BTN_NORTH, 0, t += 30);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t += 30);
+	pad_ticks_to(&h, &t, 6400);
+	ck(pkhot_out(&h) == 0, "game pad: nothing after");
+
+	t = 7000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	pad_ticks_to(&h, &t, 7000 + CHORD_HOLD_MS + 2 * PKHOT_TICK_MS);
+	ck(pkhot_out(&h) == B_(SELECT), "game pad: SELECT held alone past CHORD_HOLD_MS is the game's, held");
+	ck(pkhot_key(&h, PKHOT_BTN_WEST, 1, t += 10) == (1u << CHORD_SHOT) && !(pkhot_out(&h) & B_(Y)),
+	   "game pad: Y then is still the screenshot, and hidden");
+	pkhot_key(&h, PKHOT_BTN_WEST, 0, t += 30);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t += 30);
+	ck(pkhot_out(&h) == 0, "game pad: let go");
+}
+
+static void the_vpad_writes(void)
+{
+	int fds[2];
+	struct { struct timeval t; uint16_t type, code; int32_t value; } e[4];
+	ssize_t r;
+
+	if (pipe(fds) != 0) {
+		ck(0, "vpad: a pipe");
+		return;
+	}
+	ck(pkvpad_put(fds[1], 0, B_(A) | B_(SELECT)), "vpad: A and SELECT written");
+	r = read(fds[0], e, sizeof e);
+	ck(r == 3 * (ssize_t)sizeof e[0] && e[0].type == 1 && e[0].code == PKHOT_BTN_SOUTH && e[0].value == 1 &&
+	   e[1].type == 1 && e[1].code == PKHOT_BTN_SELECT && e[1].value == 1 && e[2].type == 0 && e[2].code == 0,
+	   "vpad: each button pressed, then a report");
+	ck(pkvpad_put(fds[1], B_(A), B_(A)), "vpad: nothing changed is no write");
+	ck(pkvpad_put(fds[1], B_(A) | B_(SELECT), B_(A)), "vpad: SELECT let go");
+	r = read(fds[0], e, sizeof e);
+	ck(r == 2 * (ssize_t)sizeof e[0] && e[0].code == PKHOT_BTN_SELECT && e[0].value == 0 && e[1].type == 0,
+	   "vpad: only what changed, let go, and a report");
+	ck(pkvpad_put(fds[1], 0, B_(MENU)) && !pkvpad_put(-1, 0, B_(A)), "vpad: MENU is no button of it; none to write on is false");
+	close(fds[1]);
+	r = read(fds[0], e, sizeof e);
+	ck(r == 0, "vpad: and MENU wrote nothing");
+	close(fds[0]);
+}
+
+static void the_keyboard(void)
+{
+	int fds[2], i;
+	struct { struct timeval t; uint16_t type, code; int32_t value; } e[8];
+	static const int want[8][3] = {
+		{ 1, PKKBD_KEY_LEFTCTRL, 1 }, { 0, 0, 0 }, { 1, PKKBD_KEY_R, 1 }, { 0, 0, 0 },
+		{ 1, PKKBD_KEY_R, 0 }, { 0, 0, 0 }, { 1, PKKBD_KEY_LEFTCTRL, 0 }, { 0, 0, 0 },
+	};
+	bool same = true;
+
+	ck(sizeof e[0] == 24, "keyboard: an input_event is 24 bytes, the kernel's on a 64-bit system");
+	if (pipe(fds) != 0) {
+		ck(0, "keyboard: a pipe");
+		return;
+	}
+	ck(pkkbd_ctrl_r(fds[1], NULL), "keyboard: CTRL-R written");
+	ck(!pkkbd_ctrl_r(-1, NULL), "keyboard: none to write on is false");
+	close(fds[1]);
+	ck(read(fds[0], e, sizeof e) == (ssize_t)sizeof e, "keyboard: eight events");
+	close(fds[0]);
+	for (i = 0; i < 8; i++)
+		if (e[i].type != want[i][0] || e[i].code != want[i][1] || e[i].value != want[i][2]) same = false;
+	ck(same, "keyboard: Left Ctrl, R, then R and Left Ctrl let go, each with a report");
+}
+
+/* tools/pkshot.c: PICO-8's own 128 x 128 out of a frame of the panel,
+ * turned as the Pixel 2's is and as a landscape one, in every rect the
+ * Display modes draw it in (src/p8draw.h), the cut rows of Zoomed and Edges
+ * Cut black; the PNG whole (its chunks' CRCs, its pixels back through
+ * zlib); and the shot laid into the pop-up's square, the corners left to
+ * the slab */
+static uint8_t cell(int i, int j, int k)
+{
+	return (uint8_t)(k == 0 ? i * 2 : k == 1 ? j * 2 : (i ^ j) | 1);
+}
+
+static bool shot_mode(const char *mode, bool turned)
+{
+	const int lw = 640, lh = 480, fw = turned ? lh : lw, fh = turned ? lw : lh;
+	uint32_t *f = calloc((size_t)fw * fh, 4);
+	uint8_t out[PKSHOT_BYTES];
+	dmode_rect r;
+	int x, y, i, j;
+	bool ok = true;
+
+	if (!f) return false;
+	p8_draw_rect(mode, lw, lh, true, &r);
+	/* PICO-8's pixels on the landscape window where the mode draws them,
+	 * each a block, and the window turned onto the panel */
+	for (y = 0; y < lh; y++)
+		for (x = 0; x < lw; x++) {
+			uint32_t v = 0x00101010;
+
+			if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
+				i = (int)((long)(x - r.x) * PKSHOT_SIDE / r.w);
+				j = (int)((long)(y - r.y) * PKSHOT_SIDE / r.h);
+				v = (uint32_t)cell(i, j, 0) << 16 | (uint32_t)cell(i, j, 1) << 8 | cell(i, j, 2);
+			}
+			if (turned) f[(size_t)(lw - 1 - x) * fw + y] = v;
+			else        f[(size_t)y * fw + x] = v;
+		}
+	pkshot_pick((const uint8_t *)f, fw, fh, (size_t)fw * 4, &r, out);
+	for (j = 0; j < PKSHOT_SIDE; j++)
+		for (i = 0; i < PKSHOT_SIDE; i++) {
+			const uint8_t *d = out + ((size_t)j * PKSHOT_SIDE + i) * 3;
+			const int cy = r.y + (int)((j + 0.5) * r.h / PKSHOT_SIDE);
+			const bool on = cy >= 0 && cy < lh;
+
+			if (on ? d[0] != cell(i, j, 0) || d[1] != cell(i, j, 1) || d[2] != cell(i, j, 2)
+			       : d[0] || d[1] || d[2])
+				ok = false;
+		}
+	free(f);
+	return ok;
+}
+
+static uint32_t be32(const uint8_t *p)
+{
+	return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3];
+}
+
+static void the_screenshot(void)
+{
+	static const char *const modes[] = { "stretch", "aspect", "square", "integer", "integer-vertical", "overscale",
+	                                     "fill", "native" };
+	static uint8_t rgb[PKSHOT_BYTES], back[PKSHOT_BYTES + PKSHOT_SIDE];
+	uint8_t *png;
+	size_t len = 0, at;
+	uLongf bn = sizeof back;
+	bool crcs = true, inflated = false;
+	uint32_t notice[60 * 30];
+	const int slot[4] = { 10, 5, 20, 6 };
+	int k, i, j;
+
+	for (k = 0; k < (int)(sizeof modes / sizeof modes[0]); k++) {
+		ck(shot_mode(modes[k], true), "screenshot: %s, PICO-8's 128 out of the turned panel", modes[k]);
+		ck(shot_mode(modes[k], false), "screenshot: %s, out of a landscape one", modes[k]);
+	}
+	for (j = 0; j < PKSHOT_SIDE; j++)
+		for (i = 0; i < PKSHOT_SIDE; i++)
+			for (k = 0; k < 3; k++) rgb[((size_t)j * PKSHOT_SIDE + i) * 3 + k] = cell(i, j, k);
+	png = pkshot_png(rgb, PKSHOT_SIDE, PKSHOT_SIDE, &len);
+	ck(png && len > 8 + 25 + 12 && !memcmp(png, "\x89PNG\r\n\x1a\n", 8) && !memcmp(png + 12, "IHDR", 4) &&
+	   be32(png + 16) == PKSHOT_SIDE && be32(png + 20) == PKSHOT_SIDE && png[24] == 8 && png[25] == 2,
+	   "screenshot: a PNG, 128 x 128, 8-bit RGB");
+	for (at = 8; png && at + 12 <= len;) {
+		const uint32_t n = be32(png + at);
+
+		if (at + 12 + n > len || (uint32_t)crc32(0L, png + at + 4, 4 + n) != be32(png + at + 8 + n)) {
+			crcs = false;
+			break;
+		}
+		if (!memcmp(png + at + 4, "IDAT", 4))
+			inflated = uncompress(back, &bn, png + at + 8, n) == Z_OK && bn == sizeof back;
+		at += 12 + n;
+	}
+	ck(crcs && png && at == len && !memcmp(png + len - 8, "IEND", 4), "screenshot: every chunk's CRC, IEND last");
+	for (j = 0; inflated && j < PKSHOT_SIDE; j++)
+		if (back[(size_t)j * (PKSHOT_SIDE * 3 + 1)] != 0 ||
+		    memcmp(back + (size_t)j * (PKSHOT_SIDE * 3 + 1) + 1, rgb + (size_t)j * PKSHOT_SIDE * 3, PKSHOT_SIDE * 3))
+			inflated = false;
+	ck(inflated, "screenshot: its pixels, row by row, filter none");
+	free(png);
+
+	for (i = 0; i < 60 * 30; i++) notice[i] = 0xd9202020;
+	pkshot_lay(notice, 60, 30, slot, rgb);
+	{
+		const uint32_t mid = notice[(5 + 10) * 60 + 10 + 10];
+		const uint8_t *c = rgb + ((size_t)(10 * PKSHOT_SIDE / 20) * PKSHOT_SIDE + 10 * PKSHOT_SIDE / 20) * 3;
+
+		ck(mid == (0xff000000u | (uint32_t)c[0] << 16 | (uint32_t)c[1] << 8 | c[2]),
+		   "screenshot: the shot laid in the pop-up's square, opaque, its nearest pixel");
+		ck(notice[5 * 60 + 10] == 0xd9202020 && notice[4 * 60 + 15] == 0xd9202020 &&
+		   notice[(5 + 19) * 60 + 10 + 19] == 0xd9202020,
+		   "screenshot: its corners rounded and the rest of the slab left as it was");
+	}
+}
+
 int main(void)
 {
 	the_ladder();
@@ -1159,6 +1511,11 @@ int main(void)
 	the_boost_hold();
 	the_boost_bright();
 	the_boost_closing();
+	the_hotkeys();
+	the_keyboard();
+	the_game_pad();
+	the_vpad_writes();
+	the_screenshot();
 	if (fails) {
 		printf("pkkeys: %d of %d FAILED\n", fails, checks);
 		return 1;

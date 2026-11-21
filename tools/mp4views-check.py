@@ -54,6 +54,28 @@ def ask(sock, line, timeout=10):
     return json.loads(out.decode() or '{}')
 
 
+def tap(sock, key):
+    """One press and no repeat, however slowly the launcher draws: desk
+    mode's own tap (src/device/desk.c), down at once and let go by a timer's
+    event 40 ms on. The let-go is read at a poll after the one that read the
+    press, so the pass that read it sees the key down; and it comes long
+    before the repeat's 300 ms (src/keyrepeat.h), so no pass sees it held
+    that long. A press held instead for two drawn frames repeated on a slow
+    runner (2026-11-21, CI: a tap of Down two groups on, Right three games)"""
+    ask(sock, f'tap {key} 40')
+
+
+def until(get, ok, secs=5.0):
+    """get() again until ok(it) holds or `secs` pass (a busy computer draws
+    late); the last one got"""
+    end = time.time() + secs
+    got = get()
+    while not ok(got) and time.time() < end:
+        time.sleep(0.1)
+        got = get()
+    return got
+
+
 def view(card):
     """MP4's shelf's View as the handheld's database keeps it"""
     with sqlite3.connect(card / 'userdata/zyperos.db') as db:
@@ -62,7 +84,8 @@ def view(card):
 
 
 def settle(sock):
-    ask(sock, 'wait-frames 12')
+    # A slow runner draws 12 frames in more than the socket's usual 10 s
+    ask(sock, 'wait-frames 12', timeout=60)
 
 
 def run(desk, rs, tmp, device):
@@ -90,13 +113,13 @@ def run(desk, rs, tmp, device):
             return
         settle(sock)
         # SELECT opens MP4 from the home, as from anywhere
-        ask(sock, 'tap select')
+        tap(sock, 'select')
         settle(sock)
         check(view(card) == 'covers', f'{device}: MP4 opens on Covers, as it ships')
         for want in ('grid', 'list', 'covers', 'grid'):
-            ask(sock, 'tap start')
-            settle(sock)
-            check(view(card) == want, f'{device}: START let go turns it to {want.title()} ({view(card)})')
+            tap(sock, 'start')
+            got = until(lambda: view(card), lambda v: v == want)
+            check(got == want, f'{device}: START let go turns it to {want.title()} ({got})')
         # The lock's pair, both at once and START first: no turn, and
         # MP4 still open (its SELECT closed nothing), so START turns again
         ask(sock, 'press select+start')
@@ -112,9 +135,9 @@ def run(desk, rs, tmp, device):
         ask(sock, 'release start')
         settle(sock)
         check(view(card) == 'grid', f'{device}: START, then SELECT joining it, turns nothing ({view(card)})')
-        ask(sock, 'tap start')
-        settle(sock)
-        check(view(card) == 'list', f'{device}: MP4 still open after the pair: START turns it on ({view(card)})')
+        tap(sock, 'start')
+        got = until(lambda: view(card), lambda v: v == 'list')
+        check(got == 'list', f'{device}: MP4 still open after the pair: START turns it on ({got})')
         shot = tmp / f'{device}-list.png'
         check(ask(sock, f'shot {shot}').get('ok') and shot.is_file(), f'{device}: the List drawn')
         ask(sock, 'quit')

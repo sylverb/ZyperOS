@@ -64,14 +64,17 @@ endef
 # device-programs is the launcher, MP4 and the device's helpers
 # (mk/cross.mk, config/device/<id>.mk's ZYDEV_HELPERS): on the Brick btplayer
 # (tools/btplayer.c, a headset's keys and volume for MP4); on the Pixel 2
-# portkeys, System Update (update/), zyhome (MENU+START home) and p2d (NES
+# portkeys, System Update (update/), zyhome (MENU+START home), p2d (NES
 # Player 2's server, src/p2d/; zlib, which it links, is in the dependencies
-# above). Each helper's program goes into the payload the same way:
+# above) and p8fx.so (your PICO-8's Shader and Border, src/p8fx/, a library
+# its script loads before SDL). Each helper's program goes into the payload
+# the same way:
 ZYPEROS_HELPER_ENV_portkeys = PORTKEYS_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/portkeys
 ZYPEROS_HELPER_ENV_zyhome = ZYHOME_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyhome
 ZYPEROS_HELPER_ENV_update = UPDATE_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyperos-update
 ZYPEROS_HELPER_ENV_p2d = P2D_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/p2d
 ZYPEROS_HELPER_ENV_btplayer = BTPLAYER_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/btplayer
+ZYPEROS_HELPER_ENV_p8fx = P8FX_SO=$(@D)/$(ZYPEROS_BUILD_DIR)/p8fx.so
 
 # ZyperOS runs from the card's games partition, as on the Brick, so it can be
 # updated by copying files onto the card. What goes there is ZyperOS's own

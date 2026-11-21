@@ -80,6 +80,35 @@ bool es_details(const char *roms, const char *folder, const char *file, const ch
 /* Every index dropped: the card changed under them (a rescan) */
 void es_forget(void);
 
+/* One folder's index dropped, to be built again when a game of it next asks:
+ * the File Transfer page wrote its gamelist.xml or into one of its media
+ * folders (src/hare.c) */
+void es_forget_folder(const char *folder);
+
+/* ---- the game's own, then EmulationStation's -----------------------------
+ *
+ * THE ONE LOOKUP for a game's picture and video, for everything that shows
+ * one: the shelf's video snap, the details page, Recents' Last Screen, the
+ * menu's picture of the game and the File Transfer page's rows (src/hare.c),
+ * so no two of them can give a game different ones (2026-11-20, metior on
+ * the Discord: "The web interface doesn't read from the EmulationStation
+ * folder structure for images and video like the OS itself does"). The
+ * shelf's covers come by the same two halves on the cover worker: the own
+ * file (box_art_path is game_media_own) and then es_media, after a picture
+ * that would not load too.
+ *
+ * game_media_own: <roms>/<folder>/.media/<name>.png for ES_COVER, and the
+ * video snap's snaps_path, .media/<name>.mp4, for ES_VIDEO. False if it
+ * would be cut short. Says nothing about whether it is there.
+ *
+ * game_media: that file when it is there with something in it, else
+ * es_media's (`wait` as there), its full path into `out`; false, and `out`
+ * empty, for a game with neither. */
+bool game_media_own(const char *roms, const char *folder, const char *name, es_kind kind,
+                    char *out, size_t n);
+bool game_media(const char *roms, const char *folder, const char *file, const char *name,
+                es_kind kind, bool wait, char *out, size_t n);
+
 /* ---- into the library database ------------------------------------------
  *
  * gamelist.xml's details for each game of `list` (a listing of

@@ -27,7 +27,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${1:-/tmp/zyperos-yabasanshiro}
 PIN=39535a6abcad5abf9f71c8b2a7975f005ee12ed6   # libretro/yabause, ROCKNIX's yabasanshiro-lr pin
 TAR_SHA=56aa4dc17f1c9e61e60274a66c71b33371786688df001ac0ca56569d94cc8b3b
-SHA=f747f8fa46f150edd65fd5496237358bcb4a444a435d93d34cfd6bf642594cf5
+SHA=36bac20e272bb57d361cc5b508614e29d24c399613cd025fabe1c76300d33141
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
 command -v curl   >/dev/null || { echo "need curl" >&2; exit 1; }
@@ -55,6 +55,30 @@ tar -xzf "$TAR" -C "$SRC"
 patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-unload.patch"
 grep -q "first_ctx_reset = 1;" "$SRC/yabause-$PIN/yabause/src/libretro/libretro.c" \
   || { echo "!! yabasanshiro-unload.patch did not apply" >&2; exit 1; }
+# And two for its speed on the Pixel 2 (1.1.0), each timed in the core on
+# Virtua Fighter 2 and Panzer Dragoon II (the patches' preambles have it):
+#   mk/patches/yabasanshiro-fastforward.patch  the auto frame skip on again
+#                                              when fast forward ends (it
+#                                              stayed off: 0.30x -> 0.20x)
+#   mk/patches/yabasanshiro-atlas.patch        the texture atlas in the CPU's
+#                                              own memory, uploaded from there
+#                                              (Panfrost read the pixel buffer
+#                                              back from uncached memory)
+patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-fastforward.patch"
+grep -q "ff_was = fastforward;" "$SRC/yabause-$PIN/yabause/src/libretro/libretro.c" \
+  || { echo "!! yabasanshiro-fastforward.patch did not apply" >&2; exit 1; }
+patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-atlas.patch"
+grep -q "Fail to grow the atlas" "$SRC/yabause-$PIN/yabause/src/ygles.c" \
+  || { echo "!! yabasanshiro-atlas.patch did not apply" >&2; exit 1; }
+# And mk/patches/yabasanshiro-chd-close.patch (1.1.0): a CHD's two files
+# closed when its game ends. LoadCHD left open the file ISOCDInit read the
+# header from, and nothing closed the CHD itself, so a resident Diatom kept
+# two descriptors of every Saturn .chd played until it quit (the Pixel 2,
+# 1.1.0-rc.8, 2026-11-20: four deleted games held 1.3 GB of the card).
+# Checked after the build, below (mk/yabasanshiro-chd-check.c).
+patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-chd-close.patch"
+grep -q "CloseCHD();" "$SRC/yabause-$PIN/yabause/src/cd-libretro.c" \
+  || { echo "!! yabasanshiro-chd-close.patch did not apply" >&2; exit 1; }
 
 # The source goes in read-only and is built in a copy inside the container,
 # and only the core comes out, to $SRC/out. Built where it was mounted, the
@@ -64,7 +88,14 @@ grep -q "first_ctx_reset = 1;" "$SRC/yabause-$PIN/yabause/src/libretro/libretro.
 # although plain writes work. The copy builds the same core, byte for byte.
 rm -rf "$SRC/out"
 mkdir -p "$SRC/out"
+# The CD reader is checked after the build, against the same patched tree:
+# mk/yabasanshiro-chd-check.c built with it alone (cd-libretro.c, libchdr and
+# the libretro-common files they read with), loading a CHD and putting it
+# down three times, as a resident Diatom plays three games; it fails when a
+# game leaves a file open. The disc is check-rahash's one-track CD.
 docker run --rm --platform linux/arm64 -v "$SRC/yabause-$PIN:/src:ro" -v "$SRC/out:/out" \
+	-v "$ROOT/mk/yabasanshiro-chd-check.c:/chd-check.c:ro" \
+	-v "$ROOT/tools/fixtures/rahash/ps1-cd.chd:/disc.chd:ro" \
 	zyperos-flycast2021 bash -c '
 set -e
 cp -a /src /build
@@ -81,6 +112,22 @@ strip --strip-unneeded $so
 ! readelf -d $so | grep -q "libGL\." \
   || { echo "!! $so links desktop OpenGL" >&2; exit 1; }
 cp $so /out/
+cd /build/yabause/src
+L=libretro/libretro-common C=libchdr
+F=$C/deps/flac-1.3.3 Z=$C/deps/zlib-1.2.11 M=$C/deps/lzma-19.00
+gcc -O1 -std=gnu99 -w -D__LIBRETRO__ -D_7ZIP_ST -DFLAC__HAS_OGG=0 -DFLAC__NO_DLL -DHAVE_STDINT_H=1 \
+  -DHAVE_SYS_TIME_H=1 -DHAVE_LROUND -DPACKAGE_VERSION=\"1.3.3\" -DHAVE_C99_VARIADIC_MACROS=1 -DARCH_IS_LINUX=1 \
+  -I. -Ilibretro -I$L/include -I$C/include -I$M/include -I$F/include -I$F/src/include -I$Z \
+  -o /tmp/chd-check /chd-check.c cd-libretro.c junzip.c \
+  $L/compat/compat_posix_string.c $L/compat/compat_strl.c $L/compat/fopen_utf8.c $L/encodings/encoding_utf.c \
+  $L/file/file_path.c $L/compat/compat_strcasestr.c $L/vfs/vfs_implementation.c $L/streams/file_stream.c \
+  $L/streams/file_stream_transforms.c \
+  $C/src/libchdr_chd.c $C/src/libchdr_bitstream.c $C/src/libchdr_huffman.c $C/src/libchdr_flac.c \
+  $C/src/libchdr_cdrom.c $F/src/stream_decoder.c $F/src/format.c $F/src/bitreader.c $F/src/crc.c \
+  $F/src/memory.c $F/src/lpc.c $F/src/cpu.c $F/src/md5.c $F/src/fixed.c \
+  $M/src/LzmaEnc.c $M/src/LzFind.c $M/src/LzmaDec.c \
+  $Z/adler32.c $Z/crc32.c $Z/inffast.c $Z/inflate.c $Z/inftrees.c $Z/zutil.c -lm
+/tmp/chd-check /disc.chd || { echo "!! a CHD game leaves its files open" >&2; exit 1; }
 '
 SO="$SRC/out/yabasanshiro_libretro.so"
 GOT=$(shasum -a 256 "$SO" | cut -d' ' -f1)

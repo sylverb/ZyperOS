@@ -82,6 +82,15 @@ bool dlq_busy(void);           /* any lane running */
 dlq_end  dlq_last(dlq_lane l);
 unsigned dlq_ends(dlq_lane l);
 
+/* What each step brought, for whoever keeps it while no page shows it:
+ * `fn` is called after every step of a running lane, on the lane's slot,
+ * before its done when that step ended it. One, the launcher's (MENU >
+ * Downloads keeps what came: src/dl_screen.h); NULL for none. */
+void dlq_on_step(void (*fn)(dlq_lane l));
+/* How many runs the queue has had: one more each time a lane starts with
+ * none running, so what came can be kept for the run it came in */
+unsigned dlq_runs(void);
+
 /* Step the running lanes, each at most once per its every_ms. From
  * tick_theme (every screen, as it draws; not while a button is held, so
  * scrolling never pays for a step), from the input wait (dlq_wait), and from

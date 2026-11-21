@@ -358,7 +358,10 @@ typedef struct {
 	 * same with exactly every second frame drawn while frames run late (the
 	 * DS shelf's When Slow sent it in a 1.0.6 test build; the launcher sends
 	 * late alone now, and steady stays a RUN word). Empty: only fast forward
-	 * skips, as before. */
+	 * skips, as before. The launcher sends late for a DS game (two screens)
+	 * and for a system with a frameskip|tag|late line (the PSP's). A core
+	 * paced by its sound (PPSSPP) is late by its turns' work against the
+	 * sound they brought, not by the schedule (main.c, sound_debt_us). */
 	char frameskip[16];
 	/* RUN: "medium" or "light" caps the clocks for a system that keeps its
 	 * speed under them; empty or anything else is full. See diatom_port_power. */

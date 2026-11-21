@@ -35,6 +35,10 @@ int main(void)
 	homesys_word(w, sizeof w);
 	ck(!strcmp(w, "PRT,RECENT"), "written back as read");
 
+	homesys_parse("COLL,SHOT");
+	ck(!homesys_shown(HOMESYS_COLL) && !homesys_shown(HOMESYS_SHOT) && homesys_shown(HOMESYS_FAV),
+	   "Collections and Screenshots off by their tags, as any shelf");
+
 	homesys_parse(" PRT , GB,,PRT,\n");
 	homesys_word(w, sizeof w);
 	ck(!strcmp(w, "PRT,GB") && homesys_hidden_count() == 2,

@@ -10,6 +10,9 @@
     python3 tools/i18n-shots.py --device brick --keep DIR
                                                 every screen as that handheld
                                                 alone (src/device/profile.h)
+    python3 tools/i18n-shots.py --part 2/4      the second of four parts of the
+                                                languages and handhelds (CI's
+                                                macOS job, one part a runner)
 
 Every screen is shot as each handheld ZyperOS runs on (DEVICES: the Pixel 2,
 the README's, first, then the Brick), with its own keys, rows and words: the
@@ -962,30 +965,52 @@ def set_text(card, files, on):
             path.unlink()
 
 
+def scene_rgb(x, y, w, h, sky, ground, hue):
+    """A made-up frame of play's pixel at x, y (y from the top): a sky of
+    `sky` fading to white, hills, `ground` at the foot and a block of `hue`
+    in the middle"""
+    if y > h * 3 // 4:
+        return ground
+    if y > h * 3 // 4 - 2 - ((x // 8) % 5 == 0) * 6 and y > h // 2 + abs((x % 64) - 32) // 2:
+        return tuple(max(0, v - 40) for v in ground)
+    if w * 2 // 5 <= x < w * 3 // 5 and h * 2 // 5 <= y < h * 3 // 5:
+        return hue
+    k = y / h
+    return tuple(int(v + (255 - v) * k * 0.6) for v in sky)
+
+
 def scene_bmp(w, h, sky, ground, hue):
-    """A made-up frame of play, a 24-bit BMP of w x h drawn here (no Pillow):
-    a sky of `sky` fading to white, hills, `ground` at the foot and a block
-    of `hue` in the middle, as a game's resume picture stands in a shot"""
+    """The frame of play, a 24-bit BMP of w x h drawn here (no Pillow), as a
+    game's resume picture stands in a shot"""
     import struct
     row = (w * 3 + 3) & ~3
     out = bytearray()
     for y in range(h - 1, -1, -1):       # a BMP's rows from the bottom
         line = bytearray()
         for x in range(w):
-            if y > h * 3 // 4:
-                c = ground
-            elif y > h * 3 // 4 - 2 - ((x // 8) % 5 == 0) * 6 and y > h // 2 + abs((x % 64) - 32) // 2:
-                c = tuple(max(0, v - 40) for v in ground)
-            elif w * 2 // 5 <= x < w * 3 // 5 and h * 2 // 5 <= y < h * 3 // 5:
-                c = hue
-            else:
-                k = y / h
-                c = tuple(int(v + (255 - v) * k * 0.6) for v in sky)
+            c = scene_rgb(x, y, w, h, sky, ground, hue)
             line += bytes((c[2], c[1], c[0]))
         out += line + b"\0" * (row - w * 3)
     head = struct.pack("<2sIHHI", b"BM", 54 + len(out), 0, 0, 54)
     info = struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(out), 2835, 2835, 0, 0)
     return head + info + bytes(out)
+
+
+def scene_png(w, h, sky, ground, hue):
+    """The same frame as an 8-bit RGB PNG (no Pillow), as the Screenshot
+    hotkey writes a game's frame (diatom/src/main.c's png_encode)"""
+    import struct
+    import zlib
+    raw = bytearray()
+    for y in range(h):
+        raw.append(0)                    # every row's filter none
+        for x in range(w):
+            raw += bytes(scene_rgb(x, y, w, h, sky, ground, hue))
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) +
+            chunk(b"IDAT", zlib.compress(bytes(raw), 6)) + chunk(b"IEND", b""))
 
 
 # Recents' Card Picture (DESIGN.md 11.48): the three games with a resume
@@ -1029,6 +1054,50 @@ for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
                       ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
                                                        "--press", "a"])):
     EXTRA.setdefault(_name, ("demo", "PS1", _flags))
+
+
+# Screenshots (src/shotname.h, DESIGN.md 11.68): the Screenshot hotkey's
+# pictures on the card, each a PNG made up here as Diatom names them, at its
+# game's own size, and one of a game no longer on the card. The home on the
+# group, its shelf in Covers, Grid and List, a shot opened with A (the Video
+# view) and its band down to the strip, Delete Screenshot's question and its
+# message, MENU's Sort By list, and Home Systems with the group's row Off
+_SHOTS = {}
+for (_folder, _game, _when, _wh, _sky, _ground, _hue) in (
+        ("SNES", "Super Metroid (USA)", "2026-11-20 09.12.40", (256, 224), (40, 30, 90), (110, 70, 50), (220, 80, 60)),
+        ("Game Boy Advance", "The Legend of Zelda - The Minish Cap (USA)", "2026-11-19 22.05.11", (240, 160),
+         (64, 140, 220), (72, 150, 60), (230, 200, 60)),
+        ("PlayStation", "Metal Gear Solid (USA)", "2026-11-19 12.44.09", (320, 240),
+         (60, 80, 90), (70, 80, 70), (200, 200, 210)),
+        ("SNES", "Super Metroid (USA)", "2026-11-18 21.40.05", (256, 224), (90, 40, 30), (60, 50, 110), (80, 220, 90)),
+        ("SNES", "A Game Since Deleted (USA)", "2026-11-16 17.20.48", (256, 224), (30, 90, 60), (90, 90, 40), (60, 120, 220))):
+    _SHOTS["Screenshots/%s/%s %s.png" % (_folder, _game, _when)] = scene_png(*_wh, _sky, _ground, _hue)
+for _name, _flags in (("home-screenshots", []),
+                      ("shelf-screenshots", ["--screen", "games"]),
+                      ("shelf-screenshots-grid", ["--screen", "games", "--view", "grid"]),
+                      ("shelf-screenshots-list", ["--screen", "games", "--view", "list"]),
+                      ("screenshots-viewer", ["--screen", "games", "--shelf-press", "a"]),
+                      ("screenshots-viewer-strip", ["--screen", "games", "--shelf-press", "a", "--band", "1"]),
+                      ("screenshots-delete", ["--screen", "games", "--shots-delete"]),
+                      ("screenshots-said", ["--screen", "games", "--shots-said"]),
+                      ("screenshots-menu", ["--screen", "games", "--menu", "Sort By"]),
+                      ("screenshots-menu-sort", ["--screen", "games", "--menu", "Sort By", "--press", "a"])):
+    EXTRA.setdefault(_name, ("demo", "SHOT", _flags))
+    SHOT_TEXT[_name] = _SHOTS
+    CTL_FOCUS[_name] = "Super Metroid (USA).sfc"       # the newest shot, first
+# OpenBOR's own (my pick: under OpenBOR, by their file names and times), on
+# the card with an OpenBOR module: one of its game and one of its menu
+_OBOR_PNG = scene_png(320, 240, (200, 90, 40), (60, 50, 70), (240, 220, 80))
+EXTRA.setdefault("shelf-screenshots-openbor", ("openbor", "SHOT", ["--screen", "games"]))
+SHOT_TEXT["shelf-screenshots-openbor"] = {"Saves/openbor/ScreenShots/Beats of Rage - 0000.png": _OBOR_PNG,
+                                          "Saves/openbor/ScreenShots/Menu - 0000.png": _OBOR_PNG}
+# and one shot alone, its count said in the singular
+EXTRA.setdefault("home-screenshots-one", ("demo", "SHOT", []))
+SHOT_TEXT["home-screenshots-one"] = {"Screenshots/SNES/Super Metroid (USA) 2026-11-20 09.12.40.png":
+                                     _SHOTS["Screenshots/SNES/Super Metroid (USA) 2026-11-20 09.12.40.png"]}
+EXTRA.setdefault("homesys-page-shots", ("demo", "PS1", ["--homesys-page", "2"]))
+SHOT_TEXT["homesys-page-shots"] = _SHOTS
+SHOT_SETTINGS["homesys-page-shots"] = {"home.hidden": "SHOT"}
 
 
 # A zip whose game Diatom cannot unpack (DESIGN.md 11.63): its message
@@ -1307,6 +1376,16 @@ for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"
                      ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", str(_k)]))
 EXTRA.setdefault("screen-colors-look-custom",
                  ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
+# Screen Colors in a game (1.1.0): the in-game menu's Display tab, its cursor
+# on the row (right over On-Screen Stats), at Custom, its longest value; and
+# A on it, the same page over the paused game, in Custom with its numbers,
+# and its Look's list there
+EXTRA.setdefault("gamemenu-screen-colors", ("demo", "PS1", ["--gamemenu", "2", "--gm-tab", "1"]))
+SHOT_SETTINGS["gamemenu-screen-colors"] = dict(SHOT_SETTINGS["screen-colors-custom"])
+EXTRA.setdefault("gamemenu-screen-colors-page", ("demo", "PS1", ["--gamemenu", "0", "--look-page", "screen", "1"]))
+SHOT_SETTINGS["gamemenu-screen-colors-page"] = dict(SHOT_SETTINGS["screen-colors-custom"])
+EXTRA.setdefault("gamemenu-screen-colors-looks",
+                 ("demo", "PS1", ["--gamemenu", "0", "--look-page", "screen-looks", "0", "--pick-at", "1"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "6"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
@@ -1525,6 +1604,46 @@ EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view",
 EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
 for _k in range(7):
     EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
+# The in-game menu over your PICO-8 (src/portmenu.h's port_menu_display): its
+# Display row, on Sharp Pixels; the Display list A opens there, the cursor on
+# Actual Size; and the question a mode other than the one on asks before
+# PICO-8 starts again in it, the cursor on Cancel, for each mode it can name.
+# The Pixel 2's alone in effect: the Brick has no PICO-8 of its own yet
+EXTRA["pico8-menu-display"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port"])
+EXTRA["pico8-display-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                                  "--gm-choose", "--pick-at", "7"])
+for _k, _m in enumerate(("stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")):
+    EXTRA["pico8-restart-" + _m] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                                       "--gm-restart", "--pick-at", str(_k)])
+for _name in ["pico8-menu-display", "pico8-display-list"] + ["pico8-restart-" + _m for _m in (
+        "stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")]:
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
+# ...and its On-Screen Stats row, after Display, Off and On
+EXTRA["pico8-menu-hud"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
+EXTRA["pico8-menu-hud-on"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
+SHOT_SETTINGS["pico8-menu-hud"] = {"display.PICO8": "integer"}
+SHOT_SETTINGS["pico8-menu-hud-on"] = {"display.PICO8": "integer", "hud": "1"}
+# ...and its picture's other rows, drawn by its shim (src/p8fx.h): Border,
+# Shader and Strength after On-Screen Stats in the Display tab's order, the
+# cursor on Shader at CRT 70% with Blur round it; and Border's list, the
+# cursor on Blur
+EXTRA["pico8-menu-shader"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port"])
+EXTRA["pico8-border-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "3", "port",
+                                                 "--gm-choose", "--pick-at", "1"])
+for _name in ("pico8-menu-shader", "pico8-border-list"):
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer", "shader.PICO8": "crt", "shader_strength.PICO8": "70",
+                            "border.PICO8": "blur"}
+# ...and its Reset row, the cursor on it, and the question it asks (the Reset
+# Game hotkey's too), the cursor on Cancel; the Controls list its Controls row
+# opens, the cursor on the A cap's row; and the start again new buttons ask for
+EXTRA["pico8-menu-reset"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port"])
+EXTRA["pico8-reset-ask"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port", "--gm-reset"])
+EXTRA["pico8-controls"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                              "--gm-port-controls"])
+EXTRA["pico8-restart-buttons"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port",
+                                                     "--gm-restart", "buttons"])
+for _name in ("pico8-menu-reset", "pico8-reset-ask", "pico8-controls", "pico8-restart-buttons"):
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
 
 
 # The demonstration card with one game in each system that has none (a name
@@ -1840,6 +1959,48 @@ class Tee:
         self.out.flush()
 
 
+def part_arg(s):
+    m = re.fullmatch(r"(\d+)/(\d+)", s)
+    if not m or not 1 <= int(m.group(1)) <= int(m.group(2)):
+        raise argparse.ArgumentTypeError("a part is I/N with 1 <= I <= N, not %r" % s)
+    return int(m.group(1)), int(m.group(2))
+
+
+# What one language's shots cost on each handheld, against the Pixel 2's:
+# the Brick's panel has 2.6 times its pixels, and on CI's runners a part of
+# five Brick runs took 932 s where five Pixel 2 runs took 402 (2026-11-21)
+COST = {"pixel2": 1.0, "brick": 2.5}
+
+
+def part_of(runs, devices, i, n):
+    """The I-th of N parts of the runs (handheld, language), for CI's
+    runners, as even as their cost (COST) lets them be: the languages other
+    than English dealt out the dearest first, each to the part it adds the
+    least to, which counts the English run of its handheld too when the
+    part has none yet, as a language is read against English's on the same
+    handheld. The first part has English on every handheld from the start,
+    so the strings no shot draws (tools/i18n-unshot.txt) are still looked
+    for, in that part. The same runs give every part the same deal."""
+    cost = lambda d: COST.get(d, 1.0)
+    english = {d for d, c in runs if c == "en"}
+    parts = [set() for _ in range(n)]
+    load = [0.0] * n
+    for d in devices:
+        if d in english:
+            parts[0].add((d, "en"))
+            load[0] += cost(d)
+    order = {r: k for k, r in enumerate(runs)}
+    for r in sorted((r for r in runs if r[1] != "en"), key=lambda r: (-cost(r[0]), order[r])):
+        d = r[0]
+        extra = lambda k: cost(d) + (cost(d) if d in english and (d, "en") not in parts[k] else 0.0)
+        k = min(range(n), key=lambda k: (load[k] + extra(k), k))
+        load[k] += extra(k)
+        parts[k].add(r)
+        if d in english:
+            parts[k].add((d, "en"))
+    return [r for r in runs if r in parts[i - 1]]
+
+
 def main():
     """check() with the run's stops and its kept passes around it: a pass is
     kept by verdict_key (ZYPEROS_SHOTS_CACHE_DIR; ~/Library/Caches/ZyperOS/
@@ -1911,6 +2072,8 @@ def check():
     ap.add_argument("--jobs", type=int, help="launchers at once (one a language a handheld)")
     ap.add_argument("--device", action="append",
                     help="as this handheld only (more than once for more; all of DEVICES by default)")
+    ap.add_argument("--part", type=part_arg, help="I/N: the I-th of N parts of the languages and handhelds "
+                    "(make check CHECK_SHARD=I/N; CI's parts)")
     ap.add_argument("--cards", type=Path, help="clone the cards from DIR, which make_cards made (tools/pixel-gate.py "
                     "makes them once a gate), and leave it")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
@@ -1928,6 +2091,8 @@ def check():
     langs = args.lang or (i18n.CODES + [i18n.PSEUDO])
     keep = args.keep.resolve() if args.keep else None
     runs = [(d, c) for d in devices for c in langs]
+    if args.part:
+        runs = part_of(runs, devices, *args.part)
 
     # One launcher a language and handheld, as before 2026-11-18: fewer when
     # the computer was loaded (its free cores) left a make check's run at two
@@ -1973,7 +2138,8 @@ def check():
     # Every string a shot draws on any handheld, or says why it is none of
     # the shots'
     english_runs = [results[(d, "en")] for d in devices if (d, "en") in results]
-    full = not args.only and not args.lang and english_runs and sorted(devices) == sorted(DEVICES)
+    full = (not args.only and not args.lang and len(english_runs) == len(devices)
+            and sorted(devices) == sorted(DEVICES))
     gone = []
     if english_runs:
         st = strings_of("en")
@@ -2026,13 +2192,15 @@ def check():
         print("FAIL " + n)
         bad += 1
     pseudo = sum(len(results.get((d, i18n.PSEUDO), ([], [], {}, set()))[0]) for d in devices)
-    said = "check-i18n-shots"
+    said = "check-i18n-shots" + (" part %d/%d" % args.part if args.part else "")
+    langs = [c for c in langs if any(r[1] == c for r in runs)]
+    shot_as = [d for d in devices if any(r[0] == d for r in runs)]
     if bad:
         print("%s: %d problems in %d screens x %d languages as %s" % (
-            said, bad, len(shots), len(langs), ", ".join(devices)))
+            said, bad, len(shots), len(langs), ", ".join(shot_as)))
         return 1
     print("%s: %d screens in %s as %s, everything fits%s" % (
-        said, len(shots), ", ".join(langs), " and ".join(devices),
+        said, len(shots), ", ".join(langs), " and ".join(shot_as),
         "; the pseudo-locale cut or overflowed %d strings (notes above)" % pseudo if pseudo else ""))
     return 0
 

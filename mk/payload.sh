@@ -15,6 +15,11 @@
 # Pixel 2 offers Player 2 in an NES game's menu, and without p2d the row
 # would start nothing but an error.
 #
+# P8FX_SO for the Pixel 2, and needed there too: p8fx.so (src/p8fx/), the
+# library your PICO-8's script loads before SDL for the PICO-8 shelf's
+# Shader and Border (src/p8fx.h). Without it those rows would change nothing
+# over your PICO-8, with nothing to say why.
+#
 # TrimUI's own firmware is no longer supported, so there is one Brick payload,
 # plastron's. NATIVE=1, which used to choose it, is accepted and ignored. And
 # no release zip: it was the Brick's install for TrimUI's firmware, and both
@@ -45,6 +50,10 @@ DIATOM_ELF=${DIATOM_ELF:-$ROOT/diatom/build/$DIATOM_PORT/diatom}
 [ -f "$VENDOR_DIR/cores/fceumm_libretro.so" ] || { echo "run mk/fetch-vendor.sh first"; exit 1; }
 if has_helper p2d && [ ! -f "${P2D_ELF:-}" ]; then
 	echo "payload: no p2d for $DEVICE's Player 2 (set P2D_ELF)" >&2
+	exit 1
+fi
+if has_helper p8fx && [ ! -f "${P8FX_SO:-}" ]; then
+	echo "payload: no p8fx.so for $DEVICE's PICO-8 Shader and Border (set P8FX_SO)" >&2
 	exit 1
 fi
 
@@ -290,6 +299,9 @@ if has_helper ports; then
 	# system's busybox wget lacks (sd/pixel2/PICO-8-wget.sh)
 	cp "$ROOT/sd/pixel2/PICO-8-wget.sh" "$P/pico8/bin/wget"
 	chmod +x "$P/pico8/PICO-8.sh" "$P/pico8/bin/wget"
+	# and the library it loads before SDL, which draws PICO-8's screen
+	# through the shelf's Shader with its Border (src/p8fx.h)
+	if has_helper p8fx; then cp "$P8FX_SO" "$P/pico8/p8fx.so"; fi
 fi
 
 # One ROM folder per system. Read from systems.cfg (awk, not sed: folder names

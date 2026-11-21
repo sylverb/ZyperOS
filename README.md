@@ -80,7 +80,7 @@ Each line has its details in [the guide](docs/guide.md).
 
 - **Forty-five systems,** from the Atari 2600 and the SG-1000 to the PSP, Dreamcast and Saturn, with Arcade, MAME, Doom, ScummVM, PICO-8 and OpenBOR ([the list](#supported-systems)).
 - **Ports:** the Ports shelf installs the official [PortMaster](https://portmaster.games) with one press and runs its games, such as Stardew Valley and Celeste, with ZyperOS's in-game menu over every port ([how](docs/guide.md#portmaster)).
-- **Your own PICO-8:** add the PICO-8 for Raspberry Pi zip you bought from Lexaloffle with ZyperOS Installer, or copy it to the card, and your PICO-8 plays the carts, with Splore, its online cart browser, first on the PICO-8 shelf. ZyperOS never ships or downloads PICO-8; without it, FAKE-08 plays the carts ([how](docs/guide.md#pico-8)).
+- **Your own PICO-8:** add the PICO-8 for Raspberry Pi zip you bought from Lexaloffle with ZyperOS Installer, or copy it to the card, and your PICO-8 plays the carts, with Splore, its online cart browser, first on the PICO-8 shelf, and your hotkeys, Reset and your own buttons over it. ZyperOS never ships or downloads PICO-8; without it, FAKE-08 plays the carts ([how](docs/guide.md#pico-8)).
 - **Nintendo DS your way:** [DSperate](https://github.com/beebono/DSperate) with three screen layouts, a d-pad stylus and a language you pick for each game ([notes](docs/guide.md#nintendo-ds)).
 - **Nintendo 64 and Dreamcast:** ParallelN64 with Glide64 holds Super Mario 64 and Mario Kart 64 at 30 frames a second on my Pixel 2, and flycast2021 runs the Dreamcast ([Dreamcast](docs/guide.md#dreamcast)).
 - **Zipped games** read stored, Deflate or LZMA, and a zip it cannot read says so on the shelf.
@@ -93,7 +93,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Collections of your own:** put any game in a list from its details, mix systems, and find your lists in a group on the home ([collections](docs/guide.md#collections)).
 - **MENU in six tabs,** with **Search Games** and **Random Game** for any system ([menus](docs/guide.md#controls-and-menus)).
 - **Your look:** light and dark, or Auto by Night Mode's hours, ten accents, three backgrounds for each theme, a folder color, rounded or square corners, how the game or system in focus is marked (a bar, a border, a lift, or none), and Zyper on or off ([light and dark](docs/guide.md#light-and-dark)).
-- **Screen Colors and Night Mode** on the Pixel 2: temperature, tint, contrast, saturation and gamma, ready-made looks, and a warm screen for the night ([how](docs/guide.md#screen-colors-and-night-mode)).
+- **Screen Colors and Night Mode** on the Pixel 2: temperature, tint, contrast, saturation and gamma, ready-made looks, set from MENU or a game's own menu, and a warm screen for the night ([how](docs/guide.md#screen-colors-and-night-mode)).
 - **Shaders:** Sharp-Shimmerless for even pixels, and CRT, CRT Curved, Scanlines and LCD Grid for an old screen, each at a strength you set ([how they look](docs/guide.md#shaders)).
 - **Borders round a handheld game:** the three Game Boys' own faces drawn around the game at its scale (the Game Boy Color in its six colors), the game blurred, or a picture of your own ([Border](docs/guide.md#the-system-menu)).
 - **Eight languages,** chosen on the first start or in **MENU > Language**, with every word following it, down to the charging screen ([languages](docs/guide.md#languages)).
@@ -112,6 +112,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Autosave and resume,** six save slots, quick save and quick load on **SELECT + R1** and **L1**, **Undo Load**, and a **Disc** row for games on more than one disc ([in a game](docs/guide.md#in-a-game)).
 - **Faster and slower** (1.5x, 2x and 3x), **turbo** buttons and **On-Screen Stats** over the game ([in a game](docs/guide.md#in-a-game)).
 - **Hotkeys you choose,** SELECT and a button, for a screenshot, the next shader or display, reset and quit, for every game, a system or one game ([hotkeys](docs/guide.md#controls-and-menus)).
+- **Your screenshots on the home:** every shot in a group of its own, OpenBOR's too, newest first, opened on the whole screen ([screenshots](docs/guide.md#screenshots)).
 - **Change what a button does,** for one game or a whole system, two buttons on one game button if you like, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
 - **Cheats** from libretro's cheat list or a `.cht` file of your own, on and off per game in the in-game menu; achievements wait while one is on ([cheats](docs/guide.md#cheats)).
 - **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).

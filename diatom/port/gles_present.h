@@ -16,6 +16,12 @@
  *                          on the Brick
  *   PRESENT_SWAP()         the frame drawn: eglSwapBuffers on the Pixel 2, a
  *                          fence waited on the Brick
+ *   PRESENT_TOP_DOWN       defined where the target keeps its first row in
+ *                          memory at the top of the panel, the Brick's pages:
+ *                          the drawing's y goes the other way
+ *                          (port/gles_draw.h's to_clip), and so does a
+ *                          capture's, which then reads its rows in order. Not
+ *                          on the Pixel 2, whose window surface is GL's way up
  *   PORT_FN(n)             the interface's names: diatom_port_<n> on the Pixel
  *                          2; the Brick's own names, as it keeps its CPU path
  *                          beside this one
@@ -54,9 +60,16 @@ static bool capture_front(int front, const char *path)
 	glDeleteRenderbuffers(1, &rb);
 	glDeleteFramebuffers(1, &fbo);
 
+#ifdef PRESENT_TOP_DOWN
+	/* Drawn first row at y 0, as into the port's own target: GL reads the
+	 * top row first */
+	(void)y;
+	memcpy(flipped, rgba, row * (size_t)g_surface_h);
+#else
 	/* GL reads bottom row first. */
 	for (y = 0; y < g_surface_h; y++)
 		memcpy(flipped + (size_t)y * row, rgba + (size_t)(g_surface_h - 1 - y) * row, row);
+#endif
 
 	s = SDL_CreateRGBSurfaceWithFormatFrom(flipped, g_surface_w, g_surface_h, 32,
 	                                       (int)row, SDL_PIXELFORMAT_ABGR8888);

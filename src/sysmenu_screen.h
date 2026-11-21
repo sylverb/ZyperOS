@@ -46,6 +46,13 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading);
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading);
 void sc_side(app *a, const menu_side *at);
 void sc_look_choice(menu_choice *out);
+/* The page itself: from MENU > Display over the shelf (all NULL), and from
+ * the in-game menu's Display tab over the paused game, with that menu's
+ * backdrop, power rule and their `ctx` (src/ingame_screen.c, DESIGN.md
+ * 11.42). And the look, its row's value in both menus. */
+void screen_colors_page(app *a, void (*backdrop)(app *a, void *ctx, float scrim),
+                        menu_result (*on_power)(app *a, void *ctx), void *ctx);
+const char *screen_colors_value(void);
 /* MENU > Sound > Equalizer (src/eq.h): the page, from MENU and MP4's menu;
  * its rows, the presets' list with each one's picture, and that picture,
  * for the shots (--look-page eq, eq-presets) */

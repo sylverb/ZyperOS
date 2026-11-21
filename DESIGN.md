@@ -1455,8 +1455,8 @@ beside the level (`volume_boost`, `brightness_boost`), so it is there at the
 next start. A plug going in or out closes the volume boost: the new output
 starts at the top without it.
 
-- **Volume:** six cells of 2 dB, up to +12 dB, near a step under the top
-  (1.8 dB on the Pixel 2's speaker, 2.3 on the Brick). The gain is software,
+- **Volume:** six cells of 3 dB, up to +18 dB (2 dB and +12 dB until 2026-11-20: "make each step a little higher db boost"), a bit more than a step under
+  the top (1.8 dB on the Pixel 2's speaker, 2.3 on the Brick). The gain is software,
   in src/eqdsp.h after the equalizer's bands, moving over 20 ms, with a
   limiter that keeps every peak under -1 dB of full scale (down at once, back
   over 100 ms, both channels together): a quiet film gets louder, a loud one
@@ -1465,8 +1465,26 @@ starts at the top without it.
   over a port (the zyperos-eq plugin, now in every port's chain, the gain in
   the shared file that portkeys writes during the port). MP4's lock screen
   fills and empties an open one but never opens one: a held key in a pocket
-  must not. The menus show the bar as it was, the menu music is never
-  boosted, and a press under the top there folds a kept boost.
+  must not. While MP4 is heard behind the home, a shelf or a menu (playing,
+  the menu music quiet for it, as for L2 and R2 in 11.14), the boost there is
+  MP4's as on its own screens: the bar shows the cells, the hold or three
+  presses open them, a press down empties one before the level moves, and
+  each cell reaches the sound that plays. Over a paused game (the in-game
+  menu and what it opens, Reset Game's question, a port's menu) it is the
+  game's the same way, heard or not, and Continue hands the cells back with
+  the level (SETLEVEL): the menu's first VOL- empties one cell, as in the
+  game, and never throws the game's boost away. While a game runs with MP4's
+  music behind it (the game quiet for it), each cell the game opens, fills
+  or empties reaches MP4 at once, as Diatom's LEVEL line says it, not when
+  the game pauses or ends; a line from Diatom's first frames before it has
+  taken the launcher's cells is not passed on, so the music never ducks as
+  a game starts (src/levels.c, src/resident.c; `check-levels`,
+  `check-resident`). *(2026-11-20, on 1.1.0-rc.3: "if i'm playing something
+  that has the software audio boost, i should be able to still control that
+  audio boost from home". The paused game and the running one are this
+  document's call, from it.)* With neither, the menus show the bar as it
+  was, the menu music is never boosted, and a press under the top there
+  folds a kept boost.
 - **Brightness:** three cells, each a lift of the mid-tones on the display's
   gamma table after the player's Screen Colors, like Gamma +3: x^0.88,
   x^0.76, x^0.64 (mid grey 128 to 139, 151 and 164), black and white kept.
@@ -2339,6 +2357,10 @@ and modes still read.
   before and the next, or a book's chapter where its file has them, and
   the song pop-up (11.22) says what plays now. Paused or stopped, they are
   the menu music's again. *(The follow-up to #90.)*
+- **Its boost from anywhere.** While MP4 is heard behind the home, a shelf
+  or a menu, the volume keys there open, fill and empty its boost past the
+  top as on Now Playing; behind a running game, each cell the game's keys
+  move reaches MP4's sound at once (11.6).
 
 *(My picks, 2026-11-05: Now Playing keeps its large cover (A over a
 wider text column), video opens full screen (C over the view with
@@ -2376,7 +2398,12 @@ block. *(My picks in the File Transfer lab, 2026-11-05:
   Settings is behind a **⋯** at the top.
 - **Rows**: a game's cover, an album's, an artist's four; a folder's pixel
   art; or a file's line mark; the name; the size in **meta** **text-dim**; a
-  **⋯**. Under the pointer a row is **raised** (its size steps up to
+  **⋯**. A game's cover is the one the shelf shows, found by the launcher's
+  own lookup (src/esmedia.h's `game_media`): its own in its console's
+  `.media`, a game in a folder of games too, else EmulationStation's (11.40);
+  a disc set's folder or a ScummVM game's wears its game's. The listing
+  names the game's video the same way (`video`), which the page does not
+  draw yet. Under the pointer a row is **raised** (its size steps up to
   **text-soft**, since **text-dim** misses 4.5:1 on Salt & Pepper's raised);
   keyboard focus is the **accent** fill with **on-accent**.
 - **Folder art** *(My pick, File Transfer 2 lab, 2026-11-06: "Pixel art
@@ -3098,6 +3125,21 @@ end of the hold; a battery that reads over the line then goes on to the
 home, where the empty battery's own watch goes on. src/lowbatt.h has the
 rules; a host shot: `--lowbatt MS [charging|off]`.
 
+The level a start reads is the battery gauge's. On the GKD Pixel 2 it is its
+kernel's (plastron's rk817 patches): after 30 minutes or more off, the
+battery's voltage at rest, with its current's drop taken out; after less, the
+gauge's counter; and at a charger's start, over 300 mA into the battery (the
+charger's own end of a charge), the level kept before the power-off. A sample
+under a charger's current reads high (1.0.5: 85% at the power-off, 49% two
+hours later), and the counter falls about 100 mA while the handheld is off.
+The line was 100 mA, and a Pixel 2 whose starts from POWER read +110 mA with
+no cable in kept a falling counter at every start: at 93% by its voltage it
+read 64%, 38% and 30%, and once 0%, and this screen powered it off *(a
+player's logs, 1.0.6, 2026-11-20: "lost 30% in 4 hours" off)*. Near empty the
+kernel sets the level from the voltage too (9-px2-rk817-wear2-empty.patch),
+and the launcher powers off under the device's empty voltage whatever the
+level says (src/battempty.h).
+
 ### 11.25 Charging while off
 The screen of a handheld that is off and on a charger *(2026-11-06:
 "Can we have a charging screen as well for when the pixel is off but
@@ -3309,8 +3351,9 @@ and R1 go round them, and the panel is the same size on every tab:
 
 | Tab | Rows |
 |---|---|
-| **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Core Settings (11.68), Cheats (11.66), Achievements, Reset, Quit |
-| **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
+| **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Core Settings (11.69), Cheats (11.66), Achievements, Reset, Quit |
+| **Display** | Display, Border and Handheld Color (11.59), Shader, Strength (11.50), a DS game's Screens, Swap Screens, Stylus, Screen Colors (a display with a table, 11.42), On-Screen Stats (11.52) |
+
 | **Controls** | Applies To, D-pad as Stick, Pak, Rumble (11.54), Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
 
@@ -3370,7 +3413,10 @@ panel stands 24 units from the screen's sides, the most 11.3 allows, to make
 room for the handheld on the Controls tab: its content is 864 units wide
 (`menu_most_w`; 860, 26 from the sides, off the grid, until 1.0.6).
 Over a port (OpenBOR, PortMaster) the menu is as it was, Continue, Controls
-and Quit with no tabs, and there Controls is the read-only pages below.
+and Quit with no tabs, and there Controls is the read-only pages below. Over
+your PICO-8 it has Display, On-Screen Stats, Border, Shader, Strength and Reset too, and
+Controls is the Controls tab's
+list, the buttons themselves (11.55).
 
 **X is Quit** from any row of any tab (gm_x_row, src/game_menu.h), in every
 in-game menu ZyperOS draws: over a Diatom game, over a "run:" program or a
@@ -4545,7 +4591,14 @@ library's rows, so the card still works in the other system.
   `videos/` and `media/videos/` (src/esmedia.h has the whole order). Found on
   the cover worker, never on the frame: a folder's `gamelist.xml` is read
   once, the first time one of its games asks. A cover with an ES video has
-  the play mark, and the video plays as a snap does.
+  the play mark, and the video plays as a snap does. The File Transfer page
+  (11.15) gives each game the same cover beside it, by the same lookup
+  *(2026-11-20, from metior: "The web interface doesn't read from the
+  EmulationStation folder structure for images and video like the OS itself
+  does")*; a `gamelist.xml`, or a file in one of ES's media folders, sent
+  from the page has the folder read again for its next listing. The page
+  draws no video in 1.1.0 *(my call, 2026-11-20)*: the listing names each
+  game's video (`video`), found the same way, for a later design.
 - **Box Art** counts an ES cover as a cover: it fetches only for games with
   neither, and **Cover and Video** (11.34) shows an ES cover as Now,
   credited "EmulationStation". A cover chosen there is ZyperOS's own, and
@@ -4688,6 +4741,23 @@ the boot splash's first second and USB Drive's screen. *(Asked for on the
 Discord; the first page approved by Tarik, 2026-11-16, "All approved"; the
 second, with "more options and granularity", negative numbers and a
 preview on hover, approved the same day.)*
+
+**Screen Colors in a game** (1.1.0). The in-game menu's Display tab (11.28)
+has a **Screen Colors** row where the display has a table, after the game's
+own picture rows and right over On-Screen Stats: those are this game's, it
+is the whole panel's, and like On-Screen Stats it opens a page. Its value
+is the look, as MENU's row says it; Left and Right do nothing, and A opens
+MENU > Display's own page (the same code, `screen_colors_page`) over the
+paused game, as the in-game menu's other pages are: the paused frame
+behind it, the game's accent, POWER stopping the game. A step is on the
+panel and kept at once, the one setting it is everywhere, so the chart and
+the game round the panel show it before the game goes on, and the Look's
+list shows the look under its cursor there as over the shelf. B goes back
+to the menu, the game still paused. Night Mode's warmth stays on top, made
+in the same table in the same order as from MENU. Not in the menu over a
+port or your PICO-8, which has no Display tab. *(Asked for on the Discord,
+for a quick fix when a game's colors or contrast are off; mine for 1.1.0,
+2026-11-20.)*
 
 **Night Mode** (MENU > Display, under Screen Colors, where the display has
 a table) makes the whole screen warmer for the night, over the player's own
@@ -5444,6 +5514,10 @@ when its change lands.
   **text-dim** (2.7:1). A frame that bright in that corner is rare; holding
   them would take a shape behind the corner, which the lab did not pick.
 - Five one-line message holds (900 to 2200 ms), where 11.8 has two.
+- Your PICO-8's sound follows a USB-C DAC only from its start, and other
+  ports' not at all (11.55): plugged in or out while PICO-8 plays, it goes
+  on where it began, or loses its sound until it is started again. Diatom
+  and MP4 follow at once.
 
 ### 11.23 File Transfer while files move
 File Transfer is a session of its own, and its screen (the transfer panel,
@@ -5648,8 +5722,9 @@ tools/i18n-shots.py (`scene_bmp`).
 
 **Home Systems** in MENU's Display tab, under System Order: its value
 **All**, or how many of them are on ("8 of 10"); A opens its page. The page
-lists Favorites, Recents and Collections (11.56; its row once the card has
-a collection, as a system has one only with games), a rule, then every system
+lists Favorites, Recents, Collections (11.56; its row once the card has
+a collection, as a system has one only with games) and Screenshots (11.68;
+its row once the card has a shot), a rule, then every system
 the card has games for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
@@ -5672,7 +5747,7 @@ is the empty home's, which says the card has no games: its row is dead, and a
 second note says why ("One system stays on the home."). The home is built
 again once, as the page closes on a change, from the saved library, keeping
 the player's place (`shelves_reload`). The setting is one word in the device
-database, `home.hidden`: the tags that are off ("PRT,RECENT"; Collections' is COLL),
+database, `home.hidden`: the tags that are off ("PRT,RECENT"; Collections' is COLL, Screenshots' SHOT),
 so a new system is On without anyone saying so (src/homesys.h). Host shots:
 `--homesys-page ROW`.
 
@@ -6022,7 +6097,13 @@ book, the cup and the set's count. Over the keys: the counts per kind as
 marks and the time left beside a clock, or in **warning** why it waits -
 `Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`. B
 Continue in background (the page closes, the corner's ring shows it, MENU's
-row says `Downloading · 41%`), Y Stop. **Done**: **All done**, **Stopped**
+row says `Downloading · 41%`), Y Stop. What came is the run's, not the
+page's (1.1.0-rc.3 opened again on empty tiles): the launcher keeps the
+newest fourteen for the session, with what lands while the page is closed
+or a game waits, and the page opened again shows the stream and the wall as
+they were, the pictures it showed at once and the others as they are read;
+a new run starts them again, and once its end has been seen they go. Not
+over a power-off: POWER stops the run. **Done**: **All done**, **Stopped**
 (why under it) or **Sign in again**; the wall of what came (fourteen at
 most), the counts, and over the keys `It all works offline now` or `The
 next download starts from what is missing`. A Again (from what is missing,
@@ -6123,18 +6204,203 @@ So once they are, carts open in it, and the shelf's **Core** row offers it
 beside fake08; before, the row names fake08 alone, as today. *(2026-11-19:
 adding it is the choice.)* It runs as OpenBOR does, a program of its own:
 the loading screen (11.11) until it draws, **MENU** ZyperOS's menu over it
-(Continue, Controls, Quit, **X** Quit from any row, 11.28), its Controls pages
-the PICO-8 shelf's buttons, **START** PICO-8's own pause menu, **MENU+START**
+(Continue, Display, On-Screen Stats, Border, Shader, Strength, Controls,
+Reset, Quit, **X** Quit from any row, 11.28),
+its Controls the PICO-8 shelf's buttons (below), **START** PICO-8's own pause
+menu, the player's hotkeys (below), **MENU+START**
 held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
 **POWER** its end and the power-off. No save states: PICO-8 has none, so Save,
 Load, Undo Load and Resume stay fake08's. Full clocks, as every program of its
 own.
 
+**MP4 over it** *(2026-11-20: "mp4 should keep playing while pico 8 is
+running like we do on other systems. and menu and select should open the mp4
+like other systems")*, as over a Diatom game. What plays when a cart opens
+plays on: launch.sh stops MP4 for every other program of its own (a port
+such as Stardew Valley needs the 1 GB) and not for this one, whose request
+says so (`port_keeps_mp4`, src/portmenu.h). Both sounds go into the same
+mix, the system's default being dmix, so neither keeps the other out. The
+queue goes from process to process in a file (src/mp4hand.h): the launcher
+writes it as it ends for PICO-8, a follower beside PICO-8 (`zyperos.elf
+--mp4-follow`, started and ended by launch.sh) plays the next track as each
+ends and keeps the resume row and a book's place, and the launcher after
+PICO-8 takes it on, the music going on with no gap and nothing opening by
+itself. **MENU, then SELECT** opens MP4 in the in-game menu as over a game:
+Now Playing of what plays, or MP4's shelf with nothing playing, the whole
+of MP4 there; SELECT let go or B closes it back to the menu, and Continue
+gives PICO-8 its frame and its keys as before (portkeys empties what was
+pressed). portkeys stops the follower while the menu is up, so the menu's
+MP4 is the one that talks to the daemon then, and the follower goes on from
+the queue the menu leaves. Where MP4's sound goes (a headset, a DAC) stays
+where the launcher left it until the menu opens MP4.
+
+**Quiet while MP4 plays**, as a Diatom game is (QUIET): the equalizer's
+plugin, already in every port's ALSA chain, plays silence while the shared
+file it reads (`/run/zyperos/eq`) says `cut`, faded in and out over 20 ms.
+MP4's follower sets and clears the cut as MP4 plays, pauses or runs out,
+within a tenth of a second; the in-game menu sets it as it closes when MP4
+was opened there, before PICO-8 goes on, as Continue says QUIET over a
+game; the launcher sets it as it hands over and clears it as it starts and
+for any other program. Nothing is added to PICO-8's chain for it: rc.4 put
+a softvol stage there and PICO-8 could not open its sound at its own
+period, so the chain stays the one every port has. A plugin
+from before (an older system image) reads no cut, and PICO-8 is heard.
+
+**A USB-C DAC** takes your PICO-8's sound while it is in, as it takes
+Diatom's and MP4's (a cable wins in every Audio Output policy): its chain
+goes into the system's own `usb` PCM, its volume the "USB Playback Volume"
+that portkeys writes. That PCM has a softvol stage, so launch.sh first opens
+the chain as PICO-8 opens it (`zyperos.elf --alsa-try`: SDL 2's calls for
+22050 Hz, 16-bit mono, 1024 frames a period) and leaves PICO-8 in the mix,
+as before, when that fails, or when the system's ALSA config has no `usb`
+PCM. Other ports stay in the mix: what they ask of ALSA is not known. It is
+chosen as PICO-8 starts; a DAC plugged in or out while it plays is heard at
+its next start. A Bluetooth headset stays MP4's: bluealsa gives a headset
+to one program at a time.
+
 **The picture** follows the shelf's **Display** row (launch.sh hands the
-row's name to the script): **Sharp Pixels** is whole multiples of 128, 3x on
-the Pixel 2 (384 x 384); every other mode is the panel's full height
-(480 x 480), its pixels 3 or 4 of the panel's. On the Brick 6x is its full
-height (768 x 768).
+row's name to the script), each mode where Diatom puts a 128 x 128 picture,
+so a mode means over your PICO-8 what it means over fake08 *(2026-11-20:
+"cover all those", the gap map's Display rows)*: PICO-8's own `-draw_rect`
+for every mode (src/p8draw.h). On the Pixel 2's 640 x 480: **Full Screen**
+the whole panel, 640 x 480, its shape changed; **Original Shape** and
+**Square Pixels** the full height, 480 x 480; **Sharp Pixels** and its
+**Tall** 3x, 384 x 384; **Sharp Pixels, Zoomed** 5x, 640 x 640, and **Fill,
+Edges Cut** the full width, 640 x 640, both cut 80 rows at the top and the
+bottom; **Actual Size** 1x, 128 x 128 in the middle. Unfiltered where PICO-8's
+pixels are whole ones of the panel's, filtered where they are not (Full
+Screen, the full height). A shelf whose Display was never set plays your
+PICO-8 at **Original Shape**, the 480 x 480 it drew before its Display modes
+came, and only a pick of Full Screen stretches it *(2026-11-20: the default
+must not change under a player)*; fake08 on the same shelf keeps Full Screen,
+every system's default. So the default follows the core (`dmode_default`),
+the shelf's row says it, and a system's row is written only for a pick: any
+change of any shelf's Display wrote every system's row before, and a
+"stretch" your PICO-8's row holds from then is let go of once. Zoomed and
+Edges Cut start above the panel's
+top, which no device has shown 0.2.7 taking: if it does not, one constant
+(`NEG_OK` in PICO-8.sh, `P8_NEG_OK` beside it) draws them as Sharp Pixels and
+Original Shape. On the Brick 6x is its full height (768 x 768).
+
+**Display in the game.** The menu over it has a **Display** row, after
+Continue (where the Display tab is, after the Game tab's first row), its
+value the mode on, and **On-Screen Stats** after it, as the Display tab's
+last row is over a game, then the picture's other rows (below): Continue,
+Display, On-Screen Stats, Border, Shader, Strength, Controls, Reset,
+Quit. PICO-8 draws its
+picture where it was told as it started and cannot move it, so a mode is one
+it starts again in. A opens the Display list, each mode's picture beside it
+(PICO-8's own screen, cut out of the frame the menu is over, drawn in that
+mode); Left and Right step nothing, as a step would start it again. A mode
+other than the one on asks first, as Reset Game's hotkey asks, the cursor on
+Cancel: **Start the cart again?**, "PICO-8 starts again in Actual Size. Play
+since the cart last saved is lost.", **Start Again** and Cancel. Start Again
+keeps the mode as the shelf's row keeps it (`display.PICO8`), and PICO-8 ends
+(saving its settings) and starts again in it, behind the cart's loading
+screen, MP4 playing on; Cancel, B or the mode on change nothing. The **Next
+Display** hotkey over it asks the same for the next mode, with no menu
+(`--display`). launch.sh does the start again (`port_quit`, src/portmenu.h).
+
+**Hotkeys over it** *(2026-11-20: "cover all those", the gap map's hotkey
+rows)* are the player's own, SELECT held and one more button as over a
+Diatom game (11.61), the table in force for the cart (This Game's, PICO-8's,
+Every Game's, ZyperOS's own), judged by Diatom's own chord rule
+(diatom/src/chord.c) in portkeys, which reads the joypad already for MENU.
+A chord never reaches the cart, as over a Diatom game *(device test, rc.5:
+SELECT+A for a screenshot was A, New Game, too)*: while a hotkey has a key,
+portkeys holds the joypad (EVIOCGRAB) and gives PICO-8 a pad of its own
+(uinput, tools/pkvpad.h), fed every other press at once, in its order, and
+SELECT alone as Diatom gives it, as it is let go or held past 400 ms. PICO-8
+merges the two into its player 1 (`merge_joysticks 2`, which PICO-8.sh sets),
+and the joypad is held only once PICO-8 has the pad open and nothing is down,
+let go of before the menu and as portkeys ends; a crash lets go of it too,
+so PICO-8 is never left with no pad. MENU+START held is portkeys's while it
+holds the joypad (zyhome hears nothing then). **Screenshot** is PICO-8's own 128 x 128 picture,
+as fake08's is, read out of the panel where the Display mode in force draws
+it (src/p8draw.h), to `Screenshots/PICO-8/<the cart> 2026-11-20 14.05.31.png`
+(`PICO-8` for Splore), and the same pop-up as over a game, "Screenshot saved"
+and the folder with the shot small beside them: the launcher renders the slab
+as it hands over with an empty square (`NOTICE_SLOT`), and portkeys lays the
+shot in it on the cursor window. **Reset Game** asks first, as over a game
+(below). **Quit** ends PICO-8 as the menu's Quit. **Next Shader** steps the
+Shader row and shows it at once (PICO-8's shader library reads its file), with
+"Shader / CRT" over the cart; **Next Display** asks to start again in the next
+mode (above). Quick Save, Quick Load, Faster and Slower do nothing over it:
+PICO-8 has no states and no speed, so their keys stay PICO-8's under SELECT.
+
+**Reset** is a row of the menu over it, before Quit, once PICO-8 has drawn,
+and the Reset Game hotkey's: both ask first, over the frame, as Reset Game's
+hotkey asks over a game, the cursor on Cancel: **Reset the game?**, "Play
+since the last save is lost.", **Reset** and Cancel. Reset is PICO-8's own
+CTRL-R ("Reload / Run / Restart cartridge", its manual): portkeys keeps a
+keyboard of its own for the run (uinput, which plastron's kernel has built in,
+as gptokeyb's keyboard is made) and presses CTRL and R on it once PICO-8 has
+its display and keys back. Cancel or B goes back to the menu, or with the
+hotkey to the cart.
+
+**Its buttons** are the PICO-8 shelf's, as fake08's are (11.45): Controls in
+the menu over it opens the Controls tab's list itself, over the frame, the
+handheld beside it: Applies To (This Game, or every PICO-8 cart), the buttons
+with what each gives (O, X, the pause menu), Reset Buttons and Hotkeys. PICO-8
+reads its pad through SDL's mapping, which SDL takes as it starts, so the
+table in force becomes the pad's mapping line (src/p8pad.h: O on SDL's a, X
+on its b), which PICO-8.sh exports, the line that shipped when nothing is
+changed. A change cannot reach a PICO-8 that is running, so leaving the list
+with new buttons asks the Display row's question, "PICO-8 takes the new
+buttons as it starts again. Play since the cart last saved is lost.": **Start
+Again** starts it again with them, in the mode on; Cancel keeps them for its
+next start. A turbo is the plain button over it, and the N64's layer is no
+PICO-8's.
+
+**Auto Off** runs over it as over a game, MENU > Auto Off's time with no key
+pressed, the charger holding the clock: portkeys counts it (the launcher's own
+src/idle.c) and ends PICO-8 and powers off as POWER does. A game resumes
+after Diatom's Auto Off; PICO-8 has no state, so play since the cart last
+saved is lost, as with POWER. No other program of its own gets it: an install
+or a cutscene is no player gone.
+
+**Shader and Border** *(2026-11-20, "cover all those": the gap map's Shader
+and Border rows)*. The PICO-8 shelf's own **Shader**, **Strength** and
+**Border** rows (`shader.PICO8`, `shader_strength.PICO8`, `border.PICO8`, the
+rows fake08 plays with) draw over your PICO-8 as over a game in Diatom, and
+the menu over it has them after Display and On-Screen Stats, in the Display
+tab's order: Continue, Display, On-Screen Stats, Border (where the mode
+leaves room), Shader, Strength (under an old screen), Controls, Reset, Quit. These change the picture from
+PICO-8's next frame after Continue, with no start again. The shaders are
+fake08's on the Pixel 2: Off, Sharp-Shimmerless, CRT, CRT Curved, Scanlines
+and LCD Grid, Diatom's own (diatom/port/gles_shaders.h), so a cart looks the
+same on either player at the same size. Border is Off, Blur and Your Own
+(`Borders/PICO-8/`, or NextUI's `Overlays/PICO8/`); PICO-8 has no handheld
+to frame. **Next Shader** steps the shelf's shader live (portkeys,
+`p8fx_next_shader`).
+
+*How it is drawn* (src/p8fx.h). pico8_64 draws through the system's SDL2:
+its screen as a texture, copied each frame to where its mode puts it.
+PICO-8.sh loads ZyperOS's `ZyperOS/pico8/p8fx.so` before SDL (`LD_PRELOAD`),
+and it takes that one copy: the Border over SDL's black, then the picture
+through the shader in SDL's own GL context, with SDL's GL state put back
+after. With Off, SDL still draws the picture, to the pixel as without it.
+What it draws is `/tmp/zyperos-pico8fx`, which the launcher writes as it
+hands over to PICO-8 and the menu writes again; the library reads it again
+within a quarter of a second of a change. No change to the system image.
+Wherever the library cannot draw (no file, a GPU below OpenGL ES 3, a
+renderer that is not SDL's OpenGL ES one, anything it does not know), PICO-8
+draws as it always did, never a black screen. PICO-8's own screenshots and
+GIFs are of its 128 x 128, with no shader. `make check-p8fx` and
+`check-p8fx-gl` hold it.
+
+**Over the picture**, as over a Diatom game: the **low-battery disc**
+(11.24's red disc, 34 px in from the top right, blinking at critical) at
+each battery reading, and **On-Screen Stats** (11.52) while the player has it
+on, the line in their corner and style: FPS the frames PICO-8 puts on the
+panel, counted at each vertical blank as `px2-shot --fps` counts them, and
+Speed left out, as PICO-8 says nothing of it. portkeys draws both on the
+panel's cursor window with the volume bar and "Getting hot", in one frame
+(tools/pkover.h), and keeps PICO-8's display borrowed while they show (only
+over your PICO-8, whose script opens its display once). On-Screen Stats is
+turned on in the menu over it (its row: On or Off on Left and Right, A its
+page, the same one as over a game) or over a Diatom game; portkeys reads it as
+the menu closes.
 
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
@@ -6170,8 +6436,12 @@ until then its script is not in the Brick's payload, so the Brick's PICO-8
 shelf has no Splore and plays on fake08.
 
 Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
-page in both themes). The rules: `make check-pico8`, `check-config`,
-`check-controls`.
+page in both themes), and tools/i18n-shots.py's `pico8-menu-display`,
+`pico8-display-list` and `pico8-restart-<mode>` (the menu's Display row, its
+list, the question for each mode), `pico8-menu-shader` and `pico8-border-list`
+(Border, Shader and Strength in it, and Border's list). The rules: `make check-pico8`,
+`check-config`, `check-controls`, `check-pico8-display`, `check-pkover`,
+`check-p8fx`, `check-p8fx-gl`.
 
 ### 11.56 Collections
 *(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to
@@ -6609,7 +6879,11 @@ launch.sh starts a port with an ALSA config of its own
 (`sd/zyperos/eq-port.sh`): `default` is plug, then alsa-lib's ladspa PCM
 running the plugin, then plug into `EQ_SLAVE`, the dmix every program mixes
 into (`mixed` on the Pixel 2, the same `ipc_key`), so the port still plays
-over MP4 and under the volume bar. alsa-lib reads the files in
+over MP4 and under the volume bar. The first plug makes whatever the program
+asks the mix's 48 kHz stereo, so the plugin always runs at the mix's rate:
+left to the program's rate, the chain refused your PICO-8's 22050 Hz at its
+hardware parameters, and PICO-8 had no sound on 1.1.0-rc.5
+(`tools/eqchain-check.sh`, in check-eqplugin on Linux). alsa-lib reads the files in
 `ALSA_CONFIG_PATH` first and runs the hooks after, and `alsa.conf`'s own
 hook (0) loads `/etc/asound.conf`, whose `pcm.!default` would replace the
 port's: the image check found the port playing straight into the mix. So
@@ -6712,6 +6986,10 @@ Cancel, the cursor on Cancel. Reset resets and the game goes on; Cancel or B
 goes back to it where it was. **Quit** pauses the same way (`for=quit`) and
 stops the game as the menu's Quit does.
 
+**Over your PICO-8** the same hotkeys, judged in portkeys by the same chord
+rule (11.55): Screenshot, Reset Game (asked first), Quit, Next Shader and Next
+Display, the first four doing nothing, as PICO-8 has no states and no speed.
+
 **The screenshot** is the game's own frame at its own size, as a save's
 picture is, not the screen with its shader and border: Diatom keeps that
 frame already (a GPU core's read back once, between frames, as a pause's
@@ -6722,7 +7000,8 @@ where (RUN `shots=`, with every game, so a key set in the game works at
 once); Diatom adds the time. **The pop-up** *(my pick: the picture, small)*
 carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
-**hold-short**, as every pop-up over a game.
+**hold-short**, as every pop-up over a game. The shots are on the home's
+Screenshots group (11.68), the first one making it as the game ends.
 
 ### 11.62 Two cores on a shelf: Gambatte
 *(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
@@ -7102,15 +7381,120 @@ resumed: it was not heard.
   proto 7): the file at its second, nothing written to the device, a
   video's first picture there shown as after a seek - and Now Playing
   shows it paused at once, before the daemon has answered, with no sound
-  of its own (nothing was pressed). After a game resumed at the start or
-  the tutorial, which come first. In Shuffle All the songs after it are a
+  of its own (nothing was pressed). After the tutorial, which comes
+  first. In Shuffle All the songs after it are a
   new order: the order is not kept, Shuffle All being every song on the
   card. A held file that will not open stops there, rather than skipping
   to the next track, which would play.
+- **Over a game.** A start that goes straight back into a game (the power
+  went in it, MP4 playing over it) holds MP4's queue the same way, paused
+  at its second, before the game's RUN - but opens no screen of its own:
+  the game comes first, back with its menu up. SELECT in that menu is Now
+  Playing on it, paused, A to carry on, and the shelf the game comes back
+  to shows it paused, as all of it was before the power-off. The daemon
+  opens the file while the game waits under its menu, and the game is
+  heard: QUIET follows playing, and it is paused.
 - *(Mine, 2026-11-19: "make sure that if powered off while playing, when
-  powered on it turns on with the media paused where it was".)*
+  powered on it turns on with the media paused where it was". And from
+  1.1.0-rc.3: "I powered off while having a video playing in mp4 and
+  running a gbc game and when i clicked select in the menu after powering
+  on again it didnt show the video playing that video paused".)*
 
-### 11.68 Core Settings
+### 11.68 Screenshots
+*(Asked for as "a place in the launcher to view screenshots", and on
+1.1.0-rc.3: "I'm not seeing the screenshots option in home. Why?". My picks
+in the Screenshots lab, 2026-11-20; each pick is one place,
+src/shots_screen.h's list.)*
+
+**A group on the home**, like Favorites, Recents and Collections, after them
+(first when there are none of the three), once the card has a shot: no shot,
+no card, as an empty Favorites shows none. Named **Screenshots** in the
+language that is on, "5 screenshots" under its name, A's hint **Open**. Its
+card is a placeholder until a real design comes: a pixel camera, its lens
+ringed in lime, its flash firing, two poses of 400 ms each as Favorites'
+heart beats (`res/system-art/original/placeholders/screenshots-card.py`).
+Home Systems (11.48) has its row once the card has a shot, On as it ships;
+its tag is SHOT.
+
+**What it holds.** Every shot the Screenshot hotkey wrote (11.61),
+`Screenshots/<System>/<Game> 2026-11-18 21.40.05.png`, and OpenBOR's own
+*(my pick)*, which OpenBOR takes with SELECT and names itself,
+`Saves/openbor/ScreenShots/<module> - 0000.png` (its `screenshot()` at the
+pinned b8303cc: the module its `.pak`'s name, "Menu" in its own menu, the
+number the first free one), under OpenBOR - of a system the card has games
+for, on the home or turned off it: one stream, the newest first, the newest
+2000. An entry has its game's name and title, found by the name the shot was
+taken with (the hotkey's `shot_game_part`, OpenBOR's module; src/shotname.h),
+and is owned by its system as on Favorites; its file is the picture's own
+path. A shot of a game no longer on the card (renamed or deleted: Rename and
+Delete Game leave the shots alone) stays, under the name it was taken with.
+A file of another name is no shot. A hotkey shot's time is its name's wall
+clock, kept by the calendar alone, never through a time zone; OpenBOR's name
+has none, so its file's. Read once a scan, and again only after a game that
+took a shot (Diatom's SHOT); never in a game. OpenBOR runs as a program of
+its own, after which the launcher starts again and reads the card, so its
+shots are there when it comes back.
+
+**Its shelf** is a shelf's: Covers, Grid, List and Video, START stepping
+them, kept by its tag. Each card is Recents' Last Screen card (11.48,
+src/screencard.h): the shot at its own shape, scaled up whole by the nearest
+pixel toward 448, its game's cover small in its lower left corner (its own
+box art by the game's name; its generated card where it has none), made on
+the art workers. Under the name, the shot's system and when it was taken,
+"SNES · today 21:40", by the
+calendar's days as Played says them ("3d ago" past yesterday), the clock as
+MENU > Clock has it. No heart, no video snap and no snap mark. The foot: B
+Systems, START the next View, X Delete; A's word **View**.
+
+**A on a shot** opens it in the Video view (11.57), for as long as it is
+open; the View the shelf keeps does not change. The shot is whole on the
+screen at its own shape, as large as the screen holds it (on the Pixel 2 a
+SNES shot is 549 x 480 pixels), on ink; the name's card at the top left
+("Screenshots · 3 / 13", the game, its line); the band of shots at the foot,
+down to its strip after **hold-band** with no press. Until the picture is
+in, its card shows whole above the band, as a game's does until its snap.
+Left and Right step, L1 and R1 go to the next or the last game's first shot
+in the shelf's order, B goes back to the View it was opened from, X deletes;
+A and START play **deny**. The viewer is for looking *(my pick)*: no key
+starts the shot's game there, which starts from its own shelf. The picture
+is asked of the art workers apart from the cards
+(`SHOTS_VIEW_SYS`). On the shelf's own Video View (START) the same, with B
+Systems and START Covers. A still shot does not hold the screensaver, as a
+playing snap does.
+
+**Delete Screenshot** (X, on the shelf and in the viewer) asks first, as
+Delete Game does (11.31): "Delete this screenshot of Super Metroid? The game
+stays. This cannot be undone.", Delete over **Cancel**, the cursor on
+Cancel. Yes takes the file off the card and nothing else; the shelf is read
+again, on the shot that took its place; the last one deleted, the group
+goes and the home stands on what took its place. A card that will not let
+it go says so ("The screenshot was not deleted. Check the card and try
+again.").
+
+**Its menu** is two rows under its name: **Sort By**, its own three -
+**Recently Added** (the newest first, as it ships), **Name** and **System**
+(the home's order of the systems), each game's newest first in those two -
+and **View**. No count and no Random Game: a shot is no game.
+
+**What it costs.** Nothing per frame and nothing in a game: a scan reads
+`Screenshots/`, its systems' folders and OpenBOR's, names only (and a stat
+of each of OpenBOR's, for its time), and finds the games by
+name in the listings in memory (a sort of each folder's names, a look-up a
+game); a card is made once on the art workers; the viewer's picture is one
+texture, for the shot in focus.
+
+Host shots: `home-screenshots` (and `home-screenshots-one`), `shelf-screenshots`
+(and `shelf-screenshots-openbor`, OpenBOR's own),
+`shelf-screenshots-grid`, `shelf-screenshots-list`, `screenshots-viewer`,
+`screenshots-viewer-strip`, `screenshots-delete`, `screenshots-said`,
+`screenshots-menu`, `screenshots-menu-sort` and `homesys-page-shots` (tools/i18n-shots.py, the
+shots made up as PNGs), with `--shots-delete`, `--shots-said` and
+`--shots-delete-now`. `check-shotname` holds the names and the orders;
+`check-homesys-groups` the shelf with its system turned off, OpenBOR's shots
+by their files' times, A in the viewer starting nothing, and Delete
+Screenshot.
+
+### 11.69 Core Settings
 A system's **Core Settings** row (the shelf's menu, under Core / Timing) and
 the in-game menu's Game-tab row of the same name open one page: every option
 that core offers (mapper, palette, sound cart, …), or only the keys listed
@@ -7130,4 +7514,3 @@ A opens the list when there are more than two, as every option row does
 (`codef.blob`), not a fixed `vals[64][128]` table, so opening the page no
 longer stacks nearly a megabyte. Host shots: `--coreopts-page ROW` on a
 system's shelf (tools/i18n-shots.py: `coreopts-page`, `coreopts-page-empty`).
-
