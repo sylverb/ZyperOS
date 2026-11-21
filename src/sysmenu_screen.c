@@ -144,7 +144,6 @@ static void usb_auto_message(app *a)
 }
 
 static const char *look_accent_name(void);   /* with the Theme page */
-static const char *screen_colors_value(void); /* with the Screen Colors page */
 /* Night Mode and its page (below Screen Colors): Night Warmth 1 to 10 */
 #define NM_MODES NIGHT_MODES
 #define NM_WARMTH_MIN 1
@@ -1381,8 +1380,8 @@ static int sc_look_of(const screen_colors *c)
 	return SC_CUSTOM;
 }
 
-/* MENU > Display's value for the row: the look */
-static const char *screen_colors_value(void)
+/* MENU > Display's value for the row, and the in-game Display tab's: the look */
+const char *screen_colors_value(void)
 {
 	screen_colors c = sc_load();
 	int k = sc_look_of(&c);
@@ -1469,6 +1468,9 @@ static const unsigned char SC_SOUND[SC_ROWS] = {
 };
 static menu_choice g_sc_choice[SC_ROWS];
 static menu_style g_sc_style;
+/* The backdrop's and the power rule's own, over a game (screen_colors_page):
+ * the in-game menu's, for the Look's list as for the page */
+static void *g_sc_ctx;
 
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
@@ -1514,7 +1516,7 @@ static menu_result sc_look_list(app *a)
 
 	sc_look_choice(&ch);
 	g_sc_preview_k = ch.cur;   /* what the display shows already */
-	k = menu_pick_preview(a, &g_sc_style, NULL, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.preview,
+	k = menu_pick_preview(a, &g_sc_style, g_sc_ctx, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.preview,
 	                      ch.n, ch.cur, ch.cur);
 	if (k >= 0 && k < SC_LOOKS_N) {
 		sc_keep(&SC_LOOKS[k].c);
@@ -1570,12 +1572,22 @@ void sc_side(app *a, const menu_side *at)
 	ds_color_ref_draw(a->r, &(SDL_Rect){ at->content_x, at->content_y, SC_SIDE_W - DS_GRID * 4, h });
 }
 
-static void screen_colors_screen(app *a)
+/* The page, over the shelf from MENU > Display (no backdrop), and over the
+ * paused game from the in-game menu's Display tab (1.1.0): the same rows and
+ * keys, each step on the panel and kept at once, so it is judged on the game
+ * behind it. Over a game it takes the in-game pages' accent, the game's
+ * (follow_tint), and their power rule, which stops the game. */
+void screen_colors_page(app *a, void (*backdrop)(app *a, void *ctx, float scrim),
+                        menu_result (*on_power)(app *a, void *ctx), void *ctx)
 {
 	g_sc_style = (menu_style){ .fixed_w = menu_most_w(), .accent = MENU_ZYPEROS,
+	                           .follow_tint = backdrop != NULL,
+	                           .backdrop = backdrop, .on_power = on_power,
 	                           .sound = SC_SOUND, .choices = g_sc_choice,
 	                           .side = sc_side, .side_w = SC_SIDE_W };
-	menu_run(a, &g_sc_style, sc_build, sc_key, NULL);
+	g_sc_ctx = ctx;
+	menu_run(a, &g_sc_style, sc_build, sc_key, ctx);
+	g_sc_ctx = NULL;
 	/* Out of the page: a preview gone and a load held back made, so what
 	 * the display shows is what is kept */
 	sc_preview_end();
@@ -2720,7 +2732,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	case PM_STORAGE:      storage_screen(a); break;
 	case PM_NIGHT:        night_page(a); return MENU_CHANGED;
 	case PM_THEME:        look_screen(a); return MENU_CHANGED;
-	case PM_SCREEN:       screen_colors_screen(a); return MENU_CHANGED;
+	case PM_SCREEN:       screen_colors_page(a, NULL, NULL, NULL); return MENU_CHANGED;
 	case PM_UPDATE:       update_screen(a); break;
 	case PM_ABOUT:        about_screen(a); break;
 	/* A game by its name: the menu closes once one is picked, and it starts */

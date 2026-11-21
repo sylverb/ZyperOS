@@ -23,6 +23,9 @@
 #include "border_pic.h"
 #include "panel.h"
 #include "pico8.h"
+#include "p8fx.h"
+#include "p8pad.h"
+#include "p8fx_send.h"
 #include "place.h"
 #include "pminstall.h"
 #include "portload.h"
@@ -208,6 +211,83 @@ static void pm_heal_config(const char *folder)
 	}
 }
 
+/* A file of a few lines written whole: a temporary beside it, renamed in */
+static bool write_whole(const char *path, const char *text)
+{
+	char tmp[LIB_PATH * 2];
+	FILE *f;
+	bool ok;
+
+	snprintf(tmp, sizeof tmp, "%s.tmp", path);
+	f = fopen(tmp, "w");
+	ok = f && fputs(text, f) >= 0;
+	if (f && fclose(f) != 0) ok = false;
+	if (!ok || rename(tmp, path) != 0) {
+		unlink(tmp);
+		return false;
+	}
+	return true;
+}
+
+void p8_keys_save(const system_cfg *s, const char *file, const char *shots)
+{
+	char text[CFG_STR * 6], run[200], kept[CFG_STR * 4] = "";
+	hk_table hk;
+
+	/* The folder the hand-over named, kept by the menu, which comes back to
+	 * a card with no shelf of its own */
+	if (!shots) {
+		FILE *f = fopen(plat_flag(PORT_KEYS_FILE), "r");
+		char line[CFG_STR * 4 + 16];
+
+		while (f && fgets(line, sizeof line, f))
+			if (!strncmp(line, "shots\t", 6)) {
+				line[strcspn(line, "\n")] = '\0';
+				snprintf(kept, sizeof kept, "%s", line + 6);
+			}
+		if (f) fclose(f);
+		shots = kept;
+	}
+	/* The table in force for the cart, as a Diatom game is sent it: This
+	 * Game's, PICO-8's, Every Game's or ZyperOS's own */
+	hks_get(HKS_GAME, s->tag, file, &hk);
+	hk_run(&hk, run, sizeof run);
+	snprintf(text, sizeof text, "hotkeys\t%s\nshots\t%s\n", run, shots);
+	if (!write_whole(plat_flag(PORT_KEYS_FILE), text))
+		fprintf(stderr, "port: couldn't write %s\n", PORT_KEYS_FILE);
+	/* Next Shader's pop-ups, "Shader / CRT", where it has a key: each
+	 * shader's in both themes, made as the hand-over is (`kept` NULL), and
+	 * by the menu only where one is missing (a key given in it) */
+	if (hk.key[HK_SHADER] != HK_NONE) {
+		const char *names[16];
+		int n = p8fx_shaders(names, 16), i, t;
+
+		for (i = 0; i < n; i++)
+			for (t = 0; t < DS_THEMES; t++) {
+				char path[LIB_PATH];
+
+				snprintf(path, sizeof path, PORT_SHADER_POPUP, names[i], t == DS_DARK ? "dark" : "light");
+				if (shots == kept && access(plat_flag(path), F_OK) == 0) continue;
+				notice_render(T(S_HOTKEYS_POPUP_SHADER), T(p8fx_shader_text(names[i])), plat_flag(path), t);
+			}
+	}
+}
+
+void p8_pad_save(const system_cfg *s, const char *file)
+{
+	char line[600], vline[600], text[1220];
+	rm_table t;
+
+	/* The table a Diatom game of the shelf would be sent (rms_sent); the
+	 * PICO-8 has no stick. For the joypad, and for the pad portkeys gives
+	 * PICO-8 while it holds the joypad for the hotkeys (tools/pkvpad.h) */
+	rms_sent(s, file, false, &t);
+	if (!p8_pad_line(&t, line, sizeof line) || !p8_vpad_line(&t, vline, sizeof vline)) return;
+	snprintf(text, sizeof text, "%s\n%s\n", line, vline);
+	if (!write_whole(plat_flag(P8_PAD_FILE), text))
+		fprintf(stderr, "port: couldn't write %s\n", P8_PAD_FILE);
+}
+
 /* `core` in place of the shelf's own: Splore runs on your PICO-8 whichever
  * core the shelf plays its carts on */
 static void launch_port_core(app *a, const system_cfg *s, const char *file, const char *core);
@@ -311,6 +391,8 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	unlink(plat_flag(MP4HAND_PATH));
 	if (port_keeps_mp4(core)) mp4_hand_save();
 	else                      resume_clear();
+	/* And PICO-8 quiet from its first sound while MP4 plays; never another */
+	port_quiet_hand(port_keeps_mp4(core));
 	anim_launch(a);
 	port_loading_screen(a, s);
 	/* "Getting hot" for portkeys to show over the port, which this process
@@ -318,6 +400,35 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	 * can turn it while the port runs */
 	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_LIGHT, DS_LIGHT);
 	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_DARK, DS_DARK);
+	/* Your PICO-8's hotkeys and buttons (src/portmenu.h, src/p8pad.h): what
+	 * portkeys and PICO-8.sh are handed, and "Screenshot saved" with room
+	 * for the shot, in both themes, as Diatom's pop-up has it (on_hotkey) */
+	unlink(plat_flag(PORT_KEYS_FILE));
+	unlink(plat_flag(P8_PAD_FILE));
+	if (!strcmp(core, P8_CORE) && port_hotkeys(s->tag)) {
+		char shots[CFG_STR * 4], name[LIB_NAME] = "PICO-8", folder[CFG_STR * 2];
+		const sysview *v = &a->view[a->sys_cursor];
+		size_t i;
+
+		/* The cart by the name its shelf shows, as a Diatom game's shot is;
+		 * Splore and PICO-8's own start are PICO-8's */
+		if (!splore_file(file) && v->list.count > 0 && !strcmp(v->list.items[v->cursor].file, file))
+			snprintf(name, sizeof name, "%s", v->list.items[v->cursor].name);
+		for (i = 0; name[i]; i++)
+			if (name[i] == '/' || name[i] == '\t' || name[i] == '\\') name[i] = '-';
+		snprintf(folder, sizeof folder, "Screenshots/%s", s->folder);
+		snprintf(shots, sizeof shots, "%s/%s/%s", P_CARD, folder, name);
+		p8_keys_save(s, file, shots);
+		p8_pad_save(s, file);
+		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, plat_flag(PORT_SHOT_LIGHT),
+		                 DS_LIGHT);
+		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, plat_flag(PORT_SHOT_DARK),
+		                 DS_DARK);
+	}
+	/* Your PICO-8: the PICO-8 shelf's Shader, Strength and Border, for the
+	 * library its script loads before SDL (src/p8fx.h), Off and no border
+	 * written too, so what is drawn is never an earlier start's */
+	if (!strcmp(core, P8_CORE)) p8fx_send(a, (int)(s - a->sys.systems));
 	a->running = false;
 }
 
@@ -786,7 +897,8 @@ void launch(app *a)
 	int  console = 0;
 	bool first_play = false;
 	/* 22 fixed entries (the shader's two and its strength's since 1.0.5)
-	 * plus NULL, seven more for a DS game's two screens, two for Timing's
+	 * plus NULL, seven more for a DS game's two screens (or two for a late skip,
+	 * frameskip|tag|late), two for Timing's
 	 * --pace (1.0.6), then two per core option. Sized off the loader's own cap so the two cannot drift apart:
 	 * the previous 20 was already 18 full, and a silent bound check would
 	 * have dropped every option rather than failing loudly. */
@@ -1446,6 +1558,12 @@ void launch(app *a)
 			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
 			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
 			if (sw) argv[n++] = (char *)"--swap";
+		} else if (s->late_skip) {
+			/* And a late frame left undrawn, as RUN's frameskip=late
+			 * (config/systems.cfg, frameskip|PSP|late). Left out here, the
+			 * first PSP game after the resident Diatom ended drew every
+			 * frame (1.1.0-rc.6, 2026-11-20). */
+			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
 		}
 		/* Timing, as RUN's pace= gives it to the resident one (src/pacing.h) */
 		if (s->pace[0]) {

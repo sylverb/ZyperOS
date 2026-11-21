@@ -1353,6 +1353,16 @@ for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"
                      ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", str(_k)]))
 EXTRA.setdefault("screen-colors-look-custom",
                  ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
+# Screen Colors in a game (1.1.0): the in-game menu's Display tab, its cursor
+# on the row (right over On-Screen Stats), at Custom, its longest value; and
+# A on it, the same page over the paused game, in Custom with its numbers,
+# and its Look's list there
+EXTRA.setdefault("gamemenu-screen-colors", ("demo", "PS1", ["--gamemenu", "2", "--gm-tab", "1"]))
+SHOT_SETTINGS["gamemenu-screen-colors"] = dict(SHOT_SETTINGS["screen-colors-custom"])
+EXTRA.setdefault("gamemenu-screen-colors-page", ("demo", "PS1", ["--gamemenu", "0", "--look-page", "screen", "1"]))
+SHOT_SETTINGS["gamemenu-screen-colors-page"] = dict(SHOT_SETTINGS["screen-colors-custom"])
+EXTRA.setdefault("gamemenu-screen-colors-looks",
+                 ("demo", "PS1", ["--gamemenu", "0", "--look-page", "screen-looks", "0", "--pick-at", "1"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "6"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
@@ -1571,6 +1581,46 @@ EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view",
 EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
 for _k in range(7):
     EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
+# The in-game menu over your PICO-8 (src/portmenu.h's port_menu_display): its
+# Display row, on Sharp Pixels; the Display list A opens there, the cursor on
+# Actual Size; and the question a mode other than the one on asks before
+# PICO-8 starts again in it, the cursor on Cancel, for each mode it can name.
+# The Pixel 2's alone in effect: the Brick has no PICO-8 of its own yet
+EXTRA["pico8-menu-display"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port"])
+EXTRA["pico8-display-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                                  "--gm-choose", "--pick-at", "7"])
+for _k, _m in enumerate(("stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")):
+    EXTRA["pico8-restart-" + _m] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                                       "--gm-restart", "--pick-at", str(_k)])
+for _name in ["pico8-menu-display", "pico8-display-list"] + ["pico8-restart-" + _m for _m in (
+        "stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")]:
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
+# ...and its On-Screen Stats row, after Display, Off and On
+EXTRA["pico8-menu-hud"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
+EXTRA["pico8-menu-hud-on"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
+SHOT_SETTINGS["pico8-menu-hud"] = {"display.PICO8": "integer"}
+SHOT_SETTINGS["pico8-menu-hud-on"] = {"display.PICO8": "integer", "hud": "1"}
+# ...and its picture's other rows, drawn by its shim (src/p8fx.h): Border,
+# Shader and Strength after On-Screen Stats in the Display tab's order, the
+# cursor on Shader at CRT 70% with Blur round it; and Border's list, the
+# cursor on Blur
+EXTRA["pico8-menu-shader"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port"])
+EXTRA["pico8-border-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "3", "port",
+                                                 "--gm-choose", "--pick-at", "1"])
+for _name in ("pico8-menu-shader", "pico8-border-list"):
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer", "shader.PICO8": "crt", "shader_strength.PICO8": "70",
+                            "border.PICO8": "blur"}
+# ...and its Reset row, the cursor on it, and the question it asks (the Reset
+# Game hotkey's too), the cursor on Cancel; the Controls list its Controls row
+# opens, the cursor on the A cap's row; and the start again new buttons ask for
+EXTRA["pico8-menu-reset"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port"])
+EXTRA["pico8-reset-ask"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port", "--gm-reset"])
+EXTRA["pico8-controls"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                              "--gm-port-controls"])
+EXTRA["pico8-restart-buttons"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port",
+                                                     "--gm-restart", "buttons"])
+for _name in ("pico8-menu-reset", "pico8-reset-ask", "pico8-controls", "pico8-restart-buttons"):
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
 
 
 # The demonstration card with one game in each system that has none (a name

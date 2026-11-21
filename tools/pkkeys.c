@@ -285,7 +285,8 @@ static void *share_map(const char *path)
 		map->seq = 0;
 		memset(map->db, 0, sizeof map->db);
 		map->gain = 0;
-		memset(map->pad, 0, sizeof map->pad);
+		map->cut = 0;
+		map->pad = 0;
 		map->magic = EQ_SHARE_MAGIC;
 	}
 	return map;

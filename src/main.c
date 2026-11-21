@@ -115,6 +115,7 @@
 #include "mp4lock.h"
 #include "mp4resume.h"   /* MP4 back after a power-off (DESIGN.md 11.67) */
 #include "mp4hand.h"     /* MP4 handed over a program of its own (DESIGN.md 11.55) */
+#include "alsatry.h"     /* --alsa-try: a port's ALSA chain opened as PICO-8 opens it */
 #include "topbar.h"
 #include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
@@ -168,6 +169,7 @@
 #include "charging.h"
 #include "app.h"
 #include "aout_route.h"
+#include "eq.h"         /* eq_share_cut: your PICO-8 quiet while MP4 plays */
 #include "bt_screen.h"
 #include "panel.h"
 #include "place.h"
@@ -205,6 +207,9 @@
 #include "zyperdraw.h"
 #include "zypermark.h"
 #include "levels.h"
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -362,9 +367,40 @@ int shader_step(int k, int d, const char *tag)
  * The shaders too, each system's: its own shader.<TAG>, else the old
  * `shader` for every system, else Off; and their strength the same way
  * (src/strength.h). The screens' own shader with them (screen_shader_load). */
+/* The mode a system plays at while its Display row was never set: Full
+ * Screen, DMODES[0], for every system, Diatom's default too; but the PICO-8
+ * shelf while it runs on your PICO-8 plays at Original Shape, the 480 x 480
+ * your PICO-8 always drew at before its Display modes came (2026-11-20: a
+ * shelf never set keeps the look it had, and only a pick of Full Screen
+ * stretches it). fake08 on the same shelf keeps Full Screen. The default
+ * follows the core: the Core row turned on the shelf moves it with it
+ * (core_step, dmode_settle). */
+int dmode_default(const system_cfg *s)
+{
+	int k;
+
+	if (port_menu_display(s->tag) && !strncmp(s->core, RUN_PREFIX, strlen(RUN_PREFIX)))
+		for (k = 0; k < DMODE_COUNT; k++)
+			if (!strcmp(DMODES[k].name, "aspect")) return k;
+	return 0;
+}
+
+void dmode_settle(app *a, int sys)
+{
+	if (!a->view[sys].dmode_kept) a->view[sys].dmode = dmode_default(&a->sys.systems[sys]);
+}
+
+/* Once: your PICO-8's row as every system's row was kept before 1.1.0,
+ * when any change of any system's Display wrote all of them (display_save):
+ * a "stretch" there was no pick of Full Screen, as your PICO-8 drew 480 x 480
+ * at every mode but Sharp Pixels then, so it is let go of. From this one on
+ * a row is written only for a pick. */
+#define P8_DISPLAY_SETTLED "pico8.display_settled"
+
 void display_load(app *a)
 {
 	char key[CFG_STR + 16], name[CFG_STR];
+	bool settled = db_has(db_dev(), P8_DISPLAY_SETTLED);
 	int i, k;
 
 	g_shader_all = 0;
@@ -386,10 +422,23 @@ void display_load(app *a)
 			a->view[i].shader = k;
 		a->view[i].strength = strength_read(db_dev(), a->sys.systems[i].tag);
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
-		if (!db_get_str(db_dev(), key, name, sizeof name, NULL)) continue;
-		for (k = 0; k < DMODE_COUNT; k++)
-			if (!strcmp(DMODES[k].name, name)) { a->view[i].dmode = k; break; }
+		a->view[i].dmode_kept = false;
+		if (db_get_str(db_dev(), key, name, sizeof name, NULL)) {
+			if (!settled && port_menu_display(tag) && !strcmp(name, DMODES[0].name)) {
+				db_del(db_dev(), key);
+				fprintf(stderr, "display: %s's Full Screen from before 1.1.0 is no pick; its default\n", tag);
+			} else {
+				for (k = 0; k < DMODE_COUNT; k++)
+					if (!strcmp(DMODES[k].name, name)) {
+						a->view[i].dmode = k;
+						a->view[i].dmode_kept = true;
+						break;
+					}
+			}
+		}
+		dmode_settle(a, i);
 	}
+	if (!settled) db_set_str(db_dev(), P8_DISPLAY_SETTLED, "1");
 	screen_shader_load();
 }
 
@@ -411,8 +460,16 @@ void display_save(app *a)
 	int i;
 
 	for (i = 0; i < sys_kept(a); i++) {
+		sysview *v = &a->view[i];
+
+		/* A row for a pick, and none for a system still at its default:
+		 * that one follows its core (dmode_default), and a row would fix
+		 * it at whatever the core's default was when another system's
+		 * Display changed */
+		if (!v->dmode_kept && v->dmode == dmode_default(&a->sys.systems[i])) continue;
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
-		db_set_str(db_dev(), key, DMODES[a->view[i].dmode].name);
+		db_set_str(db_dev(), key, DMODES[v->dmode].name);
+		v->dmode_kept = true;
 	}
 }
 
@@ -680,6 +737,8 @@ void core_load(app *a)
 		fprintf(stderr, "core: %s runs on %s%s\n", s->name, s->core,
 		        set ? "" : " (none of its cores is on the card)");
 	}
+	/* A Display never set goes by the core now chosen */
+	for (i = 0; i < sys_kept(a); i++) dmode_settle(a, i);
 }
 
 /* The next core the shelf's Core row offers, or the previous one. */
@@ -698,6 +757,7 @@ void core_step(app *a, int sys, int d)
 	snprintf(key, sizeof key, "core.%s", s->tag);
 	db_set_str(db_dev(), key, s->core);
 	fprintf(stderr, "core: %s now runs on %s\n", s->name, s->core);
+	dmode_settle(a, sys);
 }
 
 /* ---------- the Nintendo DS's game language ------------------------------- */
@@ -1821,6 +1881,44 @@ bool mp4_hand_save(void)
 	        h.n ? h.pos + 1 : 0);
 	mp4hand_free(&h);
 	return ok;
+}
+
+/* YOUR PICO-8 QUIET WHILE MP4 PLAYS, as a Diatom game is (QUIET, DESIGN.md
+ * 11.55): the equalizer's shared file's cut (eq_share_cut), which the
+ * plugin already in every port's ALSA chain plays silence for, faded; no
+ * stage of its own in the chain, which stays the one every port has. Said
+ * by MP4's follower beside PICO-8 and by the in-game menu over it; 0 again
+ * from the launcher as it starts and as it hands over (port_quiet_hand). */
+static int g_port_quiet_said = -1;
+
+/* Said when MP4's playing changes, or at once with `force`: by the follower
+ * ten times a second, as the launcher says QUIET over a game, and by the
+ * in-game menu over PICO-8 as it closes, before PICO-8 goes on */
+static void port_quiet_follow(bool force)
+{
+	int q = mp4c_playing() ? 1 : 0;
+
+	if (!force && q == g_port_quiet_said) return;
+	if (!eq_share_cut(q)) {
+		if (g_port_quiet_said != -2) fprintf(stderr, "quiet: no equalizer's file; PICO-8 heard\n");
+		g_port_quiet_said = -2;
+		return;
+	}
+	g_port_quiet_said = q;
+	fprintf(stderr, "quiet: PICO-8 %s\n", q ? "quiet, MP4 plays" : "heard");
+}
+
+/* As the launcher hands over to a program (launch_port) and as it starts:
+ * your PICO-8 quiet from its first sound when MP4 plays (`pico8`), any other
+ * program never, MP4 being stopped for it */
+void port_quiet_hand(bool pico8)
+{
+	if (!pico8) {
+		eq_share_cut(false);
+		return;
+	}
+	g_port_quiet_said = -1;
+	port_quiet_follow(true);
 }
 
 /* ...and taken on: the queue the file holds made this process's, where the
@@ -5060,6 +5158,11 @@ static int confirm_rows_pick(app *a, const char *heading, menu_row *rows, int nq
 			ui_scrim_k(a->r, 0, k);
 		}
 		menu_draw(a, heading, rows, nq + 2, sel, fixed_w, MENU_ZYPEROS);
+#ifdef ZYPEROS_DESK
+		/* tools/desk's `state`: the question and the answer under the cursor,
+		 * as the menu runner says its panels (src/menu_runner.c) */
+		desk_note_focus(heading ? heading : "", sel, sel >= 0 && rows[sel].label ? rows[sel].label : "");
+#endif
 		plat_draw_osd(a->r);
 		plat_present();
 		ui_frame_rest(8);
@@ -5981,6 +6084,7 @@ static int mp4_follow_main(void)
 	taken = hand_bytes(hand, &taken_n);
 	mp4_hand_take();
 	fprintf(stderr, "mp4 follow: beside the program%s\n", taken ? "" : ", with no queue handed over");
+	port_quiet_follow(true);
 	while (!want_quit) {
 		struct timespec nap = { 0, 100 * 1000000L };
 		bool look = g_follow_cont;
@@ -6003,14 +6107,19 @@ static int mp4_follow_main(void)
 				taken_n = n;
 				fprintf(stderr, "mp4 follow: the queue again, from the in-game menu\n");
 				mp4_hand_take();
+				port_quiet_follow(true);
 			} else {
 				free(now);
 			}
 		}
 		mp4_poll();
+		/* PICO-8 quiet while MP4 plays, heard again at a pause or the end */
+		port_quiet_follow(false);
 		nanosleep(&nap, NULL);
 	}
 	free(taken);
+	/* PICO-8 has ended: no cut left for the next program */
+	eq_share_cut(false);
 	book_keep(true);
 	mp4_hand_save();
 	db_shutdown();
@@ -6121,20 +6230,60 @@ static int port_menu_main(int argc, char **argv)
 	a.tint = s->accent;
 	a.auto_off = 0;
 	a.running = true;
+	/* The systems' Display rows, for the row over your PICO-8, by the core
+	 * each runs on (a row never set goes by it) */
+	display_load(&a);
+	core_load(&a);
+	/* No start again asked for yet: a file left from before is no answer */
+	unlink(plat_flag(PORT_RESTART_FILE));
 	fprintf(stderr, "port menu: %s, ready in %u ms\n", s->name, plat_now_ms() - t_boot0);
+
+	/* Your PICO-8's cart, as its shelf names it, for its Controls list and
+	 * its hotkeys (This Game's keys): the game's path in the shelf's folder;
+	 * Splore's entry for Splore and for PICO-8's own start */
+	{
+		static char file[LIB_PATH], title[LIB_PATH];
+		char dir[CFG_STR * 2];
+		const char *base = strrchr(game, '/');
+		size_t dn;
+
+		snprintf(dir, sizeof dir, "%s/%s/", P_ROMS, s->folder);
+		dn = strlen(dir);
+		snprintf(file, sizeof file, "%s", !strncmp(game, dir, dn) ? game + dn : base ? base + 1 : game);
+		if (!file[0]) snprintf(file, sizeof file, "%s", SPLORE_FILE);
+		snprintf(title, sizeof title, "%s", splore_file(file) ? SPLORE_NAME : base ? base + 1 : file);
+		if (!splore_file(file) && (base = strrchr(title, '.'))) title[base - title] = '\0';
+		g_port_file = file;
+		g_port_title = title;
+	}
 
 	/* The port is stopped under it: the volume keys are its own, as over a
 	 * paused game (src/levels.h), and portkeys reads the cells back */
 	levels_game_paused(true);
-	how = port_menu(&a);
+	/* Next Display over your PICO-8 (portkeys's hotkey): its question
+	 * alone, no menu; and Reset Game's, the same way */
+	if (argc > 4 && !strcmp(argv[4], PORT_MENU_DISPLAY_ARG) && port_menu_display(s->tag))
+		how = port_display_next(&a);
+	else if (argc > 4 && !strcmp(argv[4], PORT_MENU_RESET_ARG) && port_resets(s->tag))
+		how = port_reset_ask(&a);
+	else
+		how = port_menu(&a);
 	levels_game_paused(false);
 	fprintf(stderr, "port menu: %s\n", how == PORT_MENU_QUIT ? "Quit" :
-	        how == PORT_MENU_POWER ? "POWER" : "Continue");
+	        how == PORT_MENU_POWER ? "POWER" : how == PORT_MENU_RESTART ? "start again" :
+	        how == PORT_MENU_RESET ? "Reset" : "Continue");
+	/* Over your PICO-8, what portkeys reads again as the menu ends: the
+	 * hotkeys in force, which its Controls may have changed; the shot's
+	 * folder stays the one the hand-over named (src/portmenu.h) */
+	if (port_hotkeys(s->tag)) p8_keys_save(s, g_port_file, NULL);
 	/* MP4 opened from it: its queue back to the follower, as it is now */
 	if (g_port_mp4_up) {
 		book_keep(true);
 		mp4_hand_save();
 		texload_stop();
+		/* And PICO-8 quiet or heard for what MP4 does now, before it goes
+		 * on: Continue's QUIET over a Diatom game (gm_resume) */
+		port_quiet_follow(true);
 	}
 	/* The window closed, which puts back on the panel the frame SDL found
 	 * there - the port's - before the port has the display again */
@@ -6159,6 +6308,7 @@ int main(int argc, char *argv[])
 
 	if (argc > 1 && !strcmp(argv[1], PORT_MENU_ARG)) return port_menu_main(argc, argv);
 	if (argc > 1 && !strcmp(argv[1], MP4_FOLLOW_ARG)) return mp4_follow_main();
+	if (argc > 1 && !strcmp(argv[1], ALSA_TRY_ARG)) return alsa_try_main(argc, argv);
 
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--shot") && i + 1 < argc) {
@@ -6457,6 +6607,17 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
+		/* --gm-restart: over your PICO-8 (--gamemenu N port on its
+		 * shelf), the question a Display mode asks, --pick-at's mode */
+		else if (!strcmp(argv[i], "--gm-restart")) {
+			shot_gm_restart = 1;
+			/* --gm-restart buttons: the question for new buttons */
+			if (i + 1 < argc && !strcmp(argv[i + 1], "buttons")) shot_gm_restart = 2, i++;
+		}
+		/* --gm-reset: over your PICO-8, Reset's question; and
+		 * --gm-port-controls, the Controls list its row opens */
+		else if (!strcmp(argv[i], "--gm-reset")) shot_gm_reset = 1;
+		else if (!strcmp(argv[i], "--gm-port-controls")) shot_gm_port_controls = 1;
 		/* --hud-page ROW: the On-Screen Stats page (src/hudmenu_screen.h)
 		 * over the paused game, the cursor on ROW, with --gamemenu;
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's
@@ -7709,7 +7870,10 @@ int main(int argc, char *argv[])
 		int k, v;
 
 		for (k = 0; k < DMODE_COUNT && strcmp(DMODES[k].name, shot_dmode); k++) ;
-		for (v = 0; k < DMODE_COUNT && v < a.sys.count; v++) a.view[v].dmode = k;
+		for (v = 0; k < DMODE_COUNT && v < a.sys.count; v++) {
+			a.view[v].dmode = k;
+			a.view[v].dmode_kept = true;
+		}
 	}
 	/* A PICO-8 zip the player copied into Bios/PICO-8, before the cores are
 	 * chosen: once taken, your PICO-8 plays the carts from this start on */
@@ -7926,6 +8090,9 @@ int main(int argc, char *argv[])
 	/* Back from a program of its own that kept MP4 playing (your PICO-8):
 	 * its queue taken on, where the daemon is, and the file gone with it
 	 * (src/mp4hand.h). Whatever comes next, the music goes on. */
+	/* No cut left in the equalizer's file from a PICO-8 that ended under
+	 * MP4 (its follower killed before it could clear it) */
+	if (!shot_path) port_quiet_hand(false);
 	hand_back = !shot_path && access(plat_flag(MP4HAND_PATH), F_OK) == 0;
 	if (hand_back) {
 		mp4_hand_take();

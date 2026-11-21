@@ -59,6 +59,11 @@ in_button desk_key_button(SDL_Scancode sc);
  * comes or ms go by, so a key wakes the launcher at once */
 void desk_wait(unsigned ms);
 
+/* The Screen Colors last put on the panel (plat_screen_colors), and whether
+ * kept or a list's preview, for `state`: the host has no gamma table, so
+ * this is where a script reads what the display's would hold */
+void desk_note_colors(const screen_colors *c, bool keep);
+
 /* A game, from the launcher's device_display_release to its
  * device_display_take: Diatom's frames from the desk frame file
  * (ZYPEROS_DESK_FB, diatom/include/diatom_deskfb.h) in the window, the keys,
@@ -79,7 +84,11 @@ int desk_power_edge(void);
 
 /* What the shelf showed in its last frame, for the control socket's `state`
  * (tools/desk): "systems" or "games", the cursor there and its name, so a
- * script can press a button and read where it landed */
+ * script can press a button and read where it landed. A menu panel says the
+ * same of itself (src/menu_runner.c, a question's in src/main.c): its
+ * heading ("" for none, the in-game menu over a program's) as the screen,
+ * the row under the cursor and its words, so a check's walk waits for the
+ * screen a key opens rather than for a time (tools/deskwalk.py) */
 void desk_note_focus(const char *screen, int cursor, const char *name);
 
 #endif

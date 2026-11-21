@@ -24,6 +24,12 @@
  * port follows the launcher's in-game menu, where the bands can change. A
  * file that is not there yet is looked for again about once a second.
  *
+ * And your PICO-8's quiet while MP4 plays, as a Diatom game's QUIET
+ * (ZyperOS's DESIGN.md 11.55): the same file's `cut`, which MP4's follower
+ * beside PICO-8 and the in-game menu over it write; set, the plugin plays
+ * silence, faded in and out over 20 ms (eqdsp.h's eq_fade). Nothing new in
+ * the port's chain for it: the chain is the one every port has.
+ *
  * One plugin, stereo: two inputs and two outputs, the config binding the
  * port's two channels to them (policy none). Label "zyperos_eq".
  */
@@ -45,6 +51,7 @@ enum { IN_L, IN_R, OUT_L, OUT_R, PORTS };
 typedef struct {
 	LADSPA_Data *port[PORTS];
 	eq_state     eq;
+	eq_fade      fade;                /* the cut: silence while MP4 plays over PICO-8 */
 	unsigned long rate;
 	const volatile eq_share *share;   /* the launcher's bands, mapped; NULL until there */
 	unsigned long look_in;            /* frames until the file is looked for again */
@@ -94,6 +101,7 @@ static LADSPA_Handle instantiate(const LADSPA_Descriptor *d, unsigned long rate)
 	if (!z) return NULL;
 	z->rate = rate ? rate : 48000;
 	eq_init(&z->eq, (int)z->rate);
+	eq_fade_init(&z->fade, (int)z->rate);
 	return z;
 }
 
@@ -115,6 +123,8 @@ static void activate(LADSPA_Handle h)
 	eq_init(&z->eq, (int)z->rate);
 	eq_jump(&z->eq, db);
 	eq_gain_jump(&z->eq, gain);
+	eq_fade_init(&z->fade, (int)z->rate);
+	eq_fade_cut(&z->fade, eq_share_cut_get(z->share), 1);
 }
 
 static void run(LADSPA_Handle h, unsigned long frames)
@@ -130,10 +140,13 @@ static void run(LADSPA_Handle h, unsigned long frames)
 		eq_set(&z->eq, db);
 		eq_gain(&z->eq, gain);
 	}
+	/* The cut, read every period as the bands are, whole or not at all */
+	eq_fade_cut(&z->fade, eq_share_cut_get(z->share), 0);
 	if (!eq_active(&z->eq)) {
 		/* Flat, no boost and at rest: the sound as it came */
 		if (ol != l) memmove(ol, l, frames * sizeof *ol);
 		if (or_ != r) memmove(or_, r, frames * sizeof *or_);
+		if (eq_fade_active(&z->fade)) eq_fade_run(&z->fade, ol, or_, (int)frames);
 		return;
 	}
 	/* Through the shared arithmetic a run at a time: the two channels side
@@ -152,6 +165,7 @@ static void run(LADSPA_Handle h, unsigned long frames)
 		}
 		at += n;
 	}
+	if (eq_fade_active(&z->fade)) eq_fade_run(&z->fade, ol, or_, (int)frames);
 }
 
 static void deactivate(LADSPA_Handle h)

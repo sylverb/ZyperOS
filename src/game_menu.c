@@ -223,7 +223,18 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 	/* Over a port: what a stopped program can still be asked, on no tabs */
 	if (u->port) {
 		ids[n++] = GM_CONTINUE;
+		if (u->port_display) ids[n++] = GM_DISPLAY;
+		if (u->port_hud) ids[n++] = GM_HUD;
+		/* Over your PICO-8, the Display tab's picture rows after those, in
+		 * its order, drawn by its shim (src/p8fx.h): Border where the mode
+		 * leaves room, Shader, and Strength under an old screen */
+		if (u->port_display) {
+			if (u->border) ids[n++] = GM_BORDER;
+			ids[n++] = GM_SHADER;
+			if (u->strength) ids[n++] = GM_STRENGTH;
+		}
 		ids[n++] = GM_CONTROLS;
+		if (u->port_reset) ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;
 		return n;
 	}
@@ -253,6 +264,11 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 			ids[n++] = GM_SWAP;
 			ids[n++] = GM_STYLUS;
 		}
+		/* The whole screen's colors (DESIGN.md 11.42): after the game's
+		 * own picture rows, the last of the picture, since they are the
+		 * panel's and not this game's; a page, as On-Screen Stats under
+		 * it has one */
+		if (u->screen_colors) ids[n++] = GM_SCREEN_COLORS;
 		/* How fast it runs, over the game: last, as it is about the
 		 * game's speed and not its picture */
 		ids[n++] = GM_HUD;
@@ -306,6 +322,7 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		S_GAMEMENU_QUIT, S_GAMEMENU_SCREENS, S_GAMEMENU_SWAP, S_GAMEMENU_STYLUS,
 		S_GAMEMENU_PAK, S_PLAYER2_ROW, S_GAMEMENU_DISC, S_GAMEMENU_STRENGTH,
 		S_GAMEMENU_UNDO, S_GAMEMENU_HUD, S_GAMEMENU_BORDER, S_GAMEMENU_BORDER_COLOR, S_CHEATS_ROW,
+		S_SCREEN_TITLE,
 	};
 	menu_row full[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
@@ -318,6 +335,9 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	full[GM_BORDER].value = u->border;
 	full[GM_BORDER_COLOR].value = u->border_color;
 	full[GM_HUD].value = T(u->hud ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE);
+	/* The look, as MENU > Display's row says it; A opens the page, and
+	 * Left and Right do nothing, as there */
+	full[GM_SCREEN_COLORS].value = u->screen_colors;
 	/* A caption, left-aligned under its row as a paragraph's lines are */
 	/* The slot's number alone: the row says what it is */
 	snprintf(b->quick, sizeof b->quick, "%d", u->quick);
@@ -374,7 +394,9 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		/* Display steps round on left and right and on A; so do Shader,
 		 * the quick slot and the three for two screens. Strength steps
 		 * on left and right alone. Every other row is plain. */
-		b->sound[i] = ids[i] == GM_DISPLAY || ids[i] == GM_SHADER || ids[i] == GM_QUICK ||
+		/* Over a program (your PICO-8) Display only opens its list:
+		 * Left and Right step nothing, as a step would start it again */
+		b->sound[i] = (ids[i] == GM_DISPLAY && !u->port) || ids[i] == GM_SHADER || ids[i] == GM_QUICK ||
 		              ids[i] == GM_SCREENS || ids[i] == GM_DISC ||
 		              ids[i] == GM_SWAP || ids[i] == GM_STYLUS || ids[i] == GM_PAK ||
 		              ids[i] == GM_HUD || ids[i] == GM_BORDER || ids[i] == GM_BORDER_COLOR

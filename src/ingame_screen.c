@@ -4,6 +4,12 @@
 #include "hudmenu_screen.h"
 #include "dmodepreview.h"
 #include "menu_pick.h"
+#include "p8draw.h"
+#include "p8pad.h"
+#include "ctltab_screen.h"
+#include "launch_screen.h"
+#include "p8fx.h"
+#include "p8fx_send.h"
 
 #include "achtab_screen.h"
 #include "cheats_screen.h"
@@ -24,6 +30,7 @@
 #include "rafetch.h"
 #include "remapstore.h"
 #include "strength.h"
+#include "sysmenu_screen.h"
 #include "ui.h"
 #include "uisound.h"
 #include "zyperdraw.h"
@@ -377,6 +384,15 @@ static void gm_cycle_display(app *a, int d)
 	plat_resident_sync_rect(150);
 }
 
+/* The in-game menu is over your PICO-8 (src/portmenu.h's port_menu_display):
+ * its Display, Border, Shader and Strength rows are the PICO-8 shelf's, and
+ * a change goes to the shim in PICO-8's process (src/p8fx.h), not to Diatom */
+static bool gm_over_pico8(const app *a)
+{
+	return g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	       port_menu_display(a->sys.systems[a->sys_cursor].tag);
+}
+
 /* The shader the same way, the owner's too: kept for the system and sent to
  * the game, which draws with it from the frame after Continue. The paused
  * picture under the menu is the core's frame, drawn by this process, so it
@@ -387,6 +403,11 @@ static void gm_cycle_shader(app *a, int d)
 
 	v->shader = shader_step(v->shader, d, a->sys.systems[v - a->view].tag);
 	shader_save(a, (int)(v - a->view));
+	/* Over your PICO-8: drawn with it from its next frame after Continue */
+	if (gm_over_pico8(a)) {
+		p8fx_send(a, (int)(v - a->view));
+		return;
+	}
 	plat_resident_line("SETDISPLAY\tfilter=%s", SHADERS[v->shader].name);
 	plat_resident_sync_rect(150);
 }
@@ -400,6 +421,10 @@ static void gm_step_strength(app *a, int d)
 	if (k == strength_clamp(v->strength)) return;
 	v->strength = k;
 	strength_write(db_dev(), a->sys.systems[v - a->view].tag, k);
+	if (gm_over_pico8(a)) {
+		p8fx_send(a, (int)(v - a->view));
+		return;
+	}
 	plat_resident_line("SETDISPLAY\tstrength=%d", k);
 	plat_resident_sync_rect(150);
 }
@@ -499,11 +524,19 @@ static bool gm_disc_fits(const char *label)
 	return ui_text_width(fm, label) <= room;
 }
 
+/* The menu over a port is over your PICO-8 (gm_over_pico8), for what has no
+ * app to ask: port_menu sets it */
+static bool g_gm_pico8;
+
 /* The picture Diatom said it is drawing, `sw` x `sh` with the shape `aspect`
  * (a shot's own when it asks for one); 0 x 0 when Diatom said none */
 static void gm_source(int *sw, int *sh, double *aspect)
 {
-	if (shot_path && shot_gm_src_w > 0) {
+	/* Over your PICO-8, whose screen is always its square 128 (src/p8draw.h) */
+	if (g_port_menu && g_gm_pico8) {
+		*sw = *sh = P8_SCREEN;
+		*aspect = 0.0;
+	} else if (shot_path && shot_gm_src_w > 0) {
 		*sw = shot_gm_src_w;
 		*sh = shot_gm_src_h;
 		*aspect = shot_gm_aspect;
@@ -514,12 +547,13 @@ static void gm_source(int *sw, int *sh, double *aspect)
 }
 
 /* Whether the game's display mode leaves room around it, by Diatom's own
- * size for it (gm_source) */
+ * size for it (gm_source); over your PICO-8, by where its script draws it */
 static bool gm_border_room(app *a)
 {
 	int sw, sh, fw, fh;
 	double aspect;
 
+	if (gm_over_pico8(a)) return p8fx_room(a, (int)(owner_view(a) - a->view));
 	gm_source(&sw, &sh, &aspect);
 	dmode_surface(&fw, &fh);
 	return border_room(DMODES[owner_view(a)->dmode].name, sw, sh, aspect, fw, fh);
@@ -538,7 +572,9 @@ static const char *gm_border_value(app *a)
 	double aspect;
 	bool room;
 
-	if (g_port_menu || g_game_dual) return NULL;
+	/* Over a program of its own, none: but over your PICO-8, whose shim
+	 * draws it (src/p8fx.h) */
+	if ((g_port_menu && !gm_over_pico8(a)) || g_game_dual) return NULL;
 	gm_source(&sw, &sh, &aspect);
 	room = gm_border_room(a);
 	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
@@ -561,7 +597,9 @@ static void gm_step_border(app *a, int d)
 		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
 		plat_resident_sync_rect(150);
 	}
-	border_send(a, sys);
+	/* Over your PICO-8, round it from its next frame after Continue */
+	if (gm_over_pico8(a)) p8fx_send(a, sys);
+	else                  border_send(a, sys);
 }
 
 /* What the in-game menu needs from the app, handed to gm_rows to become rows.
@@ -595,6 +633,15 @@ void gm_gather(app *a, gm_ui *out)
 	u.screens = g_game_dual;
 	u.port   = g_port_menu;
 	u.waiting = g_port_waiting;
+	/* Over your PICO-8, whose picture follows the Display row, and over
+	 * which portkeys draws On-Screen Stats */
+	u.port_display = g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	                 port_menu_display(a->sys.systems[a->sys_cursor].tag);
+	u.port_hud = g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	             port_menu_overlays(a->sys.systems[a->sys_cursor].tag);
+	/* ...and restarts a cart on CTRL-R, once it has drawn (src/portmenu.h) */
+	u.port_reset = g_port_menu && !g_port_waiting && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	               port_resets(a->sys.systems[a->sys_cursor].tag);
 	/* The game's own system, on Favorites too (shelf_owner); none where its
 	 * core keeps no states, and none over a program of its own (a "run:"
 	 * one, src/portmenu.h), which has no states and no Pak */
@@ -651,6 +698,9 @@ void gm_gather(app *a, gm_ui *out)
 		u.swap   = plat_resident_swap();
 		u.stylus = plat_resident_stylus();
 	}
+	/* Screen Colors' look, over a game Diatom runs, where the display has
+	 * a table (1.1.0): the Display tab's row, MENU's page behind it */
+	if (!u.port && plat_screen_colors_here()) u.screen_colors = screen_colors_value();
 	*out = u;
 }
 
@@ -1213,6 +1263,7 @@ bool ctl_head_fits(void *ctx, const char *head)
 
 /* The port's system and game, for its Controls page (port_menu_main) */
 ctl_game g_port_ctl;
+const char *g_port_file = "", *g_port_title = "";
 ctl_game game_controls_of(app *a)
 {
 	if (g_port_menu) return g_port_ctl;
@@ -1673,6 +1724,9 @@ static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_preview_draw(a, g_gm_frame, sw, sh, aspect, fw, fh, k, x, y, w, h);
 }
 
+/* Over your PICO-8, the Display list's picture (below, with its row) */
+static void port_dmode_preview(void *app_, int k, int x, int y, int w, int h);
+
 const menu_choice *gm_choices(app *a, const gm_ui *u)
 {
 	static const char *lab[6][GM_CH_MAX];
@@ -1691,6 +1745,12 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
 		                                         .labels = lab[0], .notes = notes,
 		                                         .preview = gm_dmode_preview };
+		/* Over your PICO-8 its own list (port_display_pick): a choice
+		 * applied by steps would start the program again at each */
+		if (u->port) {
+			g_gm_choice[GM_DISPLAY].own = true;
+			g_gm_choice[GM_DISPLAY].preview = port_dmode_preview;
+		}
 	}
 	{
 		/* Border's offered kinds, each with its note and picture */
@@ -1861,6 +1921,220 @@ void gm_quit(void)
 	plat_resident_line("STOP");
 }
 
+/* ---------- over your PICO-8: Display, and a start again ------------------
+ *
+ * PICO-8 draws its picture where its script told it as it started
+ * (sd/pixel2/PICO-8.sh, src/p8draw.h) and cannot move it while it runs, so a
+ * Display mode picked over it is one it starts again in: the cart starts
+ * over, and what was played since it last saved is lost. Hence a question
+ * first, as Reset Game's hotkey asks (game_reset_ask), the cursor on Cancel;
+ * then the mode kept as the shelf's own row keeps it (display.<TAG>), and
+ * written for launch.sh, which starts the script again with it
+ * (src/portmenu.h, PORT_RESTART_FILE). */
+
+/* PICO-8's own 128 x 128 screen out of the frame the menu is over, where
+ * mode `k`, the one it draws in now, put it on the panel: the Display list's
+ * picture, which then draws it in each mode. Black where the mode cut it
+ * (Zoomed's, Edges Cut's rows off the panel). NULL with no frame. */
+SDL_Texture *port_screen_of(app *a, SDL_Texture *frame, int k)
+{
+	int fw, fh;
+	dmode_rect r;
+	SDL_Rect src, dst;
+	SDL_Texture *t, *was;
+
+	if (!frame || SDL_QueryTexture(frame, NULL, NULL, &fw, &fh) != 0) return NULL;
+	p8_draw_rect(DMODES[k >= 0 && k < DMODE_COUNT ? k : 0].name, fw, fh, P8_NEG_OK, &r);
+	src.x = r.x > 0 ? r.x : 0;
+	src.y = r.y > 0 ? r.y : 0;
+	src.w = (r.x + r.w < fw ? r.x + r.w : fw) - src.x;
+	src.h = (r.y + r.h < fh ? r.y + r.h : fh) - src.y;
+	if (r.w <= 0 || r.h <= 0 || src.w <= 0 || src.h <= 0) return NULL;
+	dst.x = (src.x - r.x) * P8_SCREEN / r.w;
+	dst.y = (src.y - r.y) * P8_SCREEN / r.h;
+	dst.w = src.w * P8_SCREEN / r.w;
+	dst.h = src.h * P8_SCREEN / r.h;
+	if (!(t = SDL_CreateTexture(a->r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, P8_SCREEN, P8_SCREEN)))
+		return NULL;
+	was = SDL_GetRenderTarget(a->r);
+	SDL_SetRenderTarget(a->r, t);
+	SDL_SetRenderDrawColor(a->r, 0, 0, 0, 255);
+	SDL_RenderClear(a->r);
+	SDL_RenderCopy(a->r, frame, &src, &dst);
+	SDL_SetRenderTarget(a->r, was);
+	return t;
+}
+
+/* The Display list's picture over your PICO-8: its square screen as mode
+ * `k` draws it, where PICO-8 draws it (p8_draw_mode: a mode the program
+ * cannot draw shows the one it draws instead) */
+static void port_dmode_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const char *drawn = p8_draw_mode(DMODES[k >= 0 && k < DMODE_COUNT ? k : 0].name, P8_NEG_OK);
+	int fw, fh, i;
+
+	for (i = 0; i < DMODE_COUNT; i++)
+		if (!strcmp(DMODES[i].name, drawn)) k = i;
+	dmode_surface(&fw, &fh);
+	dmode_preview_draw(a, g_gm_frame, g_gm_frame ? P8_SCREEN : 0, g_gm_frame ? P8_SCREEN : 0, 1.0,
+	                   fw, fh, k, x, y, w, h);
+}
+
+bool port_restart_ask(app *a, const menu_style *over, void *ctx, const char *line)
+{
+	gm_ctx c = { 0 };
+
+	if (!over) {
+		c.a = a;
+		c.bg = plat_load_screen(PORT_MENU_STILL);
+		c.st.follow_tint = true;
+		c.st.backdrop = gm_backdrop;
+		c.st.on_power = gm_power;
+		over = &c.st;
+		ctx = &c;
+		uisound_play(DS_SOUND_ACCEPT);
+	}
+	{
+		bool yes = ask_panel(a, over, ctx, T(S_PICO8_RESTART_ASK), line, T(S_PICO8_RESTART_YES));
+
+		if (c.bg) SDL_DestroyTexture(c.bg);
+		return yes && !plat_run_power_pressed();
+	}
+}
+
+bool port_restart_write(app *a, int k)
+{
+	sysview *v = owner_view(a);
+	const system_cfg *s = &a->sys.systems[v - a->view];
+	char key[CFG_STR + 16];
+	FILE *f;
+	bool ok;
+
+	k = k >= 0 && k < DMODE_COUNT ? k : 0;
+	v->dmode = k;
+	v->dmode_kept = true;
+	snprintf(key, sizeof key, "display.%s", s->tag);
+	db_set_str(db_dev(), key, DMODES[k].name);
+	/* Whole, then renamed into place, as the port request is: launch.sh
+	 * reads it the moment this process is gone */
+	f = fopen(plat_flag(PORT_RESTART_FILE ".tmp"), "w");
+	ok = f && fprintf(f, "%s\n", DMODES[k].name) > 0;
+	if (f && fclose(f) != 0) ok = false;
+	ok = ok && rename(plat_flag(PORT_RESTART_FILE ".tmp"), plat_flag(PORT_RESTART_FILE)) == 0;
+	if (!ok) unlink(plat_flag(PORT_RESTART_FILE ".tmp"));
+	fprintf(stderr, "port menu: Display %s for %s, %s\n", DMODES[k].name, s->tag,
+	        ok ? "the program starts again in it" : "but no restart file; it goes on as it was");
+	return ok;
+}
+
+/* A on Display over your PICO-8: its list, each mode's picture beside it; a
+ * mode other than the one on asks first, and Start Again ends the menu for
+ * PICO-8 to start again in it. B, Cancel, or the mode on: the menu, as it was */
+static menu_result port_display_pick(app *a, gm_ctx *c)
+{
+	sysview *v = owner_view(a);
+	const menu_choice *ch = &g_gm_choice[GM_DISPLAY];
+	SDL_Texture *p8 = port_screen_of(a, c->bg, v->dmode), *was = g_gm_frame;
+	char line[256];
+	int k;
+
+	gm_preview_frame(p8);
+	k = menu_pick_preview(a, &c->st, c, T(S_GAMEMENU_DISPLAY), ch->labels, ch->notes, ch->preview,
+	                      ch->n, ch->cur, ch->cur);
+	/* Back to the menu's own (port_menu: the Border list's picture) */
+	gm_preview_frame(was);
+	if (p8) SDL_DestroyTexture(p8);
+	if (k == MENU_PICK_POWER || plat_run_power_pressed()) return MENU_DONE;
+	if (k < 0 || k >= DMODE_COUNT || k == v->dmode) return MENU_STAY;
+	snprintf(line, sizeof line, T(S_PICO8_RESTART_DISPLAY), dmode_label(k));
+	if (!port_restart_ask(a, &c->st, c, line)) return plat_run_power_pressed() ? MENU_DONE : MENU_STAY;
+	if (!port_restart_write(a, k)) return MENU_STAY;
+	c->restart = true;
+	return MENU_DONE;
+}
+
+int port_display_next(app *a)
+{
+	sysview *v = owner_view(a);
+	int k = (v->dmode + 1) % DMODE_COUNT, was = v->dmode;
+	char line[256];
+
+	snprintf(line, sizeof line, T(S_PICO8_RESTART_DISPLAY), dmode_label(k));
+	if (!port_restart_ask(a, NULL, NULL, line)) {
+		v->dmode = was;
+		return plat_run_power_pressed() ? PORT_MENU_POWER : PORT_MENU_CONTINUE;
+	}
+	return port_restart_write(a, k) ? PORT_MENU_RESTART : PORT_MENU_CONTINUE;
+}
+
+/* ---------- over your PICO-8: Reset, and its buttons ---------------------
+ *
+ * Reset Game's question, as over a game (game_reset_ask): "Reset the
+ * game?", what is lost, Reset and Cancel, the cursor on Cancel; over
+ * `over`'s backdrop with its power rule. True for Reset. portkeys does it,
+ * once PICO-8 has its display and keys back: CTRL-R, PICO-8's own "Reload /
+ * Run / Restart cartridge" (src/portmenu.h, PORT_MENU_RESET). */
+static bool reset_question(app *a, const menu_style *over, void *ctx)
+{
+	return ask_panel(a, over, ctx, T(S_HOTKEYS_RESET_ASK), T(S_HOTKEYS_RESET_LOST), T(S_GAMEMENU_RESET)) &&
+	       !plat_run_power_pressed();
+}
+
+int port_reset_ask(app *a)
+{
+	gm_ctx c = { 0 };
+	bool yes;
+
+	c.a = a;
+	c.bg = plat_load_screen(PORT_MENU_STILL);
+	c.st.follow_tint = true;
+	c.st.backdrop = gm_backdrop;
+	c.st.on_power = gm_power;
+	uisound_play(DS_SOUND_ACCEPT);
+	yes = reset_question(a, &c.st, &c);
+	if (c.bg) SDL_DestroyTexture(c.bg);
+	if (plat_run_power_pressed()) return PORT_MENU_POWER;
+	return yes && !want_quit ? PORT_MENU_RESET : PORT_MENU_CONTINUE;
+}
+
+/* Controls over your PICO-8: the Controls tab's list, Applies To, the
+ * buttons, Reset Buttons and Hotkeys, as a page over the frame
+ * (ctlscr_over), kept on the card as a game's are (src/remapstore.h).
+ * PICO-8's SDL reads its buttons as it starts (src/p8pad.h), so buttons that
+ * changed are written for its next start and asked about at once: Start
+ * Again starts PICO-8 again with them, in the Display mode on (true: the
+ * menu ends, PORT_MENU_RESTART), Cancel keeps them for the next start. */
+static bool port_controls(app *a, gm_ctx *c)
+{
+	const system_cfg *s = &a->sys.systems[a->sys_cursor];
+	char before[600] = "", after[600] = "";
+	ctlscr_game g;
+	rm_table t;
+
+	memset(&g, 0, sizeof g);
+	g.s = s;
+	g.file = g_port_file;
+	g.title = g_port_title;
+	g.scope_all = &g_gm_mem.scope_all;
+	g.running = false;           /* nothing to send: PICO-8 is stopped */
+	g.over = &c->st;
+	g.ctx = c;
+	rms_sent(s, g_port_file, false, &t);
+	p8_pad_line(&t, before, sizeof before);
+	ctlscr_over(a, &g, gm_tab_name(GT_CONTROLS));
+	rms_sent(s, g_port_file, false, &t);
+	p8_pad_line(&t, after, sizeof after);
+	if (plat_run_power_pressed()) return true;
+	if (!strcmp(before, after)) return false;
+	p8_pad_save(s, g_port_file);
+	fprintf(stderr, "port menu: new buttons for %s, for PICO-8's next start\n", g_port_file);
+	if (!port_restart_ask(a, &c->st, c, T(S_PICO8_RESTART_BUTTONS))) return plat_run_power_pressed();
+	if (!port_restart_write(a, owner_view(a)->dmode)) return false;
+	c->restart = true;
+	return true;
+}
+
 static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 {
 	gm_ctx *c = ctx;
@@ -1940,6 +2214,11 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_STAY;
 	}
 
+	/* Over your PICO-8: A opens the list, and Left and Right step nothing */
+	if (sel == GM_DISPLAY && g_port_menu) {
+		if (key == IN_ACCEPT) return port_display_pick(a, c);
+		return MENU_STAY;
+	}
 	/* Applied to the running game at once, not on resume: the whole point of
 	 * this row being here rather than on the shelf is judging the mode against
 	 * the game it is being applied to. Diatom takes SETDISPLAY while paused,
@@ -2074,6 +2353,12 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		gm_cycle_display(a, +1);
 		break;
 	case GM_CONTROLS:
+		/* Over your PICO-8 the buttons themselves, as a game's Controls
+		 * tab has them; a change asks to start PICO-8 again with them */
+		if (g_port_menu && port_resets(a->sys.systems[a->sys_cursor].tag)) {
+			if (port_controls(a, c)) return MENU_DONE;
+			break;
+		}
 		game_controls_screen(a, c->bg);
 		break;
 	case GM_PLAYER2:
@@ -2082,6 +2367,13 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
 	case GM_CHEATS:
 		cheats_page(a, c->bg);
+		break;
+	/* Screen Colors (DESIGN.md 11.42): MENU > Display's own page, over the
+	 * paused game with this menu's backdrop and power rule, each step on
+	 * the panel and kept at once so it is judged on the game; B back here.
+	 * Night Mode stays on top, made in the same table (plat_screen_colors) */
+	case GM_SCREEN_COLORS:
+		screen_colors_page(a, gm_backdrop, gm_power, c);
 		break;
 	/* The Achievements tab, one L1 away: the row turns to it, the list
 		 * or the sentence that says why there is none (1.0.5). It opened the
@@ -2110,6 +2402,13 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_DONE;
 	}
 	case GM_RESET:
+		/* Over your PICO-8: asked first, as Reset Game's hotkey asks over
+		 * a game, and done by portkeys once PICO-8 goes on (CTRL-R) */
+		if (g_port_menu) {
+			if (!reset_question(a, &c->st, c)) return plat_run_power_pressed() ? MENU_DONE : MENU_STAY;
+			c->reset = c->resume = true;
+			return MENU_DONE;
+		}
 		plat_resident_line("RESET");
 		c->resume = true;
 		return MENU_DONE;
@@ -2371,10 +2670,18 @@ void gm_hotkey_step(app *a, bool shader, char *out, size_t n)
 int port_menu(app *a)
 {
 	gm_ctx c = { 0 };
+	SDL_Texture *p8 = NULL;
 
 	uisound_play(DS_SOUND_ACCEPT);
 	c.a = a;
 	c.bg = plat_load_screen(PORT_MENU_STILL);
+	/* Over your PICO-8: its 128x128 screen out of the frame, where the
+	 * Border list's picture draws it with each kind round it */
+	g_gm_pico8 = gm_over_pico8(a);
+	if (g_gm_pico8) {
+		p8 = port_screen_of(a, c.bg, owner_view(a)->dmode);
+		gm_preview_frame(p8);
+	}
 	c.st.fixed_w     = gm_width(a);
 	c.st.sound       = c.bufs.sound;
 	c.st.follow_tint = true;
@@ -2394,8 +2701,16 @@ int port_menu(app *a)
 		if (how == LEAVE_QUIT) c.resume = true;      /* asked to stop: the game goes on */
 	}
 	mm_leaving_cut();
+	if (p8) {
+		gm_preview_frame(NULL);
+		SDL_DestroyTexture(p8);
+	}
 	if (c.bg) SDL_DestroyTexture(c.bg);
 	if (plat_run_power_pressed()) return PORT_MENU_POWER;
+	/* A Display mode agreed to: the file is written, PICO-8 starts again */
+	if (c.restart && !want_quit) return PORT_MENU_RESTART;
+	/* Reset agreed to: PICO-8 goes on, and portkeys sends its CTRL-R */
+	if (c.reset && !want_quit) return PORT_MENU_RESET;
 	/* A TERM to this process is not the player's Quit: the game goes on, or
 	 * ends with the system that sent it */
 	return c.resume || want_quit ? PORT_MENU_CONTINUE : PORT_MENU_QUIT;

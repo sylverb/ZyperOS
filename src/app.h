@@ -40,8 +40,11 @@ typedef struct {
 	int cursor;
 	/* Index into DMODES. Zero-initialized like the rest of this struct, so
 	 * whatever sits at index 0 is what an untouched card plays at - see the
-	 * note on DMODES itself. */
+	 * note on DMODES itself. While the system's row was never set
+	 * (dmode_kept false) it is its default (dmode_default), which follows
+	 * its core: Original Shape for your PICO-8. */
 	int dmode;
+	bool dmode_kept;   /* display.<TAG> holds a pick */
 	/* Index into SHADERS, this system's: its own choice, or the one MENU set
 	 * for every system (shader_load). Zero is Off. */
 	int shader;
@@ -366,6 +369,10 @@ void mp4_poll(void);
  * (src/mp4hand.h): written, and taken on (true when a queue came) */
 bool mp4_hand_save(void);
 bool mp4_hand_take(void);
+/* Your PICO-8 quiet while MP4 plays (src/main.c): the equalizer's file's cut
+ * set for what MP4 does as the launcher hands over to your PICO-8 (`pico8`),
+ * cleared for any other program and as the launcher starts */
+void port_quiet_hand(bool pico8);
 /* SELECT in the in-game menu over such a program: MP4 made ready there,
  * false over any other (src/main.c) */
 bool port_mp4_ready(app *a);
@@ -392,6 +399,11 @@ void snap_off(void);
 /* Each system's display mode, core and sort order, loaded; a shelf sorted */
 void display_load(app *a);
 void core_load(app *a);
+/* The Display mode a system plays at while its row was never set, by its
+ * core (main.c says why), and that mode put on the system's view while it
+ * still has no pick */
+int  dmode_default(const system_cfg *s);
+void dmode_settle(app *a, int sys);
 void sort_load(app *a);
 /* MENU > View, each shelf's: its covers or a list (DESIGN.md 11.39) */
 void view_load(app *a);

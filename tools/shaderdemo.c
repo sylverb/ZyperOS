@@ -9,7 +9,7 @@
  * Backlight's, which only the Game Boy's three offer, is a Game Boy Color's
  * 160x144 scene of the same things on white (draw_handheld), at the square
  * pixels Original Shape draws it with: white is what it changes. Each filter is
- * Diatom's GLSL (diatom/port/gles_draw.h) in C, line for line: the same
+ * Diatom's GLSL (diatom/port/gles_shaders.h) in C, line for line: the same
  * numbers in the same order, in float as the GPU's highp is.
  *
  *     build-native/shaderdemo OUT_DIR
@@ -23,7 +23,13 @@
  * is for setting them beside a device's (tools/shaderdemo-device.sh): the
  * scene as a core hands it over, in RGB565 (OUT_DIR/scene.rgb565, the stub
  * core's STUBCORE_IMAGE), and what each filter makes of that, the whole
- * 640x480 panel at 100% and 50% (OUT_DIR/<filter>[-50].png). */
+ * 640x480 panel at 100% and 50% (OUT_DIR/<filter>[-50].png).
+ *
+ *     build-native/shaderdemo --image SCENE.ppm FILTER STRENGTH W H OUT.ppm
+ *
+ * is any picture up to 256x224 (a binary PPM) through one filter, drawn at
+ * W x H: what Diatom's GLSL makes of it, for setting beside what a GPU drew
+ * (tools/p8fx-gl-check.py, your PICO-8's shader). */
 #include <SDL.h>
 #include <SDL_image.h>
 #include <math.h>
@@ -280,7 +286,7 @@ static const char *NAME[F_COUNT] = { "nearest", "shimmerless", "crt", "crt-curve
 static const v3 BACKING = { 0.78f, 0.80f, 0.71f };
 static const float SHADOW = 0.4f, SHADE = 0.35f;
 
-/* One destination pixel (dx, dy) of a SWxSH picture drawn scale times */
+/* One destination pixel (dx, dy) of the g_sw x g_sh picture drawn scale times */
 static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 {
 	const v2 inv = { 1.0f / scale.x, 1.0f / scale.y };
@@ -346,7 +352,7 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 	{
 		/* The CRT, and the CRT curved (WARP) */
 		const float THIN = 0.75f, DARK = 0.5f, TX = 0.419207f, TY = 0.580793f;
-		const v2 quad = { (float)SW, (float)SH };
+		const v2 quad = { (float)g_sw, (float)g_sh };
 		v2 pos = { px.x * inv.x, px.y * inv.y };
 		float vin = 1.0f;
 
@@ -371,7 +377,7 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 		v3 a, b, c;
 		for (int k = 0; k < 2; k++) {
 			float u = clampf(p.x, 0.5f, quad.x - 0.5f), v = clampf(p.y + (float)k, 0.5f, quad.y - 0.5f);
-			v3 t = texture(u / SW, v / SH);
+			v3 t = texture(u / (float)g_sw, v / (float)g_sh);
 
 			t.r *= t.r; t.g *= t.g; t.b *= t.b;
 			if (k) b = t; else a = t;
@@ -605,6 +611,50 @@ static int device_set(const char *dir)
 	return bad;
 }
 
+/* --image: a picture of the caller's through one filter (above) */
+static int image_mode(char **argv)
+{
+	const char *in = argv[2], *name = argv[3], *out = argv[7];
+	const int strength = atoi(argv[4]), dw = atoi(argv[5]), dh = atoi(argv[6]);
+	char magic[3] = "";
+	int w = 0, h = 0, max = 0, f;
+	FILE *fp = fopen(in, "rb");
+	bool ok;
+
+	for (f = 0; f < F_COUNT && strcmp(NAME[f], name); f++) ;
+	if (!fp || fscanf(fp, "%2s %d %d %d", magic, &w, &h, &max) != 4 || strcmp(magic, "P6") || max != 255 ||
+	    w < 1 || h < 1 || w > SW || h > SH || fgetc(fp) == EOF || f == F_COUNT || dw < 1 || dh < 1 ||
+	    strength < 10 || strength > 100) {
+		fprintf(stderr, "shaderdemo: --image %s %s: not a picture and a filter it can draw\n", in, name);
+		if (fp) fclose(fp);
+		return 1;
+	}
+	g_sw = w;
+	g_sh = h;
+	for (int y = 0; y < h; y++)
+		if (fread(scene[y], 3, (size_t)w, fp) != (size_t)w) {
+			fclose(fp);
+			return 1;
+		}
+	fclose(fp);
+	fp = fopen(out, "wb");
+	ok = fp && fprintf(fp, "P6\n%d %d\n255\n", dw, dh) > 0;
+	for (int y = 0; ok && y < dh; y++)
+		for (int x = 0; ok && x < dw; x++) {
+			const v3 c = shade((filt)f, x, y, (v2){ (float)dw / w, (float)dh / h }, (float)strength / 100.0f);
+			const unsigned char px[3] = {
+				(unsigned char)lroundf(clampf(c.r, 0, 1) * 255.0f),
+				(unsigned char)lroundf(clampf(c.g, 0, 1) * 255.0f),
+				(unsigned char)lroundf(clampf(c.b, 0, 1) * 255.0f),
+			};
+
+			ok = fwrite(px, 3, 1, fp) == 1;
+		}
+	ok = fp && fclose(fp) == 0 && ok;
+	if (!ok) fprintf(stderr, "shaderdemo: %s: not written\n", out);
+	return !ok;
+}
+
 int main(int argc, char **argv)
 {
 	/* Each handheld: its panel, which the 4:3 picture fills (640x480 on
@@ -619,8 +669,9 @@ int main(int argc, char **argv)
 	int bad = 0;
 
 	if (argc == 3 && !strcmp(argv[1], "--rgb565")) return device_set(argv[2]);
+	if (argc == 8 && !strcmp(argv[1], "--image")) return image_mode(argv);
 	if (argc != 2) {
-		fprintf(stderr, "usage: shaderdemo OUT_DIR | --rgb565 OUT_DIR\n");
+		fprintf(stderr, "usage: shaderdemo OUT_DIR | --rgb565 OUT_DIR | --image SCENE.ppm FILTER STRENGTH W H OUT.ppm\n");
 		return 2;
 	}
 	draw_scene();
