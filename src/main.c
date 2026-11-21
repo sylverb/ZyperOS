@@ -3438,16 +3438,33 @@ static void on_speed(int half)
 }
 
 /* Called from inside plat_resident_wait for the player's hotkeys the
- * launcher carries out (src/hotkeys.h): a screenshot Diatom wrote, said
- * over the game with the picture small beside "Screenshot saved" and where
- * it went; the next shader or display mode, stepped and kept as the menu's
- * rows do, and named over the game */
+ * launcher carries out (src/hotkeys.h): a screenshot taken, its shutter
+ * heard over the game at once (DESIGN.md 9: the one sound over a game, none
+ * with UI Sounds Off), Diatom buzzing it itself; a screenshot Diatom wrote,
+ * said over the game with the picture small beside "Screenshot saved" and
+ * where it went; the next shader or display mode, stepped and kept as the
+ * menu's rows do, and named over the game */
 static app *g_hotkey_app;   /* main's, for on_hotkey's steps */
 
 static void on_hotkey(const char *key, const char *path)
 {
 	char p[CFG_STR * 2], body[CFG_STR * 2];
 
+	if (!strcmp(key, "shot") && !path) {
+		const uis_cue c = uisound_shot(uisound_setting());
+
+		/* On the mix the game plays into ("default", a dmix on both
+		 * handhelds), beside it: nothing of the game's sound is touched.
+		 * The output is let go once the shutter ends, not kept the usual
+		 * quiet spell over the game. */
+		if (c.level > 0.0f) {
+			uisound_cue(c);
+			uisound_release();
+		}
+		fprintf(stderr, "hotkey: screenshot taken, %s\n",
+		        c.level > 0.0f ? "its shutter" : "no shutter (UI Sounds Off)");
+		return;
+	}
 	if (!strcmp(key, "shot") && path) {
 		const char *folder = strstr(path, "/Screenshots/");
 		const char *end = folder ? strrchr(path, '/') : NULL;

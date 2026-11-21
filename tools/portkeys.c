@@ -35,6 +35,8 @@
  * written on the RK817's "Master Playback Volume" in the window of the output
  * in use (the jack is watched, as the launcher does) and on "USB Playback
  * Volume" for a USB-C DAC, by ioctl: no alsa-lib, no amixer on the system.
+ * (alsa-lib only plays a screenshot's shutter, on the mix beside the port:
+ * tools/pkshutter.h.)
  *
  * AND THE BOOST PAST THE TOP, AS THE LAUNCHER'S (src/boost.h, DESIGN.md 11.6).
  * At the top, VOL+ held a second more or pressed three more times opens cells
@@ -137,7 +139,9 @@
 #include "pkkeys.h"
 #include "pkover.h"
 #include "pkset.h"
+#include "pkfeel.h"
 #include "pkshot.h"
+#include "pkshutter.h"
 #include "pkssh.h"
 #include "pkvpad.h"
 #include "powerhold.h"
@@ -1652,19 +1656,20 @@ static void lift_start(void)
  * takes it: a grab keeps the joypad's events from other readers, not writes
  * to it, as px2-input's injected presses show. ff-memless ends it after
  * PK_BUZZ_MS and tells the driver 0, whatever portkeys does next. Before
- * this, a boost opened over a port gave no buzz at all. */
+ * this, a boost opened over a port gave no buzz at all. A screenshot over
+ * your PICO-8 buzzes the same way (shot_feel). */
 static char buzz_node[300];   /* as the scan's path */
 static int buzz_fd = -1, buzz_id = -1;
 static bool buzz_failed;
 
-static void boost_buzz(int did)
+/* One buzz, PK_BUZZ_MS at `pct` of full strength; `what` for the log */
+static void buzz(int pct, const char *what)
 {
-	const int pct = pk_buzz_pct(db, did);
 	struct ff_effect e;
 	struct input_event ev;
 	const char *why = NULL;
 
-	if (pct <= 0) return;      /* not an opening, or Rumble Off: nothing to feel */
+	if (pct <= 0) return;      /* Rumble Off: nothing to feel */
 	if (buzz_fd < 0 && buzz_node[0]) buzz_fd = open(buzz_node, O_RDWR | O_NONBLOCK | O_CLOEXEC);
 	if (buzz_fd < 0) {
 		why = buzz_node[0] ? strerror(errno) : "no joypad with a motor was found";
@@ -1689,10 +1694,15 @@ static void boost_buzz(int did)
 		}
 	}
 	if (!why)
-		fprintf(stderr, "portkeys: the boost's buzz, %d ms at %d%%\n", PK_BUZZ_MS, pct);
+		fprintf(stderr, "portkeys: the %s's buzz, %d ms at %d%%\n", what, PK_BUZZ_MS, pct);
 	else if (!buzz_failed)
-		fprintf(stderr, "portkeys: no buzz for the boost (%s): %s\n", buzz_node[0] ? buzz_node : "-", why);
+		fprintf(stderr, "portkeys: no buzz for the %s (%s): %s\n", what, buzz_node[0] ? buzz_node : "-", why);
 	buzz_failed = buzz_failed || why;
+}
+
+static void boost_buzz(int did)
+{
+	buzz(pk_buzz_pct(db, did), "boost");
 }
 
 /* One step from tools/pkkeys.c, through the boost past the top (pk_press):
@@ -2451,7 +2461,8 @@ static int menu_show(void)
  *
  *   Screenshot     PICO-8's own 128 x 128 picture, as Diatom writes fake08's,
  *                  to Screenshots/PICO-8/<the cart> <time>.png, and the
- *                  pop-up with the shot in it (shot_take)
+ *                  pop-up with the shot in it (shot_take); a buzz and the
+ *                  shutter as the frame is taken (shot_feel)
  *   Reset Game     asked first, as over a game: PICO-8 stopped and the
  *                  launcher's question over its frame (menu_show_as with
  *                  PORT_MENU_RESET_ARG); Reset is CTRL-R (pkkbd.h)
@@ -2493,6 +2504,17 @@ static void keys_load(void)
 	}
 	if (run[0] && !pkhot_set(&HOT, run))
 		fprintf(stderr, "portkeys: hotkeys \"%s\" not read; none\n", run);
+	/* The shutter of every voice, read now so a shot reads no card
+	 * (shot_feel): res/sounds beside this program, as the launcher's */
+	if (shots[0]) {
+		char dir[600];
+		ssize_t n = readlink("/proc/self/exe", dir, sizeof dir - 16);
+		char *slash = n > 0 ? (dir[n] = '\0', strrchr(dir, '/')) : NULL;
+
+		if (slash) snprintf(slash, sizeof dir - (size_t)(slash - dir), "/res/sounds");
+		if (!slash || !pkshutter_load(dir))
+			fprintf(stderr, "portkeys: no shutter for a screenshot (%s)\n", slash ? dir : "no path");
+	}
 	/* The launcher's MENU > Auto Off: two minutes until the player sets it
 	 * (src/main.c's auto_off_load) */
 	idle_c.seconds = pk_db_get(db, "autooff", 120);
@@ -2567,6 +2589,24 @@ static void shot_popup(void)
 	notice_show(SN.show, w, h, 1500);
 }
 
+/* Felt and heard as the frame is taken, never after the file (tools/pkfeel.h,
+ * DESIGN.md 11.61), as a shot in a Diatom game is: the buzz (buzz) at MENU >
+ * Sound > Rumble's share, and the shutter (tools/pkshutter.h) while MENU >
+ * UI Sounds is a voice, on its own thread into the mix PICO-8 plays into,
+ * beside it. Neither stops PICO-8 nor touches its sound, nor the frame
+ * picked. The settings are read now: the in-game menu can change them. */
+static void shot_feel(void)
+{
+	pk_feel f;
+
+	pk_shot_feel(db, access("/proc/asound/card1/usbid", F_OK) == 0, jack_in() == 1, &f);
+	buzz(f.buzz_pct, "screenshot");
+	if (f.voice < 0)
+		fprintf(stderr, "portkeys: no shutter (UI Sounds Off)\n");
+	else if (!pkshutter_play(f.voice, f.device, f.left, f.right))
+		fprintf(stderr, "portkeys: no shutter: %s\n", pkshutter_busy() ? "the last one still sounds" : "none was read");
+}
+
 static void shot_take(void)
 {
 	char when[32], path[1200], tmp[1210];
@@ -2598,6 +2638,7 @@ static void shot_take(void)
 	}
 	if (mine) release(false);
 	if (!ok) return;
+	shot_feel();
 	localtime_r(&now, &tm);
 	strftime(when, sizeof when, "%Y-%m-%d %H.%M.%S", &tm);
 	snprintf(path, sizeof path, "%s %s.png", shots, when);
