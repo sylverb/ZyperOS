@@ -55,6 +55,28 @@ def ask(sock, line, timeout=10):
     return json.loads(out.decode() or '{}')
 
 
+def tap(sock, key):
+    """One press and no repeat, however slowly the launcher draws: desk
+    mode's own tap (src/device/desk.c), down at once and let go by a timer's
+    event 40 ms on. The let-go is read at a poll after the one that read the
+    press, so the pass that read it sees the key down; and it comes long
+    before the repeat's 300 ms (src/keyrepeat.h), so no pass sees it held
+    that long. A press held instead for two drawn frames repeated on a slow
+    runner (2026-11-21, CI: a tap of Down two groups on, Right three games)"""
+    ask(sock, f'tap {key} 40')
+
+
+def until(get, ok, secs=5.0):
+    """get() again until ok(it) holds or `secs` pass (a busy computer draws
+    late); the last one got"""
+    end = time.time() + secs
+    got = get()
+    while not ok(got) and time.time() < end:
+        time.sleep(0.1)
+        got = get()
+    return got
+
+
 def card(base, n):
     """A card of the first `n` systems of config/systems.cfg, a game each"""
     for d in ('ZyperOS', 'Roms', 'userdata', 'shared', 'web'):
@@ -111,7 +133,8 @@ def hold(sock, button, done, limit=10.0, on_frames=12, on_ms=700):
 
 
 def settle(sock):
-    ask(sock, 'wait-frames 6')
+    # A slow runner draws 6 frames in more than the socket's usual 10 s
+    ask(sock, 'wait-frames 6', timeout=60)
     time.sleep(0.1)
 
 
@@ -163,20 +186,21 @@ def run(tmp, n, cols):
         # (three by release date, an initial A to Z) and goes round the end,
         # so the held walk is held to Down tapped as often from the same
         # place: three repeats after the press, however long they take
-        ask(sock, 'tap start')
+        tap(sock, 'start')
         settle(sock)
         held, _ = hold(sock, 'down', lambda v: len(v) >= 4, on_frames=0, on_ms=0)
         for layout in ('gallery', 'grid', 'spotlight'):
-            ask(sock, 'tap start')
+            tap(sock, 'start')
             settle(sock)
             if layout == 'grid':
                 hold(sock, 'left', lambda v: v[-1] == 0, on_frames=0, on_ms=0)   # back to the first system
         tapped = [ask(sock, 'state')['cursor']]
         for _ in range(len(held) - 1):
-            ask(sock, 'tap down 40')
+            tap(sock, 'down')
             ask(sock, 'wait-frames 4', timeout=30)
-            time.sleep(0.15)
-            tapped.append(ask(sock, 'state')['cursor'])
+            # Down jumps a group or goes round: the cursor moves, late on a
+            # busy computer
+            tapped.append(until(lambda: ask(sock, 'state')['cursor'], lambda c: c != tapped[-1], 3.0))
         check(len(held) >= 3 and held == tapped,
               f'{n} systems, Spotlight: a held Down jumps forward as taps of it do (held {held}, tapped {tapped})')
         ask(sock, 'quit')
