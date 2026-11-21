@@ -54,7 +54,27 @@ once, then runs every check at once, as many at a time as there are cores
 one's output in `build-native/check-logs/CHECK.log`, and the whole log of any
 that failed at the end. About 46 s on an M3; one after another it was 167 s.
 Two runs at once, in two worktrees, do not meet: every check writes its own
-files and Hare's checks listen on a port the kernel picks.
+files and Hare's checks listen on a port the kernel picks. They share the
+computer, though: the heaviest checks (`HEAVY` in `tools/check-run.py`:
+`check-i18n-shots`, `check-diatom`, desk mode's, Docker's) each take one of
+`CHECK_HEAVY_SLOTS` (2) slots first, the same two for every run of yours on
+the Mac, while the rest go on; `cat ~/Library/Caches/ZyperOS/heavy-slots/*`
+says who holds them (`~/.cache/zyperos/heavy-slots` on Linux,
+`CHECK_HEAVY_DIR` to move them; a folder anyone else can write, or a slot
+that is a link, is refused). Five runs at once had put the load past 30 and desk mode's
+presses were lost (2026-11-20). `python3 tools/check-run.py check-i18n-shots`
+runs one heavy check under a slot too.
+
+On CI the macOS suite is four jobs, `check 1/4` to `check 4/4`, one runner
+each (`make check CHECK_SHARD=I/4`), and `check` is green when all four are.
+`tools/check-run.py --shard` deals the checks out by CI's own times
+(`tools/check-times.tsv`, longest first, each to the part with the least), and
+`check-i18n-shots` shoots its own part of the languages and handhelds in each
+(`--part`: dealt by cost, a Brick run counting as two and a half Pixel 2
+runs, each part with English on the handhelds it has, and the first with
+English on both for the strings no shot draws). One runner took 32 to 39 minutes, 26 of them `check-i18n-shots`.
+After a check is added or gets much slower, write the table again from a
+green run: `gh run view RUN --log | python3 tools/check-run.py --times-from -`.
 
 On a fresh Ubuntu 24.04 machine (a container, a VM, a cloud workspace),
 `tools/ubuntu-setup.sh` installs what CI's Linux jobs install, with the
@@ -269,6 +289,7 @@ something once broke in a way nothing noticed:
 | `check-pico8-keys` | your PICO-8's hotkeys, Reset and buttons as the launcher and PICO-8.sh do them (src/portmenu.h, src/p8pad.h): PICO-8.sh against a stand-in pico8_64 exporting the pad's mapping line the launcher left (`/tmp/zyperos-pico8-pad`) and the one that ships with none, another pad's or one with what no mapping has; then the real launcher in desk mode's dummy window, `hotkeys.PICO8` and `map.PICO8` in its library: a cart opened (px2-open's channel) leaving portkeys the hotkeys in force in Diatom's RUN form and `Screenshots/PICO-8/<cart>` (`/tmp/zyperos-port-keys`), PICO-8.sh the swapped line, "Screenshot saved" in both themes with an empty square and its `SLOT` trailer, and with Next Shader on a key "Shader / <name>" for each of PICO-8's six shaders in both themes; the menu over it (`--port-menu PICO8 CART`) with Reset between Controls and Quit, asking "Reset the game?" with the cursor on Cancel, Reset exiting 13 (`PORT_MENU_RESET`); `--reset` (the hotkey's) asking with no menu, Cancel 10, Reset 13; Controls opening the buttons (Applies To, This Game, the A cap giving O), a step kept as `map.PICO8.<cart>`, B writing the new line and asking "Start the cart again?" for the new buttons, Cancel the menu again and the hotkeys written again as it ends, the folder kept, Start Again exiting 14 with the Display on in the restart file; no Reset row over OpenBOR. PICO-8.sh exports the joypad's line and portkeys's pad's (`06000000595a…`, the same body), each the shipped one when the file has none for it, and sets `merge_joysticks 2` in config.txt, its other lines kept. portkeys's half is `check-pkkeys`'s and `check-portkeys-flow`'s; every wait in its walks a wait for an event, never for a time or a count of frames (tools/deskwalk.py: the panel a key lands on, from desk's `state`, a setting or a file), and a drawn string found wherever its line begins |
 | `check-p8fx` | your PICO-8's Shader and Border (src/p8fx.h), all but the drawing: the look file (`/tmp/zyperos-pico8fx`) written whole by a rename and read back, lines it does not know passed over and values out of range the default's; the shaders PICO-8 is offered the launcher's SHADERS for its shelf on a GPU device, in order, never LCD No Backlight, Off and Sharp-Shimmerless with no GPU, the steps round and their words; Next Shader on a scratch database (`p8fx_next_shader`, portkeys's hotkey) from the look file's shader, else `shader.PICO8`, else the old `shader`, kept and the file's shader line alone changed; PICO-8's 128x128 out of its preblit at 1x to 4x and padded rows, any other shape refused; sd/pixel2/PICO-8.sh with a stand-in `pico8_64` loading `p8fx.so` beside it first (`LD_PRELOAD`), before one already set, and none with nothing there, said in the log; then the real launcher in desk mode's dummy window as portkeys starts it (`--port-menu PICO8 CART`): Continue, Display, On-Screen Stats, Border, Shader, Controls and Quit, Strength under an old screen, Shader, Strength and Border each kept (`shader.PICO8`, `shader_strength.PICO8`, `border.PICO8`) and written for the shim, Your Own's picture made into its DTOV file the panel's size, no Border at Full Screen, none of them over OpenBOR, and a cart opened from the shelf writing the look file from the shelf's rows; every wait in its walks a wait for an event, never for a time or a count of frames (tools/deskwalk.py: the panel a key lands on, from desk's `state`, a setting or a file), and a drawn string found wherever its line begins |
 | `check-p8fx-gl` | your PICO-8's Shader and Border drawn: the shim (`src/p8fx/shim.c`, built from `mk/cross.mk`'s `P8FX_SRC`) loaded with `LD_PRELOAD` over a stand-in that calls SDL as pico8_64 0.2.7 does (`tools/p8fx-standin.c`), on SDL's offscreen video and its OpenGL ES 2 renderer on Mesa's llvmpipe, each frame read back before the present: with no look file, Off, a shader of none, LCD No Backlight, a border picture not there, OpenGL ES 2 only (`MESA_GLES_VERSION_OVERRIDE=2.0`) and SDL's software renderer the very frame drawn without the shim; each shader, inside PICO-8's rect, within 3 levels of Diatom's GLSL in C (`shaderdemo --image`) at Full Screen (preblit 3), Sharp Pixels (preblit 1 and 2), under 100% and for a rect past the screen's edges, black round it; Blur round SDL's own picture, never black and never brighter than the picture; a picture border the picture; PICO-8's FPS line, which SDL draws after, as without the shim; a look written while it runs drawn next. Linux only; elsewhere it says it skipped, and `make check-p8fx-gl P8FX_DOCKER=1` runs it in `tools/p8fx-gl.Dockerfile`'s Ubuntu |
+| `check-pico8-quit` | MENU, then X over your PICO-8 ends it at once, as Quit ends a game in Diatom: launch.sh's run_port with stand-ins, a port script that execs its program (`sd/pixel2/PICO-8.sh` execs pico8_64, `OpenBOR.sh` OpenBOR, so the group's leader is the program and nothing else is in the group) TERMed within a second of the in-game menu's Quit (USR2) and of POWER (USR1), never only by the whole group's TERM 2 s later, ending by its own TERM with status 0 and the shelf back or the handheld powering off; a script that runs its program as a child and goes on after it (a PortMaster port's) has its program TERMed at once as before and goes on to its lines after the game. Linux only, as `port_end` reads /proc; elsewhere it says it skipped, and `PICO8_QUIT_DOCKER=1` runs it in tools/p8fx-gl.Dockerfile's Ubuntu 24.04 |
 | `check-pico8-mp4` | MP4 over your PICO-8 as over a Diatom game (src/mp4hand.h): the queue's file (`/tmp/zyperos_mp4_queue`) written and read back whole, each kind of queue and a file of no tracks, anything else refused both ways, under AddressSanitizer and UBSan where the compiler has them, and your PICO-8 the one program MP4 plays on over (`port_keeps_mp4`); launch.sh's run_port with stand-ins: a request with `mp4` fifth leaves MP4 playing, starts the follower (`zyperos.elf --mp4-follow`) beside the program, gives portkeys `--follow` with its pid and ends it before the launcher comes back, and OpenBOR's request stops MP4 as before; then the real launcher in desk mode's dummy window against a stand-in daemon (`ZYPEROS_MP4_SOCKET`): back from PICO-8 the queue taken on with no PLAY and no resume, a cart opened writing the request and the file, the follower's next track at an END (its log lines `port: ` ones, which splash leaves off the loading screen), the volume boost portkeys writes into the equalizer's file passed on to the daemon by the follower as a GAIN line, once a change, and SELECT in the in-game menu over PICO-8 (the follower stopped) opening Now Playing, L1 there, SELECT let go closing it, B Continue, the file written back and the follower going on from it; over a program with no file SELECT opens nothing; PICO-8 quiet while MP4 plays: the equalizer's file's cut (`ZYPEROS_EQ_FILE`) set as the launcher hands over with MP4 playing, cleared at a pause and set again by the follower within 0.5 s, written by the in-game menu as it closes, cleared as the follower ends and as the launcher starts, and eq-port.sh's PCMs byte for byte every port's, no softvol stage; a USB-C DAC in (`/proc/asound/card1/usbid`): your PICO-8 into the system's `usb` PCM once `zyperos.elf --alsa-try` opens it, the mix as before when it does not, with no such PCM, with no DAC, and for every other port; and `--alsa-try` against this computer's alsa-lib on Linux, a chain that opens and one that does not. Every wait is for an event (the stand-ins beside the program up, a screen drawn, a key taken and the frame after it drawn, the daemon's song drawn), never a time, and a string drawn is found wherever its line begins (ALSA's lines on Linux) |
 | `check-pmhelper` | the PortMaster installer (res/portmaster/pm-install.py) against a made-up release in a folder: an install, a second run, a lost PortMaster.sh put back, an MD5, SHA-256 or size that does not match, members outside PortMaster/, a release list that makes no sense, runtimes kept, a second run at once turned away |
 | `check-portlibs` | the libraries PortMaster's ports and their runtimes load from the system (plastron's `board/zyperos/ports-libs.txt`: the LOVE runtime's, Stardew Valley's OpenAL, and what the Westonpack runtime takes beyond its own folder, libevdev and libbz2 among them) asked for in the image of each device whose ZyperOS runs ports (`HAS_PORTS=1` in its `sd/<device>/device.sh`): each option set in its Buildroot config and each package in its package list; then plastron's `scripts/ports-libs.sh`, which its release runs over the built Pixel 2 image, over made-up roots: all there passes, one missing or a link to nothing fails and names it, 1.1.0-rc.6's image without libevdev.so.2 and libbz2.so.1.0 fails on those two (no image built) |
@@ -323,6 +344,7 @@ something once broke in a way nothing noticed:
 | `check-from-rogue` | tools/from-rogue.sh's table against systems.cfg and against the folders on a ROGUE OS card |
 | `check-importers` | the computer-side importers (--meta, --titles) on a scratch card: a title written over a game's details keeps them (builds the host launcher) |
 | `check-diatom` | Diatom's own suite (diatom/Makefile's check) on its desktop port with the stub core: the port seam, core facts, achievements, screens, the protocol, the state plane, resident cores, save states packed and read back (old ones too), the card's frame of play written once a minute in and never again; then the launcher's own Diatom link against it (tools/gamezone-check.c): the zone chosen in Date & Time reaches a game's clock, a new zone the next game with no restart, and a Diatom started again its first game (skips without SDL2) |
+| `check-menu-tap` | Diatom's own keys pressed quickly in a slow game (diatom/test/menutap.py), the stub core at 10 fps and the pad by script, `~` a press that went down and up between two polls: MENU tapped opens the menu once and MENU held once; SELECT held and R1 tapped says the save hotkey once, held together once; R1 or SELECT tapped alone is no hotkey and the game never reads it; the stick's key tapped turns the stick each time; at 2x, where a turn runs four frames, a tap at any of them counts. Diatom's desktop port built into diatom/build/menutap, apart from check-diatom's (skips without SDL2) |
 | `check-desk` | desk mode (tools/desk, src/device/desk.h) in SDL's dummy window, as the Pixel 2 and as the Brick on tools/desk's sample card, over its control socket: the panel its size (a shot is 640x480 or 1024x768), a press held until let go, a tap timed to its frame, the zoom and the drawn handheld on and off, an unknown button refused, `state` naming the shelf's screen, cursor and focus, quit |
 | `check-homekeys` | the home's d-pad held as a thumb holds it, in desk mode over its control socket, the cursor read after each frame: on the Grid a held Down walks a row at a time to the last row and stops, a held Up back to the first and stops, a held Left stops at the first system, on 24 systems (the window scrolls) and on 8; on Spotlight a held Down jumps forward as taps of it do. Each button is read once a frame (`in_repeat_axis`): a second read of a held one is false, which turned a held Down round |
 | `check-inrepeat` | no button read twice by `in_repeat` in one step in `src/`: a repeat is true once a frame, so the second read of a held button is false, and "either is due, then which one" turned a held direction round (the home, the in-game save slots, File Transfer's and the USB questions did); each is read once (`in_repeat_axis`). A reading of the source, its rule tried on a bad and a good snippet first |
@@ -334,6 +356,8 @@ something once broke in a way nothing noticed:
 | `check-px2sim` | px2sim's choice of the keyboard it takes in the QEMU image: QEMU's virtio or USB one, never a uinput one such as gptokeyb's Fake Keyboard (host compiler, no VM) |
 | `check-sidelights` | what the launcher tells the side lights' gauge: the lines as plastron's gauge reads them, the FIFO writer that never waits and never dies of SIGPIPE, when a File Transfer batch is over, and files moving on its page: a line at most every 500 ms with the speed over that time, a pause between two files kept, `move 0 0` a second after the last bytes and at once when the page closes, across the clock's wrap; and MENU > Side Lights' preview lines, said again each second, another row at once, `preview off` as the page closes |
 | `check-building-doc` | this table has a row for every check in the Makefile's CHECKS, and none for a check that is gone |
+| `check-mergetrain` | `tools/merge-train.py`'s merges in a scratch repository: two branches that each add a check to the Makefile's `.PHONY` and `CHECKS` and a row here merge with both kept, a name in the middle or at the start of a list too, and a row added beside one the other PR rewrote (both, the rewrite kept); a rule's body of plain words, one row written two ways, prose by the rows and any other file stop the train at that PR, the train as it was; the table written again after the merges (`tools/building-doc.py`, a stand-in); and `--merge`'s step played here: the second PR on a main with the first would not land the train's tree, main merged into its branch with that tree does, a difference outside the lists refused |
+| `check-checkrun` | make check's runner (`tools/check-run.py`) with stand-in checks: CI's parts (`--shard I/N`) hold every check once and `check-i18n-shots` in each, the same from the list in any order and within the longest check of each other; `check-i18n-shots`' own parts hold every language on every handheld, each with English on its handhelds and the first with English on both, within one Brick run of each other; never more heavy checks at once than `CHECK_HEAVY_SLOTS`, in one run or with another process holding a slot, the light ones going on meanwhile, a slot taken again once its holder dies, the wait said on the check's line |
 | `check-blog` | zyperos.com's blog, built as Cloudflare Pages builds the site (mk/blog.py): title and description lengths, structured data, every link and picture reaching a file (or a path in `_redirects`, such as `/tip`), every post in the sitemap and llms.txt, and the landing page's colors |
 | `check-discord-release` | The release notes as `tools/release.sh` posts them in the Discord's #releases (`tools/discord-release.py`): every `docs/releases/v*.md` within Discord's limits (4096 characters an embed, 6000 a message), with What's new, without Install, Tested and Thanks, and ending with the release's link |
 | `check-release-devices` | the devices a release carries (`config/devices`, `tools/release-devices.sh`): the release notes' `Tested on <id>: <who, on what>` lines read on sample notes (every device tested passes; a device missing, a misspelled or unlisted id, or a Tested line in another form fails) and sample lists; each listed device with its `src/device/<id>_profile.c` and its `res/update/min-system-<id>`, which `tools/update-pack.py` puts in that device's lists |
@@ -502,17 +526,60 @@ the refresh steps.
 
 ## Merging several pull requests
 
-`python3 tools/merge-train.py 281 283 284` merges those pull requests' heads
-onto `origin/main`, in that order, in a scratch worktree; writes again what
-`tools/i18n.py` and `tools/designdef.py` write whole (a conflict in one of
-those files is settled that way, and two PRs that each added a string merge
-cleanly but leave the IDs stale); and runs one `make check` (`CHECK_JOBS` as
-given). A conflict in any other file stops the train at that PR. The branch
-`train-281-283-284` stays here; `--push` pushes it and opens its pull
-request, which merged with a merge commit (`gh pr merge N --merge`) lands
-every PR's own commits in main, so GitHub marks each one merged. One check
-for the lot, where merging them one by one sent every other PR back to merge
-main and check again. `--no-check` for the merges alone, `--keep` keeps the
+For maintainers: `tools/merge-train.py` puts open pull requests together on
+`origin/main`, in the order given, in a scratch worktree of its own, and
+checks the lot once instead of each PR after each merge.
+
+    python3 tools/merge-train.py --integrate-only 425 426 428
+    python3 tools/merge-train.py --merge 425 426 428
+
+`--integrate-only` makes the integration alone and prints its path (the
+worktree and its branch `train-425-426-428` stay): what a test card is built
+from while the PRs are still open. Then, once the card is tested,
+`--merge` runs the gate and merges each PR on GitHub (`gh pr merge N
+--merge`), in that order. Without either it runs the gate and keeps the
+branch here; `--push` pushes the branch and opens one pull request for the
+lot instead.
+
+The merges: each PR's head (fetched by its number) merged with a merge
+commit. A conflict in what every PR that adds a check adds a line to, the
+Makefile's `.PHONY` and `CHECKS` lists and the rows of the table above, is
+joined, both sides' names and rows kept, when the conflict is nothing but
+names or rows (`join_makefile`, `join_rows`; against the merge base, so a
+row one PR rewrote and the other left keeps the rewrite); a generated file
+(`tools/i18n.py`'s, `tools/designdef.py`'s) is written again from the merged
+sources, and once more at the end for two PRs that each added a string;
+and where `tools/building-doc.py` writes the table of checks, it writes it
+again after the merges, joined rows in the names' order.
+Any other conflict, or a list's conflict that holds a rule or prose, or one
+row written two ways, stops the train at that PR, which then needs main
+merged in by hand.
+
+The gate is the CI the PRs would have had, here and once for all, under a
+check slot (`/tmp/zyperos-check-1` or `-2`, as every full check takes one;
+it waits while both are taken): the fresh worktree's `make check`, then the
+Linux jobs' own commands from `.github/workflows/check.yml` (check-linux's
+`make check` with its `CHECKS_SKIP`, the devices job's `make
+check-device-compile`) in `ubuntu:24.04` set up by `tools/ubuntu-setup.sh`,
+on a copy of the tree, as a user that is not root, as on the runner. The
+image is built once a version of that script (`zyperos-ubuntu-ci`, a few
+minutes) and kept; it is arm64 on a Mac, where CI is x86_64. `--no-docker`
+leaves the Linux half out; `CHECK_JOBS` goes to both as it is (4 in Docker
+unless set).
+
+What it found is kept in `~/Library/Caches/ZyperOS/merge-train/` (the base,
+each head, the train's tree, each part's verdict and time), and the report's
+path is printed. `--merge` on the same main with the same heads as a gate
+that passed merges without running it again (`--recheck` runs it anyway),
+so the gate can run beside the test card and the merge come after.
+`--merge` refuses a draft, a PR whose head moved since the gate, or a main
+that moved; it merges each PR at the head the gate took
+(`--match-head-commit`), and checks after each that main's tree is the
+train's. A PR whose own merge would not land that tree (its lists needed
+joining, or a generated file writing again) first gets main merged into its
+branch, with the train's tree, pushed to that branch; a PR from another
+repository that needs this is left to a hand. Nothing else is pushed, and
+never to main. `--no-check` for the merges alone, `--keep` keeps the
 worktree.
 
 ## Devices
