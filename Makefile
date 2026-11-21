@@ -1862,10 +1862,16 @@ build-native/eq-check: tools/eq-check.c src/eq.c src/eq.h src/eqdsp.h src/db.c s
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/eq-check.c src/eq.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3 -lm
 
+# And the volume boost's top cells there (cells 4 to 6, EQ_COMP_TAB): cells
+# 1 to 3 the boost as it was to the sample, against a copy of it in the
+# check; each top cell louder on PICO-8-like chip voices and a loud film,
+# the loud carts' targets at cell 6, no sample past -1 dB of full scale, a
+# sine's THD+N cell by cell, the compressor's swing, silence, the cost; the
+# table's rows against src/boost.h's cells
 check-eqdsp: build-native/eqdsp-check
 	@./build-native/eqdsp-check
 
-build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h FORCE
+build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h src/boost.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -O2 -o $@ tools/eqdsp-check.c -lm
 
