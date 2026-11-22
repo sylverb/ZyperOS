@@ -105,9 +105,9 @@ static const step_def STEPS[TOUR_STEPS] = {
 	 * pops is the one a favorite gets. */
 	[TOUR_Y]       = { S_TOUR_Y_TITLE, S_TOUR_Y_LINE,
 	                   NO_TEXT, NO_TEXT, NO_TEXT, TG_FACE, "Y", NO_TEXT, "Y", NULL, &LOOP_Y },
-	/* MENU's chords on every screen as its note, the two keys lit on the
-	 * handheld beside MENU (2026-11-22: "add to tutorial"), as the
-	 * shoulders ride on Move Around and Music */
+	/* MENU's chords on every screen as its note (2026-11-22: "add to
+	 * tutorial"), as the shoulders ride on Move Around and Music; the
+	 * handheld lights MENU alone, so it stays turned to MENU */
 	[TOUR_MENU]    = { S_TOUR_MENU_TITLE, S_TOUR_MENU_LINE,
 	                   NO_TEXT, S_TOUR_MENU_NOTE, NO_TEXT, TG_PILL, "MENU", NO_TEXT, "MENU", NULL,
 	                   &LOOP_MENU },

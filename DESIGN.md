@@ -7187,8 +7187,9 @@ Diatom's, and the screenshot is SELECT and a button, above.
   does not show them. *(My choices, to confirm: the names, the rule's line,
   the four holds.)*
 - **The tutorial**'s MENU lesson says them as its note, "MENU+L1 takes a
-  screenshot, MENU+L2 locks.", with the keys as Hotkeys has them, and lights
-  the two keys on the handheld beside MENU.
+  screenshot, MENU+L2 locks.", with the keys as Hotkeys has them. The
+  handheld lights MENU alone: with the shoulders lit too it turned to show
+  them and MENU's dots went out of sight.
 
 Host shots: `hotkeys-menu-keys`, `hotkeys-menu-capture`,
 `hotkeys-menu-capture-keys`, `menu-locked` (`--menu-lock K`) and

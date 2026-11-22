@@ -100,40 +100,17 @@ static const td_key SHOULDER[4] = { TD_L1, TD_R1, TD_L2, TD_R2 };
 #define HALO_IN      10.0f
 #define HALO_OUT     22.0f
 
-/* A button as the handheld's key, for MENU's chords; TD_KEYS for none */
-static td_key td_of(in_button b)
-{
-	switch (b) {
-	case IN_ACCEPT: return TD_A;
-	case IN_BACK:   return TD_B;
-	case IN_X:      return TD_X;
-	case IN_Y:      return TD_Y;
-	case IN_L1:     return TD_L1;
-	case IN_R1:     return TD_R1;
-	case IN_L2:     return TD_L2;
-	case IN_R2:     return TD_R2;
-	default:        return TD_KEYS;
-	}
-}
-
 /* The keys lesson `s` lights with `t`'s chords: Brightness's are MENU+VOL or
- * the device's own keys (F1 and F2); MENU's, MENU and its two chords' keys */
+ * the device's own keys (F1 and F2) */
 static unsigned lit_of(const tour *t, tour_step s)
 {
-	if (s == TOUR_MENU) {
-		unsigned lit = 1u << TD_MENU;
-		int i;
-
-		for (i = 0; i < 2; i++)
-			if (td_of(tour_menu_key(i)) != TD_KEYS) lit |= 1u << td_of(tour_menu_key(i));
-		return lit;
-	}
 	switch (s) {
 	case TOUR_MOVE:   return 1u << TD_DPAD | 1u << TD_L1 | 1u << TD_R1;
 	case TOUR_A:      return 1u << TD_A;
 	case TOUR_B:      return 1u << TD_B;
 	case TOUR_X:      return 1u << TD_X;
 	case TOUR_Y:      return 1u << TD_Y;
+	case TOUR_MENU:   return 1u << TD_MENU;
 	case TOUR_SELECT: return 1u << TD_SELECT | 1u << TD_L2 | 1u << TD_R2;
 	case TOUR_VOL:    return 1u << TD_VOLUP | 1u << TD_VOLDN;
 	case TOUR_BRIGHT: return t->bright == DEV_BRIGHT_MENU_VOL ? 1u << TD_MENU | 1u << TD_VOLUP | 1u << TD_VOLDN
