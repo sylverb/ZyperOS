@@ -7782,7 +7782,18 @@ started by its screen alone, which no game opens, and Player 2's p2d by an
 NES game alone. The kernel has no netfilter (plastron's linux.config:
 `CONFIG_NETFILTER is not set`), so there is no firewall to add. A
 development image's own dropbear, which a release image never starts,
-keeps listening, keys only. The joiner joins it for the game's time (src/wifi.h's
+keeps listening, keys only. WPA3-SAE, which would leave the code only online guesses, is not
+there yet (a security review asked, 2026-11-22): the image's hostapd 2.11
+is built without SAE (`# BR2_PACKAGE_HOSTAPD_WPA3 is not set`, so no
+`CONFIG_SAE` in its .config), though wpa_supplicant has it
+(`BR2_PACKAGE_WPA_SUPPLICANT_WPA3=y`, `CONFIG_SAE=y`); and the adapter the
+hotspot is built on, the RTL8188EU on Realtek's own 8188eu driver, knows
+only the PSK and 802.1X key managements in its cfg80211 code
+(ioctl_cfg80211.c), with its access point's authentication in the driver,
+so SAE in hostapd's userspace would not reach it. It needs
+`BR2_PACKAGE_HOSTAPD_WPA3=y` in plastron's zyperos.config and an adapter
+on a mac80211 driver with access point mode, then SAE with `ieee80211w=2`
+on both ends and WPA2 only where the adapter cannot. The joiner joins it for the game's time (src/wifi.h's
 `wifi_join_temp`): never saved to wpa_supplicant.conf, a new lease asked as
 it joins, and at the end the network removed, every saved network enabled
 again and a new lease from the one it rejoins.
