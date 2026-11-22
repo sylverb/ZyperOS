@@ -1,9 +1,9 @@
 import React from "react";
 import { AbsoluteFill, Audio, Easing, Img, interpolate, Sequence, staticFile, useCurrentFrame } from "remotion";
 import { ease } from "../anim";
-import { Cam, Device, DeviceInfo, FONT, Footage, Label, LIGHT, pop, punchAt, Screen } from "../parts";
+import { Cam, Device, DeviceInfo, FONT, Footage, Label, LIGHT, mixCam, Phone, pop, punchAt, Screen } from "../parts";
 import { SOUND_CUES } from "../sounds";
-import { FPS } from "../timeline";
+import { FPS, Pose, Scene } from "../timeline";
 import { BEAT110 as BEAT, TRACK110 as MUSIC } from "../v110/music";
 import { BRICK_INTRO, HOOK_BEATS_BI as HOOK_BEATS, SCENES_BI } from "./timeline";
 
@@ -16,11 +16,27 @@ export const H = 1350;
 const WHIP = 1300;
 const { starts, total, clips, sceneEnd, sceneAt } = BRICK_INTRO;
 
-/** The screen as wide as the frame allows, under the caption (the Reddit cuts') */
-const SCREEN = { x: 40, y: 560, w: 1000 };
-const mainCam = (d: DeviceInfo): Cam => {
-  const k = SCREEN.w / d.screen.w;
-  return { k, x: SCREEN.x - d.screen.x * k, y: SCREEN.y - d.screen.y * k };
+/** Where the screen is: "main" as wide as the frame allows, under the caption
+ * (the Reddit cuts'); "split" smaller on the left, the other device (the
+ * friend's phone, a phone's browser) beside it */
+const SCREEN: Record<string, { x: number; y: number; w: number }> = {
+  main: { x: 40, y: 560, w: 1000 },
+  split: { x: 30, y: 560, w: 560 },
+};
+const camOf = (pose: Pose, d: DeviceInfo): Cam => {
+  const s = SCREEN[pose] ?? SCREEN.main;
+  const k = s.w / d.screen.w;
+  return { k, x: s.x - d.screen.x * k, y: s.y - d.screen.y * k };
+};
+/** The other device's picture at a frame: its sequence's, from the moment it comes in, else its one */
+const phoneSrc = (frame: number, start: number, b: NonNullable<Scene["browser"]>): string => {
+  let src = b.phone ?? "";
+  let at = start + (b.phoneAt ?? 0) * BEAT;
+  for (const p of b.phoneSeq ?? []) {
+    if (frame >= at) src = p.src;
+    at += p.beats * BEAT;
+  }
+  return src;
 };
 /** The Brick whole, standing under the opening's and the end's words */
 const HERO_K = 0.31;
@@ -29,20 +45,23 @@ const heroCam = (d: DeviceInfo, drop: number): Cam => ({
 });
 
 /** A feature's scene: up from below after the opening, a whip or a cut between
- * features, down and away before the end */
+ * features (a spring where the pose changes on a cut), down and away before the end */
 const camera = (frame: number, d: DeviceInfo): Cam => {
   const i = sceneAt(frame);
   const sc = SCENES_BI[i];
   const start = starts[i];
   const end = sceneEnd(i);
-  const target = mainCam(d);
+  const target = camOf(sc.pose, d);
+  const prev = SCENES_BI[i - 1];
   let cam: Cam = target;
-  if (SCENES_BI[i - 1]?.pose === "hero") {
+  if (prev?.pose === "hero") {
     const k = pop(frame, start, 140, 16);
     cam = { ...target, y: target.y + (1 - k) * 900 };
   } else if (sc.enter === "whip") {
     const k = pop(frame, start, 150, 15);
     cam = { ...target, x: target.x + (1 - k) * WHIP, blur: Math.min(18, Math.max(0, (1 - k) * 40 - 2)) };
+  } else if (prev && prev.pose !== sc.pose) {
+    cam = mixCam(camOf(prev.pose, d), target, pop(frame, start, 150, 17));
   }
   const next = SCENES_BI[i + 1];
   if (next?.enter === "whip" || next?.pose === "hero") {
@@ -96,6 +115,11 @@ export const BrickIntro: React.FC<BrickIntroProps> = (props) => {
         <Device d={brick} cam={hero ? heroCam(brick, heroDrop) : camera(frame, brick)}>
           <Screen clips={clips} d={brick} zoom={hero ? undefined : zoom} />
         </Device>
+
+        {sc.browser?.phone && (
+          <Phone src={phoneSrc(frame, start, sc.browser)} pic={sc.browser.phonePic} x={700} y={520} height={720}
+            k={pop(frame, start + (sc.browser.phoneAt ?? 0) * BEAT, 160, 14) * (1 - ease(frame, end - 5, end))} />
+        )}
 
         {frame < HOOK_BEATS * BEAT && (
           <div style={{ position: "absolute", inset: 0, opacity: 1 - hookOut, transform: `translateY(${-hookOut * 30}px)` }}>

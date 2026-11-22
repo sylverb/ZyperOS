@@ -24,6 +24,15 @@ export type SceneBI = Scene & {
   wait?: string;
 };
 
+/** The friend's phone on Player 2: the play page as it opens, then a finger on its d-pad and A
+ * (video/footage/phone-presses.py's pictures, the 1.0.5 Reddit cut's) */
+const PRESSES = [
+  { src: "img/play-phone.png", beats: 1 }, { src: "img/play-phone-right.png", beats: 1 },
+  { src: "img/play-phone-right-a.png", beats: 0.5 }, { src: "img/play-phone-right.png", beats: 0.5 },
+  { src: "img/play-phone.png", beats: 0.5 }, { src: "img/play-phone-a.png", beats: 0.5 },
+  { src: "img/play-phone.png", beats: 1 },
+];
+
 const fit = (take: string, from: number, to: number): Step[] => [{ take, from, to, fit: true }];
 /** A take at a fixed rate, then the last one fitted to what is left */
 const then = (take: string, from: number, to: number, rate: number, last: Step[]): Step[] => [{ take, from, to, rate }, ...last];
@@ -71,16 +80,22 @@ export const SCENES_BI: SceneBI[] = [
     label: "PortMaster's ports", sub: "Installed with one press" },
   { id: "pico8", bars: 2, pose: "main", enter: "cut", screen: fit("bi-p8", 2500, 9000),
     label: "Your own PICO-8", sub: "With Splore, to find carts" },
-  { id: "transfer", bars: 3, pose: "main", enter: "whip", screen: fit("bi-wifi-xfer", 0, 5200),
-    label: "Add games from a browser", sub: "Over Wi-Fi, behind a PIN" },
+  // The Brick's page, and a phone's browser on File Transfer: its PIN, then the page
+  { id: "transfer", bars: 3, pose: "split", enter: "whip", screen: fit("bi-wifi-xfer", 0, 5200),
+    label: "Add games from a browser", sub: "Over Wi-Fi, behind a PIN",
+    browser: { phone: "img/portal-pin.png", phoneAt: 1.5, phoneSeq: [{ src: "img/portal-pin.png", beats: 4 }, { src: "img/portal-phone.png", beats: 6 }] } },
   { id: "flash", bars: 2, pose: "main", enter: "cut", screen: fit("v11-brick", 3800, 6920),
     label: "Or as a flash drive", sub: "The card shows up on your computer" },
   // The download's mark filling in the top bar (the update's page names versions, so it stays out)
   { id: "update", bars: 2, pose: "main", enter: "cut", screen: fit("bi-update-bg", 0, 1980),
     label: "Updates over Wi-Fi", sub: "Downloading while you play",
     punch: [{ at: 0, x: 0.72, y: 0.22, zoom: 1.35 }] },
-  { id: "player2", bars: 2, pose: "main", enter: "whip", screen: fit("bi-player2", 600, 6500),
-    label: "Player 2 on a phone", sub: "A friend joins, no app or account" },
+  // Player 2's code on the Brick until it says connected, then the game; the
+  // friend's phone comes in as it connects, and plays
+  { id: "player2", bars: 2, pose: "split", enter: "whip",
+    screen: [{ take: "bi-player2", from: 600, to: 4700, rate: 1.8 }, { image: "img/smb3.png" }],
+    label: "Player 2 on a phone", sub: "A friend joins, no app or account",
+    browser: { phone: "img/play-phone.png", phonePic: "img/smb3.png", phoneAt: 3.5, phoneSeq: PRESSES } },
   // The track's quiet break, bars 49 to 54
   { id: "mp4", bars: 2, pose: "main", enter: "whip", screen: fit("bi-looks", 0, 5367),
     label: "Music and videos", sub: "A cassette, a vinyl, a spectrum" },
