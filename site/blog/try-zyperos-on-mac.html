@@ -4,7 +4,7 @@ summary: Two ways to run ZyperOS on a Mac: desk mode for the launcher, its menus
 crumb: Try it on a Mac
 topic: guide
 published: 2026-11-19
-updated: 2026-11-20
+updated: 2026-11-21
 image: desk-card
 image_alt: The ZyperOS home in desk mode, in a window drawn as a green GKD Pixel 2
 related: install-custom-firmware-gkd-pixel-2, zyperos-guide, about-zyperos
@@ -18,7 +18,7 @@ weight: 50
 <h2>Which way to pick</h2>
 <ul>
   <li><strong>Desk mode</strong> is ZyperOS's launcher, the same code the handheld runs, built for your Mac. The menus, the settings, the themes, the languages and a NES game with its in-game menu work as on the handheld. It is ready in a few minutes, as the GKD Pixel 2 or the TrimUI Brick.</li>
-  <li><strong>The ZyperOS Simulator</strong> is the whole system: ZyperOS's Linux, built for the GKD Pixel 2, running in QEMU in a window drawn as the Pixel 2. It boots, runs the first-start setup, and shows the battery, the charger and the side lights. Today it needs an image you build yourself, which takes a few hours the first time.</li>
+  <li><strong>The ZyperOS Simulator</strong> is the whole system: ZyperOS's Linux, built for the GKD Pixel 2, running in QEMU in a window drawn as the Pixel 2. It boots, runs the first-start setup, and shows the battery, the charger and the side lights. Its image comes with each release, one command away.</li>
 </ul>
 <p>To look around, start with desk mode.</p>
 
@@ -74,17 +74,16 @@ cd ZyperOS</code></pre></li>
 <figure class="shot"><img src="/img/simulator.png" alt="The ZyperOS Simulator at the first start: a drawn GKD Pixel 2, Zyper saying Hello! beside the language list, its four side lights lit green on the cable"><figcaption>The first start, as on a new card.</figcaption></figure>
 <figure class="shot"><img src="/img/simulator-charging.png" alt="The ZyperOS Simulator charging at 55%: the home with the charging mark in the top bar, and the side lights filling from the bottom"><figcaption>On the cable at 55%: the side lights fill as they charge.</figcaption></figure>
 </div>
-<p>It needs a Mac with Apple silicon and macOS 14 or later, Xcode's command-line tools, QEMU, and a QEMU image of ZyperOS. Today you build that image yourself with plastron, ZyperOS's Linux, in Docker. The first build takes a few hours, as it builds a whole toolchain and then LLVM for the graphics. After that, a build takes minutes. There is no SSH key to set up: <code>tools/qemu-run.sh</code> hands the virtual machine yours, or makes one for it.</p>
+<p>It needs a Mac with Apple silicon and macOS 14 or later, Xcode's command-line tools, QEMU, and a QEMU image of ZyperOS. Every release from 1.1.0 on carries its QEMU image, and <code>tools/qemu-run.sh fetch</code> downloads the latest one and checks it against the release's <code>SHA256SUMS</code>, so there is no long build and no Docker. There is no SSH key to set up either: <code>tools/qemu-run.sh</code> hands the virtual machine yours, or makes one for it.</p>
 <ol>
-  <li>Install <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a> and start it.</li>
   <li>Install QEMU: <code>brew install qemu</code>.</li>
-  <li>Build the image, from the <code>ZyperOS</code> folder: <code>make -C plastron qemu</code>.</li>
+  <li>Download the image, from the <code>ZyperOS</code> folder: <code>tools/qemu-run.sh fetch</code>.</li>
   <li>Build the app and open it:
 <pre><code>simulator/scripts/build-app.sh
 open "simulator/build/ZyperOS Simulator.app"</code></pre></li>
 </ol>
 <p>The window starts its own virtual machine, and shuts it down when it closes. Click the drawn buttons, or use the keys above, plus <kbd>H</kbd> for the headphones. <strong>View &gt; Hardware Panel</strong> (<kbd>Cmd</kbd> I) opens the panel, and the <strong>Device</strong> menu has the charging cable, the battery levels and <strong>Save Screenshot</strong>.</p>
-<p>Every release from 1.1.0 on will carry its QEMU image, and <code>tools/qemu-run.sh fetch</code> downloads it and checks it against the release's <code>SHA256SUMS</code>, in place of the long build and Docker. Until 1.1.0 is out, the build above is the way.</p>
+<p>To try a change of your own to the system, build the image yourself with plastron, ZyperOS's Linux, in <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a>: <code>make -C plastron qemu</code> from the <code>ZyperOS</code> folder. The first build takes a few hours, as it builds a whole toolchain and then LLVM for the graphics. After that, a build takes minutes.</p>
 
 <h2>What a Mac can't show</h2>
 <ul>
