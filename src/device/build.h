@@ -41,5 +41,6 @@ typedef struct {
 
 extern const dev_build device_build_pixel2;
 extern const dev_build device_build_brick;
+extern const dev_build device_build_r36s;
 
 #endif
