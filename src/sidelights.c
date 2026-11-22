@@ -80,7 +80,10 @@ const char *side_lights_value(side_lights on, char *buf, size_t cap)
 	int i, n = 0;
 
 	for (i = 0; i < LP_COUNT; i++) n += side_lights_has(on, (side_light_part)i);
-	if ((on & LIGHTS_DEFAULT) == LIGHTS_DEFAULT) return T(S_LIGHTS_ALL_ON);
+	/* "All on" only when every part is, Battery Level too: a new card,
+	 * Battery Level off, reads "5 on" (2026-11-21: "on the led settings
+	 * Battery level was off and it said all on") */
+	if ((on & LIGHTS_ALL) == LIGHTS_ALL) return T(S_LIGHTS_ALL_ON);
 	if (n == 0) return T(S_MENU_OFF_TITLE);
 	snprintf(buf, cap, TN(S_LIGHTS_SOME_ON, n), n);
 	return buf;

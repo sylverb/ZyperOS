@@ -83,6 +83,9 @@
 static void fallback_tick(void)
 {
 	if (g_ctl_app) ctl_poll(g_ctl_app, CTL_AT_GAME);
+	/* Its play time's marker and checkpoints, as on_game_tick writes a
+	 * resident game's. The monotonic clock, not SDL's: SDL is down for it */
+	stats_tick((unsigned)stats_mono_ms());
 }
 
 static void respawn_resident(app *a)
@@ -340,6 +343,14 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	/* What px2-open's status says while no launcher runs to say it, with
 	 * launch.sh's process for its quit (src/ctl.h) */
 	ctl_port_write(ctl_dir(), (int)getppid(), (long)time(NULL), path);
+	/* Its play time, which launch.sh closes as it ends (stats.h, "a program
+	 * of its own"): the game on Recents, its time on Played. Not PortMaster
+	 * itself, which installs games and is none; Splore is where its carts
+	 * are played, so it is */
+	if (strcmp(s->core, PORT_CORE) || strcasecmp(file, PM_SCRIPT)) {
+		if (!stats_hand_over(s->tag, file, plat_flag(STATS_PORT_NOTE), (long)time(NULL), stats_mono_ms()))
+			fprintf(stderr, "port: couldn't write %s; this play is not timed\n", STATS_PORT_NOTE);
+	}
 	/* The shelf comes back on this game, and an audiobook keeps its place:
 	 * launch.sh stops MP4 too, as the port needs the sound card and the
 	 * memory, but over your PICO-8 (below). */
@@ -372,6 +383,9 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	 * for the shot, in both themes, as Diatom's pop-up has it (on_hotkey) */
 	unlink(plat_flag(PORT_KEYS_FILE));
 	unlink(plat_flag(P8_PAD_FILE));
+	/* ...and its in-game menu opening on Game, on Continue, at its first
+	 * MENU, as a game's does after launch's gm_mem_reset */
+	unlink(plat_flag(PORT_MENU_MEM));
 	if (!strcmp(core, P8_CORE) && port_hotkeys(s->tag)) {
 		char shots[CFG_STR * 4], name[LIB_NAME] = "PICO-8", folder[CFG_STR * 2];
 		const sysview *v = &a->view[a->sys_cursor];
@@ -1573,9 +1587,14 @@ void launch(app *a)
 		snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
 		snprintf(g_ctl_game.path, sizeof g_ctl_game.path, "%s", rom);
 		g_ctl_game.since = (long)time(NULL);
+		/* Its play time too, as the resident's game has it: from Diatom's
+		 * start to its end. This path kept none before, so a game run the
+		 * slow way was on neither Recents nor Played */
+		stats_begin(s->tag, romfile, (unsigned)stats_mono_ms());
 		plat_run_on_tick(fallback_tick);
 		fprintf(stderr, "diatom exited %d\n", plat_run(argv, NULL, P_ROOT));
 		plat_run_on_tick(NULL);
+		stats_end(NULL, (unsigned)stats_mono_ms());
 		g_ctl_game.on = false;
 		screen_shader_apply();
 
