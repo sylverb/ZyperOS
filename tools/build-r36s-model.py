@@ -250,21 +250,27 @@ text('FN word','FN',1.6,(0.0,FRONT-.02,-17.3),printed)
 text('SELECT word','SELECT',1.6,(-7.4,FRONT-.02,-36.2),printed)
 text('START word','START',1.6,(7.4,FRONT-.02,-36.2),printed)
 
-# The speaker's grille between the d-pad and A B X Y: three rows of two
-# slots, 6.6 x 1.3, about (0, -9.4), a dot between the middle row's two;
-# and the microphone's hole between SELECT and START
+# The speaker's grille between the d-pad and A B X Y, as the maker's
+# straight-on photo has it (6.66 px a mm there): three rows 3.85 apart, the
+# top one level with X, each of three slots 1.5 tall in columns 5.63 apart,
+# long ones 5.4 and short ones 2.25; the top and bottom rows long, short,
+# long, the middle row short, long, short. Recessed, a dark floor under
+# them. And the microphone's hole between SELECT and START.
+GRILLE_X=5.63
+GRILLE_Z=(-5.6,-9.45,-13.3)
 slots=[]
-for row in range(3):
-    for side in (-1,1):
-        slots.append(rounded('Grille slot',6.6,1.3,3,.6,(side*4.4,FRONT,-6.8-2.6*row),None))
-slots.append(cylinder('Grille dot',.6,3,(0,FRONT,-9.4),None,bevel=0))
+for row,z in enumerate(GRILLE_Z):
+    for col in (-1,0,1):
+        long=(col!=0)==(row!=1)
+        w=5.4 if long else 2.25
+        slots.append(rounded('Grille slot',w,1.5,3,.74,(col*GRILLE_X,FRONT,z),None))
 slots.append(cylinder('Microphone hole',.45,3,(0,FRONT,-30.4),None,bevel=0))
 cut(body,joined('Grille cutter',slots))
 cylinder('Microphone floor',.45,.1,(0,FRONT+1.2,-30.4),black,bevel=0)
 # The seam across the face just under the glass, where the front's two
 # mouldings meet (the product photos). GUESS: 1.6 under the glass.
 cut(body,rounded('Seam cutter',W+4,.35,.8,.1,(0,FRONT,31.2-55.6/2-1.6),None))
-rounded('Grille floor',16.0,7.2,.1,.6,(0,FRONT+1.2,-9.4),black)
+rounded('Grille floor',17.6,9.6,.1,.6,(0,FRONT+1.2,-9.45),black)
 
 # The sticks: a light grey ring 22 across standing out of the face, the
 # black base in it, the cap 15 across on its shaft. GUESS: the ring's
