@@ -78,7 +78,7 @@ export const SCENES_BI: SceneBI[] = [
   // The download's mark filling in the top bar (the update's page names versions, so it stays out)
   { id: "update", bars: 2, pose: "main", enter: "cut", screen: fit("bi-update-bg", 0, 1980),
     label: "Updates over Wi-Fi", sub: "Downloading while you play",
-    punch: [{ at: 0, x: 0.88, y: 0.08, zoom: 1.7 }] },
+    punch: [{ at: 0, x: 0.72, y: 0.22, zoom: 1.35 }] },
   { id: "player2", bars: 2, pose: "main", enter: "whip", screen: fit("bi-player2", 600, 6500),
     label: "Player 2 on a friend's phone", sub: "No app, no account" },
   // The track's quiet break, bars 49 to 54

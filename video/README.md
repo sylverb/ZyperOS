@@ -240,6 +240,27 @@ npx remotion render Reddit110 out/reddit110/zyperos-1.1-reddit-raw.mp4 --crf=6 -
 sh scripts/finish-110.sh            # the master, the Discord file at 10 MB or less, the Reddit cut, outside the repository
 ```
 
+## The Brick introduction: ZyperOS on the TrimUI Brick, for r/trimui
+
+`src/brick-intro/`, `BrickIntro`: ZyperOS introduced to Brick owners, 4:5,
+exactly 2:00 on the 1.1 videos' "It Takes A Hero" (70 bars at 140 BPM), the
+Brick alone, every feature named in a caption, no version anywhere (a frame
+with one would date the video). Its takes are `footage/takes.py`'s Brick
+introduction section: `brick(NAME)` copies a take onto the Brick's profile as
+`bi-NAME`, and the `bi` card (`card.py`'s `brick_intro`) is the 1.1 card on
+1.0.6. The Rumble list and the Side Lights page are drawn on the Pixel 2's
+profile until the Brick's own land. A scene may carry `wait` (a WAITING band
+over its stand-in); `scripts/check-waits.mjs` lists them, and the finish
+script refuses to make a file while one is left.
+
+```sh
+make native
+python3 video/footage/takes.py bi-poweroff bi-homegrid ...   # every bi- take
+cd video && npm run stills:brick-intro
+npx remotion render BrickIntro out/brick-intro/zyperos-brick-raw.mp4 --crf=6 --concurrency=4
+sh scripts/finish-brick-intro.sh     # the master and the Reddit file, outside the repository
+```
+
 Since desk mode (1.1), the host build rests in `SDL_WaitEventTimeout` and
 reads its keys by scancode, with A on X and B on Z: `rec/rec.c` answers both,
 so a still screen's clock still reaches the next press. Its key names gained
