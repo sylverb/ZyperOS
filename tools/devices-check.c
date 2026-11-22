@@ -411,6 +411,17 @@ static void builds(void)
 	   "pixel2: portkeys, zyhome, System Update, Player 2, ports, your PICO-8's shader library");
 	ck(br->helpers == (DEV_HELPER_UPDATE | DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA),
 	   "brick: System Update, btplayer and Bluetooth sound");
+	{
+		const dev_build *r = &device_build_r36s;
+
+		ck(!strcmp(r->id, device_profile_r36s.id) && !strcmp(r->arch, "aarch64") &&
+		   !strcmp(r->mcpu, "cortex-a53") && !strcmp(r->cpu, "cortex-a35") && !strcmp(r->diatom_port, "r36s"),
+		   "r36s: the Pixel 2's chip and baseline, its own Diatom port");
+		ck(!strcmp(r->table, px->table) && r->part_boot == px->part_boot && r->part_root_a == px->part_root_a &&
+		   r->part_root_b == px->part_root_b && r->part_games == px->part_games, "r36s: the Pixel 2's card");
+		ck(r->helpers == (DEV_HELPER_ZYHOME | DEV_HELPER_UPDATE),
+		   "r36s: a first test card's helpers, Home and System Update");
+	}
 }
 
 /* A button as `p` prints it (src/ds/button.h): its glyph's shape, mark and
