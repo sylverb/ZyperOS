@@ -14,3 +14,12 @@
 # panels R36S units ship with go through generic-dsi and a device tree
 # overlay instead (docs/devices/r36s.md, "Panels").
 CONFIG_DRM_PANEL_SITRONIX_ST7703=y
+
+# A test card: the kernel's messages on the screen as it starts, so a tester
+# with no serial cable sees how far it got (and on the serial port, ttyS2,
+# board/r36s/boot-prelude.cmd), by DRM's log client, which needs no VT (the
+# Pixel 2's config has none). The Pixel 2 starts dark and fast instead
+# (board/px2/linux-px2.config); a release for the R36S would too.
+CONFIG_DRM_CLIENT_LOG=y
+CONFIG_DRM_CLIENT_DEFAULT_LOG=y
+CONFIG_DRM_CLIENT_DEFAULT="log"

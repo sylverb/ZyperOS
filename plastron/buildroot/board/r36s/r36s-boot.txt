@@ -1,0 +1,16 @@
+# The R36S test card's boot settings, read by its boot script before it
+# starts Linux. Edit on any computer; a line starting with # is off.
+#
+# The device tree: ZyperOS's (the boot card first among the SD cards), or
+# ROCKNIX's own, unchanged (its card is then mmcblk1, and the system will
+# not find its root).
+#zy_dtb=rk3326-gameconsole-r36s.dtb
+#
+# A panel that is not the R36S's first (nothing on the screen, or a wrong
+# picture): its overlay, made as ROCKNIX's guide makes one, at
+# overlays/mipi-panel.dtbo on this partition, which is used when it is
+# there. Another name:
+#zy_overlay=overlays/my-panel.dtbo
+#
+# The kernel's line, for debugging (the serial port is ttyS2 at 1500000):
+#zy_args=rootfstype=squashfs ro rootwait console=ttyS2,1500000 console=tty1 panic=0 loglevel=8

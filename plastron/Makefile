@@ -46,7 +46,7 @@ STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with pla
 STAMP += -e PLASTRON_CLEAN=$(CLEAN) -e PLASTRON_DEV=$(filter 0 1,$(DEV))
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe r36s-kernel bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-qemu third-party
+.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe r36s r36s-kernel bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-qemu third-party
 
 all: image
 
@@ -120,6 +120,18 @@ brick: builder volume brick-inputs cores
 		{ echo "no Brick kernel modules yet: make brick-kernel first" >&2; exit 1; }
 	$(BRICK_RUN) env FLAVOR=brick sh /src/scripts/build.sh $(BRICK_TARGET)
 	$(if $(BRICK_TARGET),,$(MAKE) copy-out OUTPUT=output-brick CARD=brick-sdcard.img)
+
+# ZyperOS on the R36S, a test card (ZyperOS's docs/devices/r36s.md): the
+# Pixel 2's system with the R36S's kernel, device trees, card and launcher
+# (FLAVOR=r36s, configs/r36s_defconfig), in output-r36s, out/r36s-sdcard.img.
+# Its bootloader is the Pixel 2's (board/px2/bootloader), as the Pixel 2's
+# image has it. On four CPUs (R36S_CPUS, docker's --cpuset-cpus), so a build
+# leaves the computer room for the rest.
+R36S_CPUS ?= 0-3
+r36s: builder volume cores
+	docker run --rm -t --cpuset-cpus=$(R36S_CPUS) $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) \
+		-v $(VOLUME):/work $(IMAGE) env FLAVOR=r36s sh /src/scripts/build.sh $(R36S_TARGET)
+	$(if $(R36S_TARGET),,$(MAKE) copy-out OUTPUT=output-r36s CARD=r36s-sdcard.img)
 
 # The R36S's kernel and device tree (docs/devices/r36s.md), a start: the
 # Pixel 2's kernel and config with board/r36s's fragment, ROCKNIX's R36S

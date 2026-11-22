@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * ZyperOS's R36S device tree: ROCKNIX's (rk3326-gameconsole-r36s.dts,
+ * unchanged beside it) with the card the R36S boots from first among the
+ * SD cards. The RK3326's boot ROM starts from the sdmmc controller alone,
+ * so the card that holds this system is always there; ROCKNIX's tree names
+ * the sdio controller mmc0, which made the boot card mmcblk1. plastron's
+ * scripts, the boot script's root= and ZyperOS find the system's card as
+ * mmcblk0, as on the Pixel 2, so the two are swapped here. The other slot,
+ * on sdio, is mmcblk1. (docs/devices/r36s.md, "The card")
+ */
+#include "rk3326-gameconsole-r36s.dts"
+
+/ {
+	aliases {
+		mmc0 = &sdmmc;
+		mmc1 = &sdio;
+	};
+};

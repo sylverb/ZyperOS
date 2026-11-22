@@ -6,10 +6,10 @@
 # R36S device tree from board/r36s/dts on the Pixel 2's rk3326.dtsi. Runs in
 # the builder (make r36s-kernel), with Debian's cross compiler, so it needs
 # no Buildroot output of its own. Output in /work/r36s-kernel/images: Image,
-# rk3326-gameconsole-r36s.dtb and the config it was built with.
-#
-# Nothing boots this yet: there is no R36S image (its U-Boot, its card and
-# the launcher's device file are the docs' to-do).
+# rk3326-gameconsole-r36s.dtb (ROCKNIX's), rk3326-gameconsole-r36s-zyperos.dtb
+# (the one the card boots, board/r36s/dts) and the config it was built with.
+# A quick check of the kernel side alone: make r36s builds the whole card,
+# the same kernel in it.
 set -eu
 
 LINUX=linux-7.1.2
@@ -43,7 +43,8 @@ done
 D=arch/arm64/boot/dts/rockchip
 cp /src/buildroot/board/px2/dts/rk3326.dtsi "$D/"
 cp /src/buildroot/board/r36s/dts/* "$D/"
-echo 'dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-gameconsole-r36s.dtb' >> "$D/Makefile"
+printf '%s\n' 'dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-gameconsole-r36s.dtb rk3326-gameconsole-r36s-zyperos.dtb' \
+	'DTC_FLAGS_rk3326-gameconsole-r36s := -@' 'DTC_FLAGS_rk3326-gameconsole-r36s-zyperos := -@' >> "$D/Makefile"
 
 k() { make -s -C "$SRC" O="$OUT" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j"$JOBS" "$@"; }
 # The Pixel 2's config names its kernel symbols list by the build
@@ -58,8 +59,9 @@ grep '^CONFIG_' /src/buildroot/board/r36s/linux-r36s.fragment | while read -r li
 	grep -qx "$line" "$OUT/.config" || { echo "r36s-kernel: $line did not hold" >&2; exit 1; }
 done || bad=1
 [ $bad = 0 ] || exit 1
-k rockchip/rk3326-gameconsole-r36s.dtb
+k rockchip/rk3326-gameconsole-r36s.dtb rockchip/rk3326-gameconsole-r36s-zyperos.dtb
 k Image
-cp "$OUT/arch/arm64/boot/Image" "$OUT/$D/rk3326-gameconsole-r36s.dtb" "$IMAGES/"
+cp "$OUT/arch/arm64/boot/Image" "$OUT/$D/rk3326-gameconsole-r36s.dtb" \
+	"$OUT/$D/rk3326-gameconsole-r36s-zyperos.dtb" "$IMAGES/"
 cp "$OUT/.config" "$IMAGES/linux.config"
 ls -l "$IMAGES"
