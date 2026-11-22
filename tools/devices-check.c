@@ -165,6 +165,9 @@ static void r36s(void)
 		ck(any && !rumble, "r36s: the Pixel 2's core options (the same chip and GPU), no rumble in them");
 	}
 	ck(p->batt_empty_mv == 0, "r36s: no voltage rule until its cutoff is measured");
+	ck(!strcmp(dev_menu_word(p), "FN") && !strcmp(dev_menu_word(&device_profile_pixel2), "MENU") &&
+	   !strcmp(dev_menu_word(&device_profile_brick), "MENU") && !strcmp(dev_menu_word(NULL), "MENU"),
+	   "the MENU key's word: FN on the R36S, MENU on the others and with no profile");
 }
 
 static void desktop(void)
