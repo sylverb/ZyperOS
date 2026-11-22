@@ -8,7 +8,7 @@
  *
  * It opens on both handhelds under "ZyperOS 1.1" over the track's three bars
  * of build, then 1.0.6's big news, the TrimUI Brick, as the band comes in on
- * bar 3, then the rest, two bars each: 1.1's biggest first, 1.0.6's Grid
+ * bar 3, and its new GPU consoles, then the rest, two bars each: 1.1's biggest first, 1.0.6's Grid
  * among them. The end comes back to both handhelds. The takes are
  * video/footage/takes.py's 1.1 takes, the screens the launcher's own.
  */
@@ -25,13 +25,15 @@ const fit = (take: string, from: number, to: number): Step[] => [{ take, from, t
 
 /* On Space Cadet Training Montage's 130 BPM bars (1.85 s each): the hook
  * over its three bars of build, scenes of two bars from the band's entry on
- * bar 3, the end card from bar 27 to two beats past bar 30, while the music
+ * bar 3, the end card from bar 29 to two beats past bar 32, while the music
  * fades. */
 export const SCENES_R110: SceneR110[] = [
   { id: "hook", bars: 3, pose: "hero", screen: [],
     pair: { pixel2: fit("v11-home", 2700, 7300), brick: fit("v11-brick-home", 2700, 7300) } },
-  { id: "brick", tag: "1.0.6", bars: 2, pose: "main", device: "brick", screen: fit("v11-brick-home", 4500, 11000),
+  { id: "brick", tag: "1.0.6", bars: 2, pose: "main", device: "brick", screen: fit("v11-brick-home", 5000, 12000),
     label: "Now on the TrimUI Brick", sub: "From its own microSD card" },
+  { id: "brickgpu", tag: "1.1", bars: 2, pose: "main", device: "brick", enter: "cut", screen: fit("v11-brick-gpu", 0, 5840),
+    label: "N64, Dreamcast and PSP", sub: "And the Saturn, on the Brick's own GPU" },
   { id: "pico8", tag: "1.1", bars: 2, pose: "main", enter: "whip", screen: fit("v11-p8", 2500, 10000),
     label: "Your own PICO-8", sub: "Bring the copy you bought, Splore and all. On the Pixel 2." },
   { id: "downloads", tag: "1.1", bars: 2, pose: "main", enter: "cut", screen: fit("v11-dl", 0, 5200),

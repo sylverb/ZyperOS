@@ -485,7 +485,7 @@ P8 = ('PICO8', 'Celeste Classic.p8')
 # system until after Zyper's pop-up (the posters' frame)
 live('v11-home', ('PICO8', 'Splore.splore'), [900, 'right', 800, 'right', 800, 'left', 700, 'left', 700, 'left', 1400],
      card=V11)
-live('v11-brick-home', PS1, [900, 'right', 800, 'right', 1000, 'a', 1300, 'right', 600, 'right', 600, 'right', 1400],
+live('v11-brick-home', PS1, [900, 'right', 800, 'right', 800, 'right', 1000, 'a', 1300, 'right', 600, 'right', 600, 'right', 1400],
      card=V11, device='brick')
 # Grid view on the SNES shelf, on each (1.0.6's, for the Reddit cut and the pair)
 live('v11-grid', SFC, GRID_KEYS, card=V11)
@@ -565,10 +565,14 @@ shots('v11-p8menu', [(P8, ['--screen', 'games', '--gamemenu', '0', 'port'], 800,
 # The PSP's home, its console's own start, beside the numbers
 shots('v11-psp', [(('PSP', 'God of War - Chains of Olympus (USA).iso'), ['--home', 'spotlight', '--phase', '{t}'],
                    motion(0, 6300))], card=V11)
-# New on the Brick: the consoles whose cores draw with its GPU (#446), its
-# home along them
-live('v11-brick-gpu', ('N64', 'Super Mario 64 (USA).z64'), [700, 'right', 700, 'right', 700, 'right', 700, 'left', 900],
-     card=V11, device='brick')
+# New on the Brick: the consoles whose cores draw with its GPU (#446), each
+# on its home with its console's own start: N64, Dreamcast, PSP (the card has
+# no Saturn games)
+shots('v11-brick-gpu', [(sys_game, ['--home', 'spotlight', '--phase', '{t}'], motion(0, ms))
+                        for sys_game, ms in [(('N64', 'Super Mario 64 (USA).z64'), 1700),
+                                             (('DC', 'Crazy Taxi (USA).chd'), 1700),
+                                             (('PSP', 'God of War - Chains of Olympus (USA).iso'), 2400)]],
+      card=V11, device='brick')
 # New on the Brick: Screen Colors' looks, Night Mode's page, and a computer's
 # cable asking what it is for, Flash Drive, and its screen
 shots('v11-brick', [(PS1, ['--look-page', 'screen', '0'], 600)] +

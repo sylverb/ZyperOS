@@ -217,7 +217,7 @@ videos stay as they were:
   on my Pixel 2. Its track is Zane Little Music's "It Takes A Hero"
   (`src/v110/music.ts`).
 - `src/reddit110/`, `Reddit110`: everything new since 1.0.5 (1.0.6 and 1.1)
-  in 56 seconds at 4:5, the 1.0.5 cut's way: large captions in a top band,
+  in 60 seconds at 4:5, the 1.0.5 cut's way: large captions in a top band,
   each feature tagged with the release it came in, "ZyperOS 1.1" and both
   handhelds whole from frame 0. Its track is Zane Little Music's "Space Cadet
   Training Montage" (`src/reddit110/music.ts`).
