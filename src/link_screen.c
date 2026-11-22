@@ -3,6 +3,7 @@
 
 #include "aout_route.h"
 #include "app.h"
+#include "captive.h"
 #include "fileio.h"
 #include "hotspot.h"
 #include "ingame_screen.h"
@@ -16,6 +17,8 @@
 #include "zyperdraw.h"
 
 #include <SDL.h>
+#include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -41,7 +44,7 @@ link_shot g_shot_link_kind;
 static const char *const SHOT_NAMES[LINK_SHOT_KINDS] = {
 	"tiles", "no-adapter", "starting", "waiting", "looking", "found", "joining",
 	"linked", "lost", "failed", "stopping",
-	"failed-network", "failed-join", "failed-busy", "failed-game",
+	"failed-network", "failed-join", "failed-busy", "failed-game", "failed-code",
 };
 
 bool link_shot_parse(const char *kind)
@@ -63,6 +66,7 @@ typedef struct {
 	link_failure why;
 	bool         stopping;     /* the Wi-Fi coming back */
 	const char  *self, *peer, *joining;
+	const char  *code;         /* the host's, while it hosts */
 	const char  *hosts[LINKPANEL_HOSTS];
 	int          nhosts;
 	bool         scanned;
@@ -77,6 +81,7 @@ static void view_now(link_view *v, bool stopping)
 	v->why = link_failure_now();
 	v->stopping = stopping;
 	v->self = link_self_name();
+	v->code = link_code();
 	v->peer = link_peer_name();
 	v->joining = link_joining_name();
 	v->nhosts = link_host_count();
@@ -91,6 +96,7 @@ static void view_shot(link_view *v)
 
 	memset(v, 0, sizeof *v);
 	v->self = "Pixel 2 7F2A";
+	v->code = "q7mx-3kpa";
 	v->peer = v->joining = "Pixel 2 0C11";
 	switch (g_shot_link_kind) {
 	case LINK_SHOT_STARTING: v->st = LINK_HOST_STARTING; break;
@@ -110,6 +116,7 @@ static void view_shot(link_view *v)
 	case LINK_SHOT_STOPPING: v->st = LINK_HOST_WAITING; v->stopping = true; break;
 	case LINK_SHOT_FAILED_NETWORK: v->st = LINK_FAILED; v->why = LINK_FAIL_NETWORK; break;
 	case LINK_SHOT_FAILED_JOIN:    v->st = LINK_FAILED; v->why = LINK_FAIL_JOIN; break;
+	case LINK_SHOT_FAILED_CODE:    v->st = LINK_FAILED; v->why = LINK_FAIL_CODE; break;
 	case LINK_SHOT_FAILED_BUSY:    v->st = LINK_FAILED; v->why = LINK_FAIL_BUSY; break;
 	case LINK_SHOT_FAILED_GAME:    v->st = LINK_FAILED; v->why = LINK_FAIL_GAME; break;
 	default:                 v->st = LINK_OFF; break;
@@ -150,6 +157,7 @@ static const char *tiles_line(const link_view *v)
 	if (v->st == LINK_FAILED) {
 		switch (v->why) {
 		case LINK_FAIL_JOIN:   return T(S_LINK_FAIL_JOIN);
+		case LINK_FAIL_CODE:   return T(S_LINK_FAIL_CODE);
 		case LINK_FAIL_ANSWER: return T(S_LINK_FAIL_ANSWER);
 		case LINK_FAIL_BUSY:   return T(S_LINK_FAIL_BUSY);
 		case LINK_FAIL_GAME:   return T(S_LINK_FAIL_GAME);
@@ -176,11 +184,11 @@ static int tiles_rows(const link_view *v, menu_row *rows, link_bufs *b)
 }
 
 /* The panel's rows (PANEL_LINK, link_panel reads them back): the large
- * line, three lines under it, the dots (any label for on), the hosts, and
- * the legend last */
+ * line, three lines under it, the dots (any label for on), the host's code
+ * (NULL for none), the hosts, and the legend last */
 static int panel_rows(const link_view *v, menu_row *rows, link_bufs *b)
 {
-	const char *lines[3] = { NULL, NULL, NULL };
+	const char *lines[3] = { NULL, NULL, NULL }, *code = NULL;
 	bool dots = false;
 	int n = 0, i;
 
@@ -194,6 +202,8 @@ static int panel_rows(const link_view *v, menu_row *rows, link_bufs *b)
 		snprintf(b->line[0], sizeof b->line[0], T(S_LINK_THIS_ONE), v->self);
 		lines[0] = b->line[0];
 		lines[1] = T(S_LINK_THEN_JOIN);
+		/* The code the other one types, once there is one */
+		code = v->code && *v->code ? v->code : NULL;
 		dots = true;
 		snprintf(b->legend, sizeof b->legend, "%s", b_legend(S_KEYHINT_STOP));
 	} else if (v->st == LINK_JOIN_LOOKING && v->nhosts) {
@@ -221,6 +231,7 @@ static int panel_rows(const link_view *v, menu_row *rows, link_bufs *b)
 	rows[n++] = (menu_row){ b->big, NULL, false };
 	for (i = 0; i < 3; i++) rows[n++] = (menu_row){ lines[i], NULL, false };
 	rows[n++] = (menu_row){ dots ? "..." : NULL, NULL, false };
+	rows[n++] = (menu_row){ code, NULL, false };
 	for (i = 0; i < v->nhosts && v->st == LINK_JOIN_LOOKING && !v->stopping; i++)
 		rows[n++] = (menu_row){ v->hosts[i], NULL, true };
 	rows[n++] = MENU_NOTE(b->legend);
@@ -235,13 +246,14 @@ void link_panel(app *a, const char *heading, const menu_row *rows, int n, int se
 	SDL_Rect q;
 	int i;
 
-	if (n < 6) return;
+	if (n < 7) return;
 	memset(&p, 0, sizeof p);
 	p.heading = heading;
 	p.big = rows[0].label;
 	for (i = 0; i < LINKPANEL_LINES; i++) p.lines[i] = rows[1 + i].label;
 	p.dots = rows[4].label != NULL;
-	for (i = 5; i < n - 1 && p.nhosts < LINKPANEL_HOSTS; i++) p.hosts[p.nhosts++] = rows[i].label;
+	p.code = rows[5].label;
+	for (i = 6; i < n - 1 && p.nhosts < LINKPANEL_HOSTS; i++) p.hosts[p.nhosts++] = rows[i].label;
 	p.sel = sel;
 	p.legend = rows[n - 1].label ? rows[n - 1].label : "";
 	q = linkpanel_rect(&p);
@@ -262,7 +274,7 @@ static const int MARKS[2] = { UI_GLYPH_BEACON, UI_GLYPH_SEARCH };
 /* The page as the view says, through panel_show: the tiles or the panel */
 static void show(app *a, const link_view *v, int sel)
 {
-	menu_row rows[5 + LINKPANEL_HOSTS + 1];
+	menu_row rows[6 + LINKPANEL_HOSTS + 1];
 	link_bufs b;
 	int n;
 
@@ -397,8 +409,19 @@ bool link_page(app *a, SDL_Texture *bg)
 					host_sel = (host_sel + (up ? -1 : 1) + v.nhosts) % v.nhosts;
 				}
 				if (a->in.pressed[IN_ACCEPT]) {
+					char title[128], typed[24] = "";
+
 					uisound_play(DS_SOUND_ACCEPT);
-					if (!link_join_pick(host_sel)) uisound_play(DS_SOUND_DENY);
+					/* The code the host's page shows, typed here: the
+					 * network's password, new each time it hosts */
+					snprintf(title, sizeof title, T(S_LINK_CODE_ASK), v.hosts[host_sel]);
+					if (keyboard_prompt(a, title, typed, (int)sizeof typed) == KB_ACCEPT && a->running &&
+					    !link_join_pick(host_sel, typed))
+						uisound_play(DS_SOUND_DENY);
+					memset(typed, 0, sizeof typed);
+					plat_input_flush();
+					memset(&a->in, 0, sizeof a->in);
+					continue;
 				}
 			} else if (st == LINK_LINKED && a->in.pressed[IN_ACCEPT]) {
 				uisound_play(DS_SOUND_BACK);
@@ -452,6 +475,22 @@ void link_game_end(app *a)
 /* ---- what the link is done with (link_ops) -------------------------------- */
 
 static bool lop_resident(const char *line) { return plat_resident_line("%s", line); }
+
+/* A new code from the kernel's random, in File Transfer's form: the host's
+ * network's password, shown on its page (the security review: it was made
+ * from the network's name, so anyone near could make it too) */
+static bool lop_code(char *out, unsigned n)
+{
+	uint8_t rnd[CAPTIVE_PASS_RANDOM];
+	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+	ssize_t got = fd >= 0 ? read(fd, rnd, sizeof rnd) : -1;
+
+	if (fd >= 0) close(fd);
+	if (got != (ssize_t)sizeof rnd || n < 10) return false;
+	captive_password(out, n, rnd);
+	memset(rnd, 0, sizeof rnd);
+	return true;
+}
 static bool lop_hs_start(const char *ssid, const char *pass) { return hotspot_start_named(ssid, pass); }
 static int  lop_hs_poll(void) { return (int)hotspot_poll(); }
 static void lop_hs_stop(void) { hotspot_stop(); }
@@ -513,7 +552,7 @@ static void lop_notice(link_news what, const char *peer)
 }
 
 static const link_ops g_link_ops = {
-	lop_resident, lop_hs_start, lop_hs_poll, lop_hs_stop,
+	lop_resident, lop_code, lop_hs_start, lop_hs_poll, lop_hs_stop,
 	lop_scan_start, lop_scan_poll, lop_scan_take,
 	lop_join_start, lop_join_poll, lop_join_end,
 	linknet_open, linknet_send, linknet_recv, linknet_close,

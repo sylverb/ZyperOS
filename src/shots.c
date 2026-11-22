@@ -489,9 +489,17 @@ const char *shot_kb_title = "Wi-Fi password";
 /* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
  * language, so check-i18n-shots measures it in every one */
 int shot_kb_ss_user;
+/* --kb-link: the Link Cable's, the code a host shows, asked of the joiner */
+int shot_kb_link;
 
 static const char *kb_title_shown(void)
 {
+	static char link[128];
+
+	if (shot_kb_link) {
+		snprintf(link, sizeof link, T(S_LINK_CODE_ASK), "Pixel\xc2\xa0" "2 0C11");
+		return link;
+	}
 	return shot_kb_ss_user ? T(S_SCRAPER_SS_USER) : shot_kb_title;
 }
 int shot_slots, shot_slot_sel;

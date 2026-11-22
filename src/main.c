@@ -7126,7 +7126,7 @@ int main(int argc, char *argv[])
 		/* --link KIND: the Link Cable's page over a paused Game Boy game
 		 * (src/link_screen.h's kinds: tiles, no-adapter, starting,
 		 * waiting, looking, found, joining, linked, lost, failed,
-		 * stopping, failed-network, -join, -busy, -game); with --gamemenu the in-game menu, its row saying it */
+		 * stopping, failed-network, -join, -busy, -game, -code); with --gamemenu the in-game menu, its row saying it */
 		else if (!strcmp(argv[i], "--link") && i + 1 < argc) {
 			if (!link_shot_parse(argv[++i])) {
 				fprintf(stderr, "--link: no such kind %s\n", argv[i]);
@@ -7216,6 +7216,7 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_title = argv[++i];
 		}
 		else if (!strcmp(argv[i], "--kb-ss-user")) shot_kb_ss_user = 1;
+		else if (!strcmp(argv[i], "--kb-link")) shot_kb_link = 1;
 		/* --kbsel ROW COL puts the keyboard's selection on a key, so the
 		 * action row can be looked at selected key by key. */
 		else if (!strcmp(argv[i], "--kbsel") && i + 2 < argc) {

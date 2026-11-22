@@ -34,7 +34,8 @@
 typedef struct {
 	SDL_Rect panel;
 	int  head_y, rule_y, rule2_y, legend_cy, x0, w;
-	int  big_y, lines_y, dots_y, hosts_y, row_h;
+	int  big_y, code_y, lines_y, dots_y, hosts_y, row_h;
+	bool dots;                           /* drawn: there is room for them */
 	char big[LKP_BIG_LINES][LB_LINE];
 	int  nbig;
 	char line[LINKPANEL_LINES][LKP_LINE_LINES][LB_LINE];
@@ -70,18 +71,28 @@ static void geom(const linkpanel *p, lkp_geom *g)
 	}
 	g->row_h = ui_font_line(UI_F_MENU) + 2 * DS_GRID;
 	h = g->nbig * big + (g->nbig && nl ? 3 * DS_GRID : 0) + nl * meta;
-	if (p->dots) h += 5 * DS_GRID + LKP_DOT;
+	if (p->code && *p->code) h += 2 * DS_GRID + big;
+	/* The dots only where they fit: a code under a large line of two (a
+	 * long language's) takes their room, and the code is what matters */
+	g->dots = p->dots && h + 5 * DS_GRID + LKP_DOT <= body_bot - body_top;
+	if (g->dots) h += 5 * DS_GRID + LKP_DOT;
 	if (p->nhosts) h += 4 * DS_GRID + p->nhosts * g->row_h + (p->nhosts - 1) * DS_GRID;
 
 	y = body_top + (body_bot - body_top - h) / 2;
 	if (y < body_top) y = body_top;
 	g->big_y = y;
 	y += g->nbig * big;
+	/* The code, as large as the line over it: it is read off this screen
+	 * and typed on the other one */
+	if (p->code && *p->code) {
+		g->code_y = y + 2 * DS_GRID;
+		y = g->code_y + big;
+	}
 	if (g->nbig && nl) y += 3 * DS_GRID;
 	g->lines_y = y;
 	y += nl * meta;
 	g->dots_y = y + 5 * DS_GRID;
-	if (p->dots) y = g->dots_y + LKP_DOT;
+	if (g->dots) y = g->dots_y + LKP_DOT;
 	g->hosts_y = y + 4 * DS_GRID;
 }
 
@@ -113,6 +124,10 @@ void linkpanel_draw(SDL_Renderer *r, const linkpanel *p, bool lift, unsigned now
 	for (i = 0; i < g.nbig; i++)
 		ui_text(r, ui_font(UI_F_TITLE), g.big[i], cx, ui_line_y(UI_F_TITLE, g.big_y + i * big), 0, UI_TEXT);
 	if (g.nbig > 1) ui_fit_drawn(p->big);
+	/* The code in **title** **accent-ink**, its letters tabular */
+	if (p->code && *p->code)
+		ui_text_tabular(r, ui_font(UI_F_TITLE), p->code, cx, ui_line_y(UI_F_TITLE, g.code_y), 0,
+		                ui_col(th->accent_ink, 255));
 	/* What to do, in **meta** **text-soft**, centered under it */
 	y = g.lines_y;
 	for (i = 0; i < LINKPANEL_LINES; i++) {
@@ -122,7 +137,7 @@ void linkpanel_draw(SDL_Renderer *r, const linkpanel *p, bool lift, unsigned now
 	}
 	/* Three dots in **accent-ink**, the brightest going round while it
 	 * waits (the mock's 1, 0.6 and 0.3) */
-	if (p->dots) {
+	if (g.dots) {
 		static const float A[3] = { 1.0f, 0.6f, 0.3f };
 		const int step = (int)(now_ms / LKP_DOTS_MS % 3);
 		const int x = cx - (3 * LKP_DOT + 2 * LKP_DOT_GAP) / 2;

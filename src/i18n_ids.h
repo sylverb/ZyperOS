@@ -928,6 +928,8 @@ typedef enum {
 	S_LINK_FAIL_BUSY,
 	S_LINK_FAIL_GAME,
 	S_LINK_STOPPING,
+	S_LINK_CODE_ASK,
+	S_LINK_FAIL_CODE,
 	/* res/strings/look.txt */
 	S_LOOK_ACCENT,
 	S_LOOK_BG_LIGHT,

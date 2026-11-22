@@ -7730,14 +7730,21 @@ network). The Pixel 2 only (`plat_player2`, the hotspot it is built on).
   handhelds start the same game first, or two that link (Red and Blue).
 - **Hosting**: a panel as wide as Player 2's page and as tall as the mock's
   (src/linkpanel.c), "Waiting for the other Pixel 2" in **title** **text**,
-  "This one is Pixel 2 7F2A." and "On the other one: Link Cable, then Join."
-  in **meta** **text-soft**, and three dots in **accent-ink** whose brightest
-  goes round every 300 ms. B stops. "Starting the network" while the
-  hotspot comes up.
+  the code under it in **title** **accent-ink**, tabular (`q7mx-3kpa`),
+  "This one is Pixel 2 7F2A." and "On the other one: Link Cable, Join, then
+  this code." in **meta** **text-soft**, and three dots in **accent-ink**
+  whose brightest goes round every 300 ms, where they fit (a long
+  language's two-line heading and the code take their room). B stops.
+  "Starting the network" while the hotspot comes up.
 - **Joining**: "Looking for a Pixel 2 that hosts" with the dots and "On the
   other one: Link Cable, then Host.", scanned again every 3 s; once some are
   found, "Choose the Pixel 2 to join" over them as rows, the one under the
-  cursor the **accent** fill. A joins; "Joining Pixel 2 0C11" while it does.
+  cursor the **accent** fill. A opens the keyboard (11.5), "Code shown on
+  Pixel 2 0C11"; START with the code joins, "Joining Pixel 2 0C11" while it
+  does, and B on the keyboard goes back to the list. The code is taken as
+  typed in capitals or with no dash; anything that is not eight letters and
+  digits says so under the tiles, and a wrong one fails as a join that did
+  not work ("Check the code and try again").
 - **Linked**, the page closes on both and the game goes on at once, with a
   notice (11.7): **Link Cable** over "Linked with Pixel 2 0C11". The row
   opens "Linked with ..." and "While a menu is open on one, the other one
@@ -7752,11 +7759,17 @@ space between its words.
 **The network.** The host makes its hotspot (src/hotspot.h's
 `hotspot_start_named`) under a name of its own, `ZyperOS-Link-` and the
 adapter's last two bytes (`ZyperOS-Link-7F2A`), so a scan tells it from File
-Transfer's `ZyperOS-7F2A`, and a password made from that name alone (two
-groups of four, as File Transfer's), so the joiner makes the same and
-nobody types anything. That password is no secret, since this code is open:
-it keeps a phone from joining by chance, and nothing but the game listens on
-that network. The joiner joins it for the game's time (src/wifi.h's
+Transfer's `ZyperOS-7F2A`, and a WPA2 password that is a new code from the
+kernel's random each time it hosts (File Transfer's form, two groups of four
+letters and digits without look-alikes, about 40 bits): the host's page
+shows it and the joiner types it. *(The first build made the password from
+the network's name with a fixed salt, so the other handheld needed nothing
+typed; a security review of the pull request found that anyone near could
+make it too and join the host's network, and reach whatever listens on it.
+The code costs one keyboard on the joiner, the mock's one change.)* The
+beat's socket binds the link's own address (10.42.1.1), never every
+address; Gambatte's server listens on every address, as the core has it,
+and the network is closed by the code. The joiner joins it for the game's time (src/wifi.h's
 `wifi_join_temp`): never saved to wpa_supplicant.conf, a new lease asked as
 it joins, and at the end the network removed, every saved network enabled
 again and a new lease from the one it rejoins.

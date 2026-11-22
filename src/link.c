@@ -61,28 +61,22 @@ bool link_name_of_ssid(const char *ssid, char *out, unsigned n)
 	return true;
 }
 
-void link_password(const char *ssid, char *out, unsigned n)
+bool link_code_typed(const char *typed, char *out, unsigned n)
 {
-	/* File Transfer's letters (src/captive.c): no 0 o 1 l i */
-	static const char ALPHA[] = "abcdefghjkmnpqrstuvwxyz23456789";
-	/* FNV-1a over the name and a word of its own, then its bits eight
-	 * characters long: the same on both handhelds, and nothing to type */
-	unsigned long long h = 1469598103934665603ull;
-	const char *salt = "zyperos-link-cable", *p;
-	char pw[10];
-	int k;
+	char c[9];
+	int k = 0;
 
-	for (p = salt; *p; p++) h = (h ^ (unsigned char)*p) * 1099511628211ull;
-	for (p = ssid ? ssid : ""; *p; p++) h = (h ^ (unsigned char)*p) * 1099511628211ull;
-	for (k = 0; k < 9; k++) {
-		if (k == 4) { pw[k] = '-'; continue; }
-		pw[k] = ALPHA[h % (sizeof ALPHA - 1)];
-		h /= sizeof ALPHA - 1;
-		h ^= h << 13;
-		h *= 1099511628211ull;
+	if (n) out[0] = '\0';
+	for (; typed && *typed; typed++) {
+		unsigned char ch = (unsigned char)*typed;
+
+		if (ch == ' ' || ch == '-') continue;
+		if (!isalnum(ch) || k == 8) return false;
+		c[k++] = (char)tolower(ch);
 	}
-	pw[9] = '\0';
-	snprintf(out, n, "%s", pw);
+	if (k != 8 || n < 10) return false;
+	snprintf(out, n, "%.4s-%.4s", c, c + 4);
+	return true;
 }
 
 bool link_ip_digits(const char *addr, char digits[12])
@@ -292,8 +286,13 @@ bool link_host(const char *game)
 	if (!g_ops) return false;
 	link_stop();
 	snprintf(g.game, sizeof g.game, "%s", game ? game : "");
-	link_password(g.ssid, g.pass, sizeof g.pass);
 	g.role = LINK_ROLE_SERVER;
+	/* A new code each time it hosts, never one made from the name */
+	if (!g_ops->code(g.pass, sizeof g.pass) || strlen(g.pass) < 8) {
+		memset(g.pass, 0, sizeof g.pass);
+		fail(LINK_FAIL_NETWORK, "no code: no randomness");
+		return false;
+	}
 	g.t0 = now();
 	g.hot = true;
 	if (!g_ops->hotspot_start(g.ssid, g.pass)) {
@@ -324,20 +323,25 @@ bool link_join_look(const char *game)
 	return true;
 }
 
-bool link_join_pick(int i)
+bool link_join_pick(int i, const char *typed)
 {
 	char pass[LINK_PASS_MAX];
 
 	if (!g_ops || g.st != LINK_JOIN_LOOKING || i < 0 || i >= g.nhosts) return false;
+	if (!link_code_typed(typed, pass, sizeof pass)) {
+		fail(LINK_FAIL_CODE, "what was typed is no code");
+		return false;
+	}
 	snprintf(g.joining, sizeof g.joining, "%s", g.hosts[i]);
 	snprintf(g.peer, sizeof g.peer, "%s", g.hosts[i]);
-	link_password(g.host_ssid[i], pass, sizeof pass);
 	g.scanning = false;
 	g.joined = true;
 	if (!g_ops->join_start(g.host_ssid[i], pass)) {
+		memset(pass, 0, sizeof pass);
 		fail(LINK_FAIL_JOIN, "the host's network would not join");
 		return false;
 	}
+	memset(pass, 0, sizeof pass);
 	fprintf(stderr, "link: joining %s\n", g.host_ssid[i]);
 	g.t0 = now();
 	g.st = LINK_JOIN_JOINING;
@@ -541,3 +545,7 @@ const char  *link_host_name(int i)  { return i >= 0 && i < g.nhosts ? g.hosts[i]
 bool         link_scanned(void)     { return g.scanned; }
 const char  *link_joining_name(void) { return g.joining; }
 bool         link_owes_wifi(void)   { return g.hot || g.joined; }
+const char  *link_code(void)
+{
+	return g.st == LINK_HOST_STARTING || g.st == LINK_HOST_WAITING ? g.pass : "";
+}

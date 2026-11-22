@@ -1701,9 +1701,11 @@ each other. Each Pixel 2 needs a Wi-Fi adapter in, and the game runs on
 
 1. Start the same game on both, or two that link (Pokémon Red and Blue).
 2. On one: MENU, then **Link Cable** on the Game tab, then **Host**. It makes
-   its own Wi-Fi network and says its name, `Pixel 2 7F2A`.
+   its own Wi-Fi network, says its name, `Pixel 2 7F2A`, and shows a code,
+   `q7mx-3kpa`. The code is new each time it hosts.
 3. On the other: MENU, **Link Cable**, **Join**. It looks for a Pixel 2 that
-   hosts and lists it; choose it with **A**.
+   hosts and lists it; choose it with **A**, type the code the first one
+   shows, and press **START**. Capitals and the dash do not matter.
 4. Both close their menus by themselves and the games go on, linked. A
    notice says **Linked with Pixel 2 ...** on each. Use the link in the game
    as with a real cable (in Pokémon, the Cable Club).
@@ -1715,7 +1717,8 @@ transfer on the link; after ten seconds it gives that transfer up, as if the
 cable were pulled out, and the link comes back once the menu closes. If the other one goes
 out of range or turns off, a notice says **Link lost** after six seconds and
 the game goes on alone; if it stops the link or quits its game, the notice
-says it left. Choose Host or Join again to link once more. The game's end
+says it left. If the code was typed wrong, the page says to check it; choose
+Join again. Choose Host or Join again to link once more. The game's end
 stops the link, however it ends, and each handheld's Wi-Fi comes back as it
 was. Nothing is saved to the Wi-Fi list.
 

@@ -13,12 +13,12 @@
  *               game goes on.
  *   the host    makes its own network, as Player 2 does (src/hotspot.h), a
  *               name of its own (ZyperOS-Link- and the adapter's last two
- *               bytes) and a password made from that name, so the other one
- *               joins it with no code to type: the link's network is for
- *               the game alone, and only the game's port and this file's
- *               listen on it
- *   the joiner  finds that name in a Wi-Fi scan, joins it for the game's
- *               time (nothing saved), and its Wi-Fi comes back as it was
+ *               bytes) and a code made new from the kernel's random each
+ *               time it hosts ("q7mx-3kpa", File Transfer's form), which
+ *               is the network's WPA2 password and which its page shows
+ *   the joiner  finds that name in a Wi-Fi scan, the player types the code
+ *               the host shows, and it joins for the game's time (nothing
+ *               saved); its Wi-Fi comes back as it was
  *   this file   the two launchers' own word to each other, a datagram on
  *               LINK_BEAT_PORT: hello and welcome, a beat every half second
  *               while linked, and bye. The beat is how a lost link is told:
@@ -82,11 +82,14 @@ void link_name(const char *tail, char *out, unsigned n);
 /* The name of the handheld whose network `ssid` is, "Pixel 2 7F2A"; false
  * for a network that is no link's */
 bool link_name_of_ssid(const char *ssid, char *out, unsigned n);
-/* The network's password, made from its name alone, two groups of four
- * letters and digits as File Transfer's ("q7mx-3kpa"): the joiner makes the
- * same. Not a secret (this code is open); it keeps a phone from joining
- * by chance, and the network carries nothing but the game. */
-void link_password(const char *ssid, char *out, unsigned n);
+/* A code as the player typed it, as the host made it: lower case, spaces
+ * and dashes dropped, and the dash put back after the fourth ("Q7MX 3KPA"
+ * and "q7mx3kpa" are "q7mx-3kpa"). False, and `out` empty, for one that is
+ * not eight letters and digits: no code the host makes. A security review
+ * of 1.1.0's Link Cable found the first password, made from the network's
+ * name, one anybody near could make too; the code is random now, and only
+ * the person holding the other handheld sees it. */
+bool link_code_typed(const char *typed, char *out, unsigned n);
 
 /* An IPv4 address as the twelve digits Gambatte's server address options
  * take, three an octet ("10.42.1.1": 0 1 0, 0 4 2, 0 0 1, 0 0 1); false for
@@ -135,7 +138,9 @@ typedef enum {
 typedef enum {
 	LINK_FAIL_NONE,
 	LINK_FAIL_NETWORK,    /* the hotspot or a scan would not start */
-	LINK_FAIL_JOIN,       /* the host's network could not be joined */
+	LINK_FAIL_JOIN,       /* the host's network could not be joined: most
+	                       * likely a wrong code */
+	LINK_FAIL_CODE,       /* what was typed is no code */
 	LINK_FAIL_ANSWER,     /* on its network, and the host did not answer */
 	LINK_FAIL_BUSY,       /* the host is linked with another */
 	LINK_FAIL_GAME        /* Diatom would not take the options */
@@ -149,6 +154,9 @@ typedef enum { LINK_NEWS_LINKED, LINK_NEWS_LOST, LINK_NEWS_LEFT } link_news;
 typedef struct {
 	/* One protocol line to Diatom, as plat_resident_line sends it */
 	bool (*resident)(const char *line);
+	/* A new code, from the kernel's random, in File Transfer's form
+	 * (captive_password); false when there was no randomness */
+	bool (*code)(char *out, unsigned n);
 	/* The hotspot under a name and password of this file's, without its own
 	 * DNS; its poll (a hotspot_state); its stop, which brings the Wi-Fi back
 	 * (a second or two: only link_stop asks it) */
@@ -194,9 +202,11 @@ bool link_host(const char *game);
  * few seconds while it is looked at. False, and LINK_FAILED, when no scan
  * would start. */
 bool link_join_look(const char *game);
-/* The `i`th host of the list: its network joined, then its hello. False
- * for no such host or a join that would not start. */
-bool link_join_pick(int i);
+/* The `i`th host of the list, with the code its page shows as the player
+ * typed it (link_code_typed): its network joined, then its hello. False for
+ * no such host, a code that is none, or a join that would not start; a
+ * code that is none fails with LINK_FAIL_CODE. */
+bool link_join_pick(int i, const char *typed);
 
 /* From every tick while it is on, in a game and in the screens over its
  * pause: the network coming up, the hellos, the beats, a lost link. Bounded:
@@ -231,6 +241,9 @@ bool         link_scanned(void);
 /* A network is up for the link (the hotspot, or the host's joined): its
  * stop brings the Wi-Fi back, a second or two, said on a panel first */
 bool         link_owes_wifi(void);
+/* The code this handheld's network takes while it hosts, "" otherwise:
+ * its page shows it */
+const char  *link_code(void);
 /* The host being joined or asked (LINK_JOIN_JOINING, LINK_JOIN_ASKING) */
 const char  *link_joining_name(void);
 

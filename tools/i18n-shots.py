@@ -1552,8 +1552,11 @@ EXTRA.setdefault("gamemenu-player2", ("demo", "NES", ["--screen", "games", "--ga
 # the in-game menu on its row on Gambatte, linked, waiting, lost and with no
 # adapter in
 for _kind in ("tiles", "starting", "waiting", "looking", "found", "joining", "linked", "lost",
-              "failed", "stopping", "failed-network", "failed-join", "failed-busy", "failed-game"):
+              "failed", "stopping", "failed-network", "failed-join", "failed-busy", "failed-game",
+              "failed-code"):
     EXTRA.setdefault("link-" + _kind, ("demo", "GB", ["--screen", "games", "--link", _kind]))
+# ...and the joiner's keyboard asking for the code the host shows
+EXTRA.setdefault("keyboard-link", ("demo", "PS1", ["--keyboard", "--kb-link"]))
 for _name, _kind in (("gamemenu-link", "linked"), ("gamemenu-link-waiting", "waiting"),
                      ("gamemenu-link-lost", "lost"), ("gamemenu-link-no-adapter", "no-adapter")):
     EXTRA.setdefault(_name, ("demo", "GB", ["--screen", "games", "--gamemenu", "4", "--link", _kind]))
