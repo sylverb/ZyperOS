@@ -11,6 +11,8 @@ import { Release110, Release110Props } from "./v110/Release110";
 import { PAIR110, R110 } from "./v110/timeline";
 import { H as REDDIT110_H, Reddit110, Reddit110Props, W as REDDIT110_W } from "./reddit110/Reddit110";
 import { PAIR_R110, REDDIT110 } from "./reddit110/timeline";
+import { BrickIntro, BrickIntroProps, H as BRICK_INTRO_H, W as BRICK_INTRO_W } from "./brick-intro/BrickIntro";
+import { BRICK_INTRO } from "./brick-intro/timeline";
 
 /** The footage index (video/footage/takes.py) and the device's screen rect (video/device) */
 const load = async () => {
@@ -61,6 +63,13 @@ const reddit110Meta: CalculateMetadataFunction<Reddit110Props> = async () => {
   check(props.footage, [...REDDIT110.clips, ...PAIR_R110.pixel2.clips, ...PAIR_R110.brick.clips]);
   return { props: { ...props, brick } };
 };
+/** The Brick introduction's: the Brick alone, every clip inside its take */
+const brickIntroMeta: CalculateMetadataFunction<BrickIntroProps> = async () => {
+  const props = await load();
+  const brick = await fetch(staticFile("device/brick-front.json")).then((r) => r.json());
+  check(props.footage, BRICK_INTRO.clips);
+  return { props: { footage: props.footage, brick } };
+};
 const posterMeta: CalculateMetadataFunction<PosterProps> = async ({ props }) => ({ props: { ...props, ...(await load()) } });
 
 const empty = { footage: {}, device: { image: "", width: 2000, height: 2400, screen: { x: 0, y: 0, w: 1, h: 1 } } };
@@ -86,5 +95,8 @@ export const Root: React.FC = () => (
     {/* Everything new since 1.0.5, 4:5 for a phone's feed (src/reddit110) */}
     <Composition id="Reddit110" component={Reddit110} durationInFrames={REDDIT110.total} fps={FPS} width={REDDIT110_W}
       height={REDDIT110_H} defaultProps={{ ...empty, brick: empty.device } as Reddit110Props} calculateMetadata={reddit110Meta} />
+    {/* ZyperOS on the TrimUI Brick, an introduction for r/trimui, 4:5 (src/brick-intro) */}
+    <Composition id="BrickIntro" component={BrickIntro} durationInFrames={BRICK_INTRO.total} fps={FPS} width={BRICK_INTRO_W}
+      height={BRICK_INTRO_H} defaultProps={{ footage: {}, brick: empty.device } as BrickIntroProps} calculateMetadata={brickIntroMeta} />
   </>
 );
