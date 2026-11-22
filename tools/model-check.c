@@ -155,7 +155,7 @@ static void r36s(void)
 	ck(!td_part_of(m, TD_F1) && !td_part_of(m, TD_F2), "r36s: no brightness keys of its own");
 	for (i = 0; i < m->n_parts; i++)
 		if (m->parts[i].face == TD_FACE_LEFT || m->parts[i].face == TD_FACE_RIGHT)
-			ck(near(m->parts[i].x, -15.0f + 17.0f / 2.0f), "r36s: a side key across the thin part's middle");
+			ck(near(m->parts[i].x, -15.0f + 18.5f / 2.0f), "r36s: a side key across the thin part's middle");
 	ck(l1 && l2 && r2 && r1 && l1->face == TD_FACE_LEDGE && l2->face == TD_FACE_LEDGE &&
 	   r2->face == TD_FACE_LEDGE && r1->face == TD_FACE_LEDGE, "r36s: L1 L2 R2 R1 on the ledge");
 	ck(l1 && l2 && r2 && r1 && l1->x < l2->x && l2->x < 0.0f && r2->x > 0.0f && r2->x < r1->x &&

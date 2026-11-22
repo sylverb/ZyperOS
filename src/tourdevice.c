@@ -995,11 +995,11 @@ static void tourdev_pose(const tour *t, uint32_t now, float op, td_pose *out)
  * the shoulders, F1 and F2, SELECT's square and START's triangle, two dot
  * grilles, the FN slider over POWER, the light bar along the top edge.
  *
- * The R36S: the thin part 17.0 deep, the grip behind it to 30.0 below the
- * ledge (z 12.0), the shoulders on it with nothing between them; the glass
- * from the top edge; the speaker's slots between the d-pad and A B X Y;
- * the two sticks, which are no keys of the launcher's and never lit; POWER
- * a pill and the reset hole under it. */
+ * The R36S: the thin part 18.5 deep, the grip behind it to 30.0 below the
+ * ledge (z 9.5), the shoulders tall paddles on it with nothing between them;
+ * the glass from the top edge; the speaker's slots between the d-pad and
+ * A B X Y; the two sticks, which are no keys of the launcher's and never
+ * lit; POWER a pill and the reset hole under it. */
 typedef struct {
 	float w, top, rt, rb;              /* the body, its half height, its corners */
 	float front, thin, back, ledge;    /* depths from the middle; the ledge's z */
@@ -1052,7 +1052,7 @@ static const slab SLAB_BRICK = {
 /* Measured on photos of a real one (src/device/r36s_model.c) */
 static const slab SLAB_R36S = {
 	.w = 80.0f, .top = 119.0f / 2.0f, .rt = 3.0f, .rb = 6.0f,
-	.front = -15.0f, .thin = -15.0f + 17.0f, .back = 15.0f, .ledge = 12.0f,
+	.front = -15.0f, .thin = -15.0f + 18.5f, .back = 15.0f, .ledge = 9.5f,
 	.glass_w = 77.0f, .glass_h = 55.6f, .glass_x = 0.0f, .glass_z = 31.2f, .glass_r = 2.0f,
 	.screen_w = 70.0f, .screen_h = 52.5f,
 	.arm = 3.75f,
@@ -1061,7 +1061,7 @@ static const slab SLAB_R36S = {
 	.stick_x = 26.3f, .stick_z = -38.6f, .stick_well = 11.0f, .stick_cap = 7.5f,
 	.vol_w = 3.0f, .power_pill = true,
 	.reset_z = 26.8f, .reset_r = 1.2f,
-	.key_low = 7.9f, .key_press = 1.2f,
+	.key_low = 5.4f, .key_press = 1.2f,
 };
 
 /* The slab being drawn (slab_draw) */

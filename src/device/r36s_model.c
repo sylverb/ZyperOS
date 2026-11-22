@@ -4,7 +4,9 @@
  * are measured on a straight-on photo of a real one (TechTactician's
  * hands-on review, 2023-12, its unboxing photo deskewed at 8 px a mm, which
  * also gives 1.50 for its height over its width, the sheet's 119 over 80),
- * and the sides and the back from the same review's side and back photos.
+ * the sides on the same review's side photos, the shoulders on iFixit's
+ * R36S teardown's straight photo of the back (6.8 px a mm) and the depths
+ * on the review's photo of the bottom (18.8 mm to the grip, 29.7 in all).
  * docs/devices/r36s.md lists them. Not measured with calipers: a volunteer
  * with an R36S in hand moves a number here and says so beside it.
  *
@@ -18,8 +20,9 @@
  * part and, below the middle, a thicker grip behind it, as the Brick's is:
  * the four shoulders stand on that step (the back ledge), L1 and R1 outside.
  * A side key's x is its depth across the face: the thin part's middle,
- * 6.5 mm in front of the body's (the front at -15.0, the thin part's back at
- * 2.0, the grip's at 15.0). Drawn by src/tourdevice.c's R36S art. No SDL. */
+ * 5.75 mm in front of the body's (the front at -15.0, the thin part's back
+ * at 3.5, the grip's at 15.0). Drawn by src/tourdevice.c's R36S art. No
+ * SDL. */
 #include "td_model.h"
 
 static const td_part r36s_parts[] = {
@@ -37,15 +40,17 @@ static const td_part r36s_parts[] = {
 	{ TD_START,  TD_FACE_FRONT,   7.4f, -30.4f,  3.6f },
 	/* POWER on the left side, a pill 8.0 long; the volume rocker on the
 	 * right, its two halves 6.6 long each, meeting at z 39.7 */
-	{ TD_POWER,  TD_FACE_LEFT,   -6.5f,  37.5f,  4.0f },
-	{ TD_VOLUP,  TD_FACE_RIGHT,  -6.5f,  43.0f,  3.3f },
-	{ TD_VOLDN,  TD_FACE_RIGHT,  -6.5f,  36.4f,  3.3f },
-	/* On the back ledge (z 12.0), standing up to 13.6: their half widths,
-	 * L1 and R1 from near the body's edges, L2 and R2 beside them */
-	{ TD_L1,     TD_FACE_LEDGE, -29.5f,  13.6f,  8.5f },
-	{ TD_L2,     TD_FACE_LEDGE, -12.5f,  13.6f,  7.5f },
-	{ TD_R2,     TD_FACE_LEDGE,  12.5f,  13.6f,  7.5f },
-	{ TD_R1,     TD_FACE_LEDGE,  29.5f,  13.6f,  8.5f },
+	{ TD_POWER,  TD_FACE_LEFT,   -5.75f, 37.5f,  4.0f },
+	{ TD_VOLUP,  TD_FACE_RIGHT,  -5.75f, 43.0f,  3.3f },
+	{ TD_VOLDN,  TD_FACE_RIGHT,  -5.75f, 36.4f,  3.3f },
+	/* Tall paddles on the back ledge (the grip's top, z 9.5, 50 mm under
+	 * the top edge), standing up to 21.0 (38 mm under it): their half
+	 * widths, L1 and R1 15.0 wide near the body's edges, L2 and R2 14.4
+	 * wide beside them, 12 mm apart in the middle */
+	{ TD_L1,     TD_FACE_LEDGE, -30.7f,  21.0f,  7.5f },
+	{ TD_L2,     TD_FACE_LEDGE, -13.1f,  21.0f,  7.2f },
+	{ TD_R2,     TD_FACE_LEDGE,  13.1f,  21.0f,  7.2f },
+	{ TD_R1,     TD_FACE_LEDGE,  30.7f,  21.0f,  7.5f },
 };
 
 /* Drawn flat (td_model.h): desk mode's window and the Simulator's. The
