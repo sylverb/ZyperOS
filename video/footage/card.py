@@ -288,12 +288,13 @@ def build(card, cache=ART_CACHE, more=False):
 # screenshot or a last screen is the game's libretro snap from the art cache,
 # at its own size, as the Screenshot hotkey would write it: the games and
 # their art belong to their owners.
+FF7 = 'Final Fantasy VII (USA) (Rev 1) (Disc 1)'
 P8_CARTS = ['Celeste Classic', 'Dank Tomb', 'Just One Boss', 'Porklike', 'Poom', 'Taco Rider']
 COLLECTIONS = {
     'Couch Co-op': ['SNES/Super Mario Kart (USA).sfc', 'Game Boy Advance/Mario Kart - Super Circuit (USA).gba',
                     'PlayStation/Tekken 3 (USA).chd', 'Nintendo 64/Super Smash Bros. (USA).z64',
                     'Genesis/Streets of Rage 2 (USA).md'],
-    'RPGs to Finish': ['SNES/Chrono Trigger (USA).sfc', 'SNES/EarthBound (USA).sfc', 'PlayStation/Final Fantasy VII (USA).chd',
+    'RPGs to Finish': ['SNES/Chrono Trigger (USA).sfc', 'SNES/EarthBound (USA).sfc', 'PlayStation/' + FF7 + '.chd',
                        'Game Boy Advance/Commercial Owned/Golden Sun (USA).gba', 'SNES/Secret of Mana (USA).sfc',
                        'Nintendo 64/Paper Mario (USA).z64', 'Genesis/Phantasy Star IV (USA).md'],
     'Speedruns': ['SNES/Super Metroid (USA).sfc', 'NES/Mega Man 2 (USA).nes', 'Nintendo 64/Super Mario 64 (USA).z64',
@@ -312,17 +313,18 @@ SCREENSHOTS = [
     ('Game Boy Advance', 'The Legend of Zelda - The Minish Cap (USA).gba', 'Legend of Zelda, The - The Minish Cap (USA)',
      '2026-11-17 23.31.12'),
 ]
-# Recents, newest first: (tag, Roms folder, file, libretro's name, hours before the take's 10:08)
-RECENTS = [('SFC', 'SNES', 'Super Metroid (USA).sfc', 'Super Metroid (Japan, USA) (En,Ja)', 1),
-           ('GBA', 'Game Boy Advance', 'Metroid Fusion (USA).gba', 'Metroid Fusion (USA)', 15),
+# Recents, newest first: (tag, Roms folder, file, libretro's name, days before
+# today, and the hour and minute it was played, in the launcher's zone:
+# env_for's TZ, where the takes' 10:08 is too)
+RECENTS = [('SFC', 'SNES', 'Super Metroid (USA).sfc', 'Super Metroid (Japan, USA) (En,Ja)', 0, 9, 12),
+           ('GBA', 'Game Boy Advance', 'Metroid Fusion (USA).gba', 'Metroid Fusion (USA)', 1, 21, 40),
            ('PS1', 'PlayStation', 'Castlevania - Symphony of the Night (USA).chd',
-            'Castlevania - Symphony of the Night (USA)', 26),
-           ('N64', 'Nintendo 64', 'Super Mario 64 (USA).z64', 'Super Mario 64 (USA)', 50),
-           ('MD', 'Genesis', 'Sonic The Hedgehog 2 (USA).md', 'Sonic The Hedgehog 2 (World)', 75)]
+            'Castlevania - Symphony of the Night (USA)', 1, 12, 44),
+           ('N64', 'Nintendo 64', 'Super Mario 64 (USA).z64', 'Super Mario 64 (USA)', 3, 18, 5),
+           ('MD', 'Genesis', 'Sonic The Hedgehog 2 (USA).md', 'Sonic The Hedgehog 2 (World)', 4, 20, 2)]
 
 
 def v110(card, cache=ART_CACHE):
-    import time
     # The BIOS files the demonstration's systems need, as stand-ins, so no
     # game's line says one is missing (tools/readme-shots.py's)
     rs.stand_in_bios(card)
@@ -342,6 +344,11 @@ def v110(card, cache=ART_CACHE):
     carts.mkdir(parents=True, exist_ok=True)
     for name in P8_CARTS:
         (carts / f'{name}.p8').touch()
+    # Final Fantasy VII by its whole file name, its tags and all, for its
+    # details' File row (1.1)
+    ps1 = card / 'Roms/PlayStation'
+    (ps1 / 'Final Fantasy VII (USA).chd').rename(ps1 / (FF7 + '.chd'))
+    (ps1 / '.media/Final Fantasy VII (USA).png').rename(ps1 / '.media' / (FF7 + '.png'))
     for name, games in COLLECTIONS.items():
         (card / 'Collections').mkdir(exist_ok=True)
         (card / 'Collections' / f'{name}.txt').write_text(''.join(f'/Roms/{g}\n' for g in games))
@@ -351,18 +358,21 @@ def v110(card, cache=ART_CACHE):
         repo = LR_REPO[folder]
         shutil.copyfile(art_file(cache, repo, 'Named_Snaps', lr), d / f'{Path(file).stem} {when}.png')
     # Each recent game's resume point and the picture Diatom writes beside
-    # it (a 24-bit BMP), and its play session, hours before the takes' 10:08
-    lt = time.localtime()
-    at = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 10, 8, 0, 0, 0, -1))
+    # it (a 24-bit BMP), and its play session
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo(env_for(card)['TZ']))
     with sqlite3.connect(card / 'shared/.zyperos/library.db') as db:
-        for n, (tag, folder, file, lr, hours) in enumerate(RECENTS):
+        for n, (tag, folder, file, lr, days, hour, minute) in enumerate(RECENTS):
+            day = now - timedelta(days=days)
+            at = datetime(day.year, day.month, day.day, hour, minute, tzinfo=now.tzinfo).timestamp()
             d = card / 'shared/.zyperos' / folder
             d.mkdir(parents=True, exist_ok=True)
             (d / f'{file}.auto.state').write_text('state')
             subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-i', str(art_file(cache, LR_REPO[folder], 'Named_Snaps', lr)),
                             '-pix_fmt', 'bgr24', str(d / f'{file}.auto.bmp')], check=True)
             db.execute('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',
-                       (f'sess.{int(at - hours * 3600)}.{900 + n}.{tag}\t{file}', '1800\tquit'))
+                       (f'sess.{int(at)}.{900 + n}.{tag}\t{file}', '1800\tquit'))
         # Two of Tony Hawk's Pro Skater 2's stand-in cheats on (tools/readme-shots.py's)
         db.execute('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',
                    ('cheats.PS1.' + rs.CHEATS_GAME + '.chd', ','.join(rs.cheat_id(f, d, c) for f, d, c in rs.CHEATS_ON)))

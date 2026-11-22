@@ -551,17 +551,24 @@ shots('v11-gmcolors', [(SOTN, ['--gamemenu', str(r), '--gm-tab', '1'] + SOTN_GM,
       [(SOTN, ['--gamemenu', '0', '--look-page', 'screen', '0'] + SOTN_GM, 700)] +
       [(SOTN, ['--gamemenu', '0', '--look-page', 'screen-looks', '0', '--pick-at', str(k)] + SOTN_GM, 420 if k < 4 else 900)
        for k in range(5)], card=V11)
-# The game's file in its details: X on Final Fantasy VII
-shots('v11-details', [(('PS1', 'Final Fantasy VII (USA).chd'), ['--screen', 'games'], 600),
-                      (('PS1', 'Final Fantasy VII (USA).chd'), ['--screen', 'games', '--info'], 2400)], card=V11)
+# The game's file in its details: X on Final Fantasy VII, its File row
+# sliding to the end of its whole name
+FF7 = ('PS1', cardlib.FF7 + '.chd')
+shots('v11-details', [(FF7, ['--screen', 'games'], 600),
+                      (FF7, ['--screen', 'games', '--info', '--phase', '{t}'], motion(0, 3600))], card=V11)
 # The in-game menu over your PICO-8: its Game tab, R1 to Display, down it
-shots('v11-p8menu', [(P8, ['--screen', 'games', '--gamemenu', '0', 'port'], 700)] +
-      [(P8, ['--screen', 'games', '--gamemenu', str(r), 'port', '--gm-tab', '1'], ms,
-        {'settings': {'display.PICO8': 'integer', 'shader.PICO8': 'crt', 'shader_strength.PICO8': '70', 'border.PICO8': 'blur'}})
+# (Border, Shader, its Strength and Screen Colors drawn over PICO-8)
+P8_SET = {'settings': {'display.PICO8': 'integer', 'shader.PICO8': 'crt', 'shader_strength.PICO8': '70', 'border.PICO8': 'blur'}}
+shots('v11-p8menu', [(P8, ['--screen', 'games', '--gamemenu', '0', 'port'], 800, P8_SET)] +
+      [(P8, ['--screen', 'games', '--gamemenu', str(r), 'port', '--gm-tab', '1'], ms, P8_SET)
        for r, ms in ((0, 500), (1, 350), (2, 350), (3, 350), (4, 900))], card=V11)
 # The PSP's home, its console's own start, beside the numbers
 shots('v11-psp', [(('PSP', 'God of War - Chains of Olympus (USA).iso'), ['--home', 'spotlight', '--phase', '{t}'],
                    motion(0, 6300))], card=V11)
+# New on the Brick: the consoles whose cores draw with its GPU (#446), its
+# home along them
+live('v11-brick-gpu', ('N64', 'Super Mario 64 (USA).z64'), [700, 'right', 700, 'right', 700, 'right', 700, 'left', 900],
+     card=V11, device='brick')
 # New on the Brick: Screen Colors' looks, Night Mode's page, and a computer's
 # cable asking what it is for, Flash Drive, and its screen
 shots('v11-brick', [(PS1, ['--look-page', 'screen', '0'], 600)] +
