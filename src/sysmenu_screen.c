@@ -144,7 +144,6 @@ static void usb_auto_message(app *a)
 }
 
 static const char *look_accent_name(void);   /* with the Theme page */
-static const char *screen_colors_value(void); /* with the Screen Colors page */
 /* Night Mode and its page (below Screen Colors): Night Warmth 1 to 10 */
 #define NM_MODES NIGHT_MODES
 #define NM_WARMTH_MIN 1
@@ -318,11 +317,8 @@ static void sm_pic_preview(void *app_, int k, int x, int y, int w, int h)
 		const game_entry *g = &v->list.items[v->cursor];
 
 		o = shelf_owner(a, a->sys_cursor, v->cursor);
-		box_art_path(a->sys.systems[o].folder, g->name, cover, sizeof cover);
-		if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
-		    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true,
-		              cover, sizeof cover))
-			cover[0] = '\0';
+		game_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true,
+		           cover, sizeof cover);
 		if (which) {
 			state_path(a, o, g, st, sizeof st);
 			preview_path(a, o, g, frame, sizeof frame);
@@ -560,10 +556,16 @@ static void pm_rumble_focus(void *app_, int k)
 enum {
 	PS_SHOW, PS_MSORT, PS_MVIEW, PS_LOOK, PS_REPEAT,   /* MP4's shelf */
 	PS_PICTURE,                     /* Recents' Card Picture */
-	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_DISPLAY, PS_BORDER, PS_BORDER_COLOR,
+	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_SSORT, PS_DISPLAY, PS_BORDER, PS_BORDER_COLOR,
 	PS_SHADER, PS_STRENGTH, PS_VIEW,
 	PS_SLOTS
 };
+
+/* Which orders shelf `sys`'s Sort By steps round (src/sort.h) */
+static int sort_set_of(app *a, int sys)
+{
+	return sys == shelf_coll_at(a) ? SORT_SET_COLL : sys == shelf_shots_at(a) ? SORT_SET_SHOTS : SORT_SET_SHELF;
+}
 
 static void menu_choices(app *a, int sys, bool games)
 {
@@ -672,14 +674,16 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_choice[SM_PACE].list = true;
 		}
 		{
-			/* Collections has its own four, Added first (src/sort.h), in a
-			 * pool of their own: the menu's width is measured over every
-			 * shelf's rows, and the others' would be written over them */
-			bool coll = sys == shelf_coll_at(a);
-			ch_pool *sp = coll ? &P[PS_CSORT] : &P[PS_SORT];
+			/* Collections has its own four, Added first (src/sort.h), and
+			 * Screenshots its three, each in a pool of their own: the
+			 * menu's width is measured over every shelf's rows, and the
+			 * others' would be written over them */
+			int set = sort_set_of(a, sys);
+			ch_pool *sp = set == SORT_SET_COLL ? &P[PS_CSORT] : set == SORT_SET_SHOTS ? &P[PS_SSORT]
+			            : &P[PS_SORT];
 
-			for (i = 0; i < sort_choices(coll); i++) sp->lab[i] = sort_label(sort_choice(coll, i));
-			g_sm_choice[SM_SORT] = ch_make(sp, sort_choices(coll), sort_choice_of(coll, v->sort), false);
+			for (i = 0; i < sort_choices(set); i++) sp->lab[i] = sort_label(sort_choice(set, i));
+			g_sm_choice[SM_SORT] = ch_make(sp, sort_choices(set), sort_choice_of(set, v->sort), false);
 		}
 		{
 			static const char *notes[CH_MAX];
@@ -748,10 +752,19 @@ static void menu_choices(app *a, int sys, bool games)
 		return;
 	}
 	/* MENU */
-	/* Light and Dark: two, so A turns it over (1.0.6, Auto went) */
-	P[0].lab[0] = appearance_name(APPEAR_LIGHT);
-	P[0].lab[1] = appearance_name(APPEAR_DARK);
-	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 2, theme_appearance() == APPEAR_DARK, false);
+	/* Light, Dark and Auto (back in 1.1.0), so A opens their list, each
+	 * with what it does under it: Auto's says it is Night Mode's hours,
+	 * which that page sets */
+	{
+		static const char *anotes[APPEARANCES];
+
+		for (i = 0; i < APPEARANCES; i++) P[0].lab[i] = appearance_name((appearance)i);
+		anotes[APPEAR_LIGHT] = T(S_THEME_LIGHT_NOTE);
+		anotes[APPEAR_DARK] = T(S_THEME_DARK_NOTE);
+		anotes[APPEAR_AUTO] = T(S_THEME_AUTO_NOTE);
+		g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], APPEARANCES, (int)theme_appearance(), false);
+		g_pm_choice[PM_APPEARANCE].notes = anotes;
+	}
 	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
 	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
@@ -904,9 +917,10 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * over without inventing a flag day. */
 		u.mp4       = is_mp4(sc);
 		u.coll       = sys == shelf_coll_at(a);
+		u.shots      = sys == shelf_shots_at(a);
 		u.recents    = sys == shelf_recents_at(a);
 		u.recents_screen = u.recents && g_recents_screen;
-		u.fav        = !u.mp4 && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
+		u.fav        = !u.mp4 && !u.coll && !u.shots && sc->core[0] == '\0' && sc->folder[0] == '\0';
 		if (u.coll) {
 			const sysview *cv = &a->view[sys];
 
@@ -1062,7 +1076,9 @@ void look_bar_colors(void)
 
 /* The look and Auto's hours as the database keeps them (src/look.h,
  * src/theme.h): read at start before theme_init, and written as a row
- * changes. Words for the look, minutes for the hours. */
+ * changes. Words for the look; Auto's hours are the Night Hours
+ * (night.from, night.until: src/nightkeep.h), which Night Mode's page
+ * changes. */
 void look_load(void)
 {
 	char ac[16], li[16], dk[16], co[16], zy[8], fo[16], hl[16];
@@ -1080,8 +1096,11 @@ void look_load(void)
 	l.focus = look_focus_parse(hl);
 	look_set(&l);
 	look_bar_colors();
-	theme_set_hours(db_get_int(db_dev(), "auto.light", THEME_LIGHT_FROM),
-	                db_get_int(db_dev(), "auto.dark", THEME_DARK_FROM));
+	{
+		const night_cfg n = night_load();
+
+		night_theme_hours(&n);
+	}
 }
 
 /* A new look: on, kept, and every screen told. The bar's other programs read
@@ -1199,7 +1218,9 @@ int night_row_widest(menu_row *out)
  * list shows the warmth under its cursor on the whole screen. A row the
  * mode does not use is quiet, its value still read - Night Warmth and the
  * hours while Off, the hours while On - so the page holds its shape and
- * says what On or By Hours would use. */
+ * says what On or By Hours would use. The hours are Appearance Auto's too
+ * (src/theme.h): with Appearance on Auto they are never quiet, whatever the
+ * mode, since the theme turns by them. */
 static const unsigned char NIGHT_SOUND[NP_ROWS] = {
 	[NP_MODE] = MENU_SND_RING,
 	/* Stops at 1 and 10, as Strength */
@@ -1219,6 +1240,8 @@ int night_page_build(void *ctx, menu_row *rows, int max, const char **heading)
 	night_view *v = ctx;
 	const night_cfg *c = nm_cfg();
 	const int m = nm_mode(), hours = 24 * 60 / NM_STEP;
+	/* By Hours uses them, and Appearance's Auto whatever the mode */
+	const bool timed = m == NIGHT_HOURS || theme_appearance() == APPEAR_AUTO;
 	int i;
 
 	(void)max;
@@ -1238,8 +1261,8 @@ int night_page_build(void *ctx, menu_row *rows, int max, const char **heading)
 	*heading = T(S_SYSMENU_NIGHT_MODE);
 	rows[NP_MODE]   = (menu_row){ T(S_SYSMENU_NIGHT_MODE), mode[m], true };
 	rows[NP_WARMTH] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), v->warmth, m != NIGHT_OFF };
-	rows[NP_FROM]   = (menu_row){ T(S_LOOK_NIGHT_FROM), v->from, m == NIGHT_HOURS };
-	rows[NP_UNTIL]  = (menu_row){ T(S_LOOK_NIGHT_UNTIL), v->until, m == NIGHT_HOURS };
+	rows[NP_FROM]   = (menu_row){ T(S_LOOK_NIGHT_FROM), v->from, timed };
+	rows[NP_UNTIL]  = (menu_row){ T(S_LOOK_NIGHT_UNTIL), v->until, timed };
 	g_np_choice[NP_MODE] = (menu_choice){ .n = NM_MODES, .cur = (unsigned char)m, .labels = mode };
 	g_np_choice[NP_WARMTH] = (menu_choice){ .n = NM_WARMTH_MAX, .cur = (unsigned char)(c->warmth - NM_WARMTH_MIN),
 	                                        .labels = warm_lab, .focus = nm_warmth_focus };
@@ -1258,14 +1281,16 @@ const menu_choice *night_page_choices(void)
 /* Night Mode round Off, On and By Hours; Night Warmth on Strength's idiom,
  * a step past either end changing nothing; the hours round the day by the
  * half hour. Kept, and on the display at once, so a mode or an hour that
- * turns the warmth on or off shows. */
+ * turns the warmth on or off shows; an hour that turns Appearance's Auto
+ * turns the theme at once too, and is the boot screen's (its words carry
+ * Auto's hours, src/boottheme.h). */
 static menu_result night_page_key(app *a, void *ctx, in_button key, int sel)
 {
 	int d = key == IN_RIGHT ? 1 : key == IN_LEFT ? -1 : 0;
 	night_cfg *c = nm_cfg();
 	const int day = 24 * 60;
 
-	(void)a; (void)ctx;
+	(void)ctx;
 	if (sel == NP_MODE && (d || key == IN_ACCEPT)) {
 		c->mode = (night_mode)((nm_mode() + (d ? d : 1) + NM_MODES) % NM_MODES);
 	} else if (sel == NP_WARMTH && d) {
@@ -1277,6 +1302,10 @@ static menu_result night_page_key(app *a, void *ctx, in_button key, int sel)
 		int *t = sel == NP_FROM ? &c->from : &c->until;
 
 		*t = ((*t + (d ? d : 1) * NM_STEP) % day + day) % day;
+		nm_keep();   /* and Auto's hours (night_keep) */
+		boot_theme_changed();
+		if (theme_refresh()) theme_changed(a);
+		return MENU_CHANGED;
 	} else {
 		return MENU_STAY;
 	}
@@ -1351,8 +1380,8 @@ static int sc_look_of(const screen_colors *c)
 	return SC_CUSTOM;
 }
 
-/* MENU > Display's value for the row: the look */
-static const char *screen_colors_value(void)
+/* MENU > Display's value for the row, and the in-game Display tab's: the look */
+const char *screen_colors_value(void)
 {
 	screen_colors c = sc_load();
 	int k = sc_look_of(&c);
@@ -1439,6 +1468,9 @@ static const unsigned char SC_SOUND[SC_ROWS] = {
 };
 static menu_choice g_sc_choice[SC_ROWS];
 static menu_style g_sc_style;
+/* The backdrop's and the power rule's own, over a game (screen_colors_page):
+ * the in-game menu's, for the Look's list as for the page */
+static void *g_sc_ctx;
 
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
@@ -1484,7 +1516,7 @@ static menu_result sc_look_list(app *a)
 
 	sc_look_choice(&ch);
 	g_sc_preview_k = ch.cur;   /* what the display shows already */
-	k = menu_pick_preview(a, &g_sc_style, NULL, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.preview,
+	k = menu_pick_preview(a, &g_sc_style, g_sc_ctx, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.preview,
 	                      ch.n, ch.cur, ch.cur);
 	if (k >= 0 && k < SC_LOOKS_N) {
 		sc_keep(&SC_LOOKS[k].c);
@@ -1540,12 +1572,22 @@ void sc_side(app *a, const menu_side *at)
 	ds_color_ref_draw(a->r, &(SDL_Rect){ at->content_x, at->content_y, SC_SIDE_W - DS_GRID * 4, h });
 }
 
-static void screen_colors_screen(app *a)
+/* The page, over the shelf from MENU > Display (no backdrop), and over the
+ * paused game from the in-game menu's Display tab (1.1.0): the same rows and
+ * keys, each step on the panel and kept at once, so it is judged on the game
+ * behind it. Over a game it takes the in-game pages' accent, the game's
+ * (follow_tint), and their power rule, which stops the game. */
+void screen_colors_page(app *a, void (*backdrop)(app *a, void *ctx, float scrim),
+                        menu_result (*on_power)(app *a, void *ctx), void *ctx)
 {
 	g_sc_style = (menu_style){ .fixed_w = menu_most_w(), .accent = MENU_ZYPEROS,
+	                           .follow_tint = backdrop != NULL,
+	                           .backdrop = backdrop, .on_power = on_power,
 	                           .sound = SC_SOUND, .choices = g_sc_choice,
 	                           .side = sc_side, .side_w = SC_SIDE_W };
-	menu_run(a, &g_sc_style, sc_build, sc_key, NULL);
+	g_sc_ctx = ctx;
+	menu_run(a, &g_sc_style, sc_build, sc_key, ctx);
+	g_sc_ctx = NULL;
 	/* Out of the page: a preview gone and a load held back made, so what
 	 * the display shows is what is kept */
 	sc_preview_end();
@@ -2240,7 +2282,10 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			 * with it */
 			if (d) recents_picture_turn(a);
 			return MENU_STAY;
-		} else if (a->view[a->sys_cursor].owner)
+		} else if (a->sys_cursor == shelf_shots_at(a))
+			/* Screenshots' two (SM_SHOT_ROWS) */
+			sel = sel == 0 ? SM_SORT : SM_VIEW;
+		else if (a->view[a->sys_cursor].owner)
 			sel = sel == 1 ? SM_RANDOM : sel == 2 ? SM_SORT : sel == 3 ? SM_VIEW : SM_GAMES;
 		/* And a console's rows lose Box Art on a device with no radio, which
 		 * moves Rescan Folder up one: which row is which comes from the same
@@ -2369,7 +2414,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 
 			v->sort = is_mp4(&a->sys.systems[a->sys_cursor])
 			        ? (v->sort + d + ML_ORDERS) % ML_ORDERS
-			        : sort_step_in(a->sys_cursor == shelf_coll_at(a), v->sort, d);
+			        : sort_step_in(sort_set_of(a, a->sys_cursor), v->sort, d);
 			sort_shelf(a, a->sys_cursor);
 			sort_save(a);
 
@@ -2516,13 +2561,15 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		redraw_now();
 		return MENU_CHANGED;
 	}
-	/* Light or Dark, so left, right and A all turn it over, applied the
-	 * moment it changes: saved as its word, and the theme file the bar's
+	/* Light, Dark and Auto round (A opens their list, menu_choose), applied
+	 * the moment it changes: saved as its word, and the theme file the bar's
 	 * other programs read is rewritten by theme_init - so the next frame is
 	 * drawn from the new theme(), and the next bar over a game or a port is
-	 * drawn in it */
+	 * drawn in it. Saved even when the theme it comes to is the one already
+	 * on: Auto at noon is Beard and so is Light, and they are still two
+	 * settings. */
 	if (sel == PM_APPEARANCE && (d || key == IN_ACCEPT)) {
-		appearance k = theme_appearance() == APPEAR_DARK ? APPEAR_LIGHT : APPEAR_DARK;
+		appearance k = appearance_step(theme_appearance(), d ? d : 1);
 		int was = theme_index();
 
 		theme_init(k);
@@ -2685,7 +2732,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	case PM_STORAGE:      storage_screen(a); break;
 	case PM_NIGHT:        night_page(a); return MENU_CHANGED;
 	case PM_THEME:        look_screen(a); return MENU_CHANGED;
-	case PM_SCREEN:       screen_colors_screen(a); return MENU_CHANGED;
+	case PM_SCREEN:       screen_colors_page(a, NULL, NULL, NULL); return MENU_CHANGED;
 	case PM_UPDATE:       update_screen(a); break;
 	case PM_ABOUT:        about_screen(a); break;
 	/* A game by its name: the menu closes once one is picked, and it starts */

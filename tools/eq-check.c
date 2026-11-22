@@ -6,9 +6,11 @@
  *     make check-eq
  *
  * No SDL, no device. */
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #include "../src/db.h"
@@ -107,8 +109,39 @@ static void share(void)
 	report(eq_share_write(bass), "the_file_written");
 	f = fopen(path, "rb");
 	report(f && fread(&s, sizeof s, 1, f) == 1 && s.magic == EQ_SHARE_MAGIC && !(s.seq & 1) &&
-	       eq_share_read(&s, got) && same(got, bass), "and_read_back_whole");
+	       eq_share_read(&s, got, NULL) && same(got, bass), "and_read_back_whole");
 	if (f) fclose(f);
+	/* The volume boost's gain beside the bands, which it leaves as they are */
+	report(eq_share_gain(8), "the_boost_written");
+	f = fopen(path, "rb");
+	{
+		int8_t gain = -1;
+
+		report(f && fread(&s, sizeof s, 1, f) == 1 && eq_share_read(&s, got, &gain) && gain == 8 &&
+		       same(got, bass), "and_read_back_with_the_bands");
+	}
+	if (f) fclose(f);
+	/* And read back as MP4's follower beside your PICO-8 reads it, to pass
+	 * on to MP4: what portkeys wrote, written by another process into the
+	 * same file in place (its own map, eqdsp.h's eq_share_put) */
+	report(eq_share_gain_get() == 8, "the_boost_read_back_for_mp4");
+	{
+		int mfd = open(path, O_RDWR);
+		eq_share *m = mfd < 0 ? NULL : mmap(NULL, sizeof *m, PROT_READ | PROT_WRITE, MAP_SHARED, mfd, 0);
+
+		if (mfd >= 0) close(mfd);
+		if (m && m != MAP_FAILED) {
+			eq_share_put(m, NULL, 4);
+			report(eq_share_gain_get() == 4, "a_gain_another_writer_put_is_read_at_once");
+			m->seq++;   /* that writer halfway through its next write */
+			report(eq_share_gain_get() == -1, "none_while_it_is_being_written");
+			m->seq++;
+			report(eq_share_gain_get() == 4, "and_again_once_written");
+			munmap(m, sizeof *m);
+		} else {
+			report(0, "a_gain_another_writer_put_is_read_at_once");
+		}
+	}
 	unlink(path);
 }
 

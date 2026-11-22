@@ -1,0 +1,270 @@
+From: plastron
+Subject: [PATCH] power: supply: rk817: the empty end, the level from the voltage
+
+Running, the level is the counter over the full charge, counted down from a
+full charge the battery may no longer hold. On a worn battery it reads too
+high all the way down: a GKD Pixel 2 turned off at 43% and then charged
+"from 43%". ZyperOS saves the game and powers off at a level (2%), so the
+battery cut out under the game first, and nothing was saved. Only a start
+after 30 minutes or more off made the level again from the voltage.
+
+Now each 8 s update also reads the voltage at rest: the update's averaged
+reading with its current's drop taken out (rk817_rest_uv, the device tree's
+111 mOhm), as a start does. Under 3.55 V at rest on 3 updates in a row,
+while the counter's level is 10 points or more over the voltage's, the
+counter is set to the voltage's level (Q_INIT, as at a start), so the level
+falls to the truth and ZyperOS's own rule saves the game and powers off.
+Never on the cable, never while the charge limit holds the battery.
+
+- 3.55 V: the Pixel 2's OCV table has 5% at 3.643 V and 0% at 3.444 V,
+  about 40 mV a point, and reads 3.55 V as 2% (whole points, cut), so the
+  level set is 2% or less, ZyperOS's BATT_EMPTY_PCT. 106 mV over the table's
+  0% and 150 over the design's 3.40 V minimum, near where the PMIC cuts.
+- 10 points: more than the voltage's own error there (a worn battery's
+  extra drop under a game's load, 2 or 3 points on that steep end), so a
+  counter that is right is never pulled down.
+- 3 updates: 16 s from the first to the third, so a moment's sag (a game
+  loading, the Wi-Fi) never counts; a reading over 3.55 V starts the run
+  again.
+
+When the counter counted from a full charge (RK817_NV_FULL, the wear
+patch), what it says went out since, against the voltage's level, measures
+the full charge (rk817_learn_fcc, its limits and its half-way step) and
+counts as a measure in charge_full_learned: near empty nearly all of it went
+out, so the OCV table's error moves the measure least. The mark is cleared
+either way: the counter counts from the voltage's level now. One line says
+it, beside the start's: "battery near empty: 32% from the counter, set to
+2% from the voltage; at rest 3540 mV, read 3496 mV at -400 mA; full charge
+1465 mAh, was 1730, measures 1; measured now: 1176 mAh out since full, to 2%
+at rest" (a battery that holds 1200 mAh, counted from the design's 1730).
+
+Named to sort after 9-px2-rk817-wear.patch, which it needs ("wear-empty"
+would sort before it: Buildroot applies patches in LC_ALL=C order, and '-'
+comes before '.').
+---
+ drivers/power/supply/rk817_charger.c | 174 ++++++++++++++++++++++++++++++++++-
+ 1 file changed, 173 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_charger.c
+index c8443d8..0563994 100644
+--- a/drivers/power/supply/rk817_charger.c
++++ b/drivers/power/supply/rk817_charger.c
+@@ -126,6 +126,17 @@ struct rk817_charger {
+ 	 */
+ 	u8 nv_flags;
+ 
++	/*
++	 * The empty end (rk817_empty_cal): the OCV table at 20C and the
++	 * internal resistance, kept from the device tree once the battery's
++	 * info is let go at the probe's end, and the 8 s updates in a row that
++	 * found the battery near empty
++	 */
++	struct power_supply_battery_ocv_table *ocv_table;
++	int ocv_table_size;
++	int r_uohm;
++	int empty_run;
++
+ 	/* Implementation specific immutable properties from device tree */
+ 	int res_div;
+ 	int sleep_enter_current_ua;
+@@ -1444,6 +1455,147 @@ static int rk817_battery_init(struct rk817_charger *charger,
+ 	return 0;
+ }
+ 
++/*
++ * The empty end. Running, the level is only the counter over the full
++ * charge, and the counter counts down from a full charge the battery may no
++ * longer hold: a worn battery reads too high all the way down, and gives out
++ * while it still says tens of points (a GKD Pixel 2 that turned off at 43%,
++ * then charged "from 43%"). ZyperOS saves the game and powers off at a
++ * level (its BATT_EMPTY_PCT, 2%), so with the level that high the battery
++ * cut out under the game and nothing was saved. Until now only a start after
++ * 30 minutes or more off made the level again from the voltage.
++ *
++ * So the voltage at rest is watched at every 8 s update (rk817_empty_cal):
++ * near empty by it while the counter says clearly more, the counter is set
++ * to the voltage's level, as a start from the voltage sets it, so the level
++ * falls to the truth and ZyperOS's own rule saves the game and powers off.
++ * The voltage at rest is the update's averaged reading with its current's
++ * drop taken out (rk817_rest_uv), as at a start.
++ *
++ * Near empty: under 3.55 V at rest. On a GKD Pixel 2's OCV table (its
++ * device tree) 5% is 3.643 V and 0% 3.444 V, about 40 mV a point, and the
++ * table reads 3.55 V as 2% (whole points, cut, as the kernel's
++ * interpolation gives them), so under it the level set is 2% or less: at
++ * ZyperOS's BATT_EMPTY_PCT, where it powers off at its next readings. Over
++ * the 0% point by 106 mV and the design's minimum (3.40 V, near where the
++ * PMIC cuts) by 150, so a game's load still has room while the game is
++ * saved. Steep there, so the voltage's level is close: on a worn battery
++ * whose resistance is twice the device tree's, a game's 500 mA hides 55 mV,
++ * under 2 points.
++ */
++#define RK817_EMPTY_REST_UV	3550000
++
++/*
++ * Clearly more: the counter's level 10 points or more over the voltage's,
++ * in thousandths of a percent. More than the voltage's own error there (the
++ * drop on a worn battery, 2 or 3 points), so a counter that is right is
++ * never pulled down; one wrong by less reaches ZyperOS's 2% in minutes, and
++ * the launcher's own voltage rule covers the rest.
++ */
++#define RK817_EMPTY_GAP_SOC	10000
++
++/*
++ * On 3 of the 8 s updates in a row, the first to the third 16 s apart, so a
++ * sag under a moment's load (a game loading, the backlight, the Wi-Fi) is
++ * never taken for the empty end. Each reading is the PMIC's average already.
++ */
++#define RK817_EMPTY_UPDATES	3
++
++/*
++ * Whether this update sets the counter to the voltage's level: `run` the
++ * updates in a row so far, the caller's, which this keeps. Never on the
++ * cable, and never while the charge limit holds the battery (its current is
++ * the charger's then, and the counter is what the limit goes by). rest_uv:
++ * the voltage at rest; counter_soc and rest_soc: the counter's level and the
++ * voltage's, in thousandths of a percent.
++ */
++static bool rk817_empty_due(int *run, bool plugged_in, bool held, int rest_uv,
++			    int counter_soc, int rest_soc)
++{
++	if (plugged_in || held || rest_uv >= RK817_EMPTY_REST_UV ||
++	    counter_soc - rest_soc < RK817_EMPTY_GAP_SOC) {
++		*run = 0;
++		return false;
++	}
++	if (++*run < RK817_EMPTY_UPDATES)
++		return false;
++	*run = 0;
++	return true;
++}
++
++/*
++ * The empty end at an update (rk817_charging_monitor, after
++ * rk817_read_props). When the counter counted from a full charge
++ * (RK817_NV_FULL), what it says went out since, against the voltage's level,
++ * also measures the full charge, as a start from the voltage does
++ * (rk817_learn_fcc): near empty nearly all of it went out, so the table's
++ * error moves the measure least. Then the counter starts from the voltage's
++ * level, not from a full charge, measured or not.
++ */
++static void rk817_empty_cal(struct rk817_charger *charger)
++{
++	int rest_uv, rest_soc, was_soc, was_fcc, left_mah, charge_mah, tmp;
++	int learned = 0, learns;
++	u8 bulk_reg[4];
++	char wear[80];
++
++	/* An update that cannot be calibrated on (rk817_bat_calib_cap) ends the run */
++	if (!charger->battery_present || !charger->ocv_table ||
++	    charger->volt_avg_uv < 2700000 || charger->volt_avg_uv > 4450000) {
++		charger->empty_run = 0;
++		return;
++	}
++	rest_uv = rk817_rest_uv(charger->volt_avg_uv, charger->cur_avg_ua,
++				charger->r_uohm);
++	rest_soc = power_supply_ocv2cap_simple(charger->ocv_table,
++					       charger->ocv_table_size,
++					       rest_uv) * 1000;
++	if (rest_soc < 0)
++		rest_soc = 0;
++	if (!rk817_empty_due(&charger->empty_run, charger->plugged_in,
++			     charger->held, rest_uv, charger->soc, rest_soc))
++		return;
++
++	was_soc = charger->soc;
++	was_fcc = charger->fcc_mah;
++	left_mah = charger->charge_now_uah / 1000;
++	learns = charger->nv_flags >> RK817_NV_LEARNS_SHIFT;
++	if (charger->nv_flags & RK817_NV_FULL) {
++		learned = rk817_learn_fcc(charger->fcc_mah, left_mah, rest_soc,
++					  charger->bat_charge_full_design_uah / 1000);
++		if (learned) {
++			charger->fcc_mah = learned;
++			learns = min(learns + 1, RK817_NV_LEARNS_MAX);
++		}
++		snprintf(wear, sizeof(wear),
++			 "%s: %d mAh out since full, to %d%% at rest",
++			 learned ? "measured now" : "not measured",
++			 was_fcc - left_mah, (rest_soc + 500) / 1000);
++	} else {
++		snprintf(wear, sizeof(wear), "%s", "not counting from a full charge");
++	}
++	/* The counter counts from the voltage's level now, not from a full charge */
++	charger->nv_flags = learns << RK817_NV_LEARNS_SHIFT;
++
++	/* The counter set to that level, as a start from the voltage sets it */
++	charger->soc = rest_soc;
++	charge_mah = rest_soc * charger->fcc_mah / 100 / 1000;
++	tmp = CHARGE_TO_ADC(charge_mah, charger->res_div);
++	put_unaligned_be32(tmp, bulk_reg);
++	regmap_bulk_write(charger->rk808->regmap, RK817_GAS_GAUGE_Q_INIT_H3,
++			  bulk_reg, 4);
++	charger->charge_now_uah = charge_mah * 1000;
++	rk817_record_battery_nvram_values(charger);
++
++	dev_info(charger->dev,
++		 "battery near empty: %d%% from the counter, set to %d%% from the voltage; at rest %d mV, read %d mV at %d mA; full charge %d mAh, was %d, measures %d; %s\n",
++		 (was_soc + 500) / 1000, (rest_soc + 500) / 1000,
++		 rest_uv / 1000, charger->volt_avg_uv / 1000,
++		 charger->cur_avg_ua / 1000, charger->fcc_mah, was_fcc, learns,
++		 wear);
++	power_supply_changed(charger->bat_ps);
++}
++
+ static void rk817_charging_monitor(struct work_struct *work)
+ {
+ 	struct rk817_charger *charger;
+@@ -1451,6 +1603,8 @@ static void rk817_charging_monitor(struct work_struct *work)
+ 	charger = container_of(work, struct rk817_charger, work.work);
+ 
+ 	rk817_read_props(charger);
++	/* Only here, so the run counts the 8 s updates and not a cable's */
++	rk817_empty_cal(charger);
+ 	rk817_charge_limit(charger);
+ 
+ 	/* Run every 8 seconds like the BSP driver did. */
+@@ -1492,10 +1646,11 @@ static int rk817_charger_probe(struct platform_device *pdev)
+ 	struct rk817_charger *charger;
+ 	struct device_node *node;
+ 	struct power_supply_battery_info *bat_info;
++	const struct power_supply_battery_ocv_table *ocv;
+ 	struct device *dev = &pdev->dev;
+ 	struct power_supply_config pscfg = {};
+ 	int plugin_irq, plugout_irq;
+-	int of_value;
++	int of_value, ocv_len = 0;
+ 	int ret;
+ 
+ 	node = of_get_child_by_name(dev->parent->of_node, "charger");
+@@ -1639,6 +1794,21 @@ static int rk817_charger_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * The OCV table at 20C and the internal resistance, for the empty end
++	 * (rk817_empty_cal), which runs after the battery's info is let go.
++	 * Without a table, the empty end does nothing.
++	 */
++	ocv = power_supply_find_ocv2cap_table(bat_info, 20, &ocv_len);
++	if (ocv && ocv_len > 0) {
++		charger->ocv_table = devm_kmemdup(dev, ocv, ocv_len * sizeof(*ocv),
++						  GFP_KERNEL);
++		if (!charger->ocv_table)
++			return -ENOMEM;
++		charger->ocv_table_size = ocv_len;
++	}
++	charger->r_uohm = bat_info->factory_internal_resistance_uohm;
++
+ 	power_supply_put_battery_info(charger->bat_ps, bat_info);
+ 
+ 	plugin_irq = platform_get_irq(pdev, 0);
+@@ -1683,6 +1853,8 @@ static int __maybe_unused rk817_suspend(struct device *dev)
+ 	struct rk817_charger *charger = dev_get_drvdata(dev);
+ 
+ 	cancel_delayed_work_sync(&charger->work);
++	/* The empty end's run starts again after it (rk817_empty_due) */
++	charger->empty_run = 0;
+ 
+ 	return 0;
+ }

@@ -6,4 +6,4 @@ ZYDEV_MCPU = cortex-a53
 ZYDEV_CPU = cortex-a35
 ZYDEV_BACKEND = pixel2
 ZYDEV_DIATOM_PORT = pixel2
-ZYDEV_HELPERS = portkeys zyhome update p2d ports
+ZYDEV_HELPERS = portkeys zyhome update p2d ports p8fx

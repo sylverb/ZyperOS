@@ -76,6 +76,7 @@
 
 #include "bright.h"
 #include "portout.h"
+#include "zytheme.h"
 
 #define FRAMES     "/usr/share/splash/frames.bin"
 #define FIRST      "/usr/share/splash/first-start.bin"
@@ -401,9 +402,11 @@ static int still(const char *path);
  * Beard (1) or Salt & Pepper (0), as the launcher would pick it: zytheme is
  * the Appearance setting's word (ZyperOS's src/theme.h), anything else and
  * nothing at all Beard, the launcher's default, which is also what a card
- * with no choice yet starts in. Auto is Beard from 7:00 up to 19:00, local
- * time in zyzone (the clock's zone; the kernel set the clock from the RTC,
- * which keeps UTC), as theme_resolve has it.
+ * with no choice yet starts in. Auto is Salt & Pepper in the Night Hours its
+ * word carries (auto-1260-420: 21:00 to 7:00; a 1.0.5 launcher's plain auto,
+ * 19:00 to 7:00), local time in zyzone (the clock's zone; the kernel set the
+ * clock from the RTC, which keeps UTC), as theme_resolve_min has it
+ * (zytheme.h).
  */
 static int theme_light(char *why, size_t n)
 {
@@ -411,14 +414,16 @@ static int theme_light(char *why, size_t n)
 	struct tm tm;
 	time_t now;
 
-	if (t && !strcmp(t, "dark")) { snprintf(why, n, "dark"); return 0; }
-	if (!t || strcmp(t, "auto")) { snprintf(why, n, "%s", t ? t : "no choice"); return 1; }
+	if (!t || strncmp(t, "auto", 4)) {
+		snprintf(why, n, "%s", t ? t : "no choice");
+		return splash_zytheme_light(t, -1);
+	}
 	if (z && *z && strcmp(z, "-")) setenv("TZ", z, 1);
 	tzset();
 	now = time(NULL);
-	if (!localtime_r(&now, &tm)) { snprintf(why, n, "auto, no clock"); return 1; }
-	snprintf(why, n, "auto, %02d:%02d in %s", tm.tm_hour, tm.tm_min, z && *z ? z : "UTC");
-	return tm.tm_hour >= 7 && tm.tm_hour < 19;
+	if (!localtime_r(&now, &tm)) { snprintf(why, n, "%s, no clock", t); return 1; }
+	snprintf(why, n, "%s, %02d:%02d in %s", t, tm.tm_hour, tm.tm_min, z && *z ? z : "UTC");
+	return splash_zytheme_light(t, tm.tm_hour * 60 + tm.tm_min);
 }
 
 /* The backlight at the player's brightness before the panel lights (zybright,

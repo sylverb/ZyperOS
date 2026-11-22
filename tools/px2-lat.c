@@ -105,8 +105,13 @@ static int open_pad(void)
 		snprintf(path, sizeof path, "/dev/input/event%d", i);
 		if ((fd = open(path, O_RDWR | O_CLOEXEC)) < 0)
 			continue;
-		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) >= 0 && HAS(keys, BTN_SOUTH))
-			return fd;
+		/* The joypad, never portkeys's own pad for PICO-8 */
+		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) >= 0 && HAS(keys, BTN_SOUTH)) {
+			char name[64] = "";
+
+			ioctl(fd, EVIOCGNAME(sizeof name), name);
+			if (strncmp(name, "ZyperOS ", 8)) return fd;
+		}
 		close(fd);
 	}
 	return -1;

@@ -18,6 +18,7 @@
 #include "ds/mark.h"     /* ds_bar_in */
 #include "uisound.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -362,10 +363,7 @@ bool mp4_keys(app *a)
 {
 	in_state *in = &a->in;
 
-	if (in_repeat(in, IN_VOLUP)) plat_volume_nudge(+1);
-	if (in_repeat(in, IN_VOLDN)) plat_volume_nudge(-1);
-	if (in_repeat(in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-	if (in_repeat(in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+	levels_keys(in, BOOST_OPEN);
 	if (in->pressed[IN_X] || g_mp4_said == MP4C_LOCK) {
 		if (lock_allowed()) { uisound_play(DS_SOUND_ACCEPT); return true; }
 		uisound_play(DS_SOUND_DENY);       /* nothing playing to lock over */
@@ -549,8 +547,7 @@ void mp4_locked(app *a)
 		if (mp4lock_step(&l, plat_now_ms(), a->in.down, a->in.pressed)) break;
 		/* The volume keys, the two that get through (mp4lock_passes): the
 		 * same steps and the same bar as unlocked, repeating when held. */
-		if (in_repeat(&a->in, IN_VOLUP)) { plat_volume_nudge(+1); vol = true; }
-		if (in_repeat(&a->in, IN_VOLDN)) { plat_volume_nudge(-1); vol = true; }
+		if (levels_keys(&a->in, BOOST_FILL)) vol = true;
 		mn = mp4c_now();
 		video = mp4c_video();
 		lit = mp4lock_lit(&l);

@@ -166,12 +166,18 @@ void diatom_env_rumble_level(int pct);
 bool diatom_rumble_asked(void);
 void diatom_env_core_quit_reset(void);
 void diatom_env_suppress(uint32_t mask);
-/* Called at every poll the core makes, with the pad just read, before the
- * core reads a button of it: returns what to hide from the core, and sets
- * what the core sees held although it is not (a SELECT given back as it is
- * let go). SELECT's chords (chord.h, main.c). NULL for none; set per game. */
-typedef uint32_t (*diatom_poll_hook)(uint32_t pad, uint32_t *give);
+/* Called at every poll the core makes, with the pad just read and what went
+ * down in it (diatom_port_input_pressed: a tap let go again before the poll
+ * too), before the core reads a button of it: returns what to hide from the
+ * core, and sets what the core sees held although it is not (a SELECT given
+ * back as it is let go). SELECT's chords (chord.h, main.c). NULL for none;
+ * set per game. */
+typedef uint32_t (*diatom_poll_hook)(uint32_t pad, uint32_t pressed, uint32_t *give);
 void diatom_env_poll_hook(diatom_poll_hook fn);
+/* What went down at the core's polls since the last call, a tap let go
+ * again too, gathered over all of a turn's frames (a fast turn runs several):
+ * the frame loop's own keys, read once a turn. Each call starts it again. */
+uint32_t diatom_env_pressed(void);
 
 /* The libretro pointer the core reads this frame: the stylus's, from
  * screens.h, in the whole frame's -0x7fff..0x7fff. See env.c. */
@@ -348,7 +354,10 @@ typedef struct {
 	 * same with exactly every second frame drawn while frames run late (the
 	 * DS shelf's When Slow sent it in a 1.0.6 test build; the launcher sends
 	 * late alone now, and steady stays a RUN word). Empty: only fast forward
-	 * skips, as before. */
+	 * skips, as before. The launcher sends late for a DS game (two screens)
+	 * and for a system with a frameskip|tag|late line (the PSP's). A core
+	 * paced by its sound (PPSSPP) is late by its turns' work against the
+	 * sound they brought, not by the schedule (main.c, sound_debt_us). */
 	char frameskip[16];
 	/* RUN: "medium" or "light" caps the clocks for a system that keeps its
 	 * speed under them; empty or anything else is full. See diatom_port_power. */
@@ -426,6 +435,9 @@ typedef struct {
 	                        * OVERLAY: `count` is the duration in ms, sent as
 	                        * `ms=`. One slot, two verbs, no second name.
 	                        * SETDISC: `index` is the disc, from 0. */
+	int  boost;            /* SETLEVEL: the boost's cells filled past the top
+	                        * (levels.h), 0 none, as a launcher from before
+	                        * the boost says by not sending it */
 } diatom_msg;
 
 /* Input mapping and labels live in env.c, the one layer a remap touches. */
@@ -469,6 +481,11 @@ void diatom_input_emit_labels(void);
 void diatom_rumble_hold(bool held);
 void diatom_rumble_forget(void);
 void diatom_rumble_reset(void);
+/* The boost's buzz as it opens (levels.c): the motor full at the game's
+ * rumble level while on, over whatever the core asked, back to the core's
+ * when off. Nothing while the game is held or rumble is Off; a hold or a
+ * reset ends it. */
+void diatom_rumble_buzz(bool on);
 
 bool diatom_proto_listen(const char *path);
 void diatom_proto_close(void);
@@ -647,5 +664,12 @@ diatom_channels diatom_audio_channels_get(void);
  * a session starting at them with no move. Flat costs nothing. False, and
  * nothing changed, for anything but five whole numbers from -6 to 6. */
 bool diatom_audio_eq(const char *bands);
+
+/* The volume boost past the top (levels.h): `db` of gain, 0 to 12, with the
+ * equalizer's limiter keeping every peak under full scale (eqdsp.h's
+ * eq_gain). Taken by the sound's next push, on whatever thread pushes, and
+ * moved to over 20 ms, so a step never clicks; held across sessions like the
+ * bands, a session starting at it with no move. */
+void diatom_audio_boost(int db);
 
 #endif /* DIATOM_H */

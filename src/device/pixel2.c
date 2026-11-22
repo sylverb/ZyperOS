@@ -22,6 +22,7 @@
 #include "displayback.h"
 #include "fileio.h"
 #include "nightkeep.h"
+#include "levels.h"
 #include "panelgamma.h"
 #include "phonelink.h"
 #include "platform.h"
@@ -682,6 +683,16 @@ static void input_scan(void)
 		memset(sw, 0, sizeof sw);
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
+		/* Not the pad portkeys gives your PICO-8 while it holds the
+		 * joypad (tools/pkvpad.h, "ZyperOS pad for PICO-8"), which is
+		 * there while the in-game menu over PICO-8 runs: its devices are
+		 * named so, and the joypad is the menu's then */
+		if (BIT_IS_SET(keys, BTN_SOUTH)) {
+			char name[64] = "";
+
+			ioctl(fd, EVIOCGNAME(sizeof name), name);
+			if (!strncmp(name, "ZyperOS ", 8)) keys[BTN_SOUTH / BITS_PER_LONG] &= ~(1UL << (BTN_SOUTH % BITS_PER_LONG));
+		}
 		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           { fd_pad = fd; pad_node = i; }
 		else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
 		else if (fd_power < 0 && BIT_IS_SET(keys, KEY_POWER))           fd_power = fd;
@@ -1251,7 +1262,7 @@ void plat_screen_colors_tick(bool now)
 
 void plat_screen_colors(const screen_colors *c, bool keep)
 {
-	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0, 0 };
 
 	panelgamma_color_clamp(&want);
 	if (keep) {
@@ -1260,9 +1271,23 @@ void plat_screen_colors(const screen_colors *c, bool keep)
 	}
 	screen_saturation_apply(c->saturation);
 	want.night = night_now(time(NULL));
+	want.lift = screen_want.lift;   /* the brightness boost's, kept across */
 	screen_want = want;
 	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
 	plat_screen_colors_tick(false);
+}
+
+/* The brightness boost's lift (src/levels.c, DESIGN.md 11.6): on the
+ * display's table with the player's colors, at once - the step's one-frame
+ * blink on the Pixel 2, none on the Brick, whose table loads at vblank */
+void plat_brightness_lift(int lift)
+{
+	if (lift < 0) lift = 0;
+	if (lift > PANELGAMMA_LIFT_MAX) lift = PANELGAMMA_LIFT_MAX;
+	if (screen_want.lift == lift) return;
+	screen_want.lift = lift;
+	screen_held = memcmp(&screen_want, &screen_color, sizeof screen_want) != 0;
+	plat_screen_colors_tick(true);
 }
 
 /* The warmth wanted now on the display, loaded at once (`at_once`: a kept
@@ -1431,6 +1456,9 @@ void plat_display_plain(void)
 void plat_audio_jack_poll(void)
 {
 	if (!aout_should_reapply(jack_was, jack_present() != 0, cur_vol >= 0)) return;
+	/* A plug in or out closes the volume boost: the new output starts at
+	 * the top without it (src/levels.c), the first poll aside */
+	if (jack_was >= 0) levels_output_changed();
 	apply_volume(cur_vol);
 }
 

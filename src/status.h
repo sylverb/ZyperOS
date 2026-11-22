@@ -63,8 +63,11 @@
  * powers off rather than let the PMIC cut it at its own limit, which loses the
  * game's progress since its last save and leaves the card dirty. A starting
  * point, short of measuring where each device's reading sits when it gives
- * out: both report 0% well before their PMIC's cutoff. The launcher's
- * battery_empty (src/main.c) and, over a port, tools/portkeys.c go by it. */
+ * out. A worn battery's level can read far over the truth (a Pixel 2 cut out
+ * at 43%), so the voltage counts too: under the device's empty voltage it is
+ * empty whatever this says (src/battempty.h, the rule the launcher's
+ * battery_empty in src/zyperdraw.c and, over a port, tools/portkeys.c go
+ * by). */
 #define BATT_EMPTY_PCT  2
 
 /* 0 fine or charging, 1 low, 2 critical: what Diatom is sent, and what the

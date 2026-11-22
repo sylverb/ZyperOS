@@ -18,6 +18,23 @@ ja = %d 本のゲーム
 it.one = %d gioco
 it.other = %d giochi
 
+[shelf.screenshots]
+note = The home: under the Screenshots group's name, how many pictures it has.
+en.one = %d screenshot
+en.other = %d screenshots
+zh-Hans = %d 张截图
+es.one = %d captura
+es.other = %d capturas
+pt-BR.one = %d captura
+pt-BR.other = %d capturas
+fr.one = %d capture
+fr.other = %d captures
+de.one = %d Screenshot
+de.other = %d Screenshots
+ja = %d 枚のスクショ
+it.one = %d screenshot
+it.other = %d screenshot
+
 [shelf.no_games]
 note = The home: under a system with no games (Favorites, when empty); and a shelf's title line when it has none.
 en = No games

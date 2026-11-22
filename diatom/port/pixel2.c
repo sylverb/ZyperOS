@@ -103,6 +103,10 @@ static int                 g_gamma_have = -2;
 static panelgamma_color    g_gamma_color;
 static panelgamma_night    g_gamma_night;
 static time_t              g_night_looked;
+/* The brightness boost's lift (diatom_port_level_lift): the host's word,
+ * put on g_gamma_color by display_gamma, which loads the table again when it
+ * moves */
+static int                 g_gamma_lift;
 
 /* The port's name, as the shared GL code's log lines start with it
  * (port/gles_state.h, port/gles_draw.h) */
@@ -143,6 +147,9 @@ static int      g_osd_theme;                          /* DS_LIGHT or DS_DARK */
  * do, for the render thread to hand them to osdbar_colors */
 static ds_theme g_osd_colors;
 static unsigned g_osd_colors_gen;
+/* The level bar's look as the host's boost has it (diatom_port_level_look),
+ * under g_mx: drawn for the kind it is of, osd_look_now says */
+static osdbar_look g_osd_look;
 static bool     g_lowbat, g_lowbat_blink;   /* the low-battery disc; under g_mx */
 /* On-Screen Stats (diatom_port_hud): its line, its style and the look's
  * colors as the host last said them, and whether the render thread has
@@ -253,6 +260,7 @@ static char     g_pad_path[32];     /* its node, opened again to rumble */
 static int      g_keys_fd = -1;     /* the volume keys: "gpio-keys" */
 static int      g_jack_fd = -1;     /* the codec's jack switch */
 static uint32_t g_buttons;
+static uint32_t g_pressed;          /* went down during the last poll */
 static bool     g_input_debug;
 
 /* Kernel code -> Diatom button.
@@ -417,11 +425,18 @@ static void gain_apply(void)
 	ctl_io(USB_CTL, &usb, 1);
 }
 
+/* A plug in or out seen here, for diatom_port_level_plugged. Atomic: this
+ * poll runs in the input poll, which a core with a thread of its own may
+ * call from there, and the host asks from the frame loop. */
+static bool g_jack_moved;
+
 /* Re-apply when the plug goes in or out, as on the Brick: whoever pumps input
- * owns the level, and the windows differ by jack. */
+ * owns the level, and the windows differ by jack. Not the first look after a
+ * handover (g_jack_was -1), which finds the plug as it was. */
 static void gain_jack_poll(void)
 {
 	if (jack_present() == g_jack_was || g_level < 0) return;
+	if (g_jack_was >= 0) __atomic_store_n(&g_jack_moved, true, __ATOMIC_RELAXED);
 	gain_apply();
 }
 
@@ -454,6 +469,17 @@ static void osd_show(int kind, int level, int max)
 	g_osd_theme = theme;
 	g_osd_changed = now;
 	pthread_mutex_unlock(&g_mx);
+}
+
+/* What the bar shows now, under g_mx: the host's look while it is the look
+ * of the bar's kind, else the plain bar (POWER's hold, a kind it has not
+ * given a look for yet) */
+static void osd_look_now(osdbar_look *l)
+{
+	const int kind = g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME;
+
+	if (g_osd_kind != 2 && g_osd_look.kind == kind) *l = g_osd_look;
+	else osdbar_look_plain(l, kind, g_osd_level, g_osd_max);
 }
 
 /* The hold's segments by now, under g_mx: the bar kept up while they fill,
@@ -760,6 +786,16 @@ static void display_gamma(void)
 		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
 		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)time(NULL));
 		g_night_looked = 0;
+	}
+	/* The brightness boost's lift, never in the file: the host's, put on
+	 * whatever was read, and the table again when it moves */
+	{
+		int lift = __atomic_load_n(&g_gamma_lift, __ATOMIC_RELAXED);
+
+		if (lift != g_gamma_color.lift) {
+			g_gamma_color.lift = lift;
+			if (want == g_gamma_have) g_gamma_have = -1;
+		}
 	}
 	/* Night Mode's hour, once a second: the table again at once when the
 	 * warmth due now is not the one on (src/nightmode.h: one blink, no
@@ -1129,11 +1165,15 @@ static struct {
 void diatom_port_input_poll(void)
 {
 	struct input_event ev[32];
+	const uint32_t before = g_buttons;
 	ssize_t n;
 	size_t i, k;
 
 	gain_jack_poll();
 
+	/* Every press since the last poll, a tap gone up again too
+	 * (diatom_port_input_pressed) */
+	g_pressed = 0;
 	while (g_pad_fd >= 0 && (n = read(g_pad_fd, ev, sizeof ev)) > 0) {
 		for (i = 0; i < (size_t)n / sizeof ev[0]; i++) {
 			if (ev[i].type == EV_SYN && ev[i].code == SYN_DROPPED) {
@@ -1145,11 +1185,17 @@ void diatom_port_input_poll(void)
 				port_logf(DIATOM_LOG_DEBUG, "key %d -> %d", ev[i].code, ev[i].value);
 			for (k = 0; k < sizeof keymap / sizeof keymap[0]; k++) {
 				if (keymap[k].code != ev[i].code) continue;
-				if (ev[i].value) g_buttons |=  DIATOM_BIT(keymap[k].btn);
-				else             g_buttons &= ~DIATOM_BIT(keymap[k].btn);
+				if (ev[i].value) {
+					g_buttons |= DIATOM_BIT(keymap[k].btn);
+					g_pressed |= DIATOM_BIT(keymap[k].btn);
+				} else {
+					g_buttons &= ~DIATOM_BIT(keymap[k].btn);
+				}
 			}
 		}
 	}
+	/* And a key a resync found down whose press was in the events dropped */
+	g_pressed |= g_buttons & ~before;
 
 	/* The volume keys are level keys, never reported as buttons and never
 	 * sent to a core. With MENU held they are brightness instead, the
@@ -1177,6 +1223,7 @@ void diatom_port_input_poll(void)
 }
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
+uint32_t diatom_port_input_pressed(void) { return g_pressed; }
 
 /* No sticks on the GKD Pixel 2 */
 bool diatom_port_input_axes(int16_t axes[4]) { (void)axes; return false; }
@@ -1205,6 +1252,7 @@ void diatom_port_input_reset(void)
 	while (g_pad_fd >= 0 && read(g_pad_fd, ev, sizeof ev) > 0) { }
 	while (g_keys_fd >= 0 && read(g_keys_fd, ev, sizeof ev) > 0) { }
 	memset(g_level_key, 0, sizeof g_level_key);
+	g_pressed = 0;
 	pad_resync();
 }
 
@@ -1303,6 +1351,28 @@ uint32_t diatom_port_level_keys(void)
 void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 {
 	osd_show(kind == DIATOM_LEVEL_BRIGHTNESS ? 1 : 0, pos, positions - 1);
+}
+
+void diatom_port_level_look(const osdbar_look *look)
+{
+	pthread_mutex_lock(&g_mx);
+	if (look) g_osd_look = *look;
+	else memset(&g_osd_look, 0, sizeof g_osd_look);
+	pthread_mutex_unlock(&g_mx);
+}
+
+/* On the present thread's next frame, which loads the table (display_gamma):
+ * an atomic commit there, never one from this thread beside its flips */
+void diatom_port_level_lift(int lift)
+{
+	if (lift < 0) lift = 0;
+	if (lift > PANELGAMMA_LIFT_MAX) lift = PANELGAMMA_LIFT_MAX;
+	__atomic_store_n(&g_gamma_lift, lift, __ATOMIC_RELAXED);
+}
+
+bool diatom_port_level_plugged(void)
+{
+	return __atomic_exchange_n(&g_jack_moved, false, __ATOMIC_RELAXED);
 }
 
 /* On-Screen Stats' host side (port/hud_host.h), on the Pixel 2's sensors */

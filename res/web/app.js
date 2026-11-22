@@ -572,7 +572,7 @@ function draw() {
 	ul.textContent = '';
 	$('empty').hidden = entries.length > 0;
 	const gameCovers = entries.some((e) => !e.dir && e.cover);
-	const albumCovers = entries.some((e) => e.dir && (e.cover || e.covers));
+	const folderCovers = entries.some((e) => e.dir && (e.cover || e.covers));
 
 	for (const e of entries) {
 		const li = document.createElement('li');
@@ -595,7 +595,9 @@ function draw() {
 
 		/* What leads the row: an artist's albums, an album's cover, a game's
 		 * box art (or its empty frame, so a folder of games lines up), a
-		 * folder's pixel art, or a file's mark. */
+		 * game's own folder's (a disc set's), a folder's pixel art, or a
+		 * file's mark. A game's is the one the shelf shows, its own or
+		 * EmulationStation's: the device names it (src/hare.c, game_art). */
 		if (e.dir && e.covers && e.covers.length > 1) {
 			const g = document.createElement('span');
 			g.className = 'cover grid';
@@ -603,7 +605,7 @@ function draw() {
 			li.append(g);
 		} else if (e.dir && e.covers) {
 			li.append(img('cover', thumb(e.covers[0])));
-		} else if (e.dir ? albumCovers && (e.album || e.cover) : gameCovers) {
+		} else if (e.dir ? folderCovers && (e.album || e.cover) : gameCovers) {
 			if (e.cover) li.append(img('cover', thumb(e.cover)));
 			else {
 				const c = document.createElement('span');

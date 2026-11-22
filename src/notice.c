@@ -291,7 +291,7 @@ static bool render(const char *heading, const char *body, const char *badge,
 	 * it was only being reasoned about. DESIGN.md 11.7: the heading in
 	 * **meta** and **text-dim**, the body in **label** and **text**. */
 	TTF_Font *fh = ui_font(UI_F_META), *fb = ui_font(UI_F_LABEL);
-	int padx, pady, w, h, x, y, corner, maxw;
+	int padx, pady, w, h, x, y, corner, maxw, slot[4] = { 0 };
 	char headfit[192], bodyfit[192];
 	uint8_t *px;
 	FILE *f;
@@ -339,6 +339,13 @@ static bool render(const char *heading, const char *body, const char *badge,
 	th = l1 + l2 + (prog ? sh + pady * 2 : 0);
 	/* A mark is drawn here, as tall as a badge and as narrow as it is */
 	if (badge) bs = (look & NOTICE_PICTURE) ? picture_load(badge, th - pady) : badge_load(badge, th - pady);
+	/* The empty square another program fills (NOTICE_SLOT): clear pixels,
+	 * which draw_badge lays nothing of, in the place a square shot takes */
+	if (look & NOTICE_SLOT) {
+		if (bs) SDL_FreeSurface(bs);
+		bs = SDL_CreateRGBSurfaceWithFormat(0, th - pady, th - pady, 32, SDL_PIXELFORMAT_ARGB8888);
+		if (bs) SDL_FillRect(bs, NULL, 0);
+	}
 	if (!bs && mark == NOTICE_MARK_HEAT) bs = notice_heat_mark(th - pady, t->warning, t->warning);
 	/* No art on the card for it, or none yet: the plain badge, the badge's
 	 * own size and corners, so the slab is the same shape when the art lands.
@@ -427,6 +434,10 @@ static bool render(const char *heading, const char *body, const char *badge,
 	 * left, and the lines left-aligned beside it, as the achievements lab
 	 * drew it. A progress notice is the name, the strip and the count. */
 	if (bs) {
+		slot[0] = padx;
+		slot[1] = (h - bs->h) / 2;
+		slot[2] = bs->w;
+		slot[3] = DS_RADIUS_ROW < bs->w / 2 ? DS_RADIUS_ROW : bs->w / 2;
 		SDL_LockSurface(bs);
 		draw_badge(px, w, h, bs, padx, (h - bs->h) / 2);
 		SDL_UnlockSurface(bs);
@@ -487,6 +498,22 @@ static bool render(const char *heading, const char *body, const char *badge,
 		return false;
 	}
 	free(px);
+	/* And where the empty square is, for the program that fills it, in the
+	 * same little-endian words as the header (draw_badge's own corner) */
+	if ((look & NOTICE_SLOT) && slot[2] > 0) {
+		unsigned char tr[12];
+		int k;
+
+		memcpy(tr, "SLOT", 4);
+		for (k = 0; k < 4; k++) {
+			tr[4 + k * 2] = (unsigned char)slot[k];
+			tr[5 + k * 2] = (unsigned char)(slot[k] >> 8);
+		}
+		if (fwrite(tr, 1, sizeof tr, f) != sizeof tr) {
+			fclose(f);
+			return false;
+		}
+	}
 	/* The close is where a buffered write lands, and where a full /tmp says
 	 * so. A file cut short is not one to hand Diatom: false, and the caller
 	 * sends no OVERLAY line for it. */

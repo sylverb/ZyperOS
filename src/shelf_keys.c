@@ -8,6 +8,7 @@
 #include "panel.h"
 #include "shelf_draw.h"
 #include "shelfbuild.h"
+#include "shots_screen.h"
 #include "sys_menu.h"
 #include "uisound.h"
 
@@ -378,11 +379,22 @@ void update_games(app *a)
 	 * what it does */
 	if (v->video) {
 		bool any = false;
+		/* but not A in the Screenshots viewer: A puts the band down there
+		 * (shots_keys), and A still held the next pass would bring it
+		 * straight back up */
+		in_button skip = shots_shelf(a, a->sys_cursor) ? IN_ACCEPT : IN_NONE;
 
-		for (int b = 0; b < IN_COUNT && !any; b++) any = a->in.pressed[b] || a->in.down[b];
+		for (int b = 0; b < IN_COUNT && !any; b++)
+			any = b != (int)skip && (a->in.pressed[b] || a->in.down[b]);
 		if (any) vv_touch(&v->vm, plat_now_ms());
 	}
-	int dir = shelf_move(a, v);
+	/* The Screenshots shelf (DESIGN.md 11.68, src/shots_screen.h): in its
+	 * viewer L1 and R1 go to the next or the last game's shots, read before
+	 * the shelf's own L1 and R1 */
+	bool shots = shots_shelf(a, a->sys_cursor);
+	/* (a press reads true however often it is read: a jump is this pass's
+	 * move, not the shelf's screenful as well) */
+	int dir = shots && shots_jump(a, v) ? 0 : shelf_move(a, v);
 
 	/* HERE, AND NOT AT THE END OF THE PASS, because four of the handlers below
 	 * return without reaching the end.
@@ -405,6 +417,9 @@ void update_games(app *a)
 	 * move the cursor without a direction, and cf_set_cursor_dir works out the
 	 * rest itself. It returns immediately when the cursor has not moved. */
 	games_select(&v->row, v->cursor, n, dir, plat_now_ms());
+	/* ...and its A, B, X, Y and START where they are its own: A opens a
+	 * shot on the whole screen, B closes it, X deletes it */
+	if (shots && shots_keys(a, v)) return;
 	/* START turns the shelf's View on, Covers to Grid to List and round, as
 	 * MENU's View row does (2026-11-13: "make clicking start in a system
 	 * change view mode to list and vice versa"; the grid between them,

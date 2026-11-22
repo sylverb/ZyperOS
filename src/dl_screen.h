@@ -11,6 +11,7 @@
  * download's); and Settings: the three accounts, Video Snaps and Names and
  * Details. */
 #include "app.h"
+#include "dlq.h"
 #include "panel.h"
 
 menu_result downloads_screen(app *a);
@@ -28,6 +29,17 @@ bool downloads_news(char *l1, size_t n1, char *l2, size_t n2);
 bool downloads_kind_in(const char *kind);
 /* --rows-report: the page's rows (menu_rows_print) */
 void downloads_rows_report(app *a);
+/* What a lane's step brought, kept for the page while it is closed (the
+ * queue's step hook, dlq_on_step, installed once at start): the stream and
+ * done's wall come back as they were when the page opens again */
+void downloads_stepped(dlq_lane l);
+/* The renderer is about to go (a game in the fallback, launch_screen.c):
+ * the kept pictures go now, and come back from their files when the page
+ * next opens */
+void downloads_video_gone(void);
+/* ZYPEROS_DOWNLOADS_TEST: the page played by a script, and the steps
+ * behind it once it closes (dl_screen.c, dl_test) */
+void downloads_test(app *a);
 /* --downloads STATE: the page drawn on stand-in counts (downloads_shot) */
 extern int shot_downloads;
 void downloads_shot(app *a);

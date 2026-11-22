@@ -42,6 +42,7 @@ static size_t      g_frame_cap;
 static int         g_frame_w, g_frame_h;
 static size_t      g_frame_pitch;
 static bool        g_frame_fresh;
+static bool        g_frame_gpu;     /* the last frame handed over was the GPU's (hw.c) */
 
 /* The state plane, defined below but reachable from the menu loop that comes
  * first. */
@@ -369,9 +370,11 @@ static bool write_preview(const char *path)
  * frame Diatom already keeps (a GPU core's read back once, gpu_snapshot),
  * copied here between frames and written as a PNG on a thread of its own,
  * so the frame loop never waits on the card or on the encoding. Where it
- * goes is the launcher's (RUN shots=): the time and ".png" are added. SHOT
- * path= once the file is there, said by the loop, which looks once a turn;
- * one at a time, a press while one is being written is said and dropped. */
+ * goes is the launcher's (RUN shots=): the time and ".png" are added. As
+ * it is taken, a short buzz and HOTKEY key=shot, the launcher's shutter
+ * (DESIGN.md 9); SHOT path= once the file is there, said by the loop, which
+ * looks once a turn; one at a time, a press while one is being written is
+ * said and dropped, unfelt and unheard. */
 static char g_shots[1024];
 
 typedef struct {
@@ -535,6 +538,12 @@ static void shot_take(void)
 	strftime(when, sizeof when, "%Y-%m-%d %H.%M.%S", &tm);
 	snprintf(j->path, sizeof j->path, "%s %s.png", g_shots, when);
 	g_shot_state = 1;
+	/* Felt and heard as it is taken, never after the file (DESIGN.md
+	 * 11.61): the buzz here, at the game's rumble level, and the shutter
+	 * the launcher's, told now and played on the mix beside the game's
+	 * sound. Neither touches the frame copied above, nor the game's sound. */
+	diatom_levels_buzz();
+	if (diatom_proto_connected()) diatom_proto_send("HOTKEY\tkey=shot");
 	if (pthread_create(&th, NULL, shot_write, j) != 0) {
 		shot_write(j);
 		return;
@@ -1029,8 +1038,10 @@ void diatom_on_video(const void *data, unsigned w, unsigned h, size_t pitch)
 		g_frame_w = (int)w;
 		g_frame_h = (int)h;
 		g_frame_fresh = true;
+		g_frame_gpu = true;
 		return;
 	}
+	g_frame_gpu = false;
 	/* A turned frame is stored packed, which is never more than pitch * h,
 	 * so one size covers both and the buffer still only grows - the frame
 	 * loop allocates nothing once it has seen its largest frame. */
@@ -1650,19 +1661,26 @@ static const char *const level_kind_name[DIATOM_LEVEL_COUNT] = {
 };
 static int g_last_index[DIATOM_LEVEL_COUNT];
 static int g_last_count[DIATOM_LEVEL_COUNT];
+static int g_last_boost[DIATOM_LEVEL_COUNT];
 
 static void levels_forget(void)
 {
 	int k;
-	for (k = 0; k < DIATOM_LEVEL_COUNT; k++) g_last_index[k] = g_last_count[k] = -1;
+	for (k = 0; k < DIATOM_LEVEL_COUNT; k++)
+		g_last_index[k] = g_last_count[k] = g_last_boost[k] = -1;
 }
 
+/* With the boost's cells past the top (levels.h), boost=0 when it is closed:
+ * a field more on the line, which a launcher from before it skips */
 static void level_emit(int k, int idx, int cnt)
 {
+	const int boost = diatom_levels_boost((diatom_level_kind)k);
+
 	g_last_index[k] = idx;
 	g_last_count[k] = cnt;
-	diatom_proto_send("LEVEL\tkind=%s\tindex=%d\tcount=%d",
-	                  level_kind_name[k], idx, cnt);
+	g_last_boost[k] = boost;
+	diatom_proto_send("LEVEL\tkind=%s\tindex=%d\tcount=%d\tboost=%d",
+	                  level_kind_name[k], idx, cnt, boost);
 }
 
 /* Polled with the input bitfield and emitted on change. The port cannot send
@@ -1676,20 +1694,25 @@ static void levels_tick(void)
 	if (!diatom_proto_connected()) return;
 	for (k = 0; k < DIATOM_LEVEL_COUNT; k++) {
 		if (!diatom_levels_get((diatom_level_kind)k, &idx, &cnt)) continue;
-		if (idx == g_last_index[k] && cnt == g_last_count[k]) continue;
+		if (idx == g_last_index[k] && cnt == g_last_count[k] &&
+		    diatom_levels_boost((diatom_level_kind)k) == g_last_boost[k]) continue;
 		level_emit(k, idx, cnt);
 	}
 }
 
 /* Did any level change since the last call? Separate from levels_tick, which
  * runs only with a launcher connected: the MENU chord it serves matters
- * standalone too, where MENU's release ends the session. */
+ * standalone too, where MENU's release ends the session. A level key acted on
+ * at all counts: with the boost past the top a press there moves no level -
+ * it charges the boost, or fills a cell - and was the chord all the same. */
 static bool levels_moved(void)
 {
 	static int seen[DIATOM_LEVEL_COUNT] = { -1, -1 };
-	bool moved = false;
+	static unsigned presses;
+	bool moved = diatom_levels_presses() != presses;
 	int k, idx, cnt;
 
+	presses = diatom_levels_presses();
 	for (k = 0; k < DIATOM_LEVEL_COUNT; k++) {
 		if (!diatom_levels_get((diatom_level_kind)k, &idx, &cnt)) continue;
 		if (seen[k] >= 0 && idx != seen[k]) moved = true;
@@ -1941,7 +1964,7 @@ static void level_set(const diatom_msg *m)
 		if (!strcmp(level_kind_name[k], m->lkind)) break;
 
 	if (k == DIATOM_LEVEL_COUNT || m->count <= 0 ||
-	    !diatom_levels_set((diatom_level_kind)k, m->index, m->count)) {
+	    !diatom_levels_set((diatom_level_kind)k, m->index, m->count, m->boost)) {
 		diatom_proto_send("ERROR\tcode=bad_level\tmsg=%s", m->lkind);
 		return;
 	}
@@ -2496,17 +2519,21 @@ static uint64_t g_power_calm_us;
  * (diatom_env_poll_hook), so no press reaches the game before the rule has
  * seen it: what the polls of a turn asked for (acts) and the shoulders they
  * took gather here for the frame loop to act on once a turn. g_sel_live is
- * which shoulders are hotkeys in this game. */
+ * which shoulders are hotkeys in this game. The rule reads the pad as
+ * chord_view gives it, a hotkey tapped between two polls under a held SELECT
+ * in it: g_sel_was is the last view, g_sel_pad the last pad as it was. */
 static chord    g_sel;
-static uint32_t g_sel_was, g_sel_live, g_sel_took;
+static uint32_t g_sel_was, g_sel_pad, g_sel_live, g_sel_took;
 static unsigned g_sel_acts;
 
-static uint32_t sel_poll(uint32_t pad, uint32_t *give)
+static uint32_t sel_poll(uint32_t pad, uint32_t pressed, uint32_t *give)
 {
-	chord_out o = chord_turn(&g_sel, pad, g_sel_was,
+	const uint32_t view = chord_view(&g_sel, pad, g_sel_pad, pressed, g_sel_live);
+	chord_out o = chord_turn(&g_sel, view, g_sel_was,
 	                         diatom_port_now_us() / 1000, g_sel_live);
 
-	g_sel_was = pad;
+	g_sel_was = view;
+	g_sel_pad = pad;
 	g_sel_acts |= o.acts;
 	g_sel_took |= o.took;
 	*give = o.give;
@@ -2534,7 +2561,7 @@ static void sel_reset(uint32_t pad)
 	chord_reset(&g_sel);
 	if (g_hk_keyed) chord_set_keys(&g_sel, g_hk_key);
 	sel_live_update();
-	g_sel_was = pad;
+	g_sel_was = g_sel_pad = pad;
 	g_sel_acts = 0;
 	g_sel_took = 0;
 	diatom_env_poll_hook(sel_poll);
@@ -2625,6 +2652,9 @@ static int run_session_inner(const diatom_session *sn)
 	/* frameskip=late: frames run late and left undrawn, and how many in a
 	 * row the last of them was. */
 	long     late_unshown = 0;
+	/* frameskip=late for a core paced by its sound: how far its turns' work
+	 * has fallen behind the sound they brought (the frame loop, below) */
+	double   sound_debt_us = 0.0;
 	int      late_row = 0;
 	/* frameskip=steady: frames still to go at every second one drawn, from
 	 * the last that started late */
@@ -3004,6 +3034,9 @@ static int run_session_inner(const diatom_session *sn)
 	diatom_port_input_poll();
 	prev_buttons  = diatom_port_input_state();
 	held_at_entry = prev_buttons;
+	/* And a press the last game's polls gathered after its last turn is
+	 * not this one's */
+	(void)diatom_env_pressed();
 	sty_wait = 0;
 	diatom_env_suppress(held_at_entry | (g_dual ? scr_own_keys(sty_on()) : 0));
 	sel_reset(prev_buttons);
@@ -3135,6 +3168,7 @@ static int run_session_inner(const diatom_session *sn)
 		power_drops = diatom_audio_dropped();
 		const uint64_t batch_t0 = diatom_port_now_us();
 		const uint64_t held0 = diatom_audio_held_pushes();
+		const uint64_t held_us0 = diatom_audio_held_us();
 		const double budget = periods * frame_us - FAST_MARGIN_US -
 		                      (g_present_frames ? (double)g_present_us /
 		                                          (double)g_present_frames
@@ -3201,8 +3235,19 @@ static int run_session_inner(const diatom_session *sn)
 			 * frame left undrawn costs the emulation thread as much as a
 			 * drawn one; it can only fall below late's where one undrawn in
 			 * two is not enough and late would leave out two. */
+			/* A core paced by its sound (paced_by_sound: PPSSPP, a PSP game
+			 * under frameskip|PSP|late) has a schedule made of the sound its
+			 * turns brought, and a turn whose push waited for room in a full
+			 * queue starts the next one past that schedule while the game is
+			 * ahead, not behind: against the stub as PPSSPP, two periods a
+			 * call at 2 ms, 46% of the frames looked late by the schedule.
+			 * So for such a core a frame is late by its work instead: the
+			 * time its turns took, less what their sound waited for room,
+			 * against the time their sound lasts (sound_debt_us, kept below
+			 * with the schedule), the game slower than its own sound. */
 			else if (!fast && sn->late_skip && diatom_env_frame_skippable()) {
-				const bool behind = (double)s0 > next_us + frame_us * 0.5;
+				const bool behind = sound_paced ? sound_debt_us > frame_us * 0.5
+				                                : (double)s0 > next_us + frame_us * 0.5;
 
 				if (sn->late_steady) {
 					if (behind) steady_left = STEADY_HOLD;
@@ -3359,8 +3404,11 @@ static int run_session_inner(const diatom_session *sn)
 			uint64_t p0 = diatom_port_now_us();
 			/* A frame run undrawn is not presented: its pixels are the last
 			 * drawn frame's, already on the panel, and presenting them again
-			 * would spend on the upload what skipping saved. */
-			present_frame(g_frame_fresh && last_shown);
+			 * would spend on the upload what skipping saved. Unless it is a
+			 * GPU frame at 1x under frameskip=late, drawn ahead by a core on
+			 * a thread of its own (pace.h, pace_present_undrawn). */
+			present_frame(g_frame_fresh &&
+			              (last_shown || pace_present_undrawn(g_frame_gpu, fast, sn->late_skip)));
 			t_shown = diatom_port_now_us();
 			g_present_us += t_shown - p0;
 			g_present_frames++;
@@ -3397,7 +3445,23 @@ static int run_session_inner(const diatom_session *sn)
 		levels_tick();
 		audio_tick();
 
+		/* The pad, and Diatom's own keys pressed at any poll since the last
+		 * turn: MENU, the stick's turn and the DS's screens act on a press
+		 * edge read here once a turn, and a slow game's turn is long - a
+		 * Saturn game at 10 fps lost an 80 ms MENU (2026-11-20), down and
+		 * up again between two polls. Such a key is held for this turn and
+		 * let go at the next, a press and a release a turn apart, as a short
+		 * real one is; a key held is as it was. The core never sees these
+		 * (MENU is never its button; the others are suppressed below), so
+		 * the game's buttons are still as libretro polls them. Not Stick
+		 * While Held's: a hold over in a moment holds nothing. */
 		buttons = diatom_port_input_state();
+		{
+			uint32_t own = DIATOM_BIT(DIATOM_BTN_MENU) | diatom_input_stick_keys(NULL);
+
+			if (g_dual) own |= scr_own_keys(false);
+			buttons |= diatom_env_pressed() & own;
+		}
 		/* Player 2's presses keep the game awake too: in a game played in
 		 * turns, player 1 touches nothing for all of player 2's */
 		idle_note_input(buttons != 0 || diatom_env_p2_pad() != 0);
@@ -3611,6 +3675,7 @@ static int run_session_inner(const diatom_session *sn)
 					 * next second catching up. */
 					next_us = (double)diatom_port_now_us();
 					g_turn_sound = 0;
+					sound_debt_us = 0.0;
 					{
 						/* The window's clock restarts where the game's now is
 						 * (the menu's time is in paused_us), and the sound a
@@ -3639,6 +3704,7 @@ static int run_session_inner(const diatom_session *sn)
 					 * the menu again when let go. */
 					diatom_port_input_poll();
 					prev_buttons = diatom_port_input_state();
+					(void)diatom_env_pressed();
 					menu_armed = false;
 
 					/* Resuming fast is the one moment the speed could surprise,
@@ -3689,6 +3755,18 @@ static int run_session_inner(const diatom_session *sn)
 		if (sound_paced && !fast && g_turn_sound) {
 			double us = (double)g_turn_sound * 1000000.0 / audio_rate;
 
+			/* The work's lateness, for frameskip=late (above): what this turn
+			 * took, less its sound's wait for room, past what its sound
+			 * lasts, carried; never below nothing (time spare is not banked)
+			 * and never more than four frames, the schedule's own stall rule */
+			{
+				const double busy = (double)(diatom_port_now_us() - batch_t0) -
+				                    (double)(diatom_audio_held_us() - held_us0);
+
+				sound_debt_us += busy - us;
+				if (sound_debt_us < 0.0) sound_debt_us = 0.0;
+				if (sound_debt_us > frame_us * 4.0) sound_debt_us = frame_us * 4.0;
+			}
 			next_us += us < frame_us * 4.0 ? us : frame_us * 4.0;
 			/* A turn whose sound waited for room (audio.c, HOLD) left the
 			 * queue full: the next one waits until it is back at its

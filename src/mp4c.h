@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "mp4hand.h"
 #include "mp4queue.h"
 
 /* The launcher's side of MP4: the connection to its daemon, mp4d, and the
@@ -53,12 +54,29 @@ void mp4c_poll(void);
 void mp4c_play(const char *const *paths, int n, int start, double at, bool book,
                 double speed, const char *artist, const char *album);
 
+/* The next queue (mp4c_play, mp4c_play_videos) opens held: its file at its
+ * place, paused, with no sound at all - PLAY's paused=1 - and Now Playing
+ * shows it paused at once. MP4 back after a power-off (src/mp4resume.h). */
+void mp4c_hold_next(void);
+
 /* Where a queue whose tracks are from many albums - Shuffle All - finds each
  * track's artist and album: mp4c_play with NULL for both asks this for every
  * track, where one album's queue names its own once. The tags still win where
  * a file has them. */
 void mp4c_names_by(void (*fn)(const char *track, char *artist, size_t an,
                                char *album, size_t aln));
+
+/* The queue handed to the next process while a program of its own plays
+ * over MP4 (src/mp4hand.h). mp4c_hand_out copies the queue, where it is and
+ * what this process last heard of it into `h` (mp4hand_free it after); false
+ * when there is no queue. mp4c_hand_in makes `h` this process's queue with
+ * no PLAY - the daemon plays it already - and drops any connection, so the
+ * daemon's next word is a whole announcement: the queue is put on the
+ * track the daemon says it plays, and moved on to the next if the one `h`
+ * said was playing has run out with nobody listening. An `h` with no tracks
+ * leaves no queue. */
+bool mp4c_hand_out(mp4hand *h);
+void mp4c_hand_in(const mp4hand *h);
 
 /* Whether the file playing has a picture: MP4's video. */
 bool mp4c_video(void);
@@ -168,6 +186,11 @@ void mp4c_channels(const char *mode);
  * whether its page is open (`live`: MP4 keeps only about 60 ms queued, so a
  * step is heard in under a tenth of a second). Sent on a change only. */
 void mp4c_eq(const int8_t db[5], bool live);
+
+/* The volume boost's gain for MP4's sound, dB (src/levels.c): MP4 applies
+ * it after the equalizer, with its limiter (src/eqdsp.h). Sent on a change,
+ * and again to an MP4 started anew. */
+void mp4c_gain(int db);
 /* Make the next mp4c_sink send even if the device has not changed: for a
  * headset that dropped and came back under the same name, which MP4 may
  * have fallen back from while it was gone. The daemon ignores a SINK for the

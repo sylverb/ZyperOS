@@ -36,6 +36,7 @@
 #include "usblink.h"
 #include "xfer.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -2154,10 +2155,7 @@ void xfer_screen_way(app *a, int way)
 			}
 		}
 
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		if (!panel_frame(a, lv, &k)) continue;
 		tick_tint(a);

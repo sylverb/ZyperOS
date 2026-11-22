@@ -19,6 +19,10 @@
 #include "wifi_menu.h"
 #include "zyperdraw.h"
 #include "zyperrig.h"
+#include "levels.h"
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -311,7 +315,7 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		mp4_poll();
 		aout_apply(false);
 		/* Auto's clock, in every screen this runs - the menus, and the
-		 * in-game menu over a paused game too. 7:00 or 19:00 arriving while
+		 * in-game menu over a paused game too. A Night Hours edge arriving while
 		 * one is open is drawn from the next frame, which this loop draws
 		 * every pass, and the file Diatom and portkeys read follows. */
 		tick_theme(a);
@@ -338,9 +342,9 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		 * borrows its backdrop and its power rule for as long as it is up.
 		 * Rebuilt on the way back, because anything may have changed while
 		 * MP4 covered it - a Bluetooth headset connecting, for one. */
-		/* Not over a port's: MP4 is stopped for a port (launch.sh), and
-		 * this process starts none for its menu */
-		if (a->in.pressed[IN_SELECT] && !g_port_menu) {
+		/* Over a port's only when MP4 is kept playing over it (your
+		 * PICO-8, port_mp4_ready): launch.sh stops MP4 for every other */
+		if (a->in.pressed[IN_SELECT] && (!g_port_menu || port_mp4_ready(a))) {
 			if (mp4_open(a, st, ctx)) return MENU_LEFT_GONE;
 			continue;
 		}
@@ -367,10 +371,7 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		 * impossible, arriving by the one route it could still come from: the
 		 * runner forgetting, rather than a screen forgetting. Every other loop
 		 * in this file carries these four lines by hand. */
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		/* Left and right reach the screen on REPEAT, not just on press, so a
 		 * row whose value cycles can be held down. Everything else is edge
@@ -484,6 +485,12 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		g_menu_zyper_at = plat_now_ms();
 		menu_draw_styled(a, st, heading, rows, n, sel);
 		g_menu_zyper = NULL;
+#ifdef ZYPEROS_DESK
+		/* tools/desk's `state`: the panel as drawn, its heading ("" for none)
+		 * and the row under the cursor, for a check that waits for a key's
+		 * screen rather than for a time */
+		desk_note_focus(heading ? heading : "", sel, sel >= 0 && sel < n && rows[sel].label ? rows[sel].label : "");
+#endif
 		plat_draw_osd(a->r);
 		plat_present();
 		ui_frame_rest(8);
@@ -585,10 +592,7 @@ bool timed_message(app *a, const char *heading, const menu_row *rows,
 			mm_leaving_cut();
 			break;
 		}
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		if (phase != MESSAGE_SHOW && !closed) {
 			if (back) panel_settle(lv);
 			panel_close_at(a, lv, false, clock.close_at);

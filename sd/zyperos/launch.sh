@@ -35,7 +35,9 @@ SDCARD=/mnt/SDCARD
 #                    started for (plastron's lastoff, the power-off's last step)
 #
 # EQ_SLAVE, the dmix a port mixes into, for the equalizer over a port's
-# sound (eq-port.sh): unset, a port plays as it always did.
+# sound (eq-port.sh): unset, a port plays as it always did. EQ_SLAVE_USB,
+# the PCM in /etc/asound.conf your PICO-8 plays into instead while a USB-C
+# DAC is in (run_port): unset, the DAC is not followed.
 #
 # BACKLIGHT, the system's tool that lights the panel at each start of the
 # launcher, where the launcher does not light it itself; WIFI_DOWN, what the
@@ -328,10 +330,22 @@ port_procs() {
 # stuck in the kernel, a GPU hang, a read from the card), leaves the reason
 # there, in Download logs, and not only on a player's description (1.0.6,
 # ports stuck on their loading screen).
+#
+# A script that execs its program is that program: your PICO-8's PICO-8.sh
+# execs pico8_64, and OpenBOR.sh OpenBOR, so the group's leader is no shell
+# and nothing else is in the group. It is the game, and it is TERMed at once
+# with the rest. It used to be left for the group's TERM 2 s later, the cart
+# going on meanwhile, so MENU then X seemed not to take, and a second MENU in
+# those 2 s opened the menu again (1.1.0-rc.8, "menu and then X on the pico 8
+# has to be done twice"; tools/pico8-quit-check.py).
 port_end() {
-	local procs
+	local procs comm=
 	[ -n "$PORT_PID" ] || return
 	procs=$(port_procs)
+	if [ -z "$procs" ]; then
+		read -r comm < "/proc/$PORT_PID/comm" 2> /dev/null
+		case $comm in ''|bash|sh|ash|dash|busybox) ;; *) procs=$PORT_PID ;; esac
+	fi
 	[ -n "$procs" ] && kill -TERM $procs 2> /dev/null
 	kill -CONT -"$PORT_PID" 2> /dev/null
 	( sleep 2; kill -TERM -"$PORT_PID" 2> /dev/null; kill -CONT -"$PORT_PID" 2> /dev/null
@@ -403,10 +417,56 @@ port_power() {
 # Quit in the in-game menu over a port (OpenBOR's, a PortMaster port's,
 # PortMaster's own; tools/portkeys.c --menu): USR2 from portkeys. The port
 # ends as for POWER, and the launcher comes back on its shelf, as after a
-# port that ended by itself
+# port that ended by itself.
+#
+# Or, with the in-game menu's restart file there, a start again: a Display
+# mode picked over your PICO-8, which draws its picture where it was told as
+# it started (src/portmenu.h, PORT_RESTART_FILE; the file says the mode). The
+# program ends at once, TERM to its whole group (SDL turns it into a quit, so
+# PICO-8 saves its settings on its way out), whatever is left of it 4 s later
+# is killed, and run_port starts the script again with that Display. A word
+# that is no mode's is no start again.
+PORT_RESTART_FILE=/tmp/zyperos_port_restart
+PORT_AGAIN=
 port_quit() {
+	local w=
+	[ -f "$PORT_RESTART_FILE" ] && read -r w < "$PORT_RESTART_FILE"
+	rm -f "$PORT_RESTART_FILE"
+	case $w in *[!a-z-]*) w= ;; esac
+	if [ -n "$w" ] && [ -n "$PORT_PID" ]; then
+		echo "port: Display $w in the in-game menu, starting it again" >> "$LOG"
+		PORT_AGAIN=$w
+		kill -TERM -"$PORT_PID" 2> /dev/null
+		kill -CONT -"$PORT_PID" 2> /dev/null
+		( p=$PORT_PID; sleep 4; kill -KILL -"$p" 2> /dev/null ) &
+		return
+	fi
 	echo "port: Quit in the in-game menu, ending it" >> "$LOG"
 	port_end
+}
+# The loading screen the launcher left, held on the panel by splash until
+# the port draws (run_port says why); again for a start again, with the one
+# before ended first
+port_still() {
+	[ -n "$still" ] && kill "$still" 2> /dev/null
+	still=
+	if [ "$HAS_PORT_STILL" = 1 ] && [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] &&
+	   [ -x /usr/bin/splash ]; then
+		rm -f /tmp/zyperos_menu_up
+		slater= sout=
+		[ -f /tmp/zyperos_loading_later.raw ] && slater=/tmp/zyperos_loading_later.raw
+		[ -f /tmp/zyperos_loading_out ] && sout=/tmp/zyperos_loading_out
+		SPLASH_LATER=$slater SPLASH_OUT=$sout SPLASH_OUT_LOG=${sout:+$LOG} \
+		SPLASH_OUT_PAUSE=${sout:+/tmp/zyperos_menu_up} \
+			/usr/bin/splash --still /tmp/zyperos_loading.raw &
+		still=$!
+	fi
+}
+# The port's ALSA config (eq-port.sh): its PCMs into $1, and the hook file
+# $2 for its ALSA_CONFIG_PATH that loads them
+port_chain() {
+	sh "$ZYPEROS_DIR/eq-port.sh" "$1" > /tmp/zyperos_port_eq.conf &&
+		sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$2"
 }
 run_port() {
 	local pid i rc
@@ -422,7 +482,13 @@ run_port() {
 		done
 		diatom_running && kill -9 "$pid"
 	fi
-	killall -TERM mp4d 2> /dev/null
+	# MP4 too, for every program but one that keeps it playing (the
+	# request's fifth field, "mp4": your PICO-8, src/portmenu.h's
+	# port_keeps_mp4), as a Diatom game keeps it: it plays on, its sound in
+	# the same mix as the program's (the default is dmix), and the follower
+	# below sends the next track as each one ends
+	local follow=
+	[ "$5" = mp4 ] || killall -TERM mp4d 2> /dev/null
 	# PortMaster's install and its updates write a control.txt for whichever
 	# system they take this for; ours goes back before every port, with the
 	# gl4es settings PortMaster reads for CFW_NAME=ZyperOS (libgl_ZyperOS.txt)
@@ -460,7 +526,11 @@ run_port() {
 	# It steps ZyperOS's own levels, saved in its database, and shows the bar
 	# over the port, in the theme the Appearance setting there makes; the
 	# library database holds the time zone Auto's hour is read in
-	local keys= still= turn= m sout= slater=
+	local keys= still= turn= m sout= slater= disp=$4
+	# No start again asked for yet (port_quit): a file left from before is
+	# none
+	rm -f "$PORT_RESTART_FILE"
+	PORT_AGAIN=
 	trap port_power USR1
 	trap port_quit USR2
 	# The Pixel 2's panel is a 480x640 portrait one mounted turned (below). A
@@ -483,15 +553,14 @@ run_port() {
 	# is up over the screen (SPLASH_OUT_PAUSE, there while it is: portkeys's).
 	# One left by a portkeys that ended with its menu up would hold the line
 	# back for the whole start, so none is kept from before.
-	if [ "$HAS_PORT_STILL" = 1 ] && [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] &&
-	   [ -x /usr/bin/splash ]; then
-		rm -f /tmp/zyperos_menu_up
-		[ -f /tmp/zyperos_loading_later.raw ] && slater=/tmp/zyperos_loading_later.raw
-		[ -f /tmp/zyperos_loading_out ] && sout=/tmp/zyperos_loading_out
-		SPLASH_LATER=$slater SPLASH_OUT=$sout SPLASH_OUT_LOG=${sout:+$LOG} \
-		SPLASH_OUT_PAUSE=${sout:+/tmp/zyperos_menu_up} \
-			/usr/bin/splash --still /tmp/zyperos_loading.raw &
-		still=$!
+	port_still
+	# MP4 kept playing over it: the launcher's queue handed to a follower
+	# (zyperos.elf --mp4-follow, src/mp4hand.h), which does what the
+	# launcher does beside a Diatom game, and which portkeys stops while the
+	# in-game menu is up (--follow), the menu's MP4 being the one then
+	if [ "$5" = mp4 ]; then
+		"$ZYPEROS_DIR/zyperos.elf" --mp4-follow >> "$LOG" 2>&1 &
+		follow=$!
 	fi
 	# A program of its own (OpenBOR, the standalone Flycast, a port,
 	# PortMaster) has the in-game menu on MENU too: the launcher names the
@@ -501,7 +570,8 @@ run_port() {
 	# game is its script, which its Controls pages are read beside
 	if [ "$HAS_PORTKEYS" = 1 ] && [ -x "$ZYPEROS_DIR/portkeys" ]; then
 		if [ -n "$3" ]; then
-			"$ZYPEROS_DIR/portkeys" --menu "$ZYPEROS_DIR/zyperos.elf" "$3" "${2:-$1}" \
+			"$ZYPEROS_DIR/portkeys" ${follow:+--follow "$follow"} \
+				--menu "$ZYPEROS_DIR/zyperos.elf" "$3" "${2:-$1}" \
 				"$USERDATA_PATH/zyperos.db" \
 				"$SHARED_USERDATA_PATH/.zyperos/library.db" 2>> "$LOG" &
 		else
@@ -520,66 +590,116 @@ run_port() {
 	# The equalizer over the port's sound (DESIGN.md 11.60): while the
 	# launcher's bands are not flat and the system has ZyperOS's plugin
 	# (plastron's zyperos-eq), the port gets an ALSA config of its own whose
-	# default runs through it into the same mix (eq-port.sh); flat, no
-	# bands file, no plugin (or an empty one), or no EQ_SLAVE, and the port
-	# starts as it always did, the plugin nowhere in its chain. Two files:
+	# default runs through it into the same mix (eq-port.sh), for the
+	# equalizer and the volume boost alike, the boost's gain coming from
+	# portkeys during the port; no bands file, no plugin (or an empty one),
+	# or no EQ_SLAVE, and the port starts as it always did, the plugin
+	# nowhere in its chain. Two files:
 	# its PCMs, and the one in its ALSA_CONFIG_PATH that loads them after
 	# /etc/asound.conf, whose default would replace them (eq-port.sh)
-	local eqcfg=
+	# A USB-C DAC in (card 1 with a USB id, as the launcher tells one,
+	# plat_usb_audio_present): your PICO-8's sound into it, as Diatom's and
+	# MP4's go, a cable winning in every Audio Output policy (src/audioout.c);
+	# through the system's own chain for it (EQ_SLAVE_USB, device.sh's), so
+	# its volume is "USB Playback Volume", which portkeys writes with every
+	# step. That chain has a softvol stage, and rc.4 showed PICO-8 failing to
+	# open one where 44100 Hz stereo opened it: so it is opened first as
+	# PICO-8 opens it (zyperos.elf --alsa-try, src/alsatry.h), and PICO-8
+	# stays in the mix, as before, when it does not open, or when
+	# /etc/asound.conf has no such PCM. Your PICO-8 alone: what other ports
+	# ask of ALSA is not known, so they stay in the mix. Chosen as it
+	# starts: a DAC plugged in or out while it plays is heard at the next
+	# start. A Bluetooth headset stays MP4's, as bluealsa gives a headset to
+	# one program at a time
+	local eqcfg= into=${EQ_SLAVE:-}
+	if [ "$5" = mp4 ] && [ -n "${EQ_SLAVE_USB:-}" ] && [ -e /proc/asound/card1/usbid ] &&
+	   grep -q "^pcm\.$EQ_SLAVE_USB[ {]" /etc/asound.conf 2> /dev/null; then
+		into=$EQ_SLAVE_USB
+	fi
 	if [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
 	   sh "$ZYPEROS_DIR/eq-port.sh" --on; then
 		eqcfg=/tmp/zyperos_port_eq.hook
-		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > /tmp/zyperos_port_eq.conf &&
-		   sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$eqcfg"; then
-			echo "port: the equalizer over its sound (into $EQ_SLAVE)" >> "$LOG"
+		if [ "$into" != "$EQ_SLAVE" ] && ! { port_chain "$into" "$eqcfg" &&
+		     ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg \
+		       "$ZYPEROS_DIR/zyperos.elf" --alsa-try >> "$LOG" 2>&1; }; then
+			echo "port: its sound would not open into $into as PICO-8 opens it; into $EQ_SLAVE, as before" >> "$LOG"
+			into=$EQ_SLAVE
+		fi
+		if port_chain "$into" "$eqcfg"; then
+			echo "port: the equalizer over its sound (into $into)" >> "$LOG"
 		else
 			eqcfg=
 		fi
 	fi
 	# And the system's Display row ("integer" for Sharp Pixels, its
 	# display.<TAG> name), fourth: a "run:" script that draws to it reads
-	# ZYPEROS_DISPLAY (your PICO-8's, sd/pixel2/PICO-8.sh)
-	( cd "${1%/*}" &&
-	  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
-	  if [ -n "$eqcfg" ]; then
-		export ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg
-	  fi &&
-	  ZYPEROS_DISPLAY=$4 SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
-	PORT_PID=$!
-	# A USR1 (POWER) ends the wait early; the port has ended once its
-	# process is gone
+	# ZYPEROS_DISPLAY (your PICO-8's, sd/pixel2/PICO-8.sh). Started again
+	# with the one the in-game menu picked, for as long as it asks
+	# (port_quit), unless POWER came meanwhile; portkeys, the follower and
+	# MP4 go on through it
 	while :; do
-		wait "$PORT_PID"
-		rc=$?
-		[ -d "/proc/$PORT_PID" ] || break
+		( cd "${1%/*}" &&
+		  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
+		  if [ -n "$eqcfg" ]; then
+			export ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg
+		  fi &&
+		  ZYPEROS_DISPLAY=$disp SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
+		PORT_PID=$!
+		# A USR1 (POWER) ends the wait early; the port has ended once its
+		# process is gone
+		while :; do
+			wait "$PORT_PID"
+			rc=$?
+			[ -d "/proc/$PORT_PID" ] || break
+		done
+		echo "port: ended, $rc" >> "$LOG"
+		# What the script left running in its group when it ended, a helper
+		# started in the background and never stopped, goes with it
+		if kill -0 -"$PORT_PID" 2> /dev/null; then
+			echo "port: ending what it left running" >> "$LOG"
+			kill -TERM -"$PORT_PID" 2> /dev/null
+			kill -CONT -"$PORT_PID" 2> /dev/null
+			i=0
+			while [ $i -lt 10 ] && kill -0 -"$PORT_PID" 2> /dev/null; do
+				sleep 0.1
+				i=$((i + 1))
+			done
+			kill -KILL -"$PORT_PID" 2> /dev/null
+		fi
+		[ -n "$PORT_AGAIN" ] && [ ! -e /tmp/zyperos_poweroff ] || break
+		disp=$PORT_AGAIN
+		PORT_AGAIN=
+		echo "port: $1${2:+ $2} again, Display $disp" >> "$LOG"
+		port_still
 	done
-	echo "port: ended, $rc" >> "$LOG"
+	PORT_AGAIN=
 	# PortMaster's run, for the launcher that starts next: when it began and
 	# ended, and how it ended
 	[ -n "$pm_start" ] && echo "$pm_start $(date +%s) $rc" > /tmp/zyperos_pm_ran
-	# What the script left running in its group when it ended, a helper
-	# started in the background and never stopped, goes with it
-	if kill -0 -"$PORT_PID" 2> /dev/null; then
-		echo "port: ending what it left running" >> "$LOG"
-		kill -TERM -"$PORT_PID" 2> /dev/null
-		kill -CONT -"$PORT_PID" 2> /dev/null
-		i=0
-		while [ $i -lt 10 ] && kill -0 -"$PORT_PID" 2> /dev/null; do
-			sleep 0.1
-			i=$((i + 1))
-		done
-		kill -KILL -"$PORT_PID" 2> /dev/null
-	fi
 	PORT_PID=
 	# Waited for: while the bar is up it holds a copy of the port's display,
 	# and the launcher cannot take the display until that copy is gone
 	[ -n "$keys" ] && kill "$keys" 2> /dev/null && wait "$keys" 2> /dev/null
+	# The follower ends, its queue written for the launcher that comes next
+	# (a stopped one goes on to take the TERM), and is waited for, 2 s at
+	# most: before the menu's killall below, which would end it too
+	if [ -n "$follow" ]; then
+		kill -TERM "$follow" 2> /dev/null
+		kill -CONT "$follow" 2> /dev/null
+		i=0
+		while [ $i -lt 20 ] && kill -0 "$follow" 2> /dev/null; do
+			sleep 0.1
+			i=$((i + 1))
+		done
+		kill -KILL "$follow" 2> /dev/null
+		wait "$follow" 2> /dev/null
+	fi
 	# An in-game menu still up (a port that ended under it, the kernel's
 	# doing) would hold the display the launcher is about to take
 	[ -n "$3" ] && killall -TERM zyperos.elf 2> /dev/null
 	trap - USR1 USR2
 	[ -n "$still" ] && kill "$still" 2> /dev/null
-	rm -f /tmp/zyperos_loading.raw /tmp/zyperos_loading_out /tmp/zyperos_menu_up
+	rm -f /tmp/zyperos_loading.raw /tmp/zyperos_loading_out /tmp/zyperos_menu_up "$PORT_RESTART_FILE"
 	# A helper left behind would keep the buttons typing keys under the
 	# shelf: gptokeyb
 	killall -9 gptokeyb gptokeyb2 2> /dev/null
@@ -680,26 +800,37 @@ while : ; do
 		continue
 	fi
 	if [ "$HAS_PORTS" = 1 ] && [ -f "$PORT_REQUEST" ]; then
-		# The script, the game, the menu's tag and the system's Display row,
-		# a tab between each (launch_port). Split by hand: read would run the
-		# two tabs around a port's empty game together, as it does any
-		# whitespace in IFS
+		# The script, the game, the menu's tag, the system's Display row and
+		# whether MP4 plays on ("mp4", your PICO-8's), a tab between each
+		# (launch_port). Split by hand: read would run the two tabs around a
+		# port's empty game together, as it does any whitespace in IFS
 		TAB=$(printf '\t')
 		IFS= read -r REQ < "$PORT_REQUEST"
 		rm -f "$PORT_REQUEST"
-		PORT=${REQ%%"$TAB"*}; GAME=; TAG=; DISP=
+		PORT=${REQ%%"$TAB"*}; GAME=; TAG=; DISP=; KEEP=
 		case $REQ in *"$TAB"*)
 			REQ=${REQ#*"$TAB"}
 			GAME=${REQ%%"$TAB"*}
 			case $REQ in *"$TAB"*)
 				REQ=${REQ#*"$TAB"}
 				TAG=${REQ%%"$TAB"*}
-				case $REQ in *"$TAB"*) DISP=${REQ#*"$TAB"} ;; esac
+				case $REQ in *"$TAB"*)
+					REQ=${REQ#*"$TAB"}
+					DISP=${REQ%%"$TAB"*}
+					case $REQ in *"$TAB"*) KEEP=${REQ#*"$TAB"} ;; esac
+					;;
+				esac
 				;;
 			esac
 			;;
 		esac
-		run_port "$PORT" "$GAME" "$TAG" "$DISP"
+		run_port "$PORT" "$GAME" "$TAG" "$DISP" "$KEEP"
+		# Its play time, closed now that it has ended (src/stats.h, "a
+		# program of its own"): the launcher handed the session over as it
+		# handed the program over, and this ends it, before a power-off
+		# below too, so the game is on Recents with its time however it
+		# ended. A start of the launcher with nothing on the screen.
+		"$ZYPEROS_DIR/zyperos.elf" --port-played >> "$LOG" 2>&1
 		# POWER, or the battery run flat, over the port (port_power)
 		[ -f /tmp/zyperos_poweroff ] && break
 		cd "$ZYPEROS_DIR"

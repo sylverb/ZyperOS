@@ -76,6 +76,12 @@ static const dev_default SHARED[] = {
 	 * value is the core's own label for the file, which is why the Neo Geo
 	 * CD shelf's disc bios is neocd/neocd.bin (config/systems.cfg). */
 	{ "coreopt..neocd_bios",        "neocd.bin (CDZ)" },
+	/* YabaSanshiro's rotating backgrounds stay on the CPU, the core's own
+	 * default: with the compute shader on, this build crashes as the game
+	 * loads (a GLES 3.1 call it never looks up: SIGSEGV at pc 0, Virtua
+	 * Fighter 2 on the GKD Pixel 2, 2026-11-20). Said here so no later
+	 * default turns it on; ZyperOS offers no row for it. */
+	{ "coreopt.SATURN.yabasanshiro_rbg_use_compute_shader", "disabled" },
 	{ NULL, NULL },
 };
 

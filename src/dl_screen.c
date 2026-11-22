@@ -16,6 +16,7 @@
 #include "mediatex.h"
 #include "menu_pick.h"
 #include "net.h"
+#include "cardgen.h"
 #include "cheatsdl.h"
 #include "cheevos.h"
 #include "ssrun.h"
@@ -40,6 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -130,6 +132,9 @@ typedef struct {
 	int count;               /* a set's achievements */
 	char game[128];
 	char folder[CFG_STR];    /* its system, for its name card */
+	char path[LIB_PATH * 3]; /* its picture's file, "" for its card */
+	bool card;               /* its picture is its name card */
+	bool asked;              /* its picture asked of this opening's threads */
 } dl_arrival;
 
 /* A game of a system's games list, as the card has it */
@@ -152,17 +157,17 @@ typedef struct {
 	unsigned gen;
 	struct { char key[CFG_STR]; SDL_Texture *t; } icon[CFG_MAX_SYSTEMS + 4];
 	int nicon;
-	/* the run this page shows */
+	/* the run this page shows; what came is g_rec's */
 	int run_kind;            /* -1 every kind that is in, else the one */
 	bool art, ra, cht;       /* its lanes */
-	unsigned art_seen, ra_seen, cht_seen;
 	art_progress ap;
 	radl_progress rp;
 	cheats_progress cp;
 	int art_total, art_looks;
-	dl_arrival ring[DL_RING];
-	int nring;
-	unsigned land_at, next_key;
+	unsigned rec_key;        /* the newest arrival it has taken */
+	unsigned open_key;       /* the newest when it opened: older ones do not land again */
+	unsigned land_at;
+	unsigned test_pass;      /* its loop's passes since it opened (dl_test) */
 	unsigned t0;
 	int done0;
 	int end;
@@ -216,6 +221,100 @@ static dlq_lane_def CHT_LANE = {
 	.step = cht_lane_step, .done = cht_lane_done, .pct = cht_lane_pct,
 	.every_ms = 8,
 };
+
+/* ---- a stand-in run, for a test of the page (dl_test's fake=N) ----
+ * N arrivals on the art lane, one every DL_FAKE_MS, of the card's own games
+ * in shelf order: a cover where the game has one, else its names (a card).
+ * The page, the queue and what the page keeps run as they do, with no
+ * network; only what the art run would have said comes from here. It can
+ * hold after its Kth (hold=K) and go on (away=), so a test knows what the
+ * page had when it was left by what it did, not by a clock. */
+#define DL_FAKE_MS   150
+#define DL_FAKE_MAX  40
+static struct {
+	bool on, was;            /* running; ran since the launcher started */
+	bool held;               /* holding after its hold_at'th arrival */
+	int n, i, ngames, hold_at;
+	unsigned at;
+	art_progress ap, last;
+	struct { char folder[CFG_STR], name[LIB_NAME]; } g[DL_FAKE_MAX];
+} g_fake;
+
+static void fake_next(void)
+{
+	snprintf(g_fake.ap.now, sizeof g_fake.ap.now, "%s", g_fake.g[g_fake.i % g_fake.ngames].name);
+	snprintf(g_fake.ap.folder_now, sizeof g_fake.ap.folder_now, "%s", g_fake.g[g_fake.i % g_fake.ngames].folder);
+}
+
+static bool fake_begin(void)
+{
+	memset(&g_fake.ap, 0, sizeof g_fake.ap);
+	g_fake.i = 0;
+	g_fake.at = plat_now_ms();
+	g_fake.on = g_fake.was = true;
+	g_fake.held = false;
+	g_fake.hold_at = 0;
+	fake_next();
+	return true;
+}
+
+static int fake_step(unsigned now_ms)
+{
+	char path[LIB_PATH * 3] = "";
+	const char *folder, *name;
+
+	(void)now_ms;
+	if (g_fake.held) g_fake.at = plat_now_ms();
+	if (g_fake.held || plat_now_ms() - g_fake.at < DL_FAKE_MS) return 1;
+	g_fake.at = plat_now_ms();
+	folder = g_fake.g[g_fake.i % g_fake.ngames].folder;
+	name = g_fake.g[g_fake.i % g_fake.ngames].name;
+	if (has_box_art(folder, name)) box_art_path(folder, name, path, sizeof path);
+	snprintf(g_fake.ap.found_path, sizeof g_fake.ap.found_path, "%s", path);
+	snprintf(g_fake.ap.found_game, sizeof g_fake.ap.found_game, "%s", name);
+	snprintf(g_fake.ap.found_folder, sizeof g_fake.ap.found_folder, "%s", folder);
+	g_fake.ap.found_names = !path[0];
+	if (path[0]) g_fake.ap.found++; else g_fake.ap.named++;
+	g_fake.ap.found_seq++;
+	g_fake.ap.looked++;
+	g_fake.i++;
+	if (g_fake.i >= g_fake.n) return 0;
+	if (g_fake.i == g_fake.hold_at) g_fake.held = true;
+	fake_next();
+	return 1;
+}
+
+static void fake_done(dlq_end how)
+{
+	(void)how;
+	g_fake.last = g_fake.ap;
+	g_fake.on = false;
+}
+
+static int fake_pct(void)
+{
+	return g_fake.n ? g_fake.i * 100 / g_fake.n : 0;
+}
+
+static dlq_lane_def FAKE_LANE = {
+	.name = "box art (a test's stand-in)", .slot = NET_SLOT_ART,
+	.step = fake_step, .done = fake_done, .pct = fake_pct,
+	.every_ms = 8,
+};
+
+/* The art lane's progress, and its last run's: the art run's, or the
+ * stand-in's while it runs (and after, for its done) */
+static void art_lane_status(art_progress *p)
+{
+	if (g_fake.on) *p = g_fake.ap;
+	else art_status(p);
+}
+
+static void art_lane_last(art_progress *p)
+{
+	if (g_fake.was) *p = g_fake.last;
+	else scraper_last(p);
+}
 
 static dl_frame *top_of(dl_view *v) { return &v->st[v->depth - 1]; }
 
@@ -1262,17 +1361,156 @@ static void sysgames_draw(dl_view *v, dl_frame *f, unsigned now)
 
 /* ---- the run: one stream for every lane ------------------------------------------- */
 
+/* ---- what came: the run's arrivals, kept while the page is closed ----------------------
+ * The stream (the newest landing big, the six before it) and done's wall
+ * were the page's own and went with it, so a run left to go on with B came
+ * back with the pictures that had come gone and only what arrived after it
+ * opened again (Tarik on 1.1.0-rc.3). In the lab the run is the queue's, not
+ * the page's, and what landed stays with it. So they are kept here, for the
+ * session: newest first, DL_RING at most, the oldest dropped; taken after
+ * each step of a lane (dlq_on_step: downloads_stepped), the page open or
+ * not, and kept through a game; the pictures the page made stay made when it
+ * closes (the renderer is the same one until a game in the fallback takes
+ * it, downloads_video_gone). The pictures of what came while it was closed are
+ * read once it draws, by the paths kept, off the frame: nothing is looked for
+ * on the card as it opens. A new run of the queue starts the list again, as
+ * the lab's run does; once a run's end has been seen, the page closing lets
+ * it go. Not over a power-off: POWER stops the run, and the next starts from
+ * what is missing. */
+static struct {
+	dl_arrival it[DL_RING];
+	int n;
+	unsigned run;                 /* the queue's run it is of (dlq_runs) */
+	unsigned key;                 /* the newest arrival's */
+	unsigned seq[DLQ_LANES];      /* each lane's newest arrival taken */
+	unsigned lane_run[DLQ_LANES]; /* ... in which of its runs (dlq_ends) */
+	unsigned nc_out;              /* the arrival its card is being painted for, 0 none */
+} g_rec;
+
+static void rec_free(void)
+{
+	int i;
+
+	for (i = 0; i < g_rec.n; i++) if (g_rec.it[i].tex) SDL_DestroyTexture(g_rec.it[i].tex);
+	g_rec.n = 0;
+	g_rec.nc_out = 0;
+}
+
+/* A new run of the queue: the list starts again */
+static void rec_sync(void)
+{
+	if (g_rec.run == dlq_runs()) return;
+	rec_free();
+	g_rec.run = dlq_runs();
+}
+
+static void rec_add(int kind, const char *path, const char *game, const char *folder, int count)
+{
+	dl_arrival *it;
+
+	if (g_rec.n == DL_RING) {
+		if (g_rec.it[DL_RING - 1].tex) SDL_DestroyTexture(g_rec.it[DL_RING - 1].tex);
+		g_rec.n--;
+	}
+	memmove(&g_rec.it[1], &g_rec.it[0], (size_t)g_rec.n * sizeof g_rec.it[0]);
+	g_rec.n++;
+	it = &g_rec.it[0];
+	memset(it, 0, sizeof *it);
+	it->kind = kind;
+	it->count = count;
+	it->key = ++g_rec.key;
+	snprintf(it->game, sizeof it->game, "%s", game ? game : "");
+	snprintf(it->folder, sizeof it->folder, "%s", folder ? folder : "");
+	snprintf(it->path, sizeof it->path, "%s", path ? path : "");
+	it->card = !it->path[0];
+}
+
+/* The page opens again: its threads are new, nothing is asked of them yet,
+ * and a card painted in the other theme (Night Mode came on meanwhile) is
+ * painted again */
+static void rec_reopen(void)
+{
+	int i;
+
+	for (i = 0; i < g_rec.n; i++) {
+		dl_arrival *it = &g_rec.it[i];
+
+		it->asked = false;
+		if (it->tex && !cardgen_kept(ui_card_theme(it->tex), theme_index())) {
+			SDL_DestroyTexture(it->tex);
+			it->tex = NULL;
+		}
+	}
+	g_rec.nc_out = 0;
+}
+
+void downloads_stepped(dlq_lane l)
+{
+	char path[LIB_PATH * 3] = "";
+
+	if ((int)l < 0 || l >= DLQ_LANES) return;
+	rec_sync();
+	/* a lane's new run counts its arrivals from none */
+	if (g_rec.lane_run[l] != dlq_ends(l)) {
+		g_rec.lane_run[l] = dlq_ends(l);
+		g_rec.seq[l] = 0;
+	}
+	if (l == DLQ_ART) {
+		art_progress p;
+
+		art_lane_status(&p);
+		if (p.found_seq == g_rec.seq[l]) return;
+		g_rec.seq[l] = p.found_seq;
+		rec_add(p.found_video ? DLK_VIDEOS : p.found_names ? DLK_NAMES : DLK_COVERS, p.found_path, p.found_game,
+		        p.found_folder, 0);
+	} else if (l == DLQ_CHT) {
+		cheats_progress p;
+
+		cheats_status(&p);
+		if (p.seq == g_rec.seq[l]) return;
+		g_rec.seq[l] = p.seq;
+		if (has_box_art(p.got_folder, p.got_game)) box_art_path(p.got_folder, p.got_game, path, sizeof path);
+		rec_add(DLK_CHEATS, path, p.got_game, p.got_folder, p.got_count);
+	} else {
+		radl_progress p;
+		char name[LIB_NAME];
+		const char *b;
+		size_t ln;
+
+		radl_status(&p);
+		if (p.set_seq == g_rec.seq[l]) return;
+		g_rec.seq[l] = p.set_seq;
+		b = strrchr(p.set_path, '/');
+		snprintf(name, sizeof name, "%s", b ? b + 1 : p.set_path);
+		ln = strlen(name);
+		if (ln > 4 && !strcmp(name + ln - 4, ".set")) name[ln - 4] = '\0';
+		if (has_box_art(p.folder_now, name)) box_art_path(p.folder_now, name, path, sizeof path);
+		rec_add(DLK_ACH, path, p.set_title[0] ? p.set_title : name, p.folder_now, p.set_count);
+	}
+}
+
+void downloads_video_gone(void)
+{
+	int i;
+
+	for (i = 0; i < g_rec.n; i++) {
+		if (g_rec.it[i].tex) SDL_DestroyTexture(g_rec.it[i].tex);
+		g_rec.it[i].tex = NULL;
+		g_rec.it[i].asked = false;
+	}
+}
+
 /* ---- a name card for an arrival with no picture ---------------------------------------
  * ZyperOS's own card for a game with no art (src/cardart.h): its system's
  * ground and its name in the one treatment, as the shelf has it. A card is
  * tens of ms to paint on the Pixel 2, so it is painted here on a thread of
- * its own (ui_card_paint's workers' faces) and taken as it is ready; an ask
- * still waiting is replaced by the newer one, the arrival landing now. */
+ * its own (ui_card_paint's workers' faces) and taken as it is ready, one at
+ * a time, the newest first (pictures_ask). */
 static SDL_Thread *g_nc_thread;
 static SDL_mutex *g_nc_lock;
 static SDL_cond *g_nc_wake;
 static struct {
-	bool want, quit;
+	bool want, quit, has;
 	unsigned key, done_key;
 	ui_card_order o;
 	SDL_Surface *done;
@@ -1297,6 +1535,7 @@ static int nc_worker(void *arg)
 		if (g_nc.done) ui_card_free(g_nc.done);   /* an older one nobody took */
 		g_nc.done = sf;
 		g_nc.done_key = key;
+		g_nc.has = true;                          /* NULL too: none could be painted */
 	}
 	SDL_UnlockMutex(g_nc_lock);
 	return 0;
@@ -1323,6 +1562,7 @@ static void nc_stop(void)
 	g_nc_thread = NULL;
 	if (g_nc.done) ui_card_free(g_nc.done);
 	g_nc.done = NULL;
+	g_nc.has = false;
 }
 
 /* The order for an arrival's card: its name, its system's colour, era and art */
@@ -1339,7 +1579,9 @@ static void nc_order(dl_view *v, const dl_arrival *it, ui_card_order *o)
 	ui_card_order_game(o, sc ? sc->tag : "", art, NULL);
 }
 
-static void nc_ask(dl_view *v, const dl_arrival *it)
+/* Its card asked of the card's thread (a shot's painted now): false when
+ * there is none to ask */
+static bool nc_ask(dl_view *v, dl_arrival *it)
 {
 	ui_card_order o;
 
@@ -1349,78 +1591,69 @@ static void nc_ask(dl_view *v, const dl_arrival *it)
 		SDL_Surface *sf = ui_card_paint(&o, false);
 
 		if (sf) {
-			dl_arrival *m = (dl_arrival *)it;
-
-			m->tex = ui_card_upload(v->a->r, sf, o.theme_ix);
-			m->w = sf->w;
-			m->h = sf->h;
+			it->tex = ui_card_upload(v->a->r, sf, o.theme_ix);
+			it->w = sf->w;
+			it->h = sf->h;
 			ui_card_free(sf);
 		}
-		return;
+		return true;
 	}
-	if (!g_nc_thread) return;
+	if (!g_nc_thread) return false;
 	SDL_LockMutex(g_nc_lock);
 	g_nc.o = o;
 	g_nc.key = it->key;
 	g_nc.want = true;
 	SDL_CondSignal(g_nc_wake);
 	SDL_UnlockMutex(g_nc_lock);
+	g_rec.nc_out = it->key;
+	return true;
 }
 
 static bool nc_take(dl_view *v)
 {
 	SDL_Surface *sf = NULL;
 	unsigned key = 0;
+	bool has = false;
 	int i;
 
 	if (!g_nc_thread) return false;
 	SDL_LockMutex(g_nc_lock);
-	if (g_nc.done) { sf = g_nc.done; key = g_nc.done_key; g_nc.done = NULL; }
+	if (g_nc.has) { sf = g_nc.done; key = g_nc.done_key; g_nc.done = NULL; g_nc.has = false; has = true; }
 	SDL_UnlockMutex(g_nc_lock);
-	if (!sf) return false;
-	for (i = 0; i < v->nring; i++) {
-		if (v->ring[i].key != key || v->ring[i].tex) continue;
-		v->ring[i].tex = ui_card_upload(v->a->r, sf, theme_index());
-		v->ring[i].w = sf->w;
-		v->ring[i].h = sf->h;
-		if (i == 0) v->land_at = anim_now();
+	if (!has) return false;
+	if (key == g_rec.nc_out) g_rec.nc_out = 0;
+	if (!sf) return false;          /* none painted: its tile stays */
+	for (i = 0; i < g_rec.n; i++) {
+		dl_arrival *it = &g_rec.it[i];
+
+		if (it->key != key || it->tex) continue;
+		it->tex = ui_card_upload(v->a->r, sf, theme_index());
+		it->w = sf->w;
+		it->h = sf->h;
+		if (i == 0 && it->key > v->open_key) v->land_at = anim_now();
 		break;
 	}
 	ui_card_free(sf);
-	return i < v->nring;
+	return i < g_rec.n;
 }
 
-static void ring_free(dl_view *v)
+/* The pictures the list lacks, the newest first: a file's on the picture
+ * thread (mediatex.h), a card on the card's, one at a time */
+static void pictures_ask(dl_view *v)
 {
 	int i;
 
-	for (i = 0; i < v->nring; i++) if (v->ring[i].tex) SDL_DestroyTexture(v->ring[i].tex);
-	v->nring = 0;
-}
+	for (i = 0; i < g_rec.n; i++) {
+		dl_arrival *it = &g_rec.it[i];
 
-static void ring_add(dl_view *v, int kind, const char *path, const char *game, const char *folder, int count)
-{
-	dl_arrival *it;
-
-	if (v->nring == DL_RING) {
-		if (v->ring[DL_RING - 1].tex) SDL_DestroyTexture(v->ring[DL_RING - 1].tex);
-		v->nring--;
-	}
-	memmove(&v->ring[1], &v->ring[0], (size_t)v->nring * sizeof v->ring[0]);
-	v->nring++;
-	it = &v->ring[0];
-	memset(it, 0, sizeof *it);
-	it->kind = kind;
-	it->count = count;
-	it->key = ++v->next_key;
-	snprintf(it->game, sizeof it->game, "%s", game ? game : "");
-	snprintf(it->folder, sizeof it->folder, "%s", folder ? folder : "");
-	if (path && path[0] && !v->fixture) {
-		mt_ask((int)it->key, path, DL_BIG);
-	} else {
-		/* no picture: its name card, landing as it comes */
-		v->land_at = anim_now();
-		nc_ask(v, it);
+		if (it->tex || it->asked) continue;
+		if (!it->card && !v->fixture) {
+			mt_ask((int)it->key, it->path, DL_BIG);
+			it->asked = true;
+		} else if (!g_rec.nc_out) {
+			it->card = true;
+			it->asked = nc_ask(v, it);
+		}
 	}
 }
 
@@ -1431,59 +1664,42 @@ static bool take_pictures(dl_view *v)
 	bool any = false;
 
 	while (mt_take(&key, &s)) {
-		for (i = 0; i < v->nring; i++) {
-			if (v->ring[i].key != (unsigned)key || v->ring[i].tex) continue;
-			if (!s) { nc_ask(v, &v->ring[i]); break; }    /* no picture after all */
-			v->ring[i].tex = SDL_CreateTextureFromSurface(v->a->r, s);
-			v->ring[i].w = s->w;
-			v->ring[i].h = s->h;
-			if (i == 0) v->land_at = anim_now();
+		for (i = 0; i < g_rec.n; i++) {
+			dl_arrival *it = &g_rec.it[i];
+
+			if (it->key != (unsigned)key || it->tex) continue;
+			if (!s) {                   /* no picture after all: its card */
+				it->card = true;
+				it->asked = false;
+				break;
+			}
+			it->tex = SDL_CreateTextureFromSurface(v->a->r, s);
+			it->w = s->w;
+			it->h = s->h;
+			if (i == 0 && it->key > v->open_key) v->land_at = anim_now();
 			any = true;
 		}
 		if (s) SDL_FreeSurface(s);
 	}
 	if (nc_take(v)) any = true;
+	pictures_ask(v);
 	return any;
 }
 
-/* What came since the last look, from each lane */
+/* What came since the last look: the lanes' progress, and the newest of
+ * what is kept (downloads_stepped took it) landing */
 static bool take_arrivals(dl_view *v)
 {
-	bool any = false;
-
-	if (v->art && dlq_running(DLQ_ART)) art_status(&v->ap);
+	if (v->art && dlq_running(DLQ_ART)) art_lane_status(&v->ap);
 	if (v->ra && dlq_running(DLQ_RA)) radl_status(&v->rp);
-	if (v->ap.found_seq != v->art_seen) {
-		int kind = v->ap.found_video ? DLK_VIDEOS : v->ap.found_names ? DLK_NAMES : DLK_COVERS;
-
-		v->art_seen = v->ap.found_seq;
-		ring_add(v, kind, v->ap.found_path, v->ap.found_game, v->ap.found_folder, 0);
-		any = true;
-	}
 	if (v->cht && dlq_running(DLQ_CHT)) cheats_status(&v->cp);
-	if (v->cp.seq != v->cht_seen) {
-		char path[LIB_PATH * 3] = "";
-
-		v->cht_seen = v->cp.seq;
-		if (has_box_art(v->cp.got_folder, v->cp.got_game))
-			box_art_path(v->cp.got_folder, v->cp.got_game, path, sizeof path);
-		ring_add(v, DLK_CHEATS, path, v->cp.got_game, v->cp.got_folder, v->cp.got_count);
-		any = true;
-	}
-	if (v->rp.set_seq != v->ra_seen) {
-		char path[LIB_PATH * 3] = "", name[LIB_NAME];
-		const char *b = strrchr(v->rp.set_path, '/');
-		size_t ln;
-
-		v->ra_seen = v->rp.set_seq;
-		snprintf(name, sizeof name, "%s", b ? b + 1 : v->rp.set_path);
-		ln = strlen(name);
-		if (ln > 4 && !strcmp(name + ln - 4, ".set")) name[ln - 4] = '\0';
-		if (has_box_art(v->rp.folder_now, name)) box_art_path(v->rp.folder_now, name, path, sizeof path);
-		ring_add(v, DLK_ACH, path, v->rp.set_title[0] ? v->rp.set_title : name, v->rp.folder_now, v->rp.set_count);
-		any = true;
-	}
-	return any;
+	if (g_rec.key == v->rec_key) return false;
+	v->rec_key = g_rec.key;
+	/* with no file to read it lands now, its card asked; with one, as its
+	 * picture comes (take_pictures) */
+	if (g_rec.n && g_rec.it[0].card) v->land_at = anim_now();
+	pictures_ask(v);
+	return true;
 }
 
 static void run_counts(const dl_view *v, int got[DLK_KINDS])
@@ -1564,7 +1780,7 @@ static void run_draw(dl_view *v, unsigned now)
 	TTF_Font *ft = ui_font(UI_F_TITLE), *fs = ui_font(UI_F_META);
 	ds_page_frame pf = page_top(a, 1.0f);
 	int hx = pf.head_x, m, done, total, cell0 = 0, sq;
-	float e = v->nring ? ease_out((float)(now - v->land_at) / DL_LAND) : 1.0f;
+	float e = g_rec.n ? ease_out((float)(now - v->land_at) / DL_LAND) : 1.0f;
 	char fit[160], cnt[48], eta[48];
 	static ds_flex F;
 	SDL_FRect cell[6], big;
@@ -1636,7 +1852,7 @@ static void run_draw(dl_view *v, unsigned now)
 			big = (SDL_FRect){ (float)(q.x + 8), (float)(q.y + 8), (float)(q.w - 16), (float)(q.h - 16) };
 		}
 	}
-	if (!v->nring) {
+	if (!g_rec.n) {
 		const ds_theme *t = theme();
 		int k;
 
@@ -1649,17 +1865,17 @@ static void run_draw(dl_view *v, unsigned now)
 		int k = m + 1;
 		SDL_FRect to = cell[m < 6 ? m : 5], from = m == 0 ? big : cell[m - 1];
 
-		if (k >= v->nring) continue;
-		if (m == 6) arrival_draw(v, &v->ring[k], from, (Uint8)(255 * (1.0f - e)), false);
-		else arrival_draw(v, &v->ring[k], (SDL_FRect){ from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e,
+		if (k >= g_rec.n) continue;
+		if (m == 6) arrival_draw(v, &g_rec.it[k], from, (Uint8)(255 * (1.0f - e)), false);
+		else arrival_draw(v, &g_rec.it[k], (SDL_FRect){ from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e,
 		                                               from.w + (to.w - from.w) * e, from.h + (to.h - from.h) * e },
 		                  255, false);
 	}
-	if (v->nring) {
+	if (g_rec.n) {
 		SDL_FRect b = { big.x + big.w * 0.06f * (1 - e), big.y + 40 * (1 - e) + big.h * 0.06f * (1 - e),
 		                big.w * (0.88f + 0.12f * e), big.h * (0.88f + 0.12f * e) };
 
-		arrival_draw(v, &v->ring[0], b, (Uint8)(255 * e), true);
+		arrival_draw(v, &g_rec.it[0], b, (Uint8)(255 * e), true);
 	}
 	/* Over the keys: why it waits, or the counts per kind and the time left */
 	if (!online() || (v->ra && lane_on(DLQ_RA) && v->rp.state == RADL_NO_NETWORK) ||
@@ -1705,7 +1921,7 @@ static void done_draw(dl_view *v, unsigned now)
 	ds_page_frame pf = page_top(a, 1.0f);
 	const char *head = v->end == END_SIGN_IN ? T(S_RADL_SIGN_IN_AGAIN) : v->end == END_STOPPED ? T(S_RADL_STOPPED)
 	                 : T(S_SCRAPER_ALL_DONE);
-	int m, n = v->nring > 14 ? 14 : v->nring, got[DLK_KINDS];
+	int m, n = g_rec.n > 14 ? 14 : g_rec.n, got[DLK_KINDS];
 	float gap = (pf.body.w - 7.0f * DL_WALL) / 6;
 	bool shown[DLK_KINDS];
 	const char *K[2] = { "A", "B" };
@@ -1715,7 +1931,7 @@ static void done_draw(dl_view *v, unsigned now)
 	for (m = 0; m < n; m++) {
 		int k = n - 1 - m;     /* oldest first */
 
-		arrival_draw(v, &v->ring[k], (SDL_FRect){ pf.body.x + (m % 7) * (DL_WALL + gap),
+		arrival_draw(v, &g_rec.it[k], (SDL_FRect){ pf.body.x + (m % 7) * (DL_WALL + gap),
 		                                         (float)(pf.body_y + (m / 7) * (DL_WALL + 16)), DL_WALL, DL_WALL },
 		             255, false);
 	}
@@ -1880,14 +2096,15 @@ static bool run_start(dl_view *v, int only)
 		if ((cht = dlq_start(DLQ_CHT, &CHT_LANE, cht_lane_begin))) cht_checked();
 	}
 	if (!art && !ra && !cht) return false;
-	ring_free(v);
+	/* a new run: what came starts again (unless it joined one going on) */
+	rec_sync();
+	v->rec_key = g_rec.key;
 	memset(&v->ap, 0, sizeof v->ap);
 	memset(&v->rp, 0, sizeof v->rp);
 	memset(&v->cp, 0, sizeof v->cp);
 	v->art = art;
 	v->ra = ra;
 	v->cht = cht;
-	v->art_seen = v->ra_seen = v->cht_seen = 0;
 	v->art_total = covers;
 	v->art_looks = pl.looks;
 	v->run_kind = only;
@@ -1897,20 +2114,18 @@ static bool run_start(dl_view *v, int only)
 	return true;
 }
 
-/* Back on a run that went on behind the screens */
+/* Back on a run that went on behind the screens: what came stays as it is
+ * (g_rec), what came meanwhile with it */
 static void run_rejoin(dl_view *v)
 {
-	ring_free(v);
 	v->art = dlq_running(DLQ_ART);
 	v->ra = dlq_running(DLQ_RA);
 	v->cht = dlq_running(DLQ_CHT);
-	if (v->art) art_status(&v->ap);
+	if (v->art) art_lane_status(&v->ap);
 	if (v->ra) radl_status(&v->rp);
 	if (v->cht) cheats_status(&v->cp);
-	v->art_seen = v->ap.found_seq;
-	v->ra_seen = v->rp.set_seq;
-	v->cht_seen = v->cp.seq;
-	v->art_total = scraper_run_total();
+	v->rec_key = g_rec.key;
+	v->art_total = g_fake.on ? g_fake.n : scraper_run_total();
 	v->art_looks = v->ap.dtotal;
 	v->run_kind = -1;
 	v->t0 = anim_now();
@@ -1929,7 +2144,7 @@ static void run_finish(dl_view *v)
 	dlq_end ea = v->art ? dlq_last(DLQ_ART) : DLQ_NONE, er = v->ra ? dlq_last(DLQ_RA) : DLQ_NONE;
 	dlq_end ec = v->cht ? dlq_last(DLQ_CHT) : DLQ_NONE;
 
-	if (v->art) scraper_last(&v->ap);
+	if (v->art) art_lane_last(&v->ap);
 	if (v->ra) radl_last(&v->rp);
 	if (v->cht) v->cp = g_cht_last;
 	v->end = END_DONE;
@@ -2280,7 +2495,26 @@ static bool one_wants_video(const char *folder, const char *file)
 	       !strcmp(file, g_one->g->file);
 }
 
-/* What the card has for the game now, after a file landed */
+/* Whether the game's video is on the card: its own snap with something in
+ * it, else EmulationStation's (es_art_video), as the shelf plays them. Not
+ * the snap's path alone, which is always there to be had: taken for the
+ * snap, every game's Videos said On card once its panel looked again (a
+ * fetch, the Cover and Video page), and Get What's Missing asked for no
+ * video after that (one_wants_video). */
+static bool video_there(const system_cfg *sc, const dl_game *g)
+{
+	char dir[LIB_PATH * 2], p[LIB_PATH * 3];
+	struct stat st;
+
+	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, sc->folder);
+	return (snaps_path(P_ROMS, sc->folder, g->name, p, sizeof p) && stat(p, &st) == 0 && st.st_size > 0) ||
+	       es_art_video(dir, g->file, g->name);
+}
+
+/* What the card has for the game now, after a file landed or its Cover and
+ * Video page closed. Its video as the list reads it (sysgames_load): on the
+ * card, else missing, or off for a system that gets none; one deleted on
+ * the Cover and Video page is missing again. */
 static void one_look(game_ctx *x)
 {
 	dl_game *g = x->g;
@@ -2288,8 +2522,7 @@ static void one_look(game_ctx *x)
 
 	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, x->sc->folder);
 	if (has_box_art(x->sc->folder, g->name) || es_art_cover(dir, g->file, g->name)) g->st[DLK_COVERS] = GS_HAVE;
-	if (snaps_path(P_ROMS, x->sc->folder, g->name, p, sizeof p) || es_art_video(dir, g->file, g->name))
-		g->st[DLK_VIDEOS] = GS_HAVE;
+	g->st[DLK_VIDEOS] = video_there(x->sc, g) ? GS_HAVE : dl_sys_on(DLK_VIDEOS, x->sc->folder) ? GS_MISS : GS_OFF;
 	if (db_game_title(db_lib(), x->sc->folder, g->file, t, sizeof t) && t[0]) g->st[DLK_NAMES] = GS_HAVE;
 	chv_path(P_ROMS, x->sc->folder, g->name, p, sizeof p);
 	chv_none_path(p, np, sizeof np);
@@ -2737,13 +2970,126 @@ static void sysgames_keys(dl_view *v, dl_frame *f, unsigned now)
  * ZYPEROS_DOWNLOADS_TEST: the launcher opens the page at once and plays a
  * script, commas between its steps: a button (A B X Y START UP DOWN LEFT
  * RIGHT), wait=MS, count (until the count ends), run (until the run ends),
- * shot=PATH (the page as
- * drawn now). Each step said on stderr with the page's state; the launcher
- * quits at the script's end. The real loop and the real card: what the
- * shots' stand-in counts cannot show. */
+ * shot=PATH (the page as drawn now), fake=N (a stand-in run of N arrivals
+ * on the art lane, g_fake), hold=K (until it holds after its Kth), pics
+ * (until every arrival kept has its picture), list=NAME (what the page
+ * shows came, a line each, with the page's pass since it opened: 0 is its
+ * first, before it has read any picture). Once the page has closed (B on a
+ * run, B on the hub), the steps go on behind it (downloads_test): away=K,
+ * the stand-in going on and the lanes stepped as the shelf steps them until
+ * K more have come or the run ends; game=MS, a game running, the lanes
+ * waiting; video-gone, the renderer about to go as a game in the fallback
+ * takes it; open, the page again, its first step on its first pass. The
+ * waits are for what they name, each at most DL_TEST_WAIT_MS, never a
+ * guess at how long a loaded machine takes.
+ * look=FOLDER|NAME: a game's panel looking at the card (one_look), the
+ * game as its system's list read it the first time its folder is looked at,
+ * each kind's mark said before and after.
+ * Each step said on stderr with the page's state; the launcher quits at the
+ * script's end. The real loop and the real card: what the shots' stand-in
+ * counts cannot show. */
 static const char *g_dl_test;
-static unsigned g_dl_until;
-static bool g_dl_count_wait, g_dl_run_wait;
+static unsigned g_dl_until, g_dl_wait_end;
+static bool g_dl_count_wait, g_dl_run_wait, g_dl_hold_wait, g_dl_pics_wait;
+#define DL_TEST_WAIT_MS 30000
+
+/* An arrival kept with no picture yet */
+static bool test_pics_missing(void)
+{
+	int i;
+
+	for (i = 0; i < g_rec.n; i++) if (!g_rec.it[i].tex) return true;
+	return false;
+}
+
+/* fake=N: the stand-in run started as Download starts one (run_start) */
+static void fake_start(dl_view *v, int n)
+{
+	int s, k;
+
+	g_fake.ngames = 0;
+	for (s = 0; s < v->a->sys.count && g_fake.ngames < DL_FAKE_MAX; s++) {
+		const game_list *l = sys_games_c(&v->a->view[s]);
+
+		for (k = 0; k < l->count && g_fake.ngames < DL_FAKE_MAX; k++) {
+			snprintf(g_fake.g[g_fake.ngames].folder, sizeof g_fake.g[0].folder, "%s", v->a->sys.systems[s].folder);
+			snprintf(g_fake.g[g_fake.ngames].name, sizeof g_fake.g[0].name, "%s", l->items[k].name);
+			g_fake.ngames++;
+		}
+	}
+	g_fake.n = n;
+	if (!g_fake.ngames || n <= 0 || dl_live() || !dlq_start(DLQ_ART, &FAKE_LANE, fake_begin)) {
+		fprintf(stderr, "downloads-test: the stand-in run did not start\n");
+		return;
+	}
+	for (k = 0; k < n; k++)
+		fprintf(stderr, "downloads-test: stand-in %d game=%s|folder=%s\n", k, g_fake.g[k % g_fake.ngames].name,
+		        g_fake.g[k % g_fake.ngames].folder);
+	rec_sync();
+	v->rec_key = g_rec.key;
+	memset(&v->ap, 0, sizeof v->ap);
+	memset(&v->rp, 0, sizeof v->rp);
+	memset(&v->cp, 0, sizeof v->cp);
+	v->art = true;
+	v->ra = v->cht = false;
+	v->art_total = n;
+	v->art_looks = 0;
+	v->run_kind = -1;
+	v->t0 = anim_now();
+	v->done0 = 0;
+	v->why[0] = '\0';
+	open_run(v);
+}
+
+/* look=FOLDER|NAME (see dl_test) */
+static void test_look(dl_view *v, const char *what)
+{
+	static const char *const ST[] = { "have", "miss", "none", "off" };
+	static char loaded[CFG_STR];
+	const char *bar = strchr(what, '|');
+	const system_cfg *sc = NULL;
+	char folder[CFG_STR];
+	int i, k;
+
+	if (!bar || (size_t)(bar - what) >= sizeof folder) return;
+	snprintf(folder, sizeof folder, "%.*s", (int)(bar - what), what);
+	for (i = 0; i < v->a->sys.count; i++)
+		if (!strcmp(v->a->sys.systems[i].folder, folder)) sc = &v->a->sys.systems[i];
+	if (sc && (strcmp(loaded, folder) || !v->games)) {
+		sysgames_load(v, folder);
+		snprintf(loaded, sizeof loaded, "%s", folder);
+	}
+	for (i = 0; sc && i < v->ngames; i++) {
+		game_ctx x = { .v = v, .g = &v->games[i], .sc = sc };
+		char was[96] = "", now[96] = "";
+
+		if (strcmp(v->games[i].name, bar + 1)) continue;
+		for (k = 0; k < DLK_KINDS; k++)
+			snprintf(was + strlen(was), sizeof was - strlen(was), " %d=%s", k, ST[v->games[i].st[k] & 3]);
+		one_look(&x);
+		for (k = 0; k < DLK_KINDS; k++)
+			snprintf(now + strlen(now), sizeof now - strlen(now), " %d=%s", k, ST[v->games[i].st[k] & 3]);
+		fprintf(stderr, "downloads-test: look %s videos=%d was%s now%s\n", what, DLK_VIDEOS, was, now);
+		return;
+	}
+	fprintf(stderr, "downloads-test: look %s not found\n", what);
+}
+
+/* list=NAME: what the page shows came, newest first, and each one's picture */
+static void test_list(dl_view *v, const char *name)
+{
+	int i;
+
+	fprintf(stderr, "downloads-test: came %s view=%d n=%d arrived=%d pass=%u\n", name, top_of(v)->v, g_rec.n, g_fake.i,
+	        v->test_pass);
+	for (i = 0; i < g_rec.n; i++) {
+		const dl_arrival *it = &g_rec.it[i];
+
+		fprintf(stderr, "downloads-test: came %s %d key=%u kind=%d tex=%s %dx%d card=%d game=%s|folder=%s\n", name, i,
+		        it->key, it->kind, it->tex ? "yes" : "no", it->tex ? it->w : 0, it->tex ? it->h : 0, it->card, it->game,
+		        it->folder);
+	}
+}
 
 static void dl_test(dl_view *v, app *a)
 {
@@ -2761,6 +3107,10 @@ static void dl_test(dl_view *v, app *a)
 	g_dl_count_wait = false;
 	if (g_dl_run_wait && dl_live()) return;
 	g_dl_run_wait = false;
+	if (g_dl_hold_wait && g_fake.on && !g_fake.held && now < g_dl_wait_end) return;
+	g_dl_hold_wait = false;
+	if (g_dl_pics_wait && test_pics_missing() && now < g_dl_wait_end) return;
+	g_dl_pics_wait = false;
 	if (!*g_dl_test) { want_quit = 1; return; }
 	n = strcspn(g_dl_test, ",");
 	snprintf(tok, sizeof tok, "%.*s", (int)n, g_dl_test);
@@ -2771,6 +3121,19 @@ static void dl_test(dl_view *v, app *a)
 	if (!strncmp(tok, "wait=", 5)) g_dl_until = now + (unsigned)atoi(tok + 5);
 	if (!strcmp(tok, "count")) g_dl_count_wait = true;
 	if (!strcmp(tok, "run")) g_dl_run_wait = true;
+	if (!strncmp(tok, "hold=", 5)) {
+		g_fake.hold_at = atoi(tok + 5);
+		g_fake.held = g_fake.on && g_fake.i >= g_fake.hold_at;
+		g_dl_hold_wait = true;
+		g_dl_wait_end = now + DL_TEST_WAIT_MS;
+	}
+	if (!strcmp(tok, "pics")) {
+		g_dl_pics_wait = true;
+		g_dl_wait_end = now + DL_TEST_WAIT_MS;
+	}
+	if (!strncmp(tok, "fake=", 5)) fake_start(v, atoi(tok + 5));
+	if (!strncmp(tok, "list=", 5)) test_list(v, tok + 5);
+	if (!strncmp(tok, "look=", 5)) test_look(v, tok + 5);
 	if (!strncmp(tok, "shot=", 5)) {
 		SDL_Surface *out = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
 		                                                  SDL_PIXELFORMAT_RGBA32);
@@ -2804,6 +3167,11 @@ static void dl_page(app *a, const char *only)
 	dl_count_again(a, v->only);
 	v->gen = dl_count_gen();
 	push(v, V_HUB);
+	/* What came is as it was left, with what came meanwhile (g_rec) */
+	rec_sync();
+	rec_reopen();
+	v->rec_key = v->open_key = g_rec.key;
+	v->land_at = anim_now() - DL_LAND;
 	/* A run behind the screens is shown where it is; one that ended while
 	 * the page was closed, as done */
 	if (dl_live()) {
@@ -2823,7 +3191,6 @@ static void dl_page(app *a, const char *only)
 	base = panel_base();
 	g_base_page = dl_base;
 	g_base_ctx = v;
-	g_dl_test = getenv("ZYPEROS_DOWNLOADS_TEST");
 	while (!want_quit && a->running) {
 		unsigned now = anim_now();
 		dl_frame *f = top_of(v);
@@ -2831,6 +3198,7 @@ static void dl_page(app *a, const char *only)
 
 		plat_input_poll(&a->in);
 		dl_test(v, a);
+		v->test_pass++;
 		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
@@ -2894,6 +3262,8 @@ static void dl_page(app *a, const char *only)
 				dirty = true;
 			}
 		} else if (f->v == V_DONE) {
+			/* the wall's pictures: opened on a run that ended behind it */
+			if (take_pictures(v)) dirty = true;
 			if (a->in.pressed[IN_BACK]) {
 				uisound_play(DS_SOUND_BACK);
 				if (v->depth <= 1) break;
@@ -2945,12 +3315,61 @@ static void dl_page(app *a, const char *only)
 	nc_stop();
 	mt_stop();
 	mm_close(base, anim_now(), 0, g_menu_closing);
-	ring_free(v);
+	/* What came stays for the next opening while its run goes on or its end
+	 * is still to be seen; seen, it goes */
+	if (!dlq_busy() && dlq_ends(DLQ_ART) == g_shown_art && dlq_ends(DLQ_RA) == g_shown_ra &&
+	    dlq_ends(DLQ_CHT) == g_shown_cht)
+		rec_free();
 	icons_free(v);
 	sysgames_free(v);
 	g_base_page = NULL;
 	g_base_ctx = NULL;
 	free(v);
+}
+
+/* The test (dl_test): the page, and the steps behind it once it closes */
+void downloads_test(app *a)
+{
+	char tok[512];
+
+	g_dl_test = getenv("ZYPEROS_DOWNLOADS_TEST");
+	dl_page(a, NULL);
+	while (g_dl_test && *g_dl_test && a->running && !want_quit) {
+		size_t n = strcspn(g_dl_test, ",");
+
+		snprintf(tok, sizeof tok, "%.*s", (int)n, g_dl_test);
+		g_dl_test += n + (g_dl_test[n] == ',');
+		if (!strcmp(tok, "open")) {
+			fprintf(stderr, "downloads-test: open live=%d\n", dl_live());
+			g_dl_until = 0;
+			dl_page(a, NULL);
+			continue;
+		}
+		if (!strncmp(tok, "away=", 5)) {
+			unsigned t0 = plat_now_ms();
+			int until = g_fake.i + atoi(tok + 5);
+
+			g_fake.held = false;
+			g_fake.hold_at = 0;
+			while (dl_live() && g_fake.i < until && plat_now_ms() - t0 < DL_TEST_WAIT_MS) {
+				dlq_tick();
+				SDL_Delay(4);
+			}
+		}
+		if (!strncmp(tok, "game=", 5)) {
+			unsigned t0 = plat_now_ms(), ms = (unsigned)atoi(tok + 5);
+
+			dlq_game(true);
+			while (plat_now_ms() - t0 < ms) {
+				dlq_tick();
+				SDL_Delay(4);
+			}
+			dlq_game(false);
+		}
+		if (!strcmp(tok, "video-gone")) downloads_video_gone();
+		fprintf(stderr, "downloads-test: %s (behind the page) live=%d arrived=%d kept=%d\n", tok, dl_live(), g_fake.i,
+		        g_rec.n);
+	}
 }
 
 menu_result downloads_screen(app *a)
@@ -3194,15 +3613,17 @@ void downloads_shot(app *a)
 		v.run_kind = -1;
 		v.t0 = now;
 		for (i = 6; i >= 0; i--)
-			ring_add(&v, i == 0 ? DLK_CHEATS : i % 3 == 0 ? DLK_ACH : i % 3 == 1 ? DLK_COVERS : DLK_NAMES, NULL, SHOT_GAMES[i],
-			         SHOT_SYS[i % 9], i == 0 ? 129 : i % 3 ? 0 : 40 + i * 13);
+			rec_add(i == 0 ? DLK_CHEATS : i % 3 == 0 ? DLK_ACH : i % 3 == 1 ? DLK_COVERS : DLK_NAMES, NULL, SHOT_GAMES[i],
+			        SHOT_SYS[i % 9], i == 0 ? 129 : i % 3 ? 0 : 40 + i * 13);
+		pictures_ask(&v);
 		v.land_at = now - DL_LAND;
 	}
 	if (st >= 14 && st <= 16) push(&v, V_RUN);
 	if (st == 17 || st == 18) {
 		for (i = 13; i >= 7; i--)
-			ring_add(&v, i % 4 == 0 ? DLK_VIDEOS : i % 3 == 0 ? DLK_ACH : i % 5 == 0 ? DLK_CHEATS : DLK_COVERS, NULL,
-			         SHOT_GAMES[i], SHOT_SYS[i % 9], 0);
+			rec_add(i % 4 == 0 ? DLK_VIDEOS : i % 3 == 0 ? DLK_ACH : i % 5 == 0 ? DLK_CHEATS : DLK_COVERS, NULL,
+			        SHOT_GAMES[i], SHOT_SYS[i % 9], 0);
+		pictures_ask(&v);
 		v.end = st == 17 ? END_DONE : END_STOPPED;
 		if (st == 18) snprintf(v.why, sizeof v.why, "%s", T(S_DOWNLOADS_YOU_STOPPED));
 		v.ap.found = 41;
@@ -3266,7 +3687,7 @@ void downloads_shot(app *a)
 	dl_count_fixture(NULL);
 	g_fx_net = g_fx_art = g_fx_ra = g_fx_cht = g_fx_pct = -1;
 	g_fx_user = NULL;
-	ring_free(&v);
+	rec_free();
 	icons_free(&v);
 	sysgames_free(&v);
 }

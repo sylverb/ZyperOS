@@ -66,6 +66,14 @@ extern int shot_delete_ask;
 extern int shot_collect_page, shot_collect_delete;
 /* --collect-said K: one of Collections' messages (0 to 2) */
 extern int shot_collect_said;
+/* --shots-delete: Delete Screenshot's question on the Screenshots shelf
+ * (src/shots_screen.h) */
+extern int shot_shots_delete;
+/* --shots-said: the message when the card would not let a shot go */
+extern int shot_shots_said;
+/* --shots-delete-now: Delete Screenshot's yes on the shot under the cursor,
+ * and the shot is the shelf after it (tools/homesys-groups-check.py) */
+extern int shot_shots_delete_now;
 /* --zip-said: the message for a zip Diatom cannot unpack (src/gamefile.h) */
 extern int shot_zip_said;
 extern int shot_gm_said;
@@ -114,6 +122,7 @@ extern const char *shot_wait;
 extern const char *shot_wait_msg;   /* NULL: library.scanning's */;
 extern int shot_osd_kind;
 extern int shot_osd_val; /* --osd volume|brightness LEVEL */;
+extern int shot_osd_boost; /* ... +CELLS, the boost open past the top */
 extern int shot_tour;
 extern int shot_tour_ms;
 extern int shot_tour_done;
@@ -168,6 +177,8 @@ extern const char *shot_handheld_box;
 extern const char *shot_controls_fit;
 extern int shot_key;
 extern int shot_gm_choose;     /* --gm-choose */
+extern int shot_gm_restart;    /* --gm-restart */
+extern int shot_gm_reset;      /* --gm-reset */
 extern int shot_hud_page;      /* --hud-page ROW, -1 for none */
 extern bool shot_hud_items;    /* --hud-items */
 extern int  shot_hud_pick;     /* --hud-pick ROW */
