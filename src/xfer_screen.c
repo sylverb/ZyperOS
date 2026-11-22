@@ -525,25 +525,18 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 	/* And the system log, the memory ring logread prints: on the Brick it
 	 * runs while Bluetooth is on (/etc/init.d/bluetooth), and bluetoothd's
 	 * and bluealsa's lines are only there, so a pairing that connects
-	 * nothing says why (a tester's Brick, 2026-11-21, sent none). Where no
-	 * system logger runs, an old one is not packed again as if it were new */
+	 * nothing says why (a tester's Brick, 2026-11-21, sent none). Read here
+	 * and handed to the pack, which keeps those lines alone, masked; none of
+	 * it is written to the card. None where no system logger runs */
+	static char slog[1 << 16];
 	{
-		static char slog[1 << 16];
-		char spath[CFG_STR * 2 + 16];
 		char *argv[] = { (char *)"/sbin/logread", NULL };
 
-		snprintf(spath, sizeof spath, "%s/system.log", logs);
-		if (spawn_capture(argv, slog, sizeof slog, 5) == 0 && slog[0] &&
-		    (f = fopen(spath, "w"))) {
-			fputs(slog, f);
-			fclose(f);
-		} else {
-			remove(spath);
-		}
+		if (spawn_capture(argv, slog, sizeof slog, 5) != 0) slog[0] = '\0';
 	}
 	snprintf(name, nn, "%s.tar.gz", folder);
 	snprintf(path, pn, "/tmp/%s", name);
-	if (!logpack_build(logs, about, secrets, n, folder, path, err, sizeof err)) {
+	if (!logpack_build(logs, about, slog, secrets, n, folder, path, err, sizeof err)) {
 		fprintf(stderr, "logs: could not pack them: %s\n", err);
 		return false;
 	}
