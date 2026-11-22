@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The device profiles (src/device/profile.h): every profile filled in, every
  * control it has printed with something, no control twice, and today's
- * answers for the GKD Pixel 2, the TrimUI Brick and the host's `desktop`,
+ * answers for the GKD Pixel 2, the TrimUI Brick, the R36S and the host's `desktop`,
  * which the launcher's pixels depend on (docs/building.md,
  * Devices). The chip's temperature
  * from the zones a profile names, on a sysfs made in a scratch folder. Then
@@ -133,6 +133,40 @@ static void brick(void)
 	   "brick: its battery empty under 3.40 V under load, a careful guess until its cutoff is measured");
 }
 
+/* The R36S: a start for volunteers (docs/devices/r36s.md), its facts from
+ * ROCKNIX's device tree and photos of a real one */
+static void r36s(void)
+{
+	const device_profile *p = &device_profile_r36s;
+	const dev_button *menu = dev_button_of(p, IN_MENU);
+
+	ck(!strcmp(p->id, "r36s") && !strcmp(p->userdata, "r36s") && !strcmp(p->boot_label, "R36SBOOT"),
+	   "r36s: its id, folder and boot label");
+	ck(p->screen.panel_w == 640 && p->screen.panel_h == 480 && p->screen.turn == 0,
+	   "r36s: a 640x480 panel, not turned");
+	ck(near(p->screen.active_w_mm, 70.0f) && near(p->screen.active_h_mm, 52.5f), "r36s: 3.5 in of glass at 4:3");
+	ck(p->chords.bright == DEV_BRIGHT_MENU_VOL && p->chords.menu_on_release && !p->chords.lr2_taps &&
+	   p->chords.home_chord && !p->chords.battery_chord,
+	   "r36s: brightness on FN+VOL, FN on release, Home, no side lights so L2/R2 plain keys");
+	ck(menu && !strcmp(menu->label, "FN") && menu->cap == DEV_CAP_ROUND && menu->icon == DEV_ICON_NONE,
+	   "r36s: MENU is the round key printed FN");
+	ck(!dev_button_of(p, IN_BRIGHTUP) && !dev_button_of(p, IN_BRIGHTDN), "r36s: no brightness keys of its own");
+	ck(p->model == &td_model_r36s && !p->model_borrowed && !p->bluetooth && !p->rumble && p->speaker_mono &&
+	   !p->player2 && p->wifi == DEV_WIFI_ADAPTER, "r36s: its own model, no Bluetooth, no motor, one speaker, "
+	   "no Player 2, Wi-Fi only on an adapter");
+	{
+		bool rumble = false, any = false;
+		int i;
+
+		for (i = 0; p->coreopts && p->coreopts[i].key; i++) {
+			any = true;
+			if (strstr(p->coreopts[i].key, "pak1") || strstr(p->coreopts[i].key, "rumble")) rumble = true;
+		}
+		ck(any && !rumble, "r36s: the Pixel 2's core options (the same chip and GPU), no rumble in them");
+	}
+	ck(p->batt_empty_mv == 0, "r36s: no voltage rule until its cutoff is measured");
+}
+
 static void desktop(void)
 {
 	const device_profile *p = &device_profile_desktop, *b = &device_profile_brick;
@@ -150,7 +184,7 @@ static void desktop(void)
  * profile in force */
 static void answers(void)
 {
-	static const char *const ids[] = { "pixel2", "brick", "desktop" };
+	static const char *const ids[] = { "pixel2", "brick", "r36s", "desktop" };
 	char what[96];
 	size_t i;
 
@@ -475,7 +509,7 @@ static void choosing(void)
 		char ids[64];
 
 		plat_profile_ids(ids, sizeof ids);
-		ck(!strcmp(ids, "pixel2, brick, desktop"), "the linked ids, for --device's error");
+		ck(!strcmp(ids, "pixel2, brick, r36s, desktop"), "the linked ids, for --device's error");
 		plat_profile_ids(ids, 9);
 		ck(!strcmp(ids, "pixel2, "), "and cut to the room there is");
 	}
@@ -485,9 +519,11 @@ int main(void)
 {
 	whole(&device_profile_pixel2);
 	whole(&device_profile_brick);
+	whole(&device_profile_r36s);
 	whole(&device_profile_desktop);
 	pixel2();
 	brick();
+	r36s();
 	desktop();
 	answers();
 	unlock();

@@ -129,6 +129,7 @@ typedef struct device_profile {
 
 extern const device_profile device_profile_pixel2;
 extern const device_profile device_profile_brick;
+extern const device_profile device_profile_r36s;
 extern const device_profile device_profile_desktop;
 
 /* The Pixel 2's core options (src/device/pixel2_coreopts.c), linked on every
@@ -146,7 +147,7 @@ bool plat_profile_select(const char *id);
  * the host, the device's own alone on a device */
 const device_profile *plat_profile_at(int i);
 /* The linked profiles' ids, ", " between them, into `out` (for --device's
- * error: "pixel2, brick, desktop" on the host, the device's own on a device) */
+ * error: "pixel2, brick, r36s, desktop" on the host, the device's own on a device) */
 void plat_profile_ids(char *out, size_t n);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
