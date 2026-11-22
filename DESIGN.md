@@ -7730,7 +7730,7 @@ network). The Pixel 2 only (`plat_player2`, the hotspot it is built on).
   handhelds start the same game first, or two that link (Red and Blue).
 - **Hosting**: a panel as wide as Player 2's page and as tall as the mock's
   (src/linkpanel.c), "Waiting for the other Pixel 2" in **title** **text**,
-  the code under it in **title** **accent-ink**, tabular (`q7mx-3kpa`),
+  the code under it in **title** **accent-ink**, tabular (`4821`),
   "This one is Pixel 2 7F2A." and "On the other one: Link Cable, Join, then
   this code." in **meta** **text-soft**, and three dots in **accent-ink**
   whose brightest goes round every 300 ms, where they fit (a long
@@ -7740,11 +7740,14 @@ network). The Pixel 2 only (`plat_player2`, the hotspot it is built on).
   other one: Link Cable, then Host.", scanned again every 3 s; once some are
   found, "Choose the Pixel 2 to join" over them as rows, the one under the
   cursor the **accent** fill. A opens the keyboard (11.5), "Code shown on
-  Pixel 2 0C11"; START with the code joins, "Joining Pixel 2 0C11" while it
-  does, and B on the keyboard goes back to the list. The code is taken as
-  typed in capitals or with no dash; anything that is not eight letters and
-  digits says so under the tiles, and a wrong one fails as a join that did
-  not work ("Check the code and try again").
+  Pixel 2 0C11", whose top row is the digits (no number pad of its own: the
+  keyboard every other entry uses); START with the code joins, "Joining
+  Pixel 2 0C11" while it does, and the keyboard's cancel goes back to the
+  list.
+  Spaces are dropped; anything that is not four digits says so under the
+  tiles, and a wrong code fails as a join that did not work ("Check the
+  code and try again"): the host's network turns it down, and nothing is
+  sent.
 - **Linked**, the page closes on both and the game goes on at once, with a
   notice (11.7): **Link Cable** over "Linked with Pixel 2 0C11". The row
   opens "Linked with ..." and "While a menu is open on one, the other one
@@ -7759,17 +7762,27 @@ space between its words.
 **The network.** The host makes its hotspot (src/hotspot.h's
 `hotspot_start_named`) under a name of its own, `ZyperOS-Link-` and the
 adapter's last two bytes (`ZyperOS-Link-7F2A`), so a scan tells it from File
-Transfer's `ZyperOS-7F2A`, and a WPA2 password that is a new code from the
-kernel's random each time it hosts (File Transfer's form, two groups of four
-letters and digits without look-alikes, about 40 bits): the host's page
-shows it and the joiner types it. *(The first build made the password from
-the network's name with a fixed salt, so the other handheld needed nothing
-typed; a security review of the pull request found that anyone near could
-make it too and join the host's network, and reach whatever listens on it.
-The code costs one keyboard on the joiner, the mock's one change.)* The
-beat's socket binds the link's own address (10.42.1.1), never every
-address; Gambatte's server listens on every address, as the core has it,
-and the network is closed by the code. The joiner joins it for the game's time (src/wifi.h's
+Transfer's `ZyperOS-7F2A`, and a code of four digits, new from the kernel's
+random each time it hosts, 0000 to 9999 each as likely: the host's page
+shows it and the joiner types it. The WPA2 password is `zyperlink` and the
+code, as WPA2 wants eight characters at least. *(The first build made the
+password from the network's name with a fixed salt, so the other handheld
+needed nothing typed; a security review of the pull request found that
+anyone near could make it too and join the host's network. An eight-letter
+code came next; I chose four digits, 2026-11-22, as they are quick to type,
+knowing that someone near who captures the handshake tries the ten thousand
+offline in seconds.)* So the link's network carries nothing else of the
+launcher's. The beat's socket binds the link's own address (10.42.1.1),
+never every address; Gambatte's server listens on every address, as the
+core has it. While the link holds the radio (`link_holds_radio`: hosting,
+joined, or scanning), Developer Mode's SSH over Wi-Fi and its zyperos.local
+stop and come back after (`sshlink_facts.link`, `check-sshlink`); a
+development image's own name there stops too. File Transfer's server is
+started by its screen alone, which no game opens, and Player 2's p2d by an
+NES game alone. The kernel has no netfilter (plastron's linux.config:
+`CONFIG_NETFILTER is not set`), so there is no firewall to add. A
+development image's own dropbear, which a release image never starts,
+keeps listening, keys only. The joiner joins it for the game's time (src/wifi.h's
 `wifi_join_temp`): never saved to wpa_supplicant.conf, a new lease asked as
 it joins, and at the end the network removed, every saved network enabled
 again and a new lease from the one it rejoins.

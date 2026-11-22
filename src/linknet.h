@@ -12,5 +12,9 @@ int  linknet_open(const char *addr, int port);
 bool linknet_send(int s, const char *addr, int port, const char *buf, unsigned len);
 int  linknet_recv(int s, char *buf, unsigned n, char *from, unsigned fromn);
 void linknet_close(int s);
+/* The host's code (link_ops's code): four digits from the kernel's random,
+ * 0000 to 9999 each as likely, into `out` (5 bytes at least); false when
+ * there was no randomness */
+bool linknet_code(char *out, unsigned n);
 
 #endif

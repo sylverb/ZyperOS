@@ -2,9 +2,10 @@ CHECKS += check-link
 #| the Link Cable's launcher side (`src/link.c`), on fakes for every process, network and protocol
 #| action: offered on Gambatte alone and only on a device that has it; the adapter's last two bytes
 #| as the network's name (`ZyperOS-Link-7F2A`) and the handheld's (`Pixel 2 7F2A`), a scan's names
-#| read back to hosts (not File Transfer's, a home's or its own); the host's code the kernel's random,
-#| new each time it hosts under the same name, and a typed code read as the host made it (capitals,
-#| no dash) or refused; an address as Gambatte's twelve digits, and nothing that is not one;
+#| read back to hosts (not File Transfer's, a home's or its own); the host's code four digits from
+#| the kernel's random (the real maker's 20000 draws even), new each time it hosts under the same
+#| name, the WPA2 password made from it alone, a typed code read as four digits or refused, and a
+#| wrong one joining nothing; an address as Gambatte's twelve digits, and nothing that is not one;
 #| the fourteen SETOPT lines for the server and the client and the one for off; the datagrams read
 #| back, tabs flattened, anything else none; the host's network before its socket, nothing to
 #| Diatom before a hello, the server's options, the welcome and one notice on it, a beat every half

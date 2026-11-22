@@ -1556,7 +1556,7 @@ for _kind in ("tiles", "starting", "waiting", "looking", "found", "joining", "li
               "failed-code"):
     EXTRA.setdefault("link-" + _kind, ("demo", "GB", ["--screen", "games", "--link", _kind]))
 # ...and the joiner's keyboard asking for the code the host shows
-EXTRA.setdefault("keyboard-link", ("demo", "PS1", ["--keyboard", "--kb-link"]))
+EXTRA.setdefault("keyboard-link", ("demo", "PS1", ["--keyboard", "0", "48", "--kb-link"]))
 for _name, _kind in (("gamemenu-link", "linked"), ("gamemenu-link-waiting", "waiting"),
                      ("gamemenu-link-lost", "lost"), ("gamemenu-link-no-adapter", "no-adapter")):
     EXTRA.setdefault(_name, ("demo", "GB", ["--screen", "games", "--gamemenu", "4", "--link", _kind]))

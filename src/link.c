@@ -63,7 +63,7 @@ bool link_name_of_ssid(const char *ssid, char *out, unsigned n)
 
 bool link_code_typed(const char *typed, char *out, unsigned n)
 {
-	char c[9];
+	char c[5];
 	int k = 0;
 
 	if (n) out[0] = '\0';
@@ -71,12 +71,18 @@ bool link_code_typed(const char *typed, char *out, unsigned n)
 		unsigned char ch = (unsigned char)*typed;
 
 		if (ch == ' ' || ch == '-') continue;
-		if (!isalnum(ch) || k == 8) return false;
-		c[k++] = (char)tolower(ch);
+		if (!isdigit(ch) || k == 4) return false;
+		c[k++] = (char)ch;
 	}
-	if (k != 8 || n < 10) return false;
-	snprintf(out, n, "%.4s-%.4s", c, c + 4);
+	if (k != 4 || n < 5) return false;
+	c[4] = '\0';
+	snprintf(out, n, "%s", c);
 	return true;
+}
+
+void link_passphrase(const char *code, char *out, unsigned n)
+{
+	snprintf(out, n, "zyperlink%s", code ? code : "");
 }
 
 bool link_ip_digits(const char *addr, char digits[12])
@@ -190,7 +196,7 @@ static struct {
 	link_state   st;
 	link_failure why;
 	link_role    role;
-	char tail[5], self[LINK_NAME_MAX], ssid[LINK_SSID_MAX], pass[LINK_PASS_MAX];
+	char tail[5], self[LINK_NAME_MAX], ssid[LINK_SSID_MAX], pass[LINK_PASS_MAX];   /* pass: the code */
 	char game[LINK_GAME_MAX];
 	char peer[LINK_NAME_MAX], peer_addr[LINK_ADDR_MAX];
 	char hosts[LINK_HOSTS_MAX][LINK_NAME_MAX], host_ssid[LINK_HOSTS_MAX][LINK_SSID_MAX];
@@ -288,16 +294,31 @@ bool link_host(const char *game)
 	snprintf(g.game, sizeof g.game, "%s", game ? game : "");
 	g.role = LINK_ROLE_SERVER;
 	/* A new code each time it hosts, never one made from the name */
-	if (!g_ops->code(g.pass, sizeof g.pass) || strlen(g.pass) < 8) {
-		memset(g.pass, 0, sizeof g.pass);
+	{
+		char made[LINK_PASS_MAX] = "";
+
+		/* Four digits, or no network: the op's word is not taken on trust */
+		if (!g_ops->code(made, sizeof made) || !link_code_typed(made, g.pass, sizeof g.pass))
+			g.pass[0] = '\0';
+		memset(made, 0, sizeof made);
+	}
+	if (!g.pass[0]) {
 		fail(LINK_FAIL_NETWORK, "no code: no randomness");
 		return false;
 	}
 	g.t0 = now();
 	g.hot = true;
-	if (!g_ops->hotspot_start(g.ssid, g.pass)) {
-		fail(LINK_FAIL_NETWORK, "the hotspot did not start");
-		return false;
+	{
+		char wpa[LINK_PASS_MAX + 16];
+		bool ok;
+
+		link_passphrase(g.pass, wpa, sizeof wpa);
+		ok = g_ops->hotspot_start(g.ssid, wpa);
+		memset(wpa, 0, sizeof wpa);
+		if (!ok) {
+			fail(LINK_FAIL_NETWORK, "the hotspot did not start");
+			return false;
+		}
 	}
 	g.st = LINK_HOST_STARTING;
 	fprintf(stderr, "link: hosting as %s\n", g.ssid);
@@ -325,13 +346,15 @@ bool link_join_look(const char *game)
 
 bool link_join_pick(int i, const char *typed)
 {
-	char pass[LINK_PASS_MAX];
+	char code[LINK_PASS_MAX], pass[LINK_PASS_MAX + 16];
 
 	if (!g_ops || g.st != LINK_JOIN_LOOKING || i < 0 || i >= g.nhosts) return false;
-	if (!link_code_typed(typed, pass, sizeof pass)) {
+	if (!link_code_typed(typed, code, sizeof code)) {
 		fail(LINK_FAIL_CODE, "what was typed is no code");
 		return false;
 	}
+	link_passphrase(code, pass, sizeof pass);
+	memset(code, 0, sizeof code);
 	snprintf(g.joining, sizeof g.joining, "%s", g.hosts[i]);
 	snprintf(g.peer, sizeof g.peer, "%s", g.hosts[i]);
 	g.scanning = false;
@@ -545,6 +568,7 @@ const char  *link_host_name(int i)  { return i >= 0 && i < g.nhosts ? g.hosts[i]
 bool         link_scanned(void)     { return g.scanned; }
 const char  *link_joining_name(void) { return g.joining; }
 bool         link_owes_wifi(void)   { return g.hot || g.joined; }
+bool         link_holds_radio(void) { return g.hot || g.joined || g.looked; }
 const char  *link_code(void)
 {
 	return g.st == LINK_HOST_STARTING || g.st == LINK_HOST_WAITING ? g.pass : "";

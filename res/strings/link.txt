@@ -325,12 +325,12 @@ ja = %s に表示されたコード
 it = Codice mostrato su %s
 
 [link.fail_code]
-note = Under the tiles when what was typed for the code is not eight letters and digits.
-en = A code is eight letters and digits, as the other Pixel 2 shows it.
-zh-Hans = 代码是 8 位字母和数字，与另一台 Pixel 2 上显示的一致。
-es = Un código tiene ocho letras y números, como lo muestra el otro Pixel 2.
-pt-BR = O código tem oito letras e números, como o outro Pixel 2 mostra.
-fr = Un code compte huit lettres et chiffres, comme l'affiche l'autre Pixel 2.
-de = Ein Code hat acht Buchstaben und Ziffern, wie der andere Pixel 2 ihn zeigt.
-ja = コードは英数字 8 文字で、もう一台の Pixel 2 に表示されています。
-it = Un codice ha otto lettere e cifre, come lo mostra l'altro Pixel 2.
+note = Under the tiles when what was typed for the code is not four digits.
+en = A code is four digits, as the other Pixel 2 shows it.
+zh-Hans = 代码是 4 位数字，与另一台 Pixel 2 上显示的一致。
+es = Un código tiene cuatro dígitos, como lo muestra el otro Pixel 2.
+pt-BR = O código tem quatro dígitos, como o outro Pixel 2 mostra.
+fr = Un code compte quatre chiffres, comme l'affiche l'autre Pixel 2.
+de = Ein Code hat vier Ziffern, wie der andere Pixel 2 ihn zeigt.
+ja = コードは 4 桁の数字で、もう一台の Pixel 2 に表示されています。
+it = Un codice ha quattro cifre, come lo mostra l'altro Pixel 2.

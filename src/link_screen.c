@@ -3,7 +3,6 @@
 
 #include "aout_route.h"
 #include "app.h"
-#include "captive.h"
 #include "fileio.h"
 #include "hotspot.h"
 #include "ingame_screen.h"
@@ -96,7 +95,7 @@ static void view_shot(link_view *v)
 
 	memset(v, 0, sizeof *v);
 	v->self = "Pixel 2 7F2A";
-	v->code = "q7mx-3kpa";
+	v->code = "4821";
 	v->peer = v->joining = "Pixel 2 0C11";
 	switch (g_shot_link_kind) {
 	case LINK_SHOT_STARTING: v->st = LINK_HOST_STARTING; break;
@@ -476,21 +475,6 @@ void link_game_end(app *a)
 
 static bool lop_resident(const char *line) { return plat_resident_line("%s", line); }
 
-/* A new code from the kernel's random, in File Transfer's form: the host's
- * network's password, shown on its page (the security review: it was made
- * from the network's name, so anyone near could make it too) */
-static bool lop_code(char *out, unsigned n)
-{
-	uint8_t rnd[CAPTIVE_PASS_RANDOM];
-	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-	ssize_t got = fd >= 0 ? read(fd, rnd, sizeof rnd) : -1;
-
-	if (fd >= 0) close(fd);
-	if (got != (ssize_t)sizeof rnd || n < 10) return false;
-	captive_password(out, n, rnd);
-	memset(rnd, 0, sizeof rnd);
-	return true;
-}
 static bool lop_hs_start(const char *ssid, const char *pass) { return hotspot_start_named(ssid, pass); }
 static int  lop_hs_poll(void) { return (int)hotspot_poll(); }
 static void lop_hs_stop(void) { hotspot_stop(); }
@@ -552,7 +536,7 @@ static void lop_notice(link_news what, const char *peer)
 }
 
 static const link_ops g_link_ops = {
-	lop_resident, lop_code, lop_hs_start, lop_hs_poll, lop_hs_stop,
+	lop_resident, linknet_code, lop_hs_start, lop_hs_poll, lop_hs_stop,
 	lop_scan_start, lop_scan_poll, lop_scan_take,
 	lop_join_start, lop_join_poll, lop_join_end,
 	linknet_open, linknet_send, linknet_recv, linknet_close,

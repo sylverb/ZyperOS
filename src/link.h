@@ -13,12 +13,24 @@
  *               game goes on.
  *   the host    makes its own network, as Player 2 does (src/hotspot.h), a
  *               name of its own (ZyperOS-Link- and the adapter's last two
- *               bytes) and a code made new from the kernel's random each
- *               time it hosts ("q7mx-3kpa", File Transfer's form), which
- *               is the network's WPA2 password and which its page shows
- *   the joiner  finds that name in a Wi-Fi scan, the player types the code
- *               the host shows, and it joins for the game's time (nothing
- *               saved); its Wi-Fi comes back as it was
+ *               bytes) and a code of four digits made new from the
+ *               kernel's random each time it hosts ("4821"), which its page
+ *               shows; the network's WPA2 password is the code behind a
+ *               fixed prefix (link_passphrase), as WPA2 wants eight
+ *               characters at least
+ *   the joiner  finds that name in a Wi-Fi scan, the player types the four
+ *               digits the host shows, and it joins for the game's time
+ *               (nothing saved); its Wi-Fi comes back as it was
+ *
+ * Four digits are quick to type, and Tarik chose them knowing what they
+ * cost: someone near who captures the handshake tries the ten thousand
+ * codes offline in seconds. So the link's network carries nothing else of
+ * the launcher's: the beat binds the link's own address alone, and while
+ * the link holds the radio (link_holds_radio) Developer Mode's SSH over
+ * Wi-Fi and its zyperos.local stop (src/sshlink.h's `link` fact). File
+ * Transfer's server and Player 2's p2d never run with it (no File Transfer
+ * in a game, no Player 2 on a Game Boy), and the kernel has no netfilter
+ * for a firewall (plastron's linux.config: CONFIG_NETFILTER is not set).
  *   this file   the two launchers' own word to each other, a datagram on
  *               LINK_BEAT_PORT: hello and welcome, a beat every half second
  *               while linked, and bye. The beat is how a lost link is told:
@@ -82,14 +94,17 @@ void link_name(const char *tail, char *out, unsigned n);
 /* The name of the handheld whose network `ssid` is, "Pixel 2 7F2A"; false
  * for a network that is no link's */
 bool link_name_of_ssid(const char *ssid, char *out, unsigned n);
-/* A code as the player typed it, as the host made it: lower case, spaces
- * and dashes dropped, and the dash put back after the fourth ("Q7MX 3KPA"
- * and "q7mx3kpa" are "q7mx-3kpa"). False, and `out` empty, for one that is
- * not eight letters and digits: no code the host makes. A security review
- * of 1.1.0's Link Cable found the first password, made from the network's
- * name, one anybody near could make too; the code is random now, and only
- * the person holding the other handheld sees it. */
+/* A code as the player typed it, as the host made it: four digits, spaces
+ * and dashes dropped ("48 21" is "4821"). False, and `out` empty, for
+ * anything else: no code the host makes. A security review of this
+ * feature found its first password made from the network's name, which
+ * anybody near could make too; the code is random now, and only the person
+ * holding the other handheld sees it. */
 bool link_code_typed(const char *typed, char *out, unsigned n);
+/* The network's WPA2 password for a code: "zyperlink" and the four digits,
+ * thirteen characters, as WPA2 wants eight at least. Both handhelds make
+ * the same from the code; nothing of it comes from the network's name. */
+void link_passphrase(const char *code, char *out, unsigned n);
 
 /* An IPv4 address as the twelve digits Gambatte's server address options
  * take, three an octet ("10.42.1.1": 0 1 0, 0 4 2, 0 0 1, 0 0 1); false for
@@ -154,8 +169,8 @@ typedef enum { LINK_NEWS_LINKED, LINK_NEWS_LOST, LINK_NEWS_LEFT } link_news;
 typedef struct {
 	/* One protocol line to Diatom, as plat_resident_line sends it */
 	bool (*resident)(const char *line);
-	/* A new code, from the kernel's random, in File Transfer's form
-	 * (captive_password); false when there was no randomness */
+	/* A new code, four digits from the kernel's random, each of the ten
+	 * thousand as likely ("0093" too); false when there was no randomness */
 	bool (*code)(char *out, unsigned n);
 	/* The hotspot under a name and password of this file's, without its own
 	 * DNS; its poll (a hotspot_state); its stop, which brings the Wi-Fi back
@@ -238,6 +253,10 @@ const char  *link_peer_name(void);
 int          link_host_count(void);
 const char  *link_host_name(int i);
 bool         link_scanned(void);
+/* The link has the radio: hosting, joined, or scanning for a host. While
+ * it does, nothing else of the launcher's listens on Wi-Fi (Developer
+ * Mode's SSH and zyperos.local stop: src/devmode_screen.c) */
+bool         link_holds_radio(void);
 /* A network is up for the link (the hotspot, or the host's joined): its
  * stop brings the Wi-Fi back, a second or two, said on a panel first */
 bool         link_owes_wifi(void);

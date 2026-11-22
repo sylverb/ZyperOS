@@ -75,7 +75,7 @@ static int  g_codes;
 static bool g_code_ok = true;
 static bool f_code(char *out, unsigned n)
 {
-	static const char *const CODES[] = { "q7mx-3kpa", "zr4t-9wbe", "h2nc-uv6y" };
+	static const char *const CODES[] = { "4821", "0093", "7310" };
 
 	if (!g_code_ok) return false;
 	snprintf(out, n, "%s", CODES[g_codes++ % 3]);
@@ -93,9 +93,23 @@ static int  f_scan_take(char ssids[][LINK_SSID_MAX], int max)
 	for (i = 0; i < g_nscan && i < max; i++) snprintf(ssids[i], LINK_SSID_MAX, "%s", g_scan[i]);
 	return i;
 }
-static bool f_join_start(const char *ssid, const char *pass) { say("join %s %s", ssid, pass); return true; }
+/* The host's network's password: a join with another never associates, as
+ * hostapd turns it down */
+static const char *g_host_wpa = "zyperlink7310";
+static bool g_wrong_pass;
+static bool f_join_start(const char *ssid, const char *pass)
+{
+	say("join %s %s", ssid, pass);
+	g_wrong_pass = strcmp(pass, g_host_wpa) != 0;
+	return true;
+}
 static const char *g_join_addr = "10.42.1.23";
-static int  f_join_poll(char *addr, unsigned n) { if (g_join > 0) snprintf(addr, n, "%s", g_join_addr); return g_join; }
+static int  f_join_poll(char *addr, unsigned n)
+{
+	if (g_wrong_pass) return 0;
+	if (g_join > 0) snprintf(addr, n, "%s", g_join_addr);
+	return g_join;
+}
 static void f_join_end(void) { say("join end"); }
 static int  f_udp_open(const char *addr, int port) { say("udp %s %d", addr ? addr : "*", port); return g_sock_next; }
 static bool f_udp_send(int s, const char *addr, int port, const char *buf, unsigned len)
@@ -186,16 +200,21 @@ static void names(void)
 	CHECK(!link_name_of_ssid("ZyperOS-Link-7f2a", name, sizeof name));
 	CHECK(!link_name_of_ssid("Home", name, sizeof name));
 	CHECK(!link_name_of_ssid(NULL, name, sizeof name));
-	/* A code as typed, as the host made it */
-	CHECK(link_code_typed("q7mx-3kpa", p1, sizeof p1) && !strcmp(p1, "q7mx-3kpa"));
-	CHECK(link_code_typed("Q7MX 3KPA", p1, sizeof p1) && !strcmp(p1, "q7mx-3kpa"));
-	CHECK(link_code_typed("q7mx3kpa", p1, sizeof p1) && !strcmp(p1, "q7mx-3kpa"));
-	CHECK(!link_code_typed("q7mx-3kp", p1, sizeof p1) && !p1[0]);
-	CHECK(!link_code_typed("q7mx-3kpaa", p1, sizeof p1));
-	CHECK(!link_code_typed("q7mx_3kpa", p1, sizeof p1));
+	/* A code as typed, as the host made it: four digits */
+	CHECK(link_code_typed("4821", p1, sizeof p1) && !strcmp(p1, "4821"));
+	CHECK(link_code_typed("48 21", p1, sizeof p1) && !strcmp(p1, "4821"));
+	CHECK(link_code_typed("0093", p1, sizeof p1) && !strcmp(p1, "0093"));
+	CHECK(!link_code_typed("482", p1, sizeof p1) && !p1[0]);
+	CHECK(!link_code_typed("48210", p1, sizeof p1));
+	CHECK(!link_code_typed("48a1", p1, sizeof p1));
 	CHECK(!link_code_typed("", p1, sizeof p1));
 	CHECK(!link_code_typed(NULL, p1, sizeof p1));
-	CHECK(!link_code_typed("q7mx-3kpa", p2, 9));
+	CHECK(!link_code_typed("4821", p2, 4));
+	/* The network's password from the code alone, eight characters at least
+	 * as WPA2 wants, and another for every code */
+	link_passphrase("4821", p1, sizeof p1);
+	link_passphrase("4822", p2, sizeof p2);
+	CHECK(!strcmp(p1, "zyperlink4821") && strlen(p1) >= 8 && strcmp(p1, p2));
 }
 
 static void digits(void)
@@ -276,15 +295,17 @@ static void host_side(void)
 	 * the first one was made from the name, so anyone could) */
 	g_codes = 0;
 	CHECK(link_host("Tetris"));
-	CHECK(at("hotspot ZyperOS-Link-7F2A q7mx-3kpa") == 0);
-	CHECK(!strcmp(link_code(), "q7mx-3kpa"));
+	CHECK(at("hotspot ZyperOS-Link-7F2A zyperlink4821") == 0);
+	CHECK(!strcmp(link_code(), "4821"));
 	link_stop();
 	CHECK(!strcmp(link_code(), ""));
 	reset_log();
 	CHECK(link_host("Tetris"));
-	CHECK(at("hotspot ZyperOS-Link-7F2A zr4t-9wbe") == 0);
+	CHECK(at("hotspot ZyperOS-Link-7F2A zyperlink0093") == 0);
 	snprintf(pass, sizeof pass, "%s", link_code());
-	CHECK(!strcmp(pass, "zr4t-9wbe"));
+	CHECK(!strcmp(pass, "0093"));
+	/* The radio is the link's while it hosts: nothing else listens there */
+	CHECK(link_holds_radio());
 	CHECK(link_state_now() == LINK_HOST_STARTING);
 	/* Nothing listens before the network is up */
 	run(500);
@@ -425,10 +446,11 @@ static void join_side(void)
 	reset_log();
 	run(3100);
 	CHECK(logged("scan") >= 1);
-	CHECK(!link_join_pick(5, "q7mx-3kpa"));
+	CHECK(!link_join_pick(5, "7310"));
+	CHECK(link_holds_radio());
 	/* The code as the player typed it, as the host made it */
-	CHECK(link_join_pick(0, "H2NC UV6Y"));
-	snprintf(pass, sizeof pass, "%s", "h2nc-uv6y");
+	CHECK(link_join_pick(0, "73 10"));
+	snprintf(pass, sizeof pass, "%s", "zyperlink7310");
 	snprintf(want, sizeof want, "join ZyperOS-Link-0C11 %s", pass);
 	CHECK(at(want) >= 0);
 	CHECK(link_state_now() == LINK_JOIN_JOINING && !strcmp(link_joining_name(), "Pixel 2 0C11"));
@@ -493,15 +515,29 @@ static void join_failures(void)
 	link_join_look("Tetris");
 	run(100);
 	reset_log();
-	CHECK(!link_join_pick(0, "q7mx"));
+	CHECK(!link_join_pick(0, "731"));
 	CHECK(link_failure_now() == LINK_FAIL_CODE);
 	CHECK(logged("join ") == 0);
 	link_stop();
 
-	/* The network never joins (a wrong code looks so) */
+	/* A wrong code joins nothing: the host's network turns it down, no
+	 * hello goes out, nothing goes to Diatom, and it fails as a join */
 	link_join_look("Tetris");
 	run(100);
-	link_join_pick(0, "q7mx-3kpa");
+	reset_log();
+	link_join_pick(0, "1234");
+	g_join = 1;
+	run(30000);
+	CHECK(link_failure_now() == LINK_FAIL_JOIN);
+	CHECK(logged("send") == 0 && logged("resident") == 0 && logged("udp ") == 0);
+	reset_log();
+	link_stop();
+	CHECK(at("join end") >= 0);
+
+	/* The network never joins */
+	link_join_look("Tetris");
+	run(100);
+	link_join_pick(0, "7310");
 	g_join = 0;
 	run(30000);
 	CHECK(link_failure_now() == LINK_FAIL_JOIN);
@@ -512,7 +548,7 @@ static void join_failures(void)
 	/* On it, and nobody answers in ten seconds */
 	link_join_look("Tetris");
 	run(100);
-	link_join_pick(0, "q7mx-3kpa");
+	link_join_pick(0, "7310");
 	g_join = 1;
 	run(9500);
 	CHECK(link_state_now() == LINK_JOIN_ASKING);
@@ -523,7 +559,7 @@ static void join_failures(void)
 	/* The host is linked with another */
 	link_join_look("Tetris");
 	run(100);
-	link_join_pick(0, "q7mx-3kpa");
+	link_join_pick(0, "7310");
 	run(100);
 	reset_log();
 	arrive(LINK_MSG_BUSY, "Pixel 2 0C11", "", "10.42.1.1");
@@ -552,6 +588,8 @@ static void game_end_is_quiet(void)
 	CHECK(logged("send 10.42.1.23:56399 ZLINK1\tbye") == 2);
 	CHECK(logged("resident") == 0);
 	CHECK(at("hotspot stop") >= 0);
+	/* And the radio is the launcher's again */
+	CHECK(!link_holds_radio());
 }
 
 /* src/linknet.c's socket on the loopback: one sends, the other hears it and
@@ -572,6 +610,23 @@ static void real_socket(void)
 	CHECK(got == 14 && !memcmp(buf, "ZLINK1\tbeat\tX\t", 14) && !strcmp(from, "127.0.0.1"));
 	CHECK(link_wire_read(buf, (unsigned)got, NULL, 0, NULL, 0) == LINK_MSG_BEAT);
 	CHECK(linknet_open("10.42.1.999", 0) < 0);
+	/* The real codes: four digits each, and every first digit about as
+	 * often as the others (each 10% of 20000 draws, within 1.5%) */
+	{
+		int first[10] = { 0 }, k, d, same = 0;
+		char c[8], last[8] = "";
+
+		for (k = 0; k < 20000; k++) {
+			CHECK(linknet_code(c, sizeof c));
+			CHECK(strlen(c) == 4 && strspn(c, "0123456789") == 4);
+			first[c[0] - '0']++;
+			if (!strcmp(c, last)) same++;
+			snprintf(last, sizeof last, "%s", c);
+		}
+		for (d = 0; d < 10; d++) CHECK(first[d] > 1700 && first[d] < 2300);
+		CHECK(same < 20);
+		CHECK(!linknet_code(c, 4));
+	}
 	linknet_close(a);
 	linknet_close(b);
 }
