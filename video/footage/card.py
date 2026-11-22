@@ -380,6 +380,15 @@ def v110(card, cache=ART_CACHE):
     return card
 
 
+def brick_intro(card):
+    """The Brick introduction's card (src/brick-intro): 1.1's, with System
+    Update offering what a Brick on 1.0.6 was offered, 1.1.0, at the size of
+    the release's ZyperOS-v1.1.0-brick-update.zpk (288396245 bytes)"""
+    (card / 'ZyperOS/VERSION').write_text('1.0.6\n')
+    (card / 'userdata/update/status').write_text(
+        'state available\ninstalled 1.0.6\nversion 1.1.0\ndownload 288396245\nkind system\n')
+    return card
+
 def env_for(card):
     env = rs.env_for(card)
     # No sound from the computer, and the launcher's clock zone for REC_CLOCK
