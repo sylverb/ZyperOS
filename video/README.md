@@ -255,7 +255,10 @@ script refuses to make a file while one is left.
 
 ```sh
 make native
-python3 video/footage/takes.py bi-poweroff bi-homegrid ...   # every bi- take
+python3 video/footage/takes.py bi-poweroff bi-homegrid ...   # every bi- take but bi-vview,
+                                     # and v11-brick-home v11-brick-grid v11-brick-gpu v11-brick
+SNAP_SOURCE=~/Documents/ZyperOS/video/snaps/sotn.mp4 SNAP_START=2 python3 video/footage/takes.py bi-vview   # its own run:
+                                     # the snap file is made once a run, from SNAP_SOURCE
 cd video && npm run stills:brick-intro
 npx remotion render BrickIntro out/brick-intro/zyperos-brick-raw.mp4 --crf=6 --concurrency=4
 sh scripts/finish-brick-intro.sh     # the master and the Reddit file, outside the repository

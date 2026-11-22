@@ -609,12 +609,13 @@ TAKES['bi-update'] = {**TAKES['update'], 'device': 'brick', 'card': 'bi'}
 # charge limit, and the Rumble and lights pages, each on the Brick's profile
 for _src in ['lshader', 'v11-border', 'ports', 'portline', 'v11-p8', 'player2', 'charge']:
     brick(_src)
-# The Brick's profile has no Rumble row or lights page yet (draft #452, and
-# the lights wait for a kit): their menu panels as the Pixel 2's profile draws
-# them, the same panels at the same 1024x768, until the Brick's land
-shots('bi-rumble', [(PS1, ['--menu', 'Rumble'], 500)] +
-      [(PS1, ['--menu', 'Rumble', '--press', 'a', '--pick-at', str(k)], 450) for k in range(4)])
-shots('bi-lights', [(PS1, ['--lights-page', str(r)], 450) for r in range(5)])
+# The Brick's profile has no Rumble row yet (draft #452): the Rumble list as
+# the Pixel 2's profile draws it, until the Brick's lands. The Brick's lights
+# page does not exist yet, so the video does not show one.
+# Only the Rumble list itself: its rows and lines are the same on every
+# handheld, where the Sound tab around it is the Pixel 2's (its mono speaker)
+shots('bi-rumble', [(PS1, ['--menu', 'Rumble', '--press', 'a', '--pick-at', str(k)], ms)
+                    for k, ms in ((0, 700), (1, 750), (2, 750), (3, 1300))])
 # System Update in the background without its page (it names versions): the
 # shelf's download mark filling, on the Brick introduction's card
 TAKES['bi-update-bg'] = {**TAKES['update-bg'], 'device': 'brick', 'card': 'bi',

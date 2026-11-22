@@ -80,15 +80,15 @@ export const SCENES_BI: SceneBI[] = [
     label: "Updates over Wi-Fi", sub: "Downloading while you play",
     punch: [{ at: 0, x: 0.72, y: 0.22, zoom: 1.35 }] },
   { id: "player2", bars: 2, pose: "main", enter: "whip", screen: fit("bi-player2", 600, 6500),
-    label: "Player 2 on a friend's phone", sub: "No app, no account" },
+    label: "Player 2 on a phone", sub: "A friend joins, no app or account" },
   // The track's quiet break, bars 49 to 54
   { id: "mp4", bars: 2, pose: "main", enter: "whip", screen: fit("bi-looks", 0, 5367),
     label: "Music and videos", sub: "A cassette, a vinyl, a spectrum" },
   { id: "boost", bars: 2, pose: "main", enter: "cut",
     screen: then("bi-boost", 1700, 4700, 1.5, fit("bi-eq", 1500, 3700)),
     label: "Louder than the top", sub: "Up to +18 dB, and an equalizer" },
-  { id: "rumble", bars: 2, pose: "main", enter: "cut", screen: then("bi-rumble", 0, 2300, 1.3, fit("bi-lights", 0, 2250)),
-    label: "Rumble and lights", sub: "As strong as you like" },
+  { id: "rumble", bars: 2, pose: "main", enter: "cut", screen: fit("bi-rumble", 0, 3500),
+    label: "Rumble in games", sub: "As strong as you like" },
   // The band back
   { id: "battery", bars: 2, pose: "main", enter: "whip", screen: fit("bi-charge", 0, 2833),
     label: "A charge limit", sub: "Kinder to the battery" },
