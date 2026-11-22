@@ -363,8 +363,10 @@ def brick():
 # The R36S (--device r36s), its own handheld: the Brick's kind of body, the
 # volume rocker on the right and POWER on the left (the Brick's the other way
 # round), FN (its MENU) in the middle of the front, the shoulders on its back
-# ledge. Brightness lights FN and the rocker: the right half at least.
-R36S_LIT_SIDE = {"move": "l", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "c",
+# ledge. Brightness lights FN and the rocker: the right half at least. The
+# d-pad's lesson lights L1 and R1 too, whose paddles stand out past the
+# back, so R1's edge shows on the right: the left half is judged alone.
+R36S_LIT_SIDE = {"move": "L", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "c",
                  "select": "c", "vol": "r", "bright": "cr", "power": "l"}
 
 
@@ -379,10 +381,11 @@ def r36s():
             if img is None:
                 continue
             left, right = count(img, ACCENT, COLUMN_L), count(img, ACCENT, COLUMN_R)
-            ck(left + right > 30 if side == "c" else right > 30 if side == "cr" else
+            ck(left + right > 30 if side == "c" else right > 30 if side == "cr" else left > 30 if side == "L" else
                ("l" in side) == (left > 30) and ("r" in side) == (right > 30),
                "r36s %s %s: the lit key is on the %s of the handheld (lit pixels left %d, right %d)"
-               % (th, step, {"l": "left", "r": "right", "c": "middle", "cr": "middle and right"}[side],
+               % (th, step, {"l": "left", "r": "right", "c": "middle", "cr": "middle and right",
+                             "L": "left"}[side],
                   left, right))
             if th == "light":
                 glass = count(img, GLASS, (0, 82, 276, 442))

@@ -1016,8 +1016,16 @@ typedef struct {
 	/* Slot grilles: two slots a row, rows down from z, at x +-slot_x (w 0 none) */
 	float slot_x, slot_z, slot_w, slot_h, slot_gap;
 	int   slot_rows;
+	/* A dot between the middle row's two slots, and a microphone's hole
+	 * at (0, mic_z), their radii (0 none) */
+	float slot_dot, mic_z, mic_r;
+	/* A seam across the face at seam_z, where its mouldings meet (0 none) */
+	float seam_z;
 	/* The sticks, at (+-stick_x, stick_z): the well and the cap (0 none) */
 	float stick_x, stick_z, stick_well, stick_cap;
+	/* The well a light ring standing out of the face, this wide, round the
+	 * cap's dark base (0: a plain dark well) */
+	float stick_ring;
 	float vol_w;                       /* the volume keys, pills this wide across the side */
 	bool  power_pill;                  /* POWER a pill as the volume keys, or round */
 	/* On POWER's side: the FN slider (its slot, its knob at the top; l 0
@@ -1028,6 +1036,13 @@ typedef struct {
 	 * from under the ledge (where the back shows their faces) up to their
 	 * tops; a press takes a top this far down */
 	float key_low, key_press;
+	/* How far the shoulders stand out past the back (0: flush) */
+	float key_out;
+	/* On the back: a panel on the thin part (w, h about z; w 0 none), and
+	 * ribs across the thick part's back from z rib_z down, rib_n of them
+	 * rib_gap apart, rib_w wide */
+	float panel_w, panel_h, panel_z, rib_z, rib_gap, rib_w;
+	int   rib_n;
 	/* The USB-C housing between L2 and R2, a little higher than the ledge,
 	 * and the port in its back (w 0 none) */
 	float usb_w, usb_rise, port_w, port_h;
@@ -1058,10 +1073,15 @@ static const slab SLAB_R36S = {
 	.arm = 3.75f,
 	/* Three rows of two slots, 17.5 x 9.4 in all, under the glass */
 	.slot_x = 4.4f, .slot_z = -6.8f, .slot_w = 6.6f, .slot_h = 1.3f, .slot_gap = 2.6f, .slot_rows = 3,
-	.stick_x = 26.3f, .stick_z = -38.6f, .stick_well = 11.0f, .stick_cap = 7.5f,
+	.slot_dot = .6f, .mic_z = -30.4f, .mic_r = .45f,
+	/* Just under the glass (31.2 less half its 55.6) */
+	.seam_z = 1.8f,
+	.stick_x = 26.3f, .stick_z = -38.6f, .stick_well = 11.0f, .stick_cap = 7.5f, .stick_ring = 2.4f,
 	.vol_w = 3.0f, .power_pill = true,
-	.reset_z = 26.8f, .reset_r = 1.2f,
-	.key_low = 5.4f, .key_press = 1.2f,
+	.reset_z = 29.5f, .reset_r = 1.2f,
+	.key_low = 5.4f, .key_press = 1.2f, .key_out = 3.0f,
+	.panel_w = 60.0f, .panel_h = 28.0f, .panel_z = 41.0f,
+	.rib_z = -6.0f, .rib_gap = 3.0f, .rib_w = 64.0f, .rib_n = 15,
 };
 
 /* The slab being drawn (slab_draw) */
@@ -1308,11 +1328,33 @@ static void bk_front_face(const view *v)
 		for (j = 0; j < n; j++) pt[j] = at(v, x + ab[j * 2], BK_FRONT, z + ab[j * 2 + 1]);
 		bk_shape(v, pt, n, col(v, v->mark, 1.0f), col(v, 0, 0.0f), 0.0f);
 	}
-	/* The sticks: a well, and the cap in it, never lit */
+	if (g_slab->slot_dot > 0.0f) {
+		n = disc(v, 0, 0.0f, BK_FRONT, g_slab->slot_z - g_slab->slot_gap, g_slab->slot_dot, pt);
+		fill(v->r, pt, n, col(v, v->mark, 1.0f));
+	}
+	if (g_slab->mic_r > 0.0f) {
+		n = disc(v, 0, 0.0f, BK_FRONT, g_slab->mic_z, g_slab->mic_r, pt);
+		fill(v->r, pt, n, col(v, v->mark, 1.0f));
+	}
+	if (g_slab->seam_z != 0.0f) {
+		const float x = BK_W / 2.0f, z = g_slab->seam_z, h = .25f;
+		const float q[4][3] = { { -x, BK_FRONT, z - h }, { x, BK_FRONT, z - h }, { x, BK_FRONT, z + h },
+		                        { -x, BK_FRONT, z + h } };
+
+		for (j = 0; j < 4; j++) pt[j] = at(v, q[j][0], q[j][1], q[j][2]);
+		if (thinness(pt, 4) >= .4f) fill(v->r, pt, 4, col(v, v->mark, 1.0f));
+	}
+	/* The sticks: a well (a light ring standing out of the face, where the
+	 * slab has one, round the cap's dark base), and the cap in it, never
+	 * lit */
 	for (i = 0; g_slab->stick_well > 0.0f && i < 2; i++) {
 		const float x = (i ? 1.0f : -1.0f) * g_slab->stick_x, z = g_slab->stick_z;
 
 		n = disc(v, 0, x, BK_FRONT, z, g_slab->stick_well, pt);
+		if (g_slab->stick_ring > 0.0f) {
+			bk_shape(v, pt, n, col(v, v->body, 1.0f), col(v, v->line, 1.0f), DS_FRAME);
+			n = disc(v, 0, x, BK_FRONT, z, g_slab->stick_well - g_slab->stick_ring, pt);
+		}
 		bk_shape(v, pt, n, col(v, v->pocket, 1.0f), col(v, v->line, 1.0f), DS_FRAME);
 		n = disc(v, 0, x, BK_FRONT, z, g_slab->stick_cap, pt);
 		bk_shape(v, pt, n, col(v, v->key, 1.0f), col(v, v->key_line, 1.0f), DS_FRAME);
@@ -1535,6 +1577,30 @@ static void bk_screws(const view *v, float y, float x, const float *zs, int n)
 		}
 }
 
+/* The back's own marks, where the slab has them: the panel on the thin
+ * part's back (`thin`), or the ribs across the thick part's */
+static void bk_back_marks(const view *v, bool thin)
+{
+	SDL_FPoint p[MAXP];
+	int i, j, n;
+
+	if (thin && g_slab->panel_w > 0.0f) {
+		float ab[MAXP * 2];
+
+		n = rrect(g_slab->panel_w, g_slab->panel_h, 2.0f, 0.0f, 4, ab);
+		for (j = 0; j < n; j++) p[j] = at(v, ab[j * 2], BK_THIN, g_slab->panel_z + ab[j * 2 + 1]);
+		bk_shape(v, p, n, col(v, v->body, 1.0f), col(v, v->line, 1.0f), DS_FRAME);
+	}
+	for (i = 0; !thin && i < g_slab->rib_n; i++) {
+		const float x = g_slab->rib_w / 2.0f, z = g_slab->rib_z - g_slab->rib_gap * (float)i, h = .45f;
+		const float q[4][3] = { { -x, BK_BACK, z - h }, { x, BK_BACK, z - h }, { x, BK_BACK, z + h },
+		                        { -x, BK_BACK, z + h } };
+
+		for (j = 0; j < 4; j++) p[j] = at(v, q[j][0], q[j][1], q[j][2]);
+		if (thinness(p, 4) >= .5f) fill(v->r, p, 4, col(v, v->mark, 1.0f));
+	}
+}
+
 /* The light bar along the top edge at the back, a mark as the Pixel 2's
  * light lenses are: on the top where the tilt shows it, and over the back's
  * top edge where the back shows */
@@ -1565,7 +1631,7 @@ static void bk_bar(const view *v)
 static int bk_ledge_block(const view *v, float x0, float x1, float top, SDL_Color f, SDL_Color tf,
                           SDL_Color e, SDL_FPoint *pts, bool draw)
 {
-	const float y0 = BK_KEY_FRONT, y1 = BK_BACK;
+	const float y0 = BK_KEY_FRONT, y1 = BK_BACK + g_slab->key_out;
 	const float lo0 = x0 <= -BK_W / 2.0f + 0.01f ? BK_KEY_LOW : BK_LEDGE;
 	const float lo1 = x1 >= BK_W / 2.0f - 0.01f ? BK_KEY_LOW : BK_LEDGE;
 	int n = 0, i;
@@ -1697,11 +1763,13 @@ static void slab_draw(view *v, const slab *sl)
 		bk_block(v, full, nf, BK_FRONT, BK_THIN, BK_TOP, BK_W / 2.0f - BK_RT, true, true);
 		bk_bar(v);
 		bk_screws(v, BK_THIN, BK_W / 2.0f - 4.5f, THIN_Z, 1);
+		bk_back_marks(v, true);
 		bk_side_spots(v, spots, &ns);
 		bk_halos(v, spots, 0, ns);
 		bk_side_keys(v);
 		bk_block(v, low, nl, BK_THIN, BK_BACK, BK_LEDGE, BK_W / 2.0f, false, true);
 		bk_screws(v, BK_BACK, BK_W / 2.0f - 4.5f, THICK_Z, 2);
+		bk_back_marks(v, false);
 		bk_ledge(v, spots, &ns);
 	}
 	for (i = 0; i < ns; i++)
