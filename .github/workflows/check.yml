@@ -18,11 +18,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  # The macOS suite in four parts at once, one runner each (make check
+  # CHECK_SHARD=I/4, tools/check-run.py --shard): on one runner it took 32 to
+  # 39 minutes (2026-11-20), 26 of them check-i18n-shots, which now shoots a
+  # quarter of its languages and handhelds in each part. Every part runs to
+  # its end whatever another does, so one push says every failure.
+  shard:
+    name: check ${{ matrix.shard }}/4
     runs-on: macos-15
-    # A full make check takes 20 to 25 minutes on a quiet runner; on a busy
-    # day (2026-11-19) runs went past 30 and were cancelled at the limit
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -36,15 +44,33 @@ jobs:
       - name: Pillow for the image checks
         run: python -m pip install Pillow
 
-      - name: make check
-        run: make check
+      - name: make check, part ${{ matrix.shard }} of 4
+        run: make check CHECK_SHARD=${{ matrix.shard }}/4
 
       - name: Keep the logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: check-logs
+          name: check-logs-${{ matrix.shard }}
           path: build-native/check-logs/
+
+  # The macOS suite's one line on a pull request, green only when every part
+  # passed (the name the single job had, so "check" still means the whole
+  # suite). Run whatever the parts did, a cancelled run too: a skipped job
+  # reads as passed to whatever looks at conclusions alone, so a part that
+  # failed, was cancelled or never ran makes this red, never absent.
+  check:
+    needs: shard
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: every part of make check passed
+        env:
+          PARTS: ${{ needs.shard.result }}
+        run: |
+          echo "the parts: $PARTS"
+          test "$PARTS" = success
 
   # The same suite on Linux, beside the macOS job and not instead of it:
   # Linux runners are many more than macOS ones, and this is the start of

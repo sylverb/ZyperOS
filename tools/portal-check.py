@@ -883,6 +883,10 @@ def main():
             slow(1500)
             fresh(page, f'{server.origin}/')
             page.until("typeof sendPin === 'function'", 30)
+            # The focus lands a moment after the script on a busy runner (a
+            # CI part, 2026-11-21: -1 read at once): looked for while the
+            # handheld's answer, 1.5 s off, has not come
+            page.until(f"{cursor} === 0 || {answered}", 1.2)
             check(not page.js(answered) and page.js(cursor) == 0,
                   f"before the handheld has answered, the first box has the cursor: {page.js(cursor)}")
             digit('4')

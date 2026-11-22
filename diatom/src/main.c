@@ -370,9 +370,11 @@ static bool write_preview(const char *path)
  * frame Diatom already keeps (a GPU core's read back once, gpu_snapshot),
  * copied here between frames and written as a PNG on a thread of its own,
  * so the frame loop never waits on the card or on the encoding. Where it
- * goes is the launcher's (RUN shots=): the time and ".png" are added. SHOT
- * path= once the file is there, said by the loop, which looks once a turn;
- * one at a time, a press while one is being written is said and dropped. */
+ * goes is the launcher's (RUN shots=): the time and ".png" are added. As
+ * it is taken, a short buzz and HOTKEY key=shot, the launcher's shutter
+ * (DESIGN.md 9); SHOT path= once the file is there, said by the loop, which
+ * looks once a turn; one at a time, a press while one is being written is
+ * said and dropped, unfelt and unheard. */
 static char g_shots[1024];
 
 typedef struct {
@@ -536,6 +538,12 @@ static void shot_take(void)
 	strftime(when, sizeof when, "%Y-%m-%d %H.%M.%S", &tm);
 	snprintf(j->path, sizeof j->path, "%s %s.png", g_shots, when);
 	g_shot_state = 1;
+	/* Felt and heard as it is taken, never after the file (DESIGN.md
+	 * 11.61): the buzz here, at the game's rumble level, and the shutter
+	 * the launcher's, told now and played on the mix beside the game's
+	 * sound. Neither touches the frame copied above, nor the game's sound. */
+	diatom_levels_buzz();
+	if (diatom_proto_connected()) diatom_proto_send("HOTKEY\tkey=shot");
 	if (pthread_create(&th, NULL, shot_write, j) != 0) {
 		shot_write(j);
 		return;
@@ -2511,17 +2519,21 @@ static uint64_t g_power_calm_us;
  * (diatom_env_poll_hook), so no press reaches the game before the rule has
  * seen it: what the polls of a turn asked for (acts) and the shoulders they
  * took gather here for the frame loop to act on once a turn. g_sel_live is
- * which shoulders are hotkeys in this game. */
+ * which shoulders are hotkeys in this game. The rule reads the pad as
+ * chord_view gives it, a hotkey tapped between two polls under a held SELECT
+ * in it: g_sel_was is the last view, g_sel_pad the last pad as it was. */
 static chord    g_sel;
-static uint32_t g_sel_was, g_sel_live, g_sel_took;
+static uint32_t g_sel_was, g_sel_pad, g_sel_live, g_sel_took;
 static unsigned g_sel_acts;
 
-static uint32_t sel_poll(uint32_t pad, uint32_t *give)
+static uint32_t sel_poll(uint32_t pad, uint32_t pressed, uint32_t *give)
 {
-	chord_out o = chord_turn(&g_sel, pad, g_sel_was,
+	const uint32_t view = chord_view(&g_sel, pad, g_sel_pad, pressed, g_sel_live);
+	chord_out o = chord_turn(&g_sel, view, g_sel_was,
 	                         diatom_port_now_us() / 1000, g_sel_live);
 
-	g_sel_was = pad;
+	g_sel_was = view;
+	g_sel_pad = pad;
 	g_sel_acts |= o.acts;
 	g_sel_took |= o.took;
 	*give = o.give;
@@ -2549,7 +2561,7 @@ static void sel_reset(uint32_t pad)
 	chord_reset(&g_sel);
 	if (g_hk_keyed) chord_set_keys(&g_sel, g_hk_key);
 	sel_live_update();
-	g_sel_was = pad;
+	g_sel_was = g_sel_pad = pad;
 	g_sel_acts = 0;
 	g_sel_took = 0;
 	diatom_env_poll_hook(sel_poll);
@@ -3022,6 +3034,9 @@ static int run_session_inner(const diatom_session *sn)
 	diatom_port_input_poll();
 	prev_buttons  = diatom_port_input_state();
 	held_at_entry = prev_buttons;
+	/* And a press the last game's polls gathered after its last turn is
+	 * not this one's */
+	(void)diatom_env_pressed();
 	sty_wait = 0;
 	diatom_env_suppress(held_at_entry | (g_dual ? scr_own_keys(sty_on()) : 0));
 	sel_reset(prev_buttons);
@@ -3430,7 +3445,23 @@ static int run_session_inner(const diatom_session *sn)
 		levels_tick();
 		audio_tick();
 
+		/* The pad, and Diatom's own keys pressed at any poll since the last
+		 * turn: MENU, the stick's turn and the DS's screens act on a press
+		 * edge read here once a turn, and a slow game's turn is long - a
+		 * Saturn game at 10 fps lost an 80 ms MENU (2026-11-20), down and
+		 * up again between two polls. Such a key is held for this turn and
+		 * let go at the next, a press and a release a turn apart, as a short
+		 * real one is; a key held is as it was. The core never sees these
+		 * (MENU is never its button; the others are suppressed below), so
+		 * the game's buttons are still as libretro polls them. Not Stick
+		 * While Held's: a hold over in a moment holds nothing. */
 		buttons = diatom_port_input_state();
+		{
+			uint32_t own = DIATOM_BIT(DIATOM_BTN_MENU) | diatom_input_stick_keys(NULL);
+
+			if (g_dual) own |= scr_own_keys(false);
+			buttons |= diatom_env_pressed() & own;
+		}
 		/* Player 2's presses keep the game awake too: in a game played in
 		 * turns, player 1 touches nothing for all of player 2's */
 		idle_note_input(buttons != 0 || diatom_env_p2_pad() != 0);
@@ -3673,6 +3704,7 @@ static int run_session_inner(const diatom_session *sn)
 					 * the menu again when let go. */
 					diatom_port_input_poll();
 					prev_buttons = diatom_port_input_state();
+					(void)diatom_env_pressed();
 					menu_armed = false;
 
 					/* Resuming fast is the one moment the speed could surprise,
