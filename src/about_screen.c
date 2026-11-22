@@ -8,6 +8,7 @@
 #include "app.h"
 #include "devmode.h"
 #include "ingame_screen.h"
+#include "levels.h"
 #include "menu_panel.h"
 #include "panel.h"
 #include "uisound.h"
@@ -85,6 +86,7 @@ static const about_thanks ABOUT_THANKS[] = {
  * while this has a row. */
 static const struct { const char *who, *handheld; } ABOUT_HANDHELD_THANKS[] = {
 	{ "autobiogphnation", "TrimUI Brick" },   /* kit 2's first tester, all 12 steps */
+	{ "moroboshi69", "TrimUI Brick" },        /* kit 1.0.7-kit.1: the upside-down shaders (#419) */
 	{ NULL, NULL }
 };
 
@@ -326,10 +328,7 @@ void about_screen(app *a)
 				step_sound(a, IN_DOWN, was, *sc);
 			}
 		}
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		if (!panel_frame(a, lv, &k)) continue;
 		tick_tint(a);
@@ -394,10 +393,7 @@ void controls_screen(app *a)
 			step_sound(a, IN_LEFT, page, (page + CTL_PAGES - 1) % CTL_PAGES);
 			page = (ctl_page)((page + CTL_PAGES - 1) % CTL_PAGES);
 		}
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		if (!panel_frame(a, lv, &k)) continue;
 		tick_tint(a);

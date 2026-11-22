@@ -24,7 +24,7 @@ ja = ダーク
 it = Scuro
 
 [theme.auto]
-note = Appearance's value: light from 7:00 to 19:00, dark the rest
+note = Appearance's value, back in 1.1.0: dark in Night Mode's hours (Night From to Until, 9:00 PM to 7:00 AM as it ships), light the rest of the day
 en = Auto
 zh-Hans = 自动
 es = Automático
@@ -33,3 +33,36 @@ fr = Auto
 de = Automatisch
 ja = 自動
 it = Automatico
+
+[theme.light_note]
+note = Under Appearance's list, for Light: what it does. One short line
+en = Light, day and night.
+zh-Hans = 全天浅色。
+es = Claro de día y de noche.
+pt-BR = Claro de dia e de noite.
+fr = Clair de jour comme de nuit.
+de = Hell, Tag und Nacht.
+ja = 昼も夜もライトです。
+it = Chiaro di giorno e di notte.
+
+[theme.dark_note]
+note = Under Appearance's list, for Dark: what it does. One short line
+en = Dark, day and night.
+zh-Hans = 全天深色。
+es = Oscuro de día y de noche.
+pt-BR = Escuro de dia e de noite.
+fr = Sombre de jour comme de nuit.
+de = Dunkel, Tag und Nacht.
+ja = 昼も夜もダークです。
+it = Scuro di giorno e di notte.
+
+[theme.auto_note]
+note = Under Appearance's list, for Auto: dark in Night Mode's hours (its page's Night From to Until, sysmenu.night_mode's words), light the rest of the day. Two short lines at most; Chinese and Japanese one line
+en = Dark in Night Mode's hours, light the rest of the day.
+zh-Hans = 仅在夜间模式时段为深色。
+es = Oscuro en las horas del Modo nocturno, claro de día.
+pt-BR = Escuro no horário do Modo noturno, claro de dia.
+fr = Sombre aux heures du Mode nuit, clair le jour.
+de = Dunkel zu den Zeiten des Nachtmodus, sonst hell.
+ja = ナイトモードの時間だけダーク。
+it = Scuro nelle ore della Modalità notte, chiaro di giorno.

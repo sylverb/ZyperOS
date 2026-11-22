@@ -15,7 +15,9 @@
  *
  * THE PROTOCOL, one line each way, tab-separated key=value after a verb:
  *
- *   in   PLAY    path=  [at=]  [speed=]   open and play, from `at` seconds
+ *   in   PLAY    path=  [at=]  [speed=]   open and play, from `at` seconds;
+ *                [paused=1]                  or open there and hold it, paused,
+ *                                            no sound (MP4's resume, 11.67)
  *        PAUSE | RESUME | STOP
  *        SEEK    at=
  *        SPEED   x=                          0.5-2.0, pitch preserved
@@ -32,7 +34,8 @@
  *                                            one is (bands.h)
  *        COVER   path=  base=                write path's picture to base.jpg|png
  *        ARTIST  dir=                        who a folder of tracks is by
- *   out  READY   proto=6                     3 added CHANNELS, 4 VIDEO, 5 EQ, 6 BANDS
+ *   out  READY   proto=7                     3 added CHANNELS, 4 VIDEO, 5 EQ, 6 BANDS,
+ *                                            7 PLAY paused=1
  *        CHANNELS mode=                      the mix in force, after each CHANNELS
  *        STATE   state=playing|paused|stopped  path=
  *        META    title= artist= album= len= chapters= video=WxH|0
@@ -117,7 +120,7 @@ static struct {
  * So repeats of the SAME verb still merge, where the newest is the only one
  * that means anything - SEEK, SPEED, SINK - and everything else waits its turn. */
 #define QCAP 16
-typedef struct { cmd c; char path[PATH_MAX_]; char dev[128]; double at, speed; } qcmd;
+typedef struct { cmd c; char path[PATH_MAX_]; char dev[128]; double at, speed; bool paused; } qcmd;
 static qcmd Q[QCAP];
 static int  q_head, q_len;               /* under S.mu */
 
@@ -202,6 +205,7 @@ static void mix_channels(int16_t *buf, int n)
  * written set: it reads the count, the bands, and the count again. */
 static int8_t g_eq_want[EQ_BANDS];
 static volatile unsigned g_eq_gen;
+static int g_gain_want;            /* the volume boost's gain, dB: the socket writes, the player reads */
 /* While the Equalizer page is open the player keeps only about this much
  * queued, so a step is heard in under a tenth of a second (EQ live=1); the
  * 200 ms the device holds otherwise is for a busy game, and no game runs
@@ -225,6 +229,7 @@ static void eq_follow(eq_state *e, int16_t *buf, int n)
 			took = a;
 		}
 	}
+	eq_gain(e, __atomic_load_n(&g_gain_want, __ATOMIC_RELAXED));
 	eq_run(e, buf, n);
 }
 
@@ -340,7 +345,11 @@ static void handle(const qcmd *q)
 		drop();
 		if (reopen(q->at)) {
 			snapshot();
-			S.state = ST_PLAYING;
+			/* Held where it opened, nothing written to the device: a
+			 * RESUME plays from S.heard, which reopen set to `at`, and a
+			 * video's first picture there goes out paused as after a
+			 * seek (vid.c) - MP4 back after a power-off (11.67) */
+			S.state = q->paused ? ST_PAUSED : ST_PLAYING;
 			S.ev_meta = S.ev_state = 1;
 			wake();
 		}
@@ -643,6 +652,20 @@ static void command(int fd, const char *line)
 		send_line(fd, "CHANNELS\tmode=%s", CHANNELS_NAME[g_channels]);
 		return;
 	}
+	if (!strncmp(line, "GAIN", 4) && (line[4] == '\t' || !line[4])) {
+		/* The volume boost past the top (the launcher's src/levels.c):
+		 * the player takes it at its next chunk, after the equalizer,
+		 * with the limiter (src/eqdsp.h). Anything out of range is none. */
+		char v[8];
+		long d;
+		char *end;
+
+		arg(line, "db", v, sizeof v);
+		d = strtol(v, &end, 10);
+		__atomic_store_n(&g_gain_want, end != v && d > 0 && d <= EQ_GAIN_MAX ? (int)d : 0,
+		                 __ATOMIC_RELAXED);
+		return;
+	}
 	if (!strncmp(line, "EQ", 2) && (line[2] == '\t' || !line[2])) {
 		/* As CHANNELS: bytes the player takes at its next chunk, nothing
 		 * queued behind a seek. Anything but five whole numbers changes
@@ -713,6 +736,7 @@ static void command(int fd, const char *line)
 		arg(line, "path", q.path, sizeof q.path);
 		arg(line, "at", v, sizeof v);    q.at = atof(v);
 		arg(line, "speed", v, sizeof v); q.speed = atof(v);
+		arg(line, "paused", v, sizeof v); q.paused = v[0] == '1';
 		if (q.path[0]) q.c = C_PLAY;
 	} else if (!strncmp(line, "PAUSE", 5))  q.c = C_PAUSE;
 	else if (!strncmp(line, "RESUME", 6))   q.c = C_RESUME;
@@ -942,7 +966,7 @@ int main(void)
 				cfd = n;
 				have = 0;
 				g_bands_on = 0;           /* until this one asks */
-				send_line(cfd, "READY\tproto=6");
+				send_line(cfd, "READY\tproto=7");
 				announce(cfd, 1);
 			}
 		}

@@ -24,7 +24,10 @@ with tempfile.TemporaryDirectory(prefix='portkeys-flow-') as tmp:
     command = shlex.split(os.environ.get('CC', 'cc'))
     command += shlex.split(os.environ.get('PK_FLOW_CFLAGS', '-O2 -Wall -Wextra -Werror'))
     command += ['-std=gnu11', '-I' + tmp, '-I' + str(root / 'src'),
-                '-I' + str(root / 'tools'), str(root / 'tools/portkeys-flow-check.c'),
-                str(root / 'tools/pkkeys.c'), str(root / 'src/powerhold.c'), '-lsqlite3', '-o', binary]
+                '-I' + str(root / 'tools'), '-I' + str(root / 'diatom/src'),
+                '-I' + str(root / 'diatom/include'), str(root / 'tools/portkeys-flow-check.c'),
+                str(root / 'tools/pkkeys.c'), str(root / 'src/powerhold.c'), str(root / 'src/battempty.c'),
+                str(root / 'tools/pkhot.c'), str(root / 'diatom/src/chord.c'), str(root / 'src/idle.c'),
+                '-lsqlite3', '-o', binary]
     subprocess.run(command, check=True)
     subprocess.run([binary], check=True, timeout=15)

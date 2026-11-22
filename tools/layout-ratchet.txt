@@ -27,7 +27,7 @@
 2 mp4frame.h
 2 notice.c
 9 nowplaying_screen.c
-5 osdbar.c
+4 osdbar.c
 3 osdbar.h
 1 p2panel.c
 2 p2share.h

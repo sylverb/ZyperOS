@@ -2,9 +2,9 @@
 # The equalizer over a port's sound (DESIGN.md 11.60). launch.sh runs it
 # before each port:
 #
-#   eq-port.sh --on            exit 0 while the launcher's bands are not flat
-#                              (its file, /run/zyperos/eq: src/eqdsp.h's
-#                              eq_share, "ZEQ1", a count, five signed bytes)
+#   eq-port.sh --on            exit 0 when the launcher's file is there and
+#                              whole (/run/zyperos/eq: src/eqdsp.h's eq_share,
+#                              "ZEQ1", a count, five signed bytes, the boost)
 #   eq-port.sh SLAVE [PLUGIN]  the port's own PCMs, on stdout
 #   eq-port.sh --after FILE    the file for the port's ALSA_CONFIG_PATH, on
 #                              stdout: a hook that loads FILE (the PCMs)
@@ -16,6 +16,16 @@
 # plugin reads the bands from the same file once a period, so a change in
 # the port's in-game menu reaches it.
 #
+# The first plug turns whatever the program asks into the mix's 48 kHz
+# stereo (both dmixes in plastron's asound.conf run at 48000), so the plugin
+# always runs at the mix's rate and channels, and the plug behind it only
+# makes its floats the mix's 16-bit. Left to the program's rate, the ladspa
+# PCM between the two plugs refused PICO-8's 22050 Hz at the hardware
+# parameters (EINVAL: the plug behind it resampling to the dmix's fixed
+# 512-frame period left no period both sides of it could keep), and PICO-8
+# played with no sound on every 1.1.0 build since the equalizer went into
+# every port's chain (#389); 44100 opened. tools/eqchain-check.sh holds it.
+#
 # Why a hook: alsa-lib reads every file in ALSA_CONFIG_PATH first and runs
 # the hooks after, 0, 1, ... in order. alsa.conf's one hook, 0, loads
 # /etc/asound.conf, whose pcm.!default would replace the port's (the image
@@ -23,15 +33,17 @@
 # in the port's ALSA_CONFIG_PATH, after alsa.conf, only adds hook 1, which
 # loads the PCMs after /etc/asound.conf. errors false: a PCM file that cannot
 # be read leaves the port on the system's default, never without sound.
-# With the equalizer off the port starts with none of this, as it always did.
+#
+# On for every port since the volume boost (src/boost.h, DESIGN.md 11.6):
+# its gain is in the same file, portkeys writes it as the keys open the boost
+# during the port, and a plugin has to be in the chain from the port's start
+# to apply it. Flat and with no boost the plugin passes the sound as it came,
+# a copy a period. Only with no file (no launcher ran this boot) does a port
+# start with none of this, as it did before the equalizer.
 FILE=${ZYPEROS_EQ_FILE:-/run/zyperos/eq}
 
 if [ "${1:-}" = --on ]; then
-	[ -f "$FILE" ] && [ "$(head -c 4 "$FILE" 2> /dev/null)" = ZEQ1 ] || exit 1
-	# The five bands, bytes 8 to 12: on when any is not 0
-	for b in $(od -An -tu1 -j8 -N5 "$FILE" 2> /dev/null); do
-		[ "$b" != 0 ] && exit 0
-	done
+	[ -f "$FILE" ] && [ "$(head -c 4 "$FILE" 2> /dev/null)" = ZEQ1 ] && exit 0
 	exit 1
 fi
 
@@ -51,10 +63,15 @@ fi
 slave=${1:?eq-port.sh: which PCM the port mixes into}
 plugin=${2:-/usr/lib/ladspa/zyperos_eq.so}
 cat <<CONF
-# The equalizer over this port's sound (ZyperOS's sd/zyperos/eq-port.sh)
+# The equalizer over this port's sound (ZyperOS's sd/zyperos/eq-port.sh),
+# the program's rate and channels made the mix's first
 pcm.!default {
 	type plug
-	slave.pcm "zyperos_eq"
+	slave {
+		pcm "zyperos_eq"
+		rate 48000
+		channels 2
+	}
 }
 
 pcm.zyperos_eq {

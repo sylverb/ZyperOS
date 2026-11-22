@@ -20,7 +20,8 @@ static const struct { unsigned bit; const char *word; } HELPERS[] = {
 	{ DEV_HELPER_PORTKEYS, "portkeys" }, { DEV_HELPER_ZYHOME, "zyhome" },
 	{ DEV_HELPER_UPDATE, "update" },     { DEV_HELPER_P2D, "p2d" },
 	{ DEV_HELPER_PORTS, "ports" },       { DEV_HELPER_BTPLAYER, "btplayer" },
-	{ DEV_HELPER_BTALSA, "btalsa" },     { DEV_HELPER_SPPAD, "sppad" },
+	{ DEV_HELPER_BTALSA, "btalsa" },     { DEV_HELPER_P8FX, "p8fx" },
+	{ DEV_HELPER_SPPAD, "sppad" },
 };
 
 static int write_mk(const char *dir, const dev_build *b)

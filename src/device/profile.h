@@ -116,6 +116,11 @@ typedef struct device_profile {
 	 * them, the hottest of them its temperature (src/thermal.h);
 	 * NULL-ended, or NULL where none is read */
 	const char *const *thermal_zones;
+	/* The battery's voltage, in mV and under load, under which the launcher
+	 * saves the game and powers off whatever the level says, a little over
+	 * where the battery cuts out (src/battempty.h); 0 for none, the level's
+	 * rule alone */
+	int batt_empty_mv;
 	/* The core options measured on this handheld, its GPU or its motor,
 	 * given at run time under the player's own (src/coreopts.h); ends in
 	 * { NULL, NULL }, or NULL for none */

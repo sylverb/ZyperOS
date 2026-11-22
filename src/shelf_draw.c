@@ -32,6 +32,7 @@
 #include "rahash.h"
 #include "shelfbuild.h"
 #include "snaps.h"
+#include "shots_screen.h"
 #include "snapshelf.h"
 #include "snapview.h"
 #include "sort.h"
@@ -110,9 +111,10 @@ void theme_changed(app *a)
 /* Auto's clock, asked by a screen's own loop once a pass: true when the theme
  * changed, and then theme_changed has been told. Every loop that stays on
  * screen asks it - the menus through menu_run_body, the shelf's loop for
- * itself, and every screen that runs its own - so 7:00 or 19:00 arriving
- * while one is up is drawn from its next frame, and the file Diatom and
- * portkeys read follows. A loop that draws every pass needs nothing more; one
+ * itself, and every screen that runs its own - so an edge of the Night
+ * Hours arriving while one is up is drawn from its next frame, and the file
+ * Diatom and portkeys read follows. A loop that draws every pass needs
+ * nothing more; one
  * that draws only when something changed takes a true as a change. A screen
  * drawn once and held, a one-line message, asks before it is drawn.
  *
@@ -234,8 +236,9 @@ static void tick_boot_theme(void)
 	if (now - t_boot0 < 10000) return;
 	if (g_boot_theme_at && now - g_boot_theme_at < 2000) return;
 	/* Asked once, and again only after a change: what it compares is the
-	 * Appearance setting and the clock's zone, and everything that writes
-	 * either calls boot_theme_changed. It was asked on every pass of every
+	 * Appearance setting with Auto's hours (Night Mode's page) and the
+	 * clock's zone, and everything that writes one calls
+	 * boot_theme_changed. It was asked on every pass of every
 	 * screen's loop, a database read each time, 65 a second on the home:
 	 * most of the 530 us a pass that drew nothing spent (2026-11-07). */
 	if (settled && !g_boot_theme_at) return;
@@ -249,8 +252,15 @@ static void tick_boot_theme(void)
 		read = true;
 	}
 	db_get_str(db_lib(), "timezone", zone, sizeof zone, "America/New_York");
-	boottheme_words(appearance_id(theme_appearance()), zone, lang_code(i18n_lang()), bright,
-	                line, sizeof line, file, sizeof file);
+	/* Auto's hours, the Night Hours, with it: light from until, dark from
+	 * from (theme_hours) */
+	{
+		int light_min, dark_min;
+
+		theme_hours(&light_min, &dark_min);
+		boottheme_words(appearance_id(theme_appearance()), dark_min, light_min, zone,
+		                lang_code(i18n_lang()), bright, line, sizeof line, file, sizeof file);
+	}
 	g_boot_theme_at = 0;
 	lang_file_keep();
 	bright_file_keep(bright);
@@ -376,8 +386,10 @@ static void draw_systems(app *a)
 
 		/* A shelf of one read "1 games". Favorites hits it first because it
 		 * starts empty and grows one at a time, but any system with a single
-		 * ROM has always said it. */
-		if (gc > 0)
+		 * ROM has always said it. Screenshots counts its pictures. */
+		if (shots_shelf(a, a->sys_cursor))
+			snprintf(line, sizeof line, TN(S_SHELF_SCREENSHOTS, gc), gc);
+		else if (gc > 0)
 			snprintf(line, sizeof line, TN(S_SHELF_GAMES, gc), gc);
 		else snprintf(line, sizeof line, "%s", T(S_SHELF_NO_GAMES));
 	}
@@ -389,7 +401,8 @@ static void draw_systems(app *a)
 	uint32_t now = g_home_phase >= 0 ? a->home.animation + (uint32_t)g_home_phase : anim_now();
 	uint32_t wait = home_draw(&a->home, a->r, a->home_layout, items,
 	                          a->sys.count, a->sys_cursor, line,
-	                          is_mp4(s) ? T(S_SHELF_OPEN_MP4) : T(S_SHELF_OPEN_GAMES), now,
+	                          is_mp4(s) ? T(S_SHELF_OPEN_MP4)
+	                          : shots_shelf(a, a->sys_cursor) ? T(S_GAMES_OPEN) : T(S_SHELF_OPEN_GAMES), now,
 	                          g_home_live || g_home_phase >= 0);
 	/* The sprite's next frame alone is a focus frame's, not a whole one */
 	if (g_home_live && wait != UINT32_MAX) {
@@ -529,6 +542,15 @@ static void game_page_facts(app *a, bool settled)
 	g_game_page.cursor = v->cursor;
 	snprintf(g_game_page.file, sizeof g_game_page.file, "%s", g->file);
 	g_game_page.played[0] = '\0';
+	/* A shot (DESIGN.md 11.68): its line is its system and when it was
+	 * taken (shots_facts), none of its game's; nothing read */
+	if (shots_shelf(a, a->sys_cursor)) {
+		g_game_page.achievements = g_game_page.resume = g_game_page.crashed = false;
+		g_game_page.earned = g_game_page.total = 0;
+		g_game_page.needs[0] = g_game_page.cheats[0] = g_game_page.cheats_on[0] = '\0';
+		g_game_page.valid = true;
+		return;
+	}
 	stats_summarize(STATS_ALL, false, (long)time(NULL));
 	if (stats_lookup(system->tag, g->file, &seconds, NULL))
 		stats_format(seconds, g_game_page.played, sizeof g_game_page.played);
@@ -682,7 +704,6 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 	                             (snapshelf_at){ a->sys_cursor, v->cursor, g->file, snapshelf_media_gen() }) ||
 	           (g_snap_focus.es_wait && es_ready(a->sys.systems[owner].folder))) {
 		const char *folder = a->sys.systems[owner].folder;
-		struct stat st;
 		bool on = snaps_play() && folder[0] && snaps_console_on(folder);
 
 		g_snap_focus.sys = a->sys_cursor;
@@ -691,16 +712,11 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 		snprintf(g_snap_focus.file, sizeof g_snap_focus.file, "%s", g->file);
 		g_snap_focus.path[0] = '\0';
 		g_snap_focus.es_wait = false;
-		if (on &&
-		    snaps_path(P_ROMS, folder, g->name, g_snap_focus.path, sizeof g_snap_focus.path) &&
-		    (stat(g_snap_focus.path, &st) != 0 || st.st_size <= 0))
-			g_snap_focus.path[0] = '\0';
-		/* No snap of its own: EmulationStation's video, if its folder has
-		 * one (src/esmedia.h). Not built on the frame: asked again once
-		 * the covers' worker has built the folder's index. */
-		if (on && !g_snap_focus.path[0] &&
-		    !es_media(P_ROMS, folder, g->file, g->name, ES_VIDEO, false,
-		              g_snap_focus.path, sizeof g_snap_focus.path))
+		/* Its own snap, else EmulationStation's video if its folder has
+		 * one (src/esmedia.h's game_media). ES's index is not built on the
+		 * frame: asked again once the covers' worker has built it. */
+		if (on && !game_media(P_ROMS, folder, g->file, g->name, ES_VIDEO, false,
+		                      g_snap_focus.path, sizeof g_snap_focus.path))
 			g_snap_focus.es_wait = !es_ready(folder);
 	}
 	req = snapshelf_step(&g_snap_shelf, g ? g_snap_focus.path : "", front,
@@ -1155,6 +1171,38 @@ static void draw_album_views(app *a, sysview *v, const system_cfg *s)
 	}
 }
 
+/* On Recents, its system and when it was last played, "PICO-8 · today
+ * 14:02", in the words the Screenshots shelf says when a shot was taken
+ * (DESIGN.md 11.48; 1.1.0-rc.8: "the recents page should show when was it
+ * last played"). When is the session's start, Recents' own order (Last
+ * Played), so the line never says a game further along was played later.
+ * A game whose last start it has not (none folded for a sort) has its
+ * system alone. */
+static const char *recents_facts(app *a, int owner, const game_entry *g)
+{
+	static char line[CFG_STR + 64];
+	char when[48];
+
+	if (g->last_played <= 0) return a->sys.systems[owner].name;
+	stats_when(g->last_played, (long)time(NULL), g_clock24, when, sizeof when);
+	snprintf(line, sizeof line, "%s \xc2\xb7 %s", a->sys.systems[owner].name, when);
+	return line;
+}
+
+/* The line under the focused entry's name, first: its own system on a
+ * shelf of many systems' games (Favorites, Recents, Collections), on
+ * Recents with when it was last played, and on the Screenshots shelf its
+ * system and when it was taken (DESIGN.md 11.68); NULL on a console's own
+ * shelf, whose heading says it */
+static const char *shelf_origin(app *a, int owner, const game_entry *g)
+{
+	if (!g || g->folder) return NULL;
+	if (shots_shelf(a, a->sys_cursor)) return shots_facts(a, owner, g);
+	if (owner != a->sys_cursor && !strcmp(a->sys.systems[a->sys_cursor].tag, HOMESYS_RECENT))
+		return recents_facts(a, owner, g);
+	return owner != a->sys_cursor ? a->sys.systems[owner].name : NULL;
+}
+
 static void draw_games(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
@@ -1176,12 +1224,24 @@ static void draw_games(app *a)
 		games_info si = { 0 };
 		vv_info vi;
 		unsigned wait;
+		bool shots = shots_shelf(a, a->sys_cursor);
+		key_hint sfoot[4];
+		int snf = 0;
+		const char *saw = NULL;
 
 		games_select(&v->row, v->cursor, v->list.count, 0, now);
 		game_page_facts(a, !games_moving(&v->row, now));
 		g_snap_shelf.at_once = true;
-		shelf_snap(a, v, g && !g->folder ? g : NULL, owner, !held, &si);
+		shelf_snap(a, v, g && !g->folder && !shots ? g : NULL, owner, !held, &si);
 		g_snap_shelf.at_once = false;
+		/* A shot (DESIGN.md 11.68): its picture where the snap goes, whole
+		 * on the screen, its card above the band until it is in */
+		if (shots && g) {
+			si.snap = shots_view_tex(a, v, &si.snap_w, &si.snap_h);
+			si.snap_src = (SDL_Rect){ 0, 0, 0, 0 };
+			si.snap_k = si.snap ? 1 : 0;
+			shots_hints(a, v, true, sfoot, &snf, &saw);
+		}
 		/* A page or a menu over the view keeps its band up, as a press
 		 * does: the snap holds under it (snapshelf's `covered`) and would
 		 * otherwise rest the band down behind the page */
@@ -1191,7 +1251,7 @@ static void draw_games(app *a)
 			.count = v->list.count, .cursor = v->cursor,
 			.accent = g ? a->sys.systems[owner].accent : s->accent,
 			.played = g_game_page.valid ? g_game_page.played : "",
-			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
+			.origin = shelf_origin(a, owner, g),
 			.has_achievements = g_game_page.valid && g_game_page.achievements,
 			.cheats = g_game_page.valid ? g_game_page.cheats : "",
 			.resumable = g_game_page.valid && g_game_page.resume,
@@ -1206,8 +1266,12 @@ static void draw_games(app *a)
 			.snap_src = si.snap_src, .snap_k = si.snap_k,
 			.playing = si.snap && si.snap_k >= 1,
 			.band = g_shot_band,
+			.foot = shots ? sfoot : NULL, .nfoot = snf,
+			.clear = shots,
 		};
-		g_video_playing = vi.playing;
+		/* Somebody watching a snap holds the screensaver; a still shot
+		 * does not */
+		g_video_playing = vi.playing && !shots;
 		wait = vv_draw(&v->vm, &v->row, a->r, &vi, game_get_tex, a, now, title_phase(a));
 		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
 		evict_far(v, TEX_KEEP_NEAR);
@@ -1225,9 +1289,14 @@ static void draw_games(app *a)
 		games_info si = { 0 };
 		gl_info li;
 		unsigned wait;
+		bool shots = shots_shelf(a, a->sys_cursor);
+		key_hint sfoot[4];
+		int snf = 0;
+		const char *saw = NULL;
 
 		game_page_facts(a, settled);
-		shelf_snap(a, v, g && !g->folder ? g : NULL, owner, settled, &si);
+		shelf_snap(a, v, g && !g->folder && !shots ? g : NULL, owner, settled, &si);
+		if (shots) shots_hints(a, v, false, sfoot, &snf, &saw);
 		if (v->grid) {
 			/* MENU > View > Grid (DESIGN.md 11.47): the shape kept for
 			 * this shelf read as it opens, what its covers measured kept
@@ -1239,10 +1308,10 @@ static void draw_games(app *a)
 				.heading = head, .count = v->list.count, .cursor = v->cursor,
 				.accent = s->accent, .accent_of = v->owner ? list_accent : NULL,
 				.title_of = list_title, .folder_of = list_folder,
-				.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_mp4(s) ? NULL : list_fav,
+				.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_mp4(s) || shots ? NULL : list_fav,
 				.peek = grid_peek, .art_of = grid_art, .kept = v->grid_kept,
 				.played = g_game_page.valid ? g_game_page.played : "",
-				.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
+				.origin = shelf_origin(a, owner, g),
 				.has_achievements = g_game_page.valid && g_game_page.achievements,
 				.cheats = g_game_page.valid ? g_game_page.cheats : "",
 				.resumable = g_game_page.valid && g_game_page.resume,
@@ -1254,8 +1323,9 @@ static void draw_games(app *a)
 				.earned = g_game_page.earned, .total = g_game_page.total,
 				.snap = si.snap, .snap_w = si.snap_w, .snap_h = si.snap_h,
 				.snap_src = si.snap_src, .snap_k = si.snap_k, .snap_wait = si.snap_wait,
-				.has_snap = g && game_has_snap(a, v->cursor),
+				.has_snap = g && !shots && game_has_snap(a, v->cursor),
 				.start_word = T(S_GAMES_TO_LIST),
+				.a_word = saw, .foot = shots ? sfoot : NULL, .nfoot = snf,
 			};
 			wait = gg_draw(&v->gm, a->r, &gi, game_get_tex, a, now, title_phase(a));
 			if (v->gm.settled && !v->grid_saved) {
@@ -1275,11 +1345,12 @@ static void draw_games(app *a)
 			.heading = head, .count = v->list.count, .cursor = v->cursor,
 			.accent = s->accent, .accent_of = v->owner ? list_accent : NULL,
 			.title_of = list_title, .folder_of = list_folder,
-			/* Not on Favorites, where every game is one; on Recents, yes */
-			.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_mp4(s) ? NULL : list_fav,
+			/* Not on Favorites, where every game is one; on Recents, yes;
+			 * not on a shot */
+			.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_mp4(s) || shots ? NULL : list_fav,
 			.folder_icon = v->nfold ? folder_icon(a, look_folder_rgb(s->accent)) : NULL,
 			.played = g_game_page.valid ? g_game_page.played : "",
-			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
+			.origin = shelf_origin(a, owner, g),
 			.has_achievements = g_game_page.valid && g_game_page.achievements,
 			/* the list's panel is narrow: the count, and the crash on a line
 			 * of its own in its short words */
@@ -1294,7 +1365,8 @@ static void draw_games(app *a)
 			.earned = g_game_page.earned, .total = g_game_page.total,
 			.snap = si.snap, .snap_w = si.snap_w, .snap_h = si.snap_h,
 			.snap_src = si.snap_src, .snap_k = si.snap_k, .snap_wait = si.snap_wait,
-			.has_snap = g && game_has_snap(a, v->cursor),
+			.has_snap = g && !shots && game_has_snap(a, v->cursor),
+			.a_word = saw, .foot = shots ? sfoot : NULL, .nfoot = snf,
 		};
 		wait = gl_draw(&v->lm, a->r, &li, game_get_tex, a, now, title_phase(a));
 		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
@@ -1306,7 +1378,12 @@ static void draw_games(app *a)
 	game_page_facts(a, !games_moving(&v->row, now));
 	const game_entry *g = v->list.count ? &v->list.items[v->cursor] : NULL;
 	int owner = g ? shelf_owner(a, a->sys_cursor, v->cursor) : a->sys_cursor;
-	bool folder = g && g->folder;
+	bool folder = g && g->folder, shots = shots_shelf(a, a->sys_cursor);
+	key_hint sfoot[4];
+	int snf = 0;
+	const char *saw = NULL;
+
+	if (shots) shots_hints(a, v, false, sfoot, &snf, &saw);
 	games_info info = {
 		.system = head, .title = g ? g->title : T(S_SHELF_NO_GAMES),
 		.count = v->list.count, .cursor = v->cursor,
@@ -1320,17 +1397,19 @@ static void draw_games(app *a)
 		.needs = g_game_page.valid ? g_game_page.needs : "",
 				.howto = splore_is_offer(a, owner, g),
 				.opens = splore_is_entry(a, owner, g) && !splore_is_offer(a, owner, g),
-		.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
-		.snap_of = game_has_snap,
+		.origin = shelf_origin(a, owner, g),
+		/* No video snap's mark on a shot, and no snap */
+		.snap_of = shots ? NULL : game_has_snap,
 		/* The heart before the name, not on Favorites (2026-11-09), and on
-		 * Recents by the game's own system */
-		.favorite = g && !folder && strcmp(s->tag, HOMESYS_FAV) && !is_mp4(s) &&
+		 * Recents by the game's own system; not on a shot */
+		.favorite = g && !folder && !shots && strcmp(s->tag, HOMESYS_FAV) && !is_mp4(s) &&
 		            fav_is(a->sys.systems[owner].tag, g->file),
 		/* A folder of games (src/shelfdir.h): A opens it */
 		.folder = folder ? g->folder : 0,
-		.inside = v->dir[0] != '\0'
+		.inside = v->dir[0] != '\0',
+		.a_word = saw, .foot = shots ? sfoot : NULL, .nfoot = snf,
 	};
-	shelf_snap(a, v, folder ? NULL : g, owner, !games_moving(&v->row, now), &info);
+	shelf_snap(a, v, folder || shots ? NULL : g, owner, !games_moving(&v->row, now), &info);
 	shelf_focusfx(a, v, folder ? NULL : g, owner, !games_moving(&v->row, now), now, &info);
 	unsigned wait = games_draw(&v->row, a->r, &info, game_get_tex, a, now, title_phase(a));
 	if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);

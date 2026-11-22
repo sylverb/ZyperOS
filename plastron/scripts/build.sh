@@ -103,7 +103,7 @@ plastron_fresh_locals() {
 		var=$(printf '%s' "$pkg" | tr 'a-z-' 'A-Z_')
 		grep -q "^BR2_PACKAGE_$var=y" "$out/.config" || continue
 		pkgs="$pkgs $pkg"
-		vars="$vars ${var}_SITE ${var}_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS"
+		vars="$vars ${var}_SITE ${var}_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS ${var}_PLASTRON_INPUTS"
 	done
 	[ -n "$pkgs" ] || return 0
 	# RSYNC_VCS_EXCLUSIONS: Buildroot's own copy leaves .git and the like
@@ -113,7 +113,7 @@ plastron_fresh_locals() {
 	empty=$(mktemp -d)
 	for pkg in $pkgs; do
 		var=$(printf '%s' "$pkg" | tr 'a-z-' 'A-Z_')
-		eval "site=\${${var}_SITE:-} excl=\${${var}_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS:-}"
+		eval "site=\${${var}_SITE:-} excl=\${${var}_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS:-} inputs=\${${var}_PLASTRON_INPUTS:-}"
 		if [ ! -d "$site" ]; then
 			echo "plastron: $pkg's source $site is not here; its build stays as it is" >&2
 			continue
@@ -131,6 +131,14 @@ plastron_fresh_locals() {
 			# shellcheck disable=SC2086 # the exclusions are rsync arguments
 			now=$(rsync -a --dry-run --out-format='%n %l %M' $RSYNC_VCS_EXCLUSIONS $excl "$site/" "$empty/" |
 				LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+		fi
+		# Files outside its folder that it builds from (<PKG>_PLASTRON_INPUTS
+		# in its .mk: zyperos-eq compiles ZyperOS's src/eqdsp.h), by
+		# contents either way; one that is missing counts as a change
+		if [ -n "$inputs" ]; then
+			# shellcheck disable=SC2086 # a list of paths
+			xin=$(for f in $inputs; do sha256sum "$f" 2>/dev/null || echo "missing $f"; done | sha256sum | cut -d' ' -f1)
+			now=$(printf '%s %s\n' "$now" "$xin" | sha256sum | cut -d' ' -f1)
 		fi
 		was=$(cat "$state/$pkg" 2>/dev/null || true)
 		[ "$now" = "$was" ] && continue

@@ -22,10 +22,11 @@ typedef enum {
 	DEV_HELPER_PORTS    = 1u << 4,   /* PortMaster and OpenBOR on the card */
 	DEV_HELPER_BTPLAYER = 1u << 5,   /* tools/btplayer.c: a headset's buttons */
 	DEV_HELPER_BTALSA   = 1u << 6,   /* sd/zyperos/bt-alsa.sh: Bluetooth sound */
+	DEV_HELPER_P8FX     = 1u << 7,   /* src/p8fx/: your PICO-8's Shader and Border */
 	/* tools/sppad.c: the TrimUI Smart Pro's two serial halves as one
 	 * gamepad. In the system, not the card: the image's start script runs
 	 * it before ZyperOS (plastron's package/zyperos) */
-	DEV_HELPER_SPPAD    = 1u << 7,
+	DEV_HELPER_SPPAD    = 1u << 8,
 } dev_helper;
 
 typedef struct {

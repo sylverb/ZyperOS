@@ -19,6 +19,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* The level bar's look (osdbar_look), which the host hands the port to draw:
+ * ZyperOS's own header, vendored in port/, for its type and sizes alone. It
+ * declares functions only a port with a bar links (port/osdbar.c). */
+#include "../port/osdbar.h"
+
 /* Cores may emit 0RGB1555 too; Diatom refuses it. Measured 2026-08-23: all six
  * cores tested then chose RGB565 when offered both. XRGB8888 is in use since:
  * fceumm declares it (src/env.c, diatom_env_pixfmt_begin), and a GPU core's
@@ -373,6 +378,17 @@ uint32_t diatom_port_input_state(void);
  * is the d-pad's, where RUN stick=dpad says so (stick.h). */
 bool diatom_port_input_axes(int16_t axes[4]);
 
+/* The buttons that went down during the last poll, whether they are held now
+ * or were let go again before it ended: a tap that went down and up between
+ * two polls is here and not in diatom_port_input_state. A slow game polls
+ * ten times a second (a Saturn game at 10 fps, 2026-11-20: an 80 ms press of
+ * MENU never opened the menu), and a quick press fits between two polls.
+ * The host reads it for its own keys alone (MENU, a hotkey under SELECT, the
+ * stick's turn, the DS's screens), as the level keys are latched below; a
+ * core reads the state only, as libretro polls it. Each poll starts it again
+ * and diatom_port_input_reset clears it. */
+uint32_t diatom_port_input_pressed(void);
+
 /* Called when a pause ends, before the next poll. While paused nothing polls,
  * and the launcher's menu was time somebody spent pressing buttons: a port
  * whose input queues (evdev, SDL's event queue) would read it all back on the
@@ -453,6 +469,31 @@ uint32_t diatom_port_level_keys(void);
  * Drawn by the port, in its own pixels; the host calls this on every step, so
  * a held key keeps it up. */
 void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions);
+
+/* What the level bar looks like now, as the host's boost past the top works
+ * it out (port/boost.h, DESIGN.md 11.6): the level, the mark moving to it, the
+ * boost's cells, its charge, the flash as it opens. Said before each
+ * diatom_port_level_shown and again each frame it moves while the bar is up;
+ * a copy is kept until said again. The port draws it (osdbar_render_look)
+ * while the bar is up for the look's kind, and the plain bar for any other
+ * (POWER's hold, a kind the host has not given a look for). Keeps the bar's
+ * life as it was: only diatom_port_level_shown brings it up or holds it. A
+ * port with no bar implements it as a no-op and is correct. */
+void diatom_port_level_look(const osdbar_look *look);
+
+/* The brightness boost's lift of the mid-tones in the display's gamma table
+ * (panelgamma.h's `lift`): 0 none, up to PANELGAMMA_LIFT_MAX, kept until said
+ * again, through every load of the table after (Screen Colors, Night Mode,
+ * the display taken back). The top rung is the backlight's own maximum, so
+ * this is all there is past it. A port with no table ignores it. */
+void diatom_port_level_lift(int lift);
+
+/* True once after the headphone jack's plug went in or out under a game: a
+ * change the port saw on its own poll, not its first look after a handover.
+ * The host closes the volume boost then, so the new output starts at the top
+ * without it, as the launcher does on its side. A port with no jack returns
+ * false. */
+bool diatom_port_level_plugged(void);
 
 /* Show the low-battery disc over the game, or take it off. The launcher
  * decides what low and critical mean; the port draws the disc the launcher

@@ -49,7 +49,6 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 {
 	const system_cfg *s = &a->sys.systems[owner];
 	char p[LIB_PATH * 3];
-	struct stat st;
 
 	memset(gi, 0, sizeof *gi);
 	gi->can_delete = gd_shelf_deletes(s->core);
@@ -61,6 +60,18 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 		char lb[64];
 
 		snprintf(gi->core, sizeof gi->core, "%s", core_label(s->core, lb, sizeof lb));
+	}
+	/* Its file, brackets and all (DESIGN.md 11.69), and a set's discs.
+	 * Only a file that is on the card: Install PortMaster's entry and
+	 * Splore's are ZyperOS's own, with no file behind them to name. One
+	 * stat, and for a set its folder or its .m3u read, as the page opens. */
+	snprintf(p, sizeof p, "%s/%s/%s", P_ROMS, s->folder, g->file);
+	if (s->folder[0] && access(p, F_OK) == 0) {
+		bool hooked = lib_shelf_hooked(s->exts);
+		int discs = lib_discs(P_ROMS, s->folder, g->file, g->dir, hooked);
+
+		lib_file_shown(g->file, g->dir, hooked, gi->file, sizeof gi->file);
+		if (discs > 1) snprintf(gi->discs, sizeof gi->discs, "%d", discs);
 	}
 	/* Collections take every game a favorite can be (src/collect.h) */
 	gi->can_collect = gi->can_favorite && s->folder[0];
@@ -77,12 +88,8 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 	 * on 2026-09-17 - the carousel shows them when you load, with the frames
 	 * rather than a count - and with it went a stat of every slot plus the
 	 * autosave each time this screen opened. */
-	box_art_path(s->folder, g->name, p, sizeof p);
-	gi->has_art = (stat(p, &st) == 0 && st.st_size > 0) ||
-	              es_media(P_ROMS, s->folder, g->file, g->name, ES_COVER, true, p, sizeof p);
-	gi->has_snap = (snaps_path(P_ROMS, s->folder, g->name, p, sizeof p) &&
-	                stat(p, &st) == 0 && st.st_size > 0) ||
-	               es_media(P_ROMS, s->folder, g->file, g->name, ES_VIDEO, true, p, sizeof p);
+	gi->has_art = game_media(P_ROMS, s->folder, g->file, g->name, ES_COVER, true, p, sizeof p);
+	gi->has_snap = game_media(P_ROMS, s->folder, g->file, g->name, ES_VIDEO, true, p, sizeof p);
 	gi->own_art = own_cover_path(a, owner, g, theme_index(), p, sizeof p);
 	/* PortMaster's entry with PortMaster on the card: Reinstall PortMaster */
 	gi->can_reinstall = pm_is_entry(a, owner, g) && pm_on_card(s->folder);
@@ -376,8 +383,9 @@ void info_preview(app *a, bool net, const char *on_row)
 	 * until the rows were reordered and then was Saves - so the shot showed a
 	 * highlight on a dead row, which the real screen cannot do. */
 	sel = rows[0].live ? 0 : menu_step_sel(rows, n, 0, +1);
-	/* --info-delete and --info-rename: the cursor on Delete Game or Rename,
-	 * by its label as info_key finds it */
+	/* --info-delete, --info-rename, --info-collect and --info-on-buttons:
+	 * the cursor on Delete Game, Rename, Add to Collection or Buttons, by its
+	 * label as info_key finds it */
 	for (int i = 0; on_row && i < n; i++)
 		if (!strcmp(rows[i].label, on_row)) sel = i;
 

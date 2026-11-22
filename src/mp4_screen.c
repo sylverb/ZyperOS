@@ -17,6 +17,7 @@
 #include "ui.h"
 #include "uisound.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -579,6 +580,20 @@ bool mp4_open(app *a, const menu_style *over, void *ctx)
 	return g_mp4_gone || g_message_stopped;
 }
 
+/* MP4 opening by itself at a start, on what it resumed (src/mp4resume.h):
+ * straight to Now Playing, paused, as SELECT opens it on something paused,
+ * but with no sound of its own - nothing was pressed */
+void mp4_resume_open(app *a)
+{
+	snap_off();
+	if (g_mp4.ntracks == 0) return;
+	g_mp4_over = NULL;
+	g_mp4_over_ctx = NULL;
+	g_mp4_gone = false;
+	mp4_shelf_screen(a, true);
+	g_menu_closing = false;
+}
+
 /* A on a book: where it was left, straight onto Now Playing with its files
  * underneath. The beginning for a book never started or finished; nothing new
  * for the book already playing or paused, which A only opens. */
@@ -1088,10 +1103,7 @@ void album_art_screen(app *a)
 			return;
 		}
 		if (menu_leaving(a)) done = true;
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_OPEN);
 
 		/* Idle does not count while covers are arriving: it is the device
 		 * doing what it was asked, and powering off halfway loses the rest.

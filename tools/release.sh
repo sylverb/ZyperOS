@@ -46,7 +46,7 @@
 #                               in its own thread.
 #
 # A release (not a kit) also carries QEMU's image of it,
-# ZyperOS-v<VERSION>-qemu.tar.xz (plastron's make release-qemu, built beside
+# ZyperOS-v<VERSION>-qemu.tar.xz (plastron's make release-qemu, built after
 # the devices' images, from empty, with no SSH key in it), and
 # ZyperOS-v<VERSION>-qemu-sources.tar, the sources of what only the QEMU
 # image has (px2sim, the kernel's and U-Boot's QEMU configuration; the rest
@@ -353,10 +353,7 @@ fi
 # The source as committed, never the working tree: a clean worktree of HEAD
 SRC=$(mktemp -d)/zyperos
 HAVE_LOCK=0
-QEMU_PID=
 cleanup() {
-	# QEMU's build, if it is still going (a device's build stopped first)
-	if [ -n "$QEMU_PID" ]; then kill "$QEMU_PID" 2>/dev/null || true; wait "$QEMU_PID" 2>/dev/null || true; fi
 	git worktree remove --force "$SRC" 2>/dev/null || true
 	if [ $HAVE_LOCK = 1 ]; then rm -rf $LOCK; echo "release.sh: $LOCK released"; fi
 }
@@ -378,16 +375,6 @@ docker run --rm -v plastron-work:/work --user root plastron-builder rm -rf /work
 # What comes out of the container: each device's image and sources, and its
 # packs with their lists unsigned
 GET=
-# QEMU's image builds beside the devices' (an output of its own, and
-# Buildroot leaves most of the machine idle), its log beside $OUT
-QEMU_LOG=$ROOT/out/release/$TAG-qemu.log
-if [ $QEMU = 1 ]; then
-	mkdir -p "$ROOT/out/release"
-	say "QEMU's image, beside the devices': plastron's release build, from empty (its log: $QEMU_LOG)"
-	make -C "$PLASTRON" release-qemu VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR" \
-		> "$QEMU_LOG" 2>&1 &
-	QEMU_PID=$!
-fi
 for d in $DEVICES; do
 	if [ "$d" = brick ] || [ "$d" = smartpro ]; then
 		# Its kernel and modules first, from this commit's patches, as
@@ -405,11 +392,17 @@ for d in $DEVICES; do
 		GET="$GET $1 $2.unsigned $3 $4.unsigned"
 	fi
 done
-if [ -n "$QEMU_PID" ]; then
-	say "Waiting for QEMU's image"
-	pid=$QEMU_PID
-	QEMU_PID=
-	wait "$pid" || { tail -30 "$QEMU_LOG"; stop "QEMU's image did not build (its log: $QEMU_LOG); --no-qemu releases without it"; }
+# QEMU's image after the devices', never beside them: since Mesa 26 the
+# Pixel 2's build and QEMU's each build the host's LLVM and clang, and the
+# two at once run Docker's 16 GB VM out of memory. Its log beside $OUT
+QEMU_LOG=$ROOT/out/release/$TAG-qemu.log
+if [ $QEMU = 1 ]; then
+	mkdir -p "$ROOT/out/release"
+	say "QEMU's image: plastron's release build, from empty (its log: $QEMU_LOG)"
+	date
+	make -C "$PLASTRON" release-qemu VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR" \
+		> "$QEMU_LOG" 2>&1 ||
+		{ tail -30 "$QEMU_LOG"; stop "QEMU's image did not build (its log: $QEMU_LOG); --no-qemu releases without it"; }
 	GET="$GET $(qemu_image) $(qemu_sources)"
 fi
 rm -rf "$OUT"

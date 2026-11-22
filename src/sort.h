@@ -63,6 +63,15 @@ static const sort_order SORTS[] = {
  * default, as a list reads; then Name, Last Played and System */
 static const int SORT_COLL_ORDERS[] = { SORT_LIST, 0, 2, SORT_SYSTEM };
 #define SORT_COLL ((int)(sizeof SORT_COLL_ORDERS / sizeof SORT_COLL_ORDERS[0]))
+/* Screenshots' (DESIGN.md 11.68): Recently Added first, the newest shot,
+ * as it ships; then Name and System, each game's newest first
+ * (src/shots_screen.c's shots_sort) */
+static const int SORT_SHOTS_ORDERS[] = { 3, 0, SORT_SYSTEM };
+#define SORT_SHOTS ((int)(sizeof SORT_SHOTS_ORDERS / sizeof SORT_SHOTS_ORDERS[0]))
+/* Which orders a shelf's Sort By steps round: a games shelf's, a
+ * collection's or Screenshots' (sort_choices' `set`; true is a
+ * collection's, as it was a flag) */
+enum { SORT_SET_SHELF, SORT_SET_COLL, SORT_SET_SHOTS };
 
 /* Order i's label in the language that is on, what the row shows; past the
  * ends, by name's */
@@ -81,34 +90,33 @@ static inline int sort_index(const char *name)
 	return 0;                                   /* by name, as it always was */
 }
 
-/* How many orders the shelf's Sort By offers: a collection's own, or every
- * games shelf's */
-static inline int sort_choices(bool coll)
+/* How many orders the shelf's Sort By offers: set SORT_SET_*'s */
+static inline int sort_choices(int set)
 {
-	return coll ? SORT_COLL : SORT_SHELF;
+	return set == SORT_SET_SHOTS ? SORT_SHOTS : set == SORT_SET_COLL ? SORT_COLL : SORT_SHELF;
 }
 
 /* Its k-th, the order's index in SORTS */
-static inline int sort_choice(bool coll, int k)
+static inline int sort_choice(int set, int k)
 {
-	int n = sort_choices(coll);
+	int n = sort_choices(set);
 
 	k = (k % n + n) % n;
-	return coll ? SORT_COLL_ORDERS[k] : k;
+	return set == SORT_SET_SHOTS ? SORT_SHOTS_ORDERS[k] : set == SORT_SET_COLL ? SORT_COLL_ORDERS[k] : k;
 }
 
 /* Where order `i` is in the shelf's row; its first when it offers none */
-static inline int sort_choice_of(bool coll, int i)
+static inline int sort_choice_of(int set, int i)
 {
-	for (int k = 0; k < sort_choices(coll); k++)
-		if (sort_choice(coll, k) == i) return k;
+	for (int k = 0; k < sort_choices(set); k++)
+		if (sort_choice(set, k) == i) return k;
 	return 0;
 }
 
 /* The order after `i` (`d` 1) or before it (-1), round the shelf's own */
-static inline int sort_step_in(bool coll, int i, int d)
+static inline int sort_step_in(int set, int i, int d)
 {
-	return sort_choice(coll, sort_choice_of(coll, i) + d);
+	return sort_choice(set, sort_choice_of(set, i) + d);
 }
 
 static inline int sort_step(int i, int d)

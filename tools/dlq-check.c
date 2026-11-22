@@ -13,8 +13,11 @@
  * requests each run side by side in the time of one; while a game runs they
  * wait, and go on after it; a stop is its lane's done, once, with its request
  * dropped; a lane below the card's floor is stopped as DLQ_FULL; the input
- * wait is cut to 16 ms while a lane runs and is as asked when none does. The
- * floor here is past any disk, so the room rule fires on its first look. */
+ * wait is cut to 16 ms while a lane runs and is as asked when none does; the
+ * step hook (what MENU > Downloads keeps of what came, src/dl_screen.c) is
+ * called after every step of each lane, on its slot, the last before its
+ * done; and a lane started with none running is a new run. The floor here
+ * is past any disk, so the room rule fires on its first look. */
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -142,6 +145,7 @@ typedef struct {
 	int dones;           /* its done(), called how many times */
 	dlq_end how;
 	bool fail_begin;
+	int steps;           /* its step(), called how many times */
 } fake;
 
 static fake g_fa, g_fb;
@@ -154,6 +158,7 @@ static int fake_step(fake *f)
 {
 	char url[256], path[512], word[64];
 
+	f->steps++;
 	if (f->started) {
 		int r = net_async_poll();
 
@@ -195,6 +200,19 @@ static bool begin_b(void) { return !g_mine[DLQ_RA]->fail_begin; }
 
 static dlq_lane_def LANE_A = { .name = "lane a", .slot = NET_SLOT_ART, .step = step_a, .done = done_a, .pct = pct_a, .every_ms = 0 };
 static dlq_lane_def LANE_B = { .name = "lane b", .slot = NET_SLOT_RA,  .step = step_b, .done = done_b, .pct = pct_b, .every_ms = 0 };
+
+/* The step hook (dlq_on_step): each lane's calls, and any made off its slot
+ * or after its done */
+static int g_hooked[DLQ_LANES], g_hook_wrong;
+
+static void on_step(dlq_lane l)
+{
+	net_slot now = net_slot_use(NET_SLOT_MAIN);
+
+	net_slot_use(now);
+	g_hooked[l]++;
+	if (now != (l == DLQ_ART ? NET_SLOT_ART : NET_SLOT_RA) || g_mine[l]->dones) g_hook_wrong++;
+}
 
 static void fresh(fake *f, const char *name, int want, int wait_ms)
 {
@@ -344,6 +362,36 @@ int main(int argc, char **argv)
 		      "its page open, the page shows it and the corner does not");
 		dlq_page(DLQ_RA, false);
 		dlq_stop_all();
+	}
+
+	printf("dlq: what each step brought, and the runs\n");
+	{
+		unsigned runs = dlq_runs();
+
+		g_mine[DLQ_ART] = &g_fa;
+		g_mine[DLQ_RA] = &g_fb;
+		fresh(&g_fa, "h", 2, 30);
+		fresh(&g_fb, "k", 3, 30);
+		memset(g_hooked, 0, sizeof g_hooked);
+		g_hook_wrong = 0;
+		dlq_on_step(on_step);
+		CHECK(dlq_start(DLQ_ART, &LANE_A, begin_a) && dlq_runs() == runs + 1, "a lane started with none running is a run");
+		CHECK(dlq_start(DLQ_RA, &LANE_B, begin_b) && dlq_runs() == runs + 1, "one started beside it is the same run");
+		run_out(3000);
+		CHECK(g_fa.dones == 1 && g_fb.dones == 1, "both end");
+		CHECK(g_hooked[DLQ_ART] == g_fa.steps && g_hooked[DLQ_RA] == g_fb.steps && g_fa.steps > 0,
+		      "the hook after every step of each lane (a %d of %d, b %d of %d)", g_hooked[DLQ_ART], g_fa.steps,
+		      g_hooked[DLQ_RA], g_fb.steps);
+		CHECK(!g_hook_wrong, "each on its lane's slot, the last before its done (%d not)", g_hook_wrong);
+		dlq_on_step(NULL);
+		{
+			int was = g_hooked[DLQ_ART];
+
+			fresh(&g_fa, "m", 1, 10);
+			CHECK(dlq_start(DLQ_ART, &LANE_A, begin_a) && dlq_runs() == runs + 2, "the next lane on its own, another run");
+			run_out(2000);
+			CHECK(g_fa.dones == 1 && g_hooked[DLQ_ART] == was, "with no hook, nothing is called");
+		}
 	}
 
 	if (failures) {

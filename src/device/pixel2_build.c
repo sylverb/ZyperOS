@@ -19,5 +19,5 @@ const dev_build device_build_pixel2 = {
 	.part_root_b = 4,
 	.part_games = 3,
 	.helpers = DEV_HELPER_PORTKEYS | DEV_HELPER_ZYHOME | DEV_HELPER_UPDATE | DEV_HELPER_P2D |
-	           DEV_HELPER_PORTS,
+	           DEV_HELPER_PORTS | DEV_HELPER_P8FX,
 };

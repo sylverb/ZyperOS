@@ -80,8 +80,15 @@ static int open_with(int code)
 		snprintf(path, sizeof path, "/dev/input/event%d", i);
 		if ((fd = open(path, O_RDWR | O_CLOEXEC)) < 0)
 			continue;
-		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) >= 0 && HAS(keys, code))
-			return fd;
+		/* Never portkeys's own devices ("ZyperOS pad for PICO-8"): the
+		 * joypad is the one to press, which portkeys reads, holding it
+		 * or not (a write to a held device reaches the one holding it) */
+		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) >= 0 && HAS(keys, code)) {
+			char name[64] = "";
+
+			ioctl(fd, EVIOCGNAME(sizeof name), name);
+			if (strncmp(name, "ZyperOS ", 8)) return fd;
+		}
 		close(fd);
 	}
 	return -1;

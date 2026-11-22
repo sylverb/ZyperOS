@@ -50,9 +50,11 @@ static void dump(const char *name, const uint32_t *px, int w, int h)
 	fclose(f);
 }
 
-/* The pill's geometry as src/osdbar.c lays it out, to find a segment's middle */
-#define SEG_X0 (12.0f + 84.0f)
-#define SEG_X1 (12.0f + 452.0f - 30.0f)
+/* The pill's geometry as src/osdbar.c lays it out, to find a segment's middle:
+ * 452 wide, centered in the buffer, which is wider for the boost's cells */
+#define PILL_L ((OSDBAR_W - 452) / 2.0f)
+#define SEG_X0 (PILL_L + 84.0f)
+#define SEG_X1 (PILL_L + 452.0f - 30.0f)
 #define MID_Y  (12.0f + 32.0f)
 
 static uint32_t at(const uint32_t *px, int w, float scale, float ux, float uy)
@@ -81,7 +83,7 @@ static int is_rgb(uint32_t p, ds_rgb c)
  * system's, so one control does not change color as it is scrolled past. */
 static void segments(int theme, float scale, int kind, int level, int max)
 {
-	static uint32_t px[476 * 92];
+	static uint32_t px[OSDBAR_W * OSDBAR_H];
 	const ds_theme *th = &DS_THEME[theme];
 	ds_rgb on = kind == OSDBAR_BRIGHT ? th->light : th->accent_ink;
 	char what[160], name[64];
@@ -123,7 +125,7 @@ static int near_rgb(uint32_t p, ds_rgb c)
  * lower edge, 4 units lower and 8 units soft, is still 81% there. */
 static void pill(int theme, float scale)
 {
-	static uint32_t px[476 * 92];
+	static uint32_t px[OSDBAR_W * OSDBAR_H];
 	const ds_theme *th = &DS_THEME[theme];
 	char what[160];
 	int w, h;
@@ -177,7 +179,7 @@ static void fresh(uint32_t *px, bar_in b, float alpha, bool premul)
 {
 	bar_in z = { 1 - b.theme, b.kind == OSDBAR_VOLUME ? OSDBAR_BRIGHT : OSDBAR_VOLUME, 2, 7,
 	             b.scale == 1.0f ? 0.625f : 1.0f };
-	static uint32_t scratch[476 * 92];
+	static uint32_t scratch[OSDBAR_W * OSDBAR_H];
 
 	draw(scratch, z, 1.0f, false);
 	draw(px, b, alpha, premul);
@@ -185,7 +187,7 @@ static void fresh(uint32_t *px, bar_in b, float alpha, bool premul)
 
 static void repaints(void)
 {
-	static uint32_t want[476 * 92], got[476 * 92], before[476 * 92];
+	static uint32_t want[OSDBAR_W * OSDBAR_H], got[OSDBAR_W * OSDBAR_H], before[OSDBAR_W * OSDBAR_H];
 	const bar_in x = { DS_DARK, OSDBAR_VOLUME, 13, 20, 0.625f };
 	const bar_in v[] = {
 		{ DS_LIGHT, OSDBAR_VOLUME, 13, 20, 0.625f },
@@ -235,8 +237,8 @@ static void repaints(void)
 
 int main(int argc, char **argv)
 {
-	static uint32_t px[476 * 92];
-	static uint32_t other[476 * 92];
+	static uint32_t px[OSDBAR_W * OSDBAR_H];
+	static uint32_t other[OSDBAR_W * OSDBAR_H];
 	float a, rise;
 	int w, h, t;
 
@@ -245,7 +247,7 @@ int main(int argc, char **argv)
 	osdbar_size(1.0f, &w, &h);
 	ck(w == OSDBAR_W && h == OSDBAR_H, "the buffer is the design's size at scale 1");
 	osdbar_size(0.625f, &w, &h);
-	ck(w == 298 && h == 58, "and 298 x 58 on the Pixel 2's panel");
+	ck(w == 373 && h == 58, "and 373 x 58 on the Pixel 2's panel");
 
 	for (t = 0; t < DS_THEMES; t++) {
 		segments(t, 1.0f, OSDBAR_VOLUME, 0, 20);

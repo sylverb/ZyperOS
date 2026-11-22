@@ -82,11 +82,11 @@ static int table_is(const panelgamma_color *c)
 
 int main(void)
 {
-	panelgamma_color std = { 0, 0, 0, 0, 0 };
-	panelgamma_color warm = { 4, -2, 3, -1, 0 };
-	panelgamma_color night = { 0, 0, 0, 0, 6 };
-	panelgamma_color cool = { -10, 0, 0, 0, 0 };
-	panelgamma_color one = { 4, 0, 3, -1, 0 };
+	panelgamma_color std = { 0, 0, 0, 0, 0, 0 };
+	panelgamma_color warm = { 4, -2, 3, -1, 0, 0 };
+	panelgamma_color night = { 0, 0, 0, 0, 6, 0 };
+	panelgamma_color cool = { -10, 0, 0, 0, 0, 0 };
+	panelgamma_color one = { 4, 0, 3, -1, 0, 0 };
 
 	panelgamma_ioctl = fake_disp;
 

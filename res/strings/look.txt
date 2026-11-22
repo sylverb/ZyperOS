@@ -388,7 +388,7 @@ ja = ダークグレー
 it = Grigio scuro
 
 [look.night_from]
-note = A row of Night Mode's page, quiet unless Night Mode is By Hours: the time Night Mode turns on (its value a time, 9:00 PM)
+note = A row of Night Mode's page, quiet unless Night Mode is By Hours or Appearance is Auto: the time Night Mode turns on, and Appearance's Auto turns dark (its value a time, 9:00 PM)
 en = Night From
 zh-Hans = 开始
 es = Noche desde
@@ -399,7 +399,7 @@ ja = 開始
 it = Notte dalle
 
 [look.night_until]
-note = A row of Night Mode's page, under Night From, quiet unless Night Mode is By Hours: the time Night Mode turns off (its value a time, 7:00 AM)
+note = A row of Night Mode's page, under Night From, quiet unless Night Mode is By Hours or Appearance is Auto: the time Night Mode turns off, and Appearance's Auto turns light (its value a time, 7:00 AM)
 en = Until
 zh-Hans = 结束
 es = Hasta

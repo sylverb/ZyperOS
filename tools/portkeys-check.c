@@ -30,6 +30,7 @@
 #include "pkset.h"
 
 #include "../src/design.h"
+#include "../src/theme.h"
 #include "../src/themefile.h"
 
 #include <errno.h>
@@ -285,7 +286,15 @@ static void bar(void)
 	ck(pkset_bar_theme("dark", utc(12), file) == DS_DARK, "dark is dark at noon");
 	ck(pkset_bar_theme("auto", utc(6) + 3599, file) == DS_DARK, "auto at 6:59:59 is night");
 	ck(pkset_bar_theme("auto", utc(7), file) == DS_LIGHT, "auto at 7:00 is day");
-	ck(pkset_bar_theme("auto", utc(19), file) == DS_DARK, "auto at 19:00 is night");
+	ck(pkset_bar_theme("auto", utc(20) + 3599, file) == DS_LIGHT, "auto at 20:59:59 is still day");
+	ck(pkset_bar_theme("auto", utc(21), file) == DS_DARK,
+	   "auto at 21:00 is night: the Night Hours as they ship, none read");
+	theme_set_hours(6 * 60 + 30, 22 * 60 + 15);
+	ck(pkset_bar_theme("auto", utc(22) + 899, file) == DS_LIGHT &&
+	   pkset_bar_theme("auto", utc(22) + 900, file) == DS_DARK &&
+	   pkset_bar_theme("auto", utc(6) + 1800, file) == DS_LIGHT,
+	   "and on the Night Hours portkeys read (22:15 to 6:30), to the minute");
+	theme_set_hours(THEME_NIGHT_UNTIL, THEME_NIGHT_FROM);
 
 	/* The wiring as main has it: the word from the device database, the
 	 * zone from the library, the theme at a press */

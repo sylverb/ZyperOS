@@ -117,6 +117,7 @@ static uint32_t          g_buttons;
  * ABS_X's end, 0 for no sticks. */
 static int16_t           g_axes[4];
 static int               g_axis_max;
+static uint32_t          g_pressed;     /* went down during the last poll */
 static bool              g_input_debug;
 
 /* Opaque value for the framebuffer's alpha channel, zero if it has none.
@@ -320,6 +321,9 @@ static int g_disp_fd = -1;
 static panelgamma_color g_gamma_color;
 static panelgamma_night g_gamma_night;
 static time_t           g_night_looked;
+/* The brightness boost's lift (diatom_port_level_lift), never in the file:
+ * put on what is read at each take */
+static int              g_gamma_lift;
 
 static void display_gamma(bool take)
 {
@@ -329,6 +333,7 @@ static void display_gamma(bool take)
 	if (take) {
 		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
 		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)now);
+		g_gamma_color.lift = g_gamma_lift;
 	} else {
 		int w;
 
@@ -380,6 +385,11 @@ static int      g_osd_theme;    /* DS_LIGHT or DS_DARK */
  * file's second line, themefile_read_bar); the gen moves when they do */
 static ds_theme g_osd_colors;
 static unsigned g_osd_colors_gen;
+/* The level bar's look as the host's boost has it (diatom_port_level_look):
+ * drawn for the kind it is of, osd_look_now says. Written under g_mx, which
+ * the GPU path's thread reads it under; the CPU path reads it on the thread
+ * that writes it. */
+static osdbar_look g_osd_look;
 
 /* Is there a plug in the headphone jack?
  *
@@ -531,10 +541,16 @@ static void mixer_defaults(void)
  * game ends. */
 static int g_jack_was = -1;                /* last state written; -1 = never */
 static void gain_apply(void);
+/* A plug in or out seen here, not the first look after a handover
+ * (g_jack_was -1), for diatom_port_level_plugged. Atomic: this poll runs in
+ * the input poll, which a core with a thread of its own may call from there,
+ * and the host asks from the frame loop. */
+static bool g_jack_moved;
 
 static void gain_jack_poll(void)
 {
 	if (jack_present() == g_jack_was || g_level < 0) return;
+	if (g_jack_was >= 0) __atomic_store_n(&g_jack_moved, true, __ATOMIC_RELAXED);
 	gain_apply();
 }
 
@@ -620,6 +636,17 @@ static void osd_show(int kind, int level, int max)
 	g_osd_theme   = theme;
 	g_osd_changed = now;
 	pthread_mutex_unlock(&g_mx);
+}
+
+/* What the bar shows now: the host's look while it is the look of the bar's
+ * kind, else the plain bar (POWER's hold, a kind it has not given a look for
+ * yet). Under g_mx on the GPU path's thread (port/gles_present.h). */
+static void osd_look_now(osdbar_look *l)
+{
+	const int kind = g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME;
+
+	if (g_osd_kind != 2 && g_osd_look.kind == kind) *l = g_osd_look;
+	else osdbar_look_plain(l, kind, g_osd_level, g_osd_max);
 }
 
 /* The panel at a rung, and back as the nearest rung, so a level the launcher
@@ -878,11 +905,14 @@ static diatom_rect g_bar_painted[FB_PAGES];
  * starts black, as the page is where the picture does not reach. */
 static void bar_frame(void)
 {
-	static int drawn_kind = -1, drawn_level, drawn_max, drawn_theme;
+	static osdbar_look drawn;
+	static bool drawn_any;
+	static int drawn_theme;
 	static float drawn_alpha;
 	static unsigned colors_seen;
 	const float s = (float)g_vinfo.yres / 768.0f;
 	const uint64_t now = diatom_port_now_us();
+	osdbar_look look;
 	float alpha, rise;
 	diatom_rect r;
 	size_t i, n;
@@ -900,16 +930,21 @@ static void bar_frame(void)
 	if (colors_seen != g_osd_colors_gen) {
 		osdbar_colors(g_osd_theme, &g_osd_colors);
 		colors_seen = g_osd_colors_gen;
-		drawn_kind = -1;
+		drawn_any = false;
 	}
-	if (g_osd_kind != drawn_kind || g_osd_level != drawn_level ||
-	    g_osd_max != drawn_max || g_osd_theme != drawn_theme || alpha != drawn_alpha) {
+	/* The look (the level, its mark moving, the boost past the top) painted
+	 * again when it moves; the fade alone is osdbar_render_look's
+	 * conversion of what it painted last */
+	osd_look_now(&look);
+	if (!drawn_any || memcmp(&look, &drawn, sizeof look) ||
+	    g_osd_theme != drawn_theme || alpha != drawn_alpha) {
 		osdbar_size(s, &g_bar_w, &g_bar_h);
-		osdbar_render(g_bar_px, g_bar_w, g_bar_h, g_bar_w, s, g_osd_theme,
-		              g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME,
-		              g_osd_level, g_osd_max, alpha, true);
-		drawn_kind = g_osd_kind; drawn_level = g_osd_level; drawn_max = g_osd_max;
-		drawn_theme = g_osd_theme; drawn_alpha = alpha;
+		osdbar_render_look(g_bar_px, g_bar_w, g_bar_h, g_bar_w, s, g_osd_theme, &look,
+		                   alpha, true);
+		drawn = look;
+		drawn_any = true;
+		drawn_theme = g_osd_theme;
+		drawn_alpha = alpha;
 	}
 	/* In the panel's middle: OSDBAR_X is that on a 4:3 one */
 	g_bar_x = ((int)g_vinfo.xres - g_bar_w) / 2;
@@ -1874,10 +1909,12 @@ static void cpu_border(const uint8_t *bgra, int w, int h)
  *
  * The drawing is the Pixel 2's (port/gles_state.h, gles_draw.h, gles_objects.h,
  * gles_present.h, gles_gpu.h); what differs is here: the EGL objects
- * (gl_start), where a frame is drawn (PRESENT_TARGET: a page), what drawn
- * means (PRESENT_SWAP: the alpha made opaque, then a fence waited), putting it
- * on the panel (show_frame: the flip thread) and the display handed back
- * (give_display: the park page).
+ * (gl_start), where a frame is drawn (PRESENT_TARGET: a page), which way up
+ * (PRESENT_TOP_DOWN: a page's first row is the top), what drawn means
+ * (PRESENT_SWAP: the alpha made opaque, then a fence waited), putting it on
+ * the panel (show_frame: the flip thread) and the display handed back
+ * (give_display: the park page). make check-gpu-upright draws every kind of
+ * picture through it into a page's stand-in on the host.
  *
  * DIATOM_PRESENT=cpu never starts it. DIATOM_PRESENT=gpu, or the card's
  * .userdata/brick/diatom-present saying "gpu", draws every frame with it, so
@@ -1939,6 +1976,15 @@ static void port_logf(diatom_log_level lvl, const char *fmt, ...)
 
 /* port/gles_present.h's, which the drawing needs first */
 static float ov_scale(void);
+
+/* A page's first row in memory is the panel's top: the display reads fb0
+ * from the page's first byte, the dma-buf import makes that byte the image's
+ * first texel, and GL draws a texture's first row at y 0, the bottom of a
+ * window surface. So the drawing's y goes the other way here (to_clip), and a
+ * capture's rows come back in order (capture_front). Without it every frame
+ * the GPU drew, a shader's or a GPU core's, the Border and every notice on
+ * it, reached the panel upside down (issue #419, 1.0.7-kit.1). */
+#define PRESENT_TOP_DOWN
 
 #include "gles_draw.h"
 
@@ -2341,10 +2387,14 @@ static void hud_cpu_update(void)
 	g_hudc_style = st;
 	g_hudc_colors = colors;
 	g_hudc_rect.w = 0;
-	hud_size(text, 1.0f, &st, &w, &h);
+	/* At the launcher's scale, the panel's height over its 768 units: 1 on
+	 * the Brick, 0.9375 on the Smart Pro's 1280x720 (ZyperOS's
+	 * src/canvas.h) */
+	const float k = g_vinfo.yres < 768 ? (float)g_vinfo.yres / 768.0f : 1.0f;
+	hud_size(text, k, &st, &w, &h);
 	if (!w || w > 1024 || h > 128 || w > (int)g_vinfo.xres || h > (int)g_vinfo.yres) return;
-	hud_render(g_hudc_px, w, h, w, 1.0f, text, &st, &colors, false);
-	hud_place(&st, 1.0f, w, h, (int)g_vinfo.xres, (int)g_vinfo.yres, &x, &y);
+	hud_render(g_hudc_px, w, h, w, k, text, &st, &colors, false);
+	hud_place(&st, k, w, h, (int)g_vinfo.xres, (int)g_vinfo.yres, &x, &y);
 	if (x < 0 || y < 0 || x + w > (int)g_vinfo.xres || y + h > (int)g_vinfo.yres) return;
 	g_hudc_rect = (diatom_rect){ x, y, w, h };
 }
@@ -2757,6 +2807,7 @@ void diatom_port_input_poll(void)
 {
 	struct input_event ev[32];
 	SDL_Event sev;
+	const uint32_t before = g_buttons;
 	ssize_t n;
 	size_t i, k;
 
@@ -2768,6 +2819,9 @@ void diatom_port_input_poll(void)
 	while (SDL_PollEvent(&sev))
 		if (sev.type == SDL_QUIT) g_quit = true;
 
+	/* Every press since the last poll, a tap gone up again too
+	 * (diatom_port_input_pressed) */
+	g_pressed = 0;
 	while (g_pad_fd >= 0 && (n = read(g_pad_fd, ev, sizeof ev)) > 0) {
 		for (i = 0; i < (size_t)n / sizeof ev[0]; i++) {
 			if (ev[i].type == EV_SYN && ev[i].code == SYN_DROPPED) {
@@ -2795,14 +2849,21 @@ void diatom_port_input_poll(void)
 			if (level_button(ev[i].code, ev[i].value != 0)) continue;
 			for (k = 0; k < sizeof keymap / sizeof keymap[0]; k++) {
 				if (keymap[k].code != ev[i].code) continue;
-				if (ev[i].value) g_buttons |=  DIATOM_BIT(keymap[k].btn);
-				else             g_buttons &= ~DIATOM_BIT(keymap[k].btn);
+				if (ev[i].value) {
+					g_buttons |= DIATOM_BIT(keymap[k].btn);
+					g_pressed |= DIATOM_BIT(keymap[k].btn);
+				} else {
+					g_buttons &= ~DIATOM_BIT(keymap[k].btn);
+				}
 			}
 		}
 	}
+	/* And a key a resync found down whose press was in the events dropped */
+	g_pressed |= g_buttons & ~before;
 }
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
+uint32_t diatom_port_input_pressed(void) { return g_pressed; }
 
 bool diatom_port_input_axes(int16_t axes[4])
 {
@@ -2829,6 +2890,7 @@ void diatom_port_input_reset(void)
 	SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
 	while (g_pad_fd >= 0 && read(g_pad_fd, ev, sizeof ev) > 0) { }
 	g_level_down = g_level_pressed = 0;
+	g_pressed = 0;
 	pad_resync();
 }
 
@@ -2913,6 +2975,35 @@ uint32_t diatom_port_level_keys(void)
 void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 {
 	osd_show(kind == DIATOM_LEVEL_BRIGHTNESS ? 1 : 0, pos, positions - 1);
+}
+
+void diatom_port_level_look(const osdbar_look *look)
+{
+	pthread_mutex_lock(&g_mx);
+	if (look) g_osd_look = *look;
+	else memset(&g_osd_look, 0, sizeof g_osd_look);
+	pthread_mutex_unlock(&g_mx);
+}
+
+/* The table again at once, on the frame loop's thread as display_gamma is,
+ * while a game has the display; else at the take (display_gamma) */
+void diatom_port_level_lift(int lift)
+{
+	if (lift < 0) lift = 0;
+	if (lift > PANELGAMMA_LIFT_MAX) lift = PANELGAMMA_LIFT_MAX;
+	if (lift == g_gamma_lift) return;
+	g_gamma_lift = lift;
+	g_gamma_color.lift = lift;
+	if (g_disp_fd < 0 || !g_presented) return;
+	if (panelgamma_sunxi_apply(g_disp_fd, &g_gamma_color) == 0)
+		port_logf(DIATOM_LOG_INFO, "brick: the display's gamma table lifted %d", lift);
+	else
+		diatom_port_log(DIATOM_LOG_WARN, "brick: could not set the display's gamma table");
+}
+
+bool diatom_port_level_plugged(void)
+{
+	return __atomic_exchange_n(&g_jack_moved, false, __ATOMIC_RELAXED);
 }
 
 void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)

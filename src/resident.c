@@ -2,6 +2,7 @@
 /* The Diatom transport: the launcher's side of the socket to the resident
  * emulator. Nothing in it knows which device it runs on. */
 #include "device.h"
+#include "levels.h"
 #include "platform.h"
 #include "powerhold.h"
 
@@ -29,6 +30,17 @@ static SDL_Rect d_rect;
 static bool     d_rect_known;
 static int    d_pend_vol = -1, d_pend_vol_n;      /* LEVEL events, held until */
 static int    d_pend_bri = -1, d_pend_bri_n;      /* EXIT hands levels back  */
+/* ...and each one's boost past the top (src/levels.h), its cells filled: 0
+ * from a Diatom that does not say it */
+static int    d_pend_vol_boost, d_pend_bri_boost;
+/* Whether this stretch of the game says its volume boost to MP4 as it moves
+ * (levels_game_boost): from Diatom's first LEVEL with the cells the launcher
+ * keeps, which is the one SETLEVEL gave it. A RUN or a RESUME makes Diatom
+ * say its levels again in the first frames, and it reads one message a
+ * frame, so a line before its SETLEVEL can carry the cells it had before
+ * (another game's, or none): heard behind the game, that would duck MP4 for
+ * a frame or two. Off again at RUN, PAUSED and EXIT. */
+static bool   d_boost_live;
 /* Diatom's QUIET: what the launcher wants, and what this connection was last
  * told. -1 is "never told", which a new connection is. */
 static int    d_quiet, d_quiet_said = -1;
@@ -481,6 +493,8 @@ bool plat_resident_send(const plat_game_run *run)
 		d_preview[0] = '\0';
 		d_rect_known = false;
 		d_pend_vol = d_pend_bri = -1;
+		d_pend_vol_boost = d_pend_bri_boost = 0;
+		d_boost_live = false;
 		d_stick_asked = 0;
 
 		/* Before RUN, not after. mgba_sgb_borders and mgba_use_bios are both
@@ -589,13 +603,17 @@ bool plat_resident_send(const plat_game_run *run)
 		 * twelve-rung ladder, so every level handed to a game arrived one rung
 		 * too bright, and the inbound rescale then took a rung off on the way
 		 * back. The two canceled often enough to look like nothing was wrong.
-		 * Both are written off the shared maxima now. */
+		 * Both are written off the shared maxima now.
+		 *
+		 * Each with its boost past the top (src/levels.h), the cells kept
+		 * filled, so a game starts as loud and as bright as the shelf was;
+		 * an older Diatom skips the field. */
 		vol = plat_volume_get();
 		bri = plat_brightness_get();
-		if (vol >= 0) dsend("SETLEVEL\tkind=volume\tindex=%d\tcount=%d",
-		                    vol, PLAT_VOL_MAX + 1);
-		if (bri >= 0) dsend("SETLEVEL\tkind=brightness\tindex=%d\tcount=%d",
-		                    bri, PLAT_BRIGHT_MAX + 1);
+		if (vol >= 0) dsend("SETLEVEL\tkind=volume\tindex=%d\tcount=%d\tboost=%d",
+		                    vol, PLAT_VOL_MAX + 1, levels_boost(OSDBAR_VOLUME));
+		if (bri >= 0) dsend("SETLEVEL\tkind=brightness\tindex=%d\tcount=%d\tboost=%d",
+		                    bri, PLAT_BRIGHT_MAX + 1, levels_boost(OSDBAR_BRIGHT));
 		/* And the mute, ON EVERY RUN and not only when it changes. A state
 		 * sent only on transition is wrong exactly once - the first time -
 		 * which here means a game started with the switch already down comes
@@ -732,18 +750,26 @@ static void d_note_level(const char *l)
 	const char *k = strstr(l, "kind=");
 	const char *i = strstr(l, "index=");
 	const char *c = strstr(l, "count=");
-	int idx, cnt;
+	const char *b = strstr(l, "\tboost=");
+	int idx, cnt, boost;
 
 	if (!k || !i || !c) return;
 	idx = atoi(i + 6);
 	cnt = atoi(c + 6);
+	boost = b ? atoi(b + 7) : 0;
 	if (cnt < 2) return;
 	if (strncmp(k + 5, "volume", 6) == 0) {
 		level_lit(true, idx, d_pend_vol >= 0 ? d_pend_vol : plat_volume_get(), cnt);
-		d_pend_vol = idx; d_pend_vol_n = cnt;
+		d_pend_vol = idx; d_pend_vol_n = cnt; d_pend_vol_boost = boost;
+		/* ...and its boost to MP4 at once, music behind a game being what
+		 * is heard then (the game is quiet for it): a hold, a press or VOL-
+		 * in the game is heard in the same step, where the level and the
+		 * cells kept wait for the pause or the end below */
+		if (!d_boost_live && boost == levels_boost(OSDBAR_VOLUME)) d_boost_live = true;
+		if (d_boost_live) levels_game_boost(OSDBAR_VOLUME, boost);
 	} else if (strncmp(k + 5, "brightness", 10) == 0) {
 		level_lit(false, idx, d_pend_bri >= 0 ? d_pend_bri : plat_brightness_get(), cnt);
-		d_pend_bri = idx; d_pend_bri_n = cnt;
+		d_pend_bri = idx; d_pend_bri_n = cnt; d_pend_bri_boost = boost;
 	}
 }
 
@@ -977,14 +1003,28 @@ static void d_apply_levels(void)
 	 * The rescale has to target THIS side's top of range. It read 10 while the
 	 * brightness ladder had grown to twelve rungs, which is not the identity:
 	 * a level of 7 came back as 6, and every brightness set inside a game lost
-	 * a rung on the way out. That is why the maxima are in platform.h now. */
-	if (d_pend_vol >= 0 && d_pend_vol_n > 1)
+	 * a rung on the way out. That is why the maxima are in platform.h now.
+	 *
+	 * And the boost past the top beside each, which src/levels.c keeps and
+	 * applies: given the level on this side's scale, the top being where it
+	 * opens, after the setter, so the level it finds is the one set. */
+	if (d_pend_vol >= 0 && d_pend_vol_n > 1) {
 		plat_volume_set_pct((d_pend_vol * 100 + (d_pend_vol_n - 1) / 2)
 		                    / (d_pend_vol_n - 1));
-	if (d_pend_bri >= 0 && d_pend_bri_n > 1)
-		plat_brightness_set((d_pend_bri * PLAT_BRIGHT_MAX + (d_pend_bri_n - 1) / 2)
-		                    / (d_pend_bri_n - 1));
+		levels_from_game(OSDBAR_VOLUME,
+		                 (d_pend_vol * PLAT_VOL_MAX + (d_pend_vol_n - 1) / 2) / (d_pend_vol_n - 1),
+		                 d_pend_vol_boost);
+	}
+	if (d_pend_bri >= 0 && d_pend_bri_n > 1) {
+		const int bri = (d_pend_bri * PLAT_BRIGHT_MAX + (d_pend_bri_n - 1) / 2)
+		              / (d_pend_bri_n - 1);
+
+		plat_brightness_set(bri);
+		levels_from_game(OSDBAR_BRIGHT, bri, d_pend_bri_boost);
+	}
 	d_pend_vol = d_pend_bri = -1;
+	d_pend_vol_boost = d_pend_bri_boost = 0;
+	d_boost_live = false;
 }
 
 /* POWER held over a game, with MENU > Power Button on Hold (src/powerhold.h):
@@ -1064,8 +1104,13 @@ static int diatom_wait(void)
 				d_apply_levels();
 				return RES_PAUSED;
 			}
-			/* A hotkey of the player's own: a screenshot written, the
-			 * next shader or display mode for the launcher to step */
+			/* A hotkey of the player's own: a screenshot taken (its
+			 * shutter, said at the press, before the file is written),
+			 * a screenshot written, the next shader or display mode for
+			 * the launcher to step */
+			else if (strcmp(l, "HOTKEY\tkey=shot") == 0) {
+				if (d_on_hotkey) d_on_hotkey("shot", NULL);
+			}
 			else if (strncmp(l, "SHOT\tpath=", 10) == 0) {
 				if (d_on_hotkey) d_on_hotkey("shot", l + 10);
 			}

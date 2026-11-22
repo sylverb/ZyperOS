@@ -1,9 +1,11 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
-# The systems whose cores need GPU frames (config/systems.cfg's needs lines)
-# on a handheld without them: on the Brick's profile a card with an NES, a
-# Dreamcast and an N64 game shows the NES shelf alone, and says the two it
-# left out; on the Pixel 2's, all three, as before. The card is a scratch
+# The systems whose cores need GPU frames (config/systems.cfg's needs lines):
+# every handheld on main has GPU frames now (the Brick's turned on in releases
+# from 1.1.0), so a card with an NES, a Dreamcast and an N64 game shows all
+# three shelves on the Brick's profile and on the Pixel 2's, and the scan
+# leaves nothing out. A handheld without GPU frames (the Smart Pro's profile,
+# #244) brings the left-out case back here. The card is a scratch
 # tree under build-native/gpuframes-card; the launcher scans it for a shot.
 #
 # Needs the launcher built, which needs SDL2, and skips cleanly without it.
@@ -41,8 +43,7 @@ fail() { echo "  FAIL $*"; fails=$((fails + 1)); }
 
 out=$(scan brick)
 echo "$out" | grep -q '^scan: 3 of [0-9]* systems have games$' || fail "the Brick: three systems have games"
-echo "$out" | grep -q '^scan: 2 of them need GPU frames, which this handheld has not$' ||
-	fail "the Brick: the Dreamcast and the N64 left out for GPU frames"
+echo "$out" | grep -q 'GPU frames' && fail "the Brick: no shelf left out for GPU frames (it has them from 1.1.0)"
 out=$(scan pixel2)
 echo "$out" | grep -q '^scan: 3 of [0-9]* systems have games$' || fail "the Pixel 2: three systems have games"
 echo "$out" | grep -q 'GPU frames' && fail "the Pixel 2: no shelf left out for GPU frames"
@@ -52,4 +53,4 @@ if [ "$fails" -gt 0 ]; then
 	echo "gpuframes: $fails failed"
 	exit 1
 fi
-echo "ok: no GPU-frame shelf where there are no GPU frames, every shelf where there are"
+echo "ok: every GPU-frame shelf on the Brick and the Pixel 2, which both have GPU frames"

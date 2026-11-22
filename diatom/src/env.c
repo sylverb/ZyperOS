@@ -55,6 +55,8 @@ static uint32_t          g_suppress;
 /* What the poll hook said at the last poll: hidden, and given */
 static diatom_poll_hook  g_poll_hook;
 static uint32_t          g_hook_hide, g_hook_give;
+/* What went down at the polls since the frame loop last asked */
+static uint32_t          g_pressed;
 /* GET_GAME_INFO_EXT's answer, while a game out of a zip loads */
 static struct retro_game_info_ext g_ext;
 static bool              g_ext_on;
@@ -114,6 +116,9 @@ static int             g_rumble_pct = 100;
  * core, not per game: a resident core asks once, as it loads (flycast2021)
  * or as it starts (pcsx_rearmed), and keeps the interface for every game. */
 static bool            g_rumble_asked;
+/* The boost's buzz as it opens (diatom_rumble_buzz): on for its 40 ms, over
+ * the core's, which it leaves as the core asked for the end of it */
+static bool            g_rumble_buzz;
 
 /* The strengths go to the port as the core asked, the scale beside them, so
  * each port makes its own motor's sense of a level: the Pixel 2's force
@@ -124,6 +129,7 @@ static void rumble_apply(void)
 	const float scale = (float)g_rumble_pct / 100.0f;
 
 	if (g_rumble_held || g_rumble_pct <= 0) diatom_port_rumble(0, 0, scale);
+	else if (g_rumble_buzz) diatom_port_rumble(0xFFFF, 0xFFFF, scale);
 	else diatom_port_rumble(g_rumble[RETRO_RUMBLE_STRONG], g_rumble[RETRO_RUMBLE_WEAK], scale);
 }
 
@@ -168,7 +174,20 @@ void diatom_rumble_hold(bool held)
 	if (!g_caps || !g_caps->rumble) return;
 	pthread_mutex_lock(&g_rumble_mx);
 	g_rumble_held = held;
+	/* A buzz is a moment, not a state to give back after the menu */
+	if (held) g_rumble_buzz = false;
 	rumble_apply();
+	pthread_mutex_unlock(&g_rumble_mx);
+}
+
+void diatom_rumble_buzz(bool on)
+{
+	if (!g_caps || !g_caps->rumble) return;
+	pthread_mutex_lock(&g_rumble_mx);
+	if (g_rumble_buzz != on) {
+		g_rumble_buzz = on;
+		rumble_apply();
+	}
 	pthread_mutex_unlock(&g_rumble_mx);
 }
 
@@ -192,6 +211,7 @@ void diatom_rumble_reset(void)
 	pthread_mutex_lock(&g_rumble_mx);
 	g_rumble[RETRO_RUMBLE_STRONG] = g_rumble[RETRO_RUMBLE_WEAK] = 0;
 	g_rumble_held = false;
+	g_rumble_buzz = false;
 	rumble_apply();
 	pthread_mutex_unlock(&g_rumble_mx);
 }
@@ -774,9 +794,20 @@ static void cb_input_poll(void)
 	if (g_polled) return;
 	g_polled = true;
 	diatom_port_input_poll();
-	if (g_poll_hook) g_hook_hide = g_poll_hook(diatom_port_input_state(), &g_hook_give);
+	g_pressed |= diatom_port_input_pressed();
+	if (g_poll_hook)
+		g_hook_hide = g_poll_hook(diatom_port_input_state(), diatom_port_input_pressed(),
+		                          &g_hook_give);
 	turbo_tick();
 	if (p2_on()) p2_pads((unsigned)(diatom_port_now_us() / 1000), g_p2_pad);
+}
+
+uint32_t diatom_env_pressed(void)
+{
+	const uint32_t p = g_pressed;
+
+	g_pressed = 0;
+	return p;
 }
 
 uint32_t diatom_env_p2_pad(void)

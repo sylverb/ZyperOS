@@ -199,7 +199,49 @@ static const char *share_path(void)
 	return e && *e ? e : EQ_SHARE_PATH;
 }
 
+static eq_share *share_map(void);
+
 bool eq_share_write(const int8_t db[EQ_BANDS])
+{
+	eq_share *map = share_map();
+
+	if (!map) return false;
+	if (!memcmp(map->db, db, EQ_BANDS)) return true;
+	/* Odd while the bands change, even after: a reader that sees either
+	 * odd or a change reads again (eq_share_read) */
+	eq_share_put(map, db, -1);
+	return true;
+}
+
+bool eq_share_gain(int db)
+{
+	eq_share *map = share_map();
+
+	if (!map) return false;
+	if (map->gain != db) eq_share_put(map, NULL, db < 0 ? 0 : db);
+	return true;
+}
+
+int eq_share_gain_get(void)
+{
+	eq_share *map = share_map();
+	int8_t db[EQ_BANDS], gain = 0;
+
+	if (!map || !eq_share_read(map, db, &gain)) return -1;
+	return gain < 0 ? 0 : gain > EQ_GAIN_MAX ? EQ_GAIN_MAX : gain;
+}
+
+bool eq_share_cut(bool cut)
+{
+	eq_share *map = share_map();
+
+	if (!map) return false;
+	eq_share_cut_put(map, cut);
+	return true;
+}
+
+/* The shared file, mapped once (and again for another path) */
+static eq_share *share_map(void)
 {
 	static eq_share *map;
 	static char mapped[256];
@@ -213,7 +255,7 @@ bool eq_share_write(const int8_t db[EQ_BANDS])
 		munmap(map, sizeof *map);
 		map = NULL;
 	}
-	if (!map && !strcmp(failed_for, path) && time(NULL) - failed_at < 5) return false;
+	if (!map && !strcmp(failed_for, path) && time(NULL) - failed_at < 5) return NULL;
 	if (!map) {
 		char dir[256], *slash;
 		int fd;
@@ -225,19 +267,19 @@ bool eq_share_write(const int8_t db[EQ_BANDS])
 		snprintf(dir, sizeof dir, "%s", path);
 		if ((slash = strrchr(dir, '/')) && slash != dir) {
 			*slash = '\0';
-			if (mkdir(dir, 0755) < 0 && errno != EEXIST) return false;
+			if (mkdir(dir, 0755) < 0 && errno != EEXIST) return NULL;
 		}
 		fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
 		void *m;
 
-		if (fd < 0) return false;
+		if (fd < 0) return NULL;
 		if (ftruncate(fd, (off_t)sizeof *map) < 0) {
 			close(fd);
-			return false;
+			return NULL;
 		}
 		m = mmap(NULL, sizeof *map, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 		close(fd);
-		if (m == MAP_FAILED) return false;
+		if (m == MAP_FAILED) return NULL;
 		map = m;
 		failed_for[0] = '\0';
 		snprintf(mapped, sizeof mapped, "%s", path);
@@ -245,15 +287,11 @@ bool eq_share_write(const int8_t db[EQ_BANDS])
 			/* A new file, or one a writer left half done: whole, flat */
 			map->seq = 0;
 			memset(map->db, 0, sizeof map->db);
+			map->gain = 0;
+			map->cut = 0;
+			map->pad = 0;
 			map->magic = EQ_SHARE_MAGIC;
 		}
 	}
-	if (!memcmp(map->db, db, EQ_BANDS)) return true;
-	/* Odd while the bands change, even after: a reader that sees either
-	 * odd or a change reads again (eq_share_read) */
-	__atomic_store_n(&map->seq, map->seq + 1, __ATOMIC_RELAXED);
-	__atomic_thread_fence(__ATOMIC_RELEASE);
-	memcpy(map->db, db, EQ_BANDS);
-	__atomic_store_n(&map->seq, map->seq + 1, __ATOMIC_RELEASE);
-	return true;
+	return map;
 }

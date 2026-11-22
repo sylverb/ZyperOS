@@ -116,8 +116,8 @@
  * (sys_menu_homesys_rows). 1.0.6, asked for on the Discord. */
 /* PM_THEME is Theme, under Appearance: the accent, a background tone for
  * each theme, the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks
- * 2026-11-12. Appearance is Light or Dark (1.0.6: Auto went, its hours
- * became Night Hours). */
+ * 2026-11-12. Appearance is Light, Dark or Auto (1.0.6: Auto went, its
+ * hours became Night Hours; 1.1.0: Auto back, on those Night Hours). */
 /* PM_SCREEN is Screen Colors, Display's last row: Temperature, Tint,
  * Contrast, Saturation, Gamma and the looks for the whole screen, in the
  * display's own table
@@ -126,7 +126,8 @@
 /* PM_NIGHT is Night Mode, under Screen Colors: warmer colors for the night,
  * its value Off, On or By Hours; A opens its page, as Screen Colors' does:
  * Night Mode, Night Warmth (1 to 10, 8 as it ships), Night From and Until
- * by the half hour (21:00 and 7:00 as it ships; 1.0.5's Auto Hours). Only
+ * by the half hour (21:00 and 7:00 as it ships; 1.0.5's Auto Hours), which
+ * Appearance's Auto turns the theme by too. Only
  * where the display has a table (no_night, plat_night_here). Tarik's move,
  * approved on the sheet 2026-11-16; one row and its page, his for 1.0.6
  * rc.2 (DESIGN.md 11.42). */
@@ -196,6 +197,12 @@ typedef enum {
 /* Recents' has a fifth, Card Picture (DESIGN.md 11.48): each card its cover,
  * as it ships, or the screen the game was left on */
 #define SM_RECENTS_ROWS (SM_FAV_ROWS + 1)
+
+/* What the Screenshots shelf's menu is (DESIGN.md 11.68): Sort By, its
+ * own three (sort.h's SORT_SHOTS_ORDERS), and View. No count, no Random
+ * Game: a shot is no game to count or to pick, and its game is on its own
+ * shelf. */
+#define SM_SHOT_ROWS 2
 
 /* What the Collections shelf's menu is (src/collect.h, DESIGN.md 11.56),
  * headed by the collection's name: on its top, the collection under the
@@ -330,6 +337,7 @@ typedef struct {
 	bool games;              /* the system menu, rather than ZyperOS's own */
 	bool fav;                /* and that shelf is Favorites; see SM_FAV_ROWS */
 	bool coll;               /* or Collections; see SM_COLL_ROWS */
+	bool shots;              /* or Screenshots; see SM_SHOT_ROWS */
 	bool recents;            /* or Recents, whose fifth row is Card Picture */
 	bool recents_screen;     /* and its value Last Screen, not Cover */
 	/* Card Picture's two, as a list with a picture (A opens it) */
@@ -605,7 +613,7 @@ void sys_menu_bytes(unsigned long long n, char *out, size_t outn);
  * Off, stepped by Left, Right or A. `ids` gets each row's part. */
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids);
 
-/* MENU > Display > Home Systems' page (src/homesys.h): Favorites, Recents and Collections (with one),
+/* MENU > Display > Home Systems' page (src/homesys.h): Favorites, Recents, Collections (with one) and Screenshots (with one),
  * a rule, then every system the card has games for (`names` and `tags`, `n`
  * of them, in the home's order), each On or Off as homesys_shown says,
  * stepped by Left, Right or A; then the note. While one system alone is on,
@@ -618,9 +626,11 @@ typedef struct {
 	/* The card has a collection (src/collect.h): Collections has its row,
 	 * as a system has one only with games */
 	bool coll;
+	/* The card has a screenshot (shelf_shots_have): Screenshots has its row */
+	bool shots;
 } homesys_ui;
-/* The groups' rows first: Favorites, Recents and Collections */
-#define HS_GROUPS 3
+/* The groups' rows first: Favorites, Recents, Collections and Screenshots */
+#define HS_GROUPS 4
 #define HS_ROWS (CFG_MAX_SYSTEMS + HS_GROUPS + 4)
 int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids);
 

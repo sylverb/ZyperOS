@@ -133,6 +133,10 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_RAIL_INSET 23
 #define DS_RAIL_ENDS 90
 #define DS_RAIL_MIN 18
+#define DS_LEVEL_MARK 42
+#define DS_BOOST_GAP 12
+#define DS_BOOST_CHARGE_W 36
+#define DS_BOOST_CHARGE_H 30
 #define DS_RADIUS_CARD 22
 #define DS_RADIUS_PANEL 28
 #define DS_RADIUS_ROW 14
@@ -195,6 +199,10 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_MS_TOUR_PULSE 440
 #define DS_MS_HOLD_UNLOCK 2000
 #define DS_MS_HOLD_POWER 1000
+#define DS_MS_HOLD_BOOST 1000
+#define DS_MS_TAP_GAP 1000
+#define DS_MS_BOOST_OPEN 240
+#define DS_MS_BOOST_FLASH 360
 #define DS_MS_HOLD_LOCK_LIT 4000
 #define DS_MS_HOLD_CONTROLS 3000
 #define DS_MS_PEAK_HOLD 400
@@ -234,7 +242,7 @@ static inline float ds_turn(float t)
 	return t * t * (3 - 2 * t);
 }
 
-/* Sound (DESIGN.md 9): six sounds in three voices, each sound a WAV,
+/* Sound (DESIGN.md 9): seven sounds in three voices, each sound a WAV,
  * res/sounds/<voice id>/<sound id>.wav, that tools/gensounds.py
  * synthesizes from the tones in tools/designdef.py. */
 typedef enum {
@@ -244,9 +252,10 @@ typedef enum {
 	DS_SOUND_BACK,
 	DS_SOUND_DENY,
 	DS_SOUND_REWARD,
+	DS_SOUND_SHUTTER,
 	DS_SOUNDS
 } ds_sound;
-static const char *const DS_SOUND_ID[DS_SOUNDS] = { "move", "edge", "accept", "back", "deny", "reward" };
+static const char *const DS_SOUND_ID[DS_SOUNDS] = { "move", "edge", "accept", "back", "deny", "reward", "shutter" };
 typedef enum {
 	DS_VOICE_WOOD,
 	DS_VOICE_GLASS,

@@ -100,6 +100,17 @@ de = Öffnen
 ja = 開く
 it = Apri
 
+[games.view]
+note = The hint by A on a screenshot on the Screenshots shelf (Covers, Grid or List): it opens the picture on the whole screen. A verb. tight
+en = View
+zh-Hans = 查看
+es = Ver
+pt-BR = Ver
+fr = Voir
+de = Ansehen
+ja = 見る
+it = Vedi
+
 [games.back]
 note = The hint by B in a folder of games on a shelf: back to the folder it is in, or the shelf's top
 en = Back

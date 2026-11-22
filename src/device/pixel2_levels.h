@@ -4,7 +4,8 @@
 
 /* The GKD Pixel 2's volume and brightness, as numbers: which control, which
  * window of it the twenty-one volume positions span, and the backlight's
- * rungs. Read by src/device/pixel2.c, which is the launcher's, and by
+ * rungs; and its battery's empty voltage. Read by src/device/pixel2.c and
+ * src/device/pixel2_profile.c, which are the launcher's, and by
  * tools/portkeys.c, which holds the same keys while a port runs and the
  * launcher is stopped - so a level set in Stardew Valley is the level the
  * shelf comes back at, and both turn it into the same register value.
@@ -140,5 +141,16 @@ static inline long px2_usb_raw(int v)
 	return v == 0 ? 0
 	     : USB_RAW_MAX - aout_level_to_raw(v, VOL_MAX, USB_ATT_TOP, USB_ATT_BOTTOM);
 }
+
+/* The battery's empty voltage, in mV, under load (src/battempty.h): the
+ * launcher saves the game and powers off under it on three readings in a
+ * row, and portkeys ends a port, whatever the level says. The battery's
+ * design minimum is 3.40 V (voltage-min-design-microvolt in plastron's
+ * device tree), near where the RK817 cuts it out; 50 mV over it leaves the
+ * save its time. The voltage read is the driver's voltage_avg, under the
+ * load of the moment: a game's 400 to 600 mA puts it 45 to 65 mV under the
+ * battery at rest, so this is about 1 to 2% on the OCV table, the end the
+ * level's own 2% (BATT_EMPTY_PCT) means on a battery as new. */
+#define PX2_BATT_EMPTY_MV 3450
 
 #endif
