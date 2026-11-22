@@ -41,7 +41,7 @@
 ## Two handhelds
 
 - **GKD Pixel 2:** the handheld ZyperOS began on. It has no Wi-Fi of its own: a USB Wi-Fi adapter gives it Wi-Fi, and the USB cable moves files without one.
-- **TrimUI Brick (TG3040), from 1.0.6:** drawn for its own 1024x768 screen and its keys, with Wi-Fi built in. It runs from its own microSD card and never writes to the Brick's storage: take the card out, and the Brick starts its own system again. The 3D systems, PortMaster's ports and a few extras are not there yet ([the list](docs/guide.md#the-trimui-brick)).
+- **TrimUI Brick (TG3040), from 1.0.6:** drawn for its own 1024x768 screen and its keys, with Wi-Fi built in. It runs from its own microSD card and never writes to the Brick's storage: take the card out, and the Brick starts its own system again. PortMaster's ports and a few extras are not there yet ([the list](docs/guide.md#the-trimui-brick)).
 
 ## Install in three steps
 
@@ -87,19 +87,19 @@ Each line has its details in [the guide](docs/guide.md).
 - **Two Game Boy cores:** mGBA, or Gambatte from the Game Boy and Game Boy Color shelves' Core row.
 - **Smooth or exact timing** in the Game Boy, Game Boy Advance, DS and Genesis shelves: one game frame for each screen refresh, or the console's own speed for timers and rhythm games.
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).
-- **Recents where you stopped:** Recents can show each game's last screen, its cover small in the corner, instead of the cover.
+- **Recents where you stopped:** Recents can show each game's last screen, its cover small in the corner, instead of the cover, and says when you last played each game, PICO-8 carts and ports too.
 - **Your folders, a grid or a list:** folders on the card show as folders, a game on several discs shows once by its `.m3u`, and a system's games show as a row of covers, a grid shaped like the art, or a list.
 - **A Video view:** each game's video snap on the whole screen as you move, its cover in a row at the foot.
 - **Collections of your own:** put any game in a list from its details, mix systems, and find your lists in a group on the home ([collections](docs/guide.md#collections)).
 - **MENU in six tabs,** with **Search Games** and **Random Game** for any system ([menus](docs/guide.md#controls-and-menus)).
 - **Your look:** light and dark, or Auto by Night Mode's hours, ten accents, three backgrounds for each theme, a folder color, rounded or square corners, how the game or system in focus is marked (a bar, a border, a lift, or none), and Zyper on or off ([light and dark](docs/guide.md#light-and-dark)).
-- **Screen Colors and Night Mode** on the Pixel 2: temperature, tint, contrast, saturation and gamma, ready-made looks, set from MENU or a game's own menu, and a warm screen for the night ([how](docs/guide.md#screen-colors-and-night-mode)).
+- **Screen Colors and Night Mode:** temperature, tint, contrast, saturation and gamma, ready-made looks, set from MENU or a game's own menu, and a warm screen for the night ([how](docs/guide.md#screen-colors-and-night-mode)).
 - **Shaders:** Sharp-Shimmerless for even pixels, and CRT, CRT Curved, Scanlines and LCD Grid for an old screen, each at a strength you set ([how they look](docs/guide.md#shaders)).
 - **Borders round a handheld game:** the three Game Boys' own faces drawn around the game at its scale (the Game Boy Color in its six colors), the game blurred, or a picture of your own ([Border](docs/guide.md#the-system-menu)).
 - **Eight languages,** chosen on the first start or in **MENU > Language**, with every word following it, down to the charging screen ([languages](docs/guide.md#languages)).
 - **A first start that asks:** Zyper teaches each button, then asks for the theme, the home screen, the button sounds and the menu music ([the first start](docs/guide.md#the-first-start)).
 - **Box art the device finds itself** from libretro, ScreenScraper and SteamGridDB, with **Cover and Video** to pick a cover and see it first ([Scraper](docs/guide.md#scraper)).
-- **Every download in one place:** **MENU > Downloads** gets covers, video snaps, names and every game's achievements at once, side by side, and keeps going behind the menus while you browse ([Downloads](docs/guide.md#downloads)).
+- **Every download in one place:** **MENU > Downloads** gets covers, video snaps, names, every game's achievements and cheats at once, side by side, and keeps going behind the menus while you browse ([Downloads](docs/guide.md#downloads)).
 - **Video snaps and a screensaver:** rest on a game and its cover turns into a few seconds of the game itself, and after a minute on the shelf the snaps of random games play over the whole screen ([how](docs/guide.md#screensaver)).
 - **RetroAchievements,** signed in on the device and working offline: an unlock shows at once and goes to your account when Wi-Fi is back, dated when you earned it ([how](docs/guide.md#achievements)).
 - **Coming from Knulli, ROCKNIX, ArkOS or ROGUE OS:** copy their `roms` folders over as they are, with the covers, video snaps, names and favorites their scrapers left ([what ZyperOS reads](docs/guide.md#coming-from-emulationstation)).
@@ -117,7 +117,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Cheats** from libretro's cheat list or a `.cht` file of your own, on and off per game in the in-game menu; achievements wait while one is on ([cheats](docs/guide.md#cheats)).
 - **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).
 - **Sound your way:** a USB-C headphone adapter on the Pixel 2, Bluetooth headphones on the Brick (untried so far), and mono audio for anyone who hears with one ear ([audio](docs/guide.md#audio)).
-- **Louder than the top:** hold VOL+ a second at the top, or press it three more times, for up to +12 dB on quiet films and games, with a limiter; the brightness key lifts a dark picture the same way ([boost](docs/guide.md#past-the-top-the-boost)).
+- **Louder than the top:** hold VOL+ a second at the top, or press it three more times, for up to +18 dB on quiet films and games, with a limiter; the brightness key lifts a dark picture the same way ([boost](docs/guide.md#past-the-top-the-boost)).
 - **An equalizer for everything you hear:** Bass, Voice, Treble or five bands of your own, one preset for the speaker and one for headphones, heard live as you tune it ([equalizer](docs/guide.md#equalizer)).
 - **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf and comes back paused where it was after a power-off, its albums as covers, a grid or a list (START turns them), showing a song as its cover, a cassette whose reels turn, a record in the cover's color, or bars that move to the music, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
 - **The top bar and side lights:** the clock, Wi-Fi and the battery with its time left, and on the Pixel 2 side lights for the battery, volume, transfers and achievements.
@@ -160,11 +160,11 @@ make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
 
 The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons: the arrows for the d-pad, X Z S A for A B X Y, Q W E R for L1 R1 L2 R2, Return for START, Right Shift for SELECT and Esc for MENU. The mouse presses the drawn keys, Option shows each key's letter, and F1 lists the rest. Linux works too ([Building](docs/building.md#work-on-the-ui-without-a-device)).
 
-**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. Every release from 1.1.0 on has its QEMU image, and `tools/qemu-run.sh fetch` downloads it and checks it against the release's `SHA256SUMS`. Until 1.1.0 is out, you build the image with plastron, in Docker (`make -C plastron qemu`, [how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes. Either way there is no SSH key to set up: `tools/qemu-run.sh` hands the VM yours, or makes one for it.
+**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. Every release from 1.1.0 on has its QEMU image, and `tools/qemu-run.sh fetch` downloads the latest one and checks it against the release's `SHA256SUMS`. To build the image yourself instead, plastron does it in Docker (`make -C plastron qemu`, [how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes. Either way there is no SSH key to set up: `tools/qemu-run.sh` hands the VM yours, or makes one for it.
 
 ```sh
 brew install qemu
-tools/qemu-run.sh fetch          # from 1.1.0 on; until then, make -C plastron qemu
+tools/qemu-run.sh fetch          # the latest release's image; or make -C plastron qemu
 simulator/scripts/build-app.sh
 open "simulator/build/ZyperOS Simulator.app"
 ```

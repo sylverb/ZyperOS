@@ -18,7 +18,7 @@ the reasons behind them.
 
 ## Installing
 
-ZyperOS 1.0.6 is out for the GKD Pixel 2 and, for the first time, the TrimUI Brick, released in November 2026. [The latest release](https://github.com/tarikbc/ZyperOS/releases/latest) on GitHub has the card images and [ZyperOS Installer](../installer/) for macOS, Windows and Linux. On the Brick, the installer also adds the closed files its graphics and Wi-Fi need, which ZyperOS does not pass on, so install the Brick with the installer, not an image writer. The consoles whose cores draw with the GPU (Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn) are hidden on the Brick for now.
+ZyperOS 1.1.0 is out for the GKD Pixel 2 and the TrimUI Brick, released in November 2026. [The latest release](https://github.com/tarikbc/ZyperOS/releases/latest) on GitHub has the card images and [ZyperOS Installer](../installer/) for macOS, Windows and Linux. On the Brick, the installer also adds the closed files its graphics and Wi-Fi need, which ZyperOS does not pass on, so install the Brick with the installer, not an image writer.
 
 1. **Write the card.** Download ZyperOS Installer for your computer from [the latest release](https://github.com/tarikbc/ZyperOS/releases/latest): the `.zip` for macOS, the `.exe` for Windows, the `.deb` or `.rpm` for Linux. Put the microSD card in the computer, pick the GKD Pixel 2 or the TrimUI Brick, the latest release and the card, then choose **Fresh install**, which erases the card. For the Pixel 2, you can also download the card image, `ZyperOS-v<version>-pixel2.img.xz`, and write it with any program that writes disk images, like Raspberry Pi Imager. The Brick needs the installer, which adds its closed files ([on the TrimUI Brick](#the-trimui-brick)).
 2. **Put the card in the handheld and turn it on.** The first start sets the card up in about a minute, turning the rest of it into space for games, music and saves. Every boot after that comes straight up, and the first one ends with [the tutorial](#the-first-start). If it ever stops partway, the card's PX2BOOT drive has `zyperos-setup.txt`, a record of what it did: send it to me in [an issue](https://github.com/tarikbc/ZyperOS/issues).
@@ -152,8 +152,8 @@ From 1.0.6, ZyperOS runs on a second handheld, the TrimUI Brick (TG3040), drawn 
 
 - **Install it with ZyperOS Installer.** Pick **TrimUI Brick**. The Brick's graphics and Wi-Fi need closed files made for its chips (Imagination's GPU driver and XRadio's Wi-Fi firmware), which ZyperOS does not pass on, so the installer downloads them from where they are published, Creality's Sonic Pad SDK on GitHub, checks each one, and puts them only on your card. An image writer gives the card none of them, so use the installer.
 - **Wi-Fi is built in,** so File Transfer, box art, achievements and System Update need no adapter.
-- **The 3D systems are hidden for now:** Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the GPU. They come once those cores run on the Brick's graphics chip.
-- **Not there yet:** PortMaster's ports, your own PICO-8 and Splore (FAKE-08 plays the carts), Flash Drive, Screen Colors, the old-screen shaders (CRT, CRT Curved, Scanlines and LCD Grid; Sharp-Shimmerless is there), NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
+- **There since 1.1.0:** the Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the Brick's graphics chip; the old-screen [shaders](#shaders), in games and on ZyperOS's own screens; Border's Blur; [Screen Colors and Night Mode](#screen-colors-and-night-mode); and [Flash Drive](#plugging-into-a-computer), with the question a computer's cable asks.
+- **Not there yet:** PortMaster's ports, your own PICO-8 and Splore (FAKE-08 plays the carts), rumble in games, NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
 - **The Brick Hammer** runs the same card, but nobody has tried one yet. The Brick Pro isn't supported yet.
 
 I don't have a Brick myself: players on [the ZyperOS Discord](https://discord.gg/Ust8sE22Tm) test it for me. If you have one, your logs help a lot (**Download logs** on File Transfer's page, or the card's `.userdata/brick/logs`).
@@ -533,7 +533,7 @@ than any one console:
 | **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Highlight**, **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. **Highlight** is how the game or system in focus is marked on the home and the shelves: `Bar` (it grows a little, a short bar under it), `Border` (a ring in the accent round it), `Lift` (it rises on a soft shadow) or `None` (it grows, nothing else); in each, the others step back a little. Its list shows three of your systems marked that way. Menus keep their highlight bar whatever it says. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded`, `Bar` and Zyper `On` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
 | **Achievements** | the RetroAchievements account, or `Sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
-| **Shader** | `Off`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid` for ZyperOS's own screens: the home, the shelves, the menus and every screen while no game is on. A opens the list, and the choice under the cursor shows on the whole screen until you choose. Each system's games keep their own shader, set in the system's menu or in a game. `Off` on a new device and after an upgrade. Not on the Brick - see **Shaders** below |
+| **Shader** | `Off`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid` for ZyperOS's own screens: the home, the shelves, the menus and every screen while no game is on. A opens the list, and the choice under the cursor shows on the whole screen until you choose. Each system's games keep their own shader, set in the system's menu or in a game. `Off` on a new device and after an upgrade |
 | **Strength** | right under Shader while it is an old screen: `10%` to `100%`, how dark its lines and grid are on ZyperOS's screens. Left and right step it 10% at a time and stop at the ends. `100%` on a new device and after an upgrade |
 | **Controls** | every button and what it does, a page per place |
 | **Show Tutorial** | the tutorial a new handheld starts with, again - see [The first start](#the-first-start) |
@@ -850,7 +850,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Square Pixels, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes. `Square Pixels` (1.1.0) draws every pixel of the game square, whatever shape its core asks for, as tall as the screen (as wide, for a wide game such as the GBA's): an NES or SNES game at 8:7, a Game Gear game at 10:9, a PC Engine game at 16:15, as RetroArch's 1:1 PAR does with integer scaling off. `Sharp Pixels` draws them square too, at a whole number of times their size, so it can leave a border all round |
-| **Border** | under Display, while the display mode leaves room around the system's games, and always on the Game Boys (the Game Boys and other handhelds, a Sharp Pixels picture smaller than the screen): `Off` to start with, black as before; `Blur`, the game's own picture blurred and darker around it (Pixel 2); on the Game Boy, Game Boy Color and Game Boy Advance, in any display mode, `Handheld`, a drawing of the handheld's own face around the game at its full size, cut at the screen's edge, and `Handheld, Whole`, the game smaller so the whole screen glass and some of the body show (not for the Advance on the Pixel 2, where the game would be tiny); choosing either turns the system's Display to Sharp Pixels, the size the frames are drawn for; or `Your Own`, the first PNG in `Borders/<the system's folder>/` on the card (or in NextUI's `Overlays/<tag>/`), shown only when there is one. For this system alone; the same row is in a game's Display tab, where it changes the game's at once |
+| **Border** | under Display, while the display mode leaves room around the system's games, and always on the Game Boys (the Game Boys and other handhelds, a Sharp Pixels picture smaller than the screen): `Off` to start with, black as before; `Blur`, the game's own picture blurred and darker around it; on the Game Boy, Game Boy Color and Game Boy Advance, in any display mode, `Handheld`, a drawing of the handheld's own face around the game at its full size, cut at the screen's edge, and `Handheld, Whole`, the game smaller so the whole screen glass and some of the body show (not for the Advance on the Pixel 2, where the game would be tiny); choosing either turns the system's Display to Sharp Pixels, the size the frames are drawn for; or `Your Own`, the first PNG in `Borders/<the system's folder>/` on the card (or in NextUI's `Overlays/<tag>/`), shown only when there is one. For this system alone; the same row is in a game's Display tab, where it changes the game's at once |
 | **Handheld Color** | under Border while it is a Game Boy Color frame: the handheld's color, `Yellow`, `Red`, `Purple`, `Green`, `Teal` or `Clear Purple` |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
@@ -989,9 +989,8 @@ and the corners round, and the picture's edges go into the curve.
 lines, and nothing more; `LCD Grid` has the band around each of its pixels,
 as on a Game Boy's screen. The CRT's lines are most even where the
 picture's height is a whole number of times the game's: Sharp Pixels, Tall draws
-a 224-line SNES game at twice its height. These four are the Pixel 2's,
-whose last step is its GPU's; the Brick draws them as Sharp-Shimmerless, and
-its rows step over them.
+a 224-line SNES game at twice its height. These four end on the
+handheld's GPU, on the Pixel 2 and the Brick alike.
 
 `LCD No Backlight` is for the Game Boy, the Game Boy Color and the Game Boy
 Advance alone, and only their Shader rows offer it. Their screens had no
@@ -1020,7 +1019,7 @@ over it, as a white picture through that shader would show them; `CRT
 Curved` curves the whole screen too. While a game is on, its own shader is
 the one you see, its in-game menu included, and a video in the player plays
 as it is. It is `Off` to start with, and with `Off` the screen is drawn
-exactly as before. On the Pixel 2 only, as the old screens are.
+exactly as before. On the Pixel 2 and the Brick alike.
 
 Under each Shader row, while the shader is one of the old screens, a
 **Strength** row says how strongly it is drawn: `100%` is the shader as it
@@ -1247,7 +1246,7 @@ ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Displ
 
 ## Screen Colors and Night Mode
 
-On the GKD Pixel 2.
+On the GKD Pixel 2 and the TrimUI Brick.
 
 ### Screen Colors
 
@@ -1475,8 +1474,9 @@ used.
 
 ### Plugging into a computer
 
-On the Pixel 2 the USB port only charges until you say otherwise: a computer
-sees no device at first. When a computer is plugged in, the shelf asks once
+On the Pixel 2 and the TrimUI Brick the USB port only charges until you say
+otherwise: a computer sees no device at first (on the Brick, for up to 3
+seconds as the cable goes in, while it tells a computer from a charger). When a computer is plugged in, the shelf asks once
 (with MENU open, MENU closes and the question comes at once; during a game,
 it comes when you are back on the shelf),
 with three tiles (left and right to move, A to choose; it starts on Charge
