@@ -51,3 +51,4 @@ the boot loader and the closed parts.
 | xr829-firmware | sonic-pad-7f37a7f | PROPRIETARY | XRadio: closed, not in the image or its release; ZyperOS Installer gets each player's own copy (see THIRD-PARTY.md) |
 | xz | 5.8.3 | Public Domain, BSD-0-Clause, GPL-2.0+, GPL-3.0+, LGPL-2.1+ | https://github.com/tukaani-project/xz/releases/download/v5.8.3 |
 | zyperos | from its repository | GPL-3.0+ | ZyperOS, https://github.com/tarikbc/ZyperOS |
+| zyperos-eq | 1.0 | GPL-3.0 (plugin), LGPL-2.1+ (ladspa.h) | plastron, https://github.com/ericreinsmidt/plastron |
