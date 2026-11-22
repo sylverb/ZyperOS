@@ -1013,12 +1013,13 @@ typedef struct {
 	/* Dot grilles: two rows of dots either side of the bottom keys (n 0 none) */
 	float grille_x[2], grille_z, dot_r;
 	int   grille_n;
-	/* Slot grilles: two slots a row, rows down from z, at x +-slot_x (w 0 none) */
-	float slot_x, slot_z, slot_w, slot_h, slot_gap;
-	int   slot_rows;
-	/* A dot between the middle row's two slots, and a microphone's hole
-	 * at (0, mic_z), their radii (0 none) */
-	float slot_dot, mic_z, mic_r;
+	/* A slot grille: each slot's middle and length, all slot_h tall
+	 * (n_slots 0 none) */
+	const float (*slots)[3];
+	int   n_slots;
+	float slot_h;
+	/* A microphone's hole at (0, mic_z), its radius (0 none) */
+	float mic_z, mic_r;
 	/* A seam across the face at seam_z, where its mouldings meet (0 none) */
 	float seam_z;
 	/* The sticks, at (+-stick_x, stick_z): the well and the cap (0 none) */
@@ -1064,6 +1065,16 @@ static const slab SLAB_BRICK = {
 	.usb_w = 13.0f, .usb_rise = 0.6f, .port_w = 7.0f, .port_h = 2.2f,
 };
 
+/* The R36S's grille, as the maker's straight-on photo has it: three rows
+ * 3.85 apart, the top one level with X, three slots a row in columns 5.63
+ * apart, long (5.4) and short (2.25): long, short, long; short, long,
+ * short; long, short, long */
+static const float R36S_SLOTS[9][3] = {
+	{ -5.63f, -5.6f, 5.4f },   { 0.0f, -5.6f, 2.25f },   { 5.63f, -5.6f, 5.4f },
+	{ -5.63f, -9.45f, 2.25f }, { 0.0f, -9.45f, 5.4f },   { 5.63f, -9.45f, 2.25f },
+	{ -5.63f, -13.3f, 5.4f },  { 0.0f, -13.3f, 2.25f },  { 5.63f, -13.3f, 5.4f },
+};
+
 /* Measured on photos of a real one (src/device/r36s_model.c) */
 static const slab SLAB_R36S = {
 	.w = 80.0f, .top = 119.0f / 2.0f, .rt = 3.0f, .rb = 6.0f,
@@ -1071,9 +1082,8 @@ static const slab SLAB_R36S = {
 	.glass_w = 77.0f, .glass_h = 55.6f, .glass_x = 0.0f, .glass_z = 31.2f, .glass_r = 2.0f,
 	.screen_w = 70.0f, .screen_h = 52.5f,
 	.arm = 3.75f,
-	/* Three rows of two slots, 17.5 x 9.4 in all, under the glass */
-	.slot_x = 4.4f, .slot_z = -6.8f, .slot_w = 6.6f, .slot_h = 1.3f, .slot_gap = 2.6f, .slot_rows = 3,
-	.slot_dot = .6f, .mic_z = -30.4f, .mic_r = .45f,
+	.slots = R36S_SLOTS, .n_slots = 9, .slot_h = 1.5f,
+	.mic_z = -30.4f, .mic_r = .45f,
 	/* Just under the glass (31.2 less half its 55.6) */
 	.seam_z = 1.8f,
 	.stick_x = 26.3f, .stick_z = -38.6f, .stick_well = 11.0f, .stick_cap = 7.5f, .stick_ring = 2.4f,
@@ -1318,19 +1328,14 @@ static void bk_front_face(const view *v)
 			n = disc(v, 0, x, BK_FRONT, z, g_slab->dot_r, pt);
 			fill(v->r, pt, n, col(v, v->mark, 1.0f));
 		}
-	for (i = 0; g_slab->slot_w > 0.0f && i < 2 * g_slab->slot_rows; i++) {
+	for (i = 0; i < g_slab->n_slots; i++) {
 		float ab[MAXP * 2];
-		const float x = (i % 2 ? 1.0f : -1.0f) * g_slab->slot_x;
-		const float z = g_slab->slot_z - g_slab->slot_gap * (float)(i / 2);
+		const float x = g_slab->slots[i][0], z = g_slab->slots[i][1];
 		const float h = g_slab->slot_h;
 
-		n = rrect(g_slab->slot_w, h, h / 2.0f, 0.0f, 4, ab);
+		n = rrect(g_slab->slots[i][2], h, h / 2.0f, 0.0f, 4, ab);
 		for (j = 0; j < n; j++) pt[j] = at(v, x + ab[j * 2], BK_FRONT, z + ab[j * 2 + 1]);
 		bk_shape(v, pt, n, col(v, v->mark, 1.0f), col(v, 0, 0.0f), 0.0f);
-	}
-	if (g_slab->slot_dot > 0.0f) {
-		n = disc(v, 0, 0.0f, BK_FRONT, g_slab->slot_z - g_slab->slot_gap, g_slab->slot_dot, pt);
-		fill(v->r, pt, n, col(v, v->mark, 1.0f));
 	}
 	if (g_slab->mic_r > 0.0f) {
 		n = disc(v, 0, 0.0f, BK_FRONT, g_slab->mic_z, g_slab->mic_r, pt);
