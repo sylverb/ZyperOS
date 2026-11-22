@@ -27,8 +27,6 @@ export type SceneBI = Scene & {
 const fit = (take: string, from: number, to: number): Step[] => [{ take, from, to, fit: true }];
 /** A take at a fixed rate, then the last one fitted to what is left */
 const then = (take: string, from: number, to: number, rate: number, last: Step[]): Step[] => [{ take, from, to, rate }, ...last];
-/** A stand-in for a scene that waits: the Brick's home walking */
-const standIn = fit("v11-brick-home", 2700, 6200);
 
 export const SCENES_BI: SceneBI[] = [
   { id: "open", bars: 3, pose: "hero", screen: fit("v11-brick-home", 2700, 7300) },
@@ -52,8 +50,8 @@ export const SCENES_BI: SceneBI[] = [
   { id: "ingame", bars: 2, pose: "main", enter: "whip",
     screen: then("bi-quicksave", 0, 2800, 1.4, fit("bi-undo", 400, 2860)),
     label: "Six save slots", sub: "Quick save, and Undo Load" },
-  { id: "looks", bars: 2, pose: "main", enter: "cut", screen: fit("v11-brick", 0, 3800),
-    label: "Shaders and borders", sub: "An old screen round any game", wait: "a tester confirms shaders on 1.1.0 (the flip was kit.1 only, fixed by #422)" },
+  { id: "looks", bars: 2, pose: "main", enter: "cut", screen: then("bi-lshader", 0, 2400, 1.6, fit("bi-border", 1200, 4700)),
+    label: "Shaders and borders", sub: "An old screen round any game" },
   { id: "colors", bars: 2, pose: "main", enter: "cut", screen: fit("v11-brick", 0, 3800),
     label: "Screen Colors, Night Mode", sub: "Set the screen the way you like" },
   { id: "buttons", bars: 2, pose: "main", enter: "cut", screen: fit("bi-gm-remap", 0, 5817),
@@ -69,29 +67,31 @@ export const SCENES_BI: SceneBI[] = [
     label: "Collections of your own", sub: "Lists that mix systems" },
   { id: "search", bars: 2, pose: "main", enter: "cut", screen: fit("bi-search", 6000, 12600),
     label: "Search Games", sub: "Every system at once" },
-  { id: "ports", bars: 2, pose: "main", enter: "whip", screen: standIn,
-    label: "PortMaster's ports", sub: "Installed with one press", wait: "PortMaster on the Brick" },
-  { id: "pico8", bars: 2, pose: "main", enter: "cut", screen: standIn,
-    label: "Your own PICO-8", sub: "With Splore, to find carts", wait: "PICO-8 on the Brick" },
+  { id: "ports", bars: 2, pose: "main", enter: "whip", screen: then("bi-ports", 0, 3000, 1.8, fit("bi-portline", 0, 3200)),
+    label: "PortMaster's ports", sub: "Installed with one press" },
+  { id: "pico8", bars: 2, pose: "main", enter: "cut", screen: fit("bi-p8", 2500, 9000),
+    label: "Your own PICO-8", sub: "With Splore, to find carts" },
   { id: "transfer", bars: 3, pose: "main", enter: "whip", screen: fit("bi-wifi-xfer", 0, 5200),
     label: "Add games from a browser", sub: "Over Wi-Fi, behind a PIN" },
   { id: "flash", bars: 2, pose: "main", enter: "cut", screen: fit("v11-brick", 3800, 6920),
     label: "Or as a flash drive", sub: "The card shows up on your computer" },
-  { id: "update", bars: 2, pose: "main", enter: "cut", screen: fit("bi-update", 0, 2400),
-    label: "Updates over Wi-Fi", sub: "Your games and saves stay" },
-  { id: "player2", bars: 2, pose: "main", enter: "whip", screen: standIn,
-    label: "Player 2 on a friend's phone", sub: "No app, no account", wait: "Player 2 on the Brick" },
+  // The download's mark filling in the top bar (the update's page names versions, so it stays out)
+  { id: "update", bars: 2, pose: "main", enter: "cut", screen: fit("bi-update-bg", 0, 1980),
+    label: "Updates over Wi-Fi", sub: "Downloading while you play",
+    punch: [{ at: 0, x: 0.88, y: 0.08, zoom: 1.7 }] },
+  { id: "player2", bars: 2, pose: "main", enter: "whip", screen: fit("bi-player2", 600, 6500),
+    label: "Player 2 on a friend's phone", sub: "No app, no account" },
   // The track's quiet break, bars 49 to 54
   { id: "mp4", bars: 2, pose: "main", enter: "whip", screen: fit("bi-looks", 0, 5367),
     label: "Music and videos", sub: "A cassette, a vinyl, a spectrum" },
   { id: "boost", bars: 2, pose: "main", enter: "cut",
     screen: then("bi-boost", 1700, 4700, 1.5, fit("bi-eq", 1500, 3700)),
     label: "Louder than the top", sub: "Up to +18 dB, and an equalizer" },
-  { id: "rumble", bars: 2, pose: "main", enter: "cut", screen: standIn,
-    label: "Rumble and lights", sub: "As strong as you like", wait: "rumble and lights on the Brick" },
+  { id: "rumble", bars: 2, pose: "main", enter: "cut", screen: then("bi-rumble", 0, 2300, 1.3, fit("bi-lights", 0, 2250)),
+    label: "Rumble and lights", sub: "As strong as you like" },
   // The band back
-  { id: "battery", bars: 2, pose: "main", enter: "whip", screen: standIn,
-    label: "A charge limit", sub: "Kinder to the battery", wait: "charge limit on the Brick" },
+  { id: "battery", bars: 2, pose: "main", enter: "whip", screen: fit("bi-charge", 0, 2833),
+    label: "A charge limit", sub: "Kinder to the battery" },
   { id: "theme", bars: 2, pose: "main", enter: "cut", screen: fit("bi-look", 4800, 10900),
     label: "Light, dark, your colors", sub: "Ten accents, three homes" },
   { id: "recents", bars: 2, pose: "main", enter: "cut", screen: fit("bi-recents", 0, 3100),

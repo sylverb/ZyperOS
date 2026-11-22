@@ -603,6 +603,22 @@ for _src in ['poweroff', 'homegrid', 'snap', 'v11-vview', 'v11-dl', 'quicksave',
     brick(_src)
 # System Update as a Brick on 1.0.6 saw 1.1.0 (card.py's brick_intro)
 TAKES['bi-update'] = {**TAKES['update'], 'device': 'brick', 'card': 'bi'}
+# Made as if the Brick has every feature the Pixel 2 has (Tarik, 2026-11-22:
+# the video waits for them, so it shows them): the shader and border lists,
+# the Ports shelf and PortMaster, your PICO-8 with Splore, Player 2, the
+# charge limit, and the Rumble and lights pages, each on the Brick's profile
+for _src in ['lshader', 'v11-border', 'ports', 'portline', 'v11-p8', 'player2', 'charge']:
+    brick(_src)
+# The Brick's profile has no Rumble row or lights page yet (draft #452, and
+# the lights wait for a kit): their menu panels as the Pixel 2's profile draws
+# them, the same panels at the same 1024x768, until the Brick's land
+shots('bi-rumble', [(PS1, ['--menu', 'Rumble'], 500)] +
+      [(PS1, ['--menu', 'Rumble', '--press', 'a', '--pick-at', str(k)], 450) for k in range(4)])
+shots('bi-lights', [(PS1, ['--lights-page', str(r)], 450) for r in range(5)])
+# System Update in the background without its page (it names versions): the
+# shelf's download mark filling, on the Brick introduction's card
+TAKES['bi-update-bg'] = {**TAKES['update-bg'], 'device': 'brick', 'card': 'bi',
+                         'segments': TAKES['update-bg']['segments'][1:]}
 
 
 # ---- running them --------------------------------------------------------------
