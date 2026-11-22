@@ -46,7 +46,7 @@ STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with pla
 STAMP += -e PLASTRON_CLEAN=$(CLEAN) -e PLASTRON_DEV=$(filter 0 1,$(DEV))
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-qemu third-party
+.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe r36s-kernel bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-qemu third-party
 
 all: image
 
@@ -120,6 +120,17 @@ brick: builder volume brick-inputs cores
 		{ echo "no Brick kernel modules yet: make brick-kernel first" >&2; exit 1; }
 	$(BRICK_RUN) env FLAVOR=brick sh /src/scripts/build.sh $(BRICK_TARGET)
 	$(if $(BRICK_TARGET),,$(MAKE) copy-out OUTPUT=output-brick CARD=brick-sdcard.img)
+
+# The R36S's kernel and device tree (docs/devices/r36s.md), a start: the
+# Pixel 2's kernel and config with board/r36s's fragment, ROCKNIX's R36S
+# device tree, built by scripts/build-r36s-kernel.sh into the volume's
+# r36s-kernel/images and copied to out/r36s-kernel. No image boots it yet.
+# Four jobs at most: JOBS=N for more.
+r36s-kernel: builder volume
+	docker run --rm -t --cpus=$(or $(JOBS),4) -e JOBS=$(or $(JOBS),4) $(STAMP) -v $(CURDIR):/src:ro \
+		-v $(VOLUME):/work $(IMAGE) sh /src/scripts/build-r36s-kernel.sh
+	rm -rf out/r36s-kernel && mkdir -p out/r36s-kernel
+	docker run --rm -v $(VOLUME):/work:ro $(IMAGE) tar -C /work/r36s-kernel/images -cf - . | tar -C out/r36s-kernel -xf -
 
 # The TrimUI Brick's kernel and the modules it loads: Allwinner's Linux 4.9
 # with board/brick/linux/patches, built by scripts/build-brick-kernel.sh in

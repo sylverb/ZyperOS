@@ -113,6 +113,15 @@ Diatom's.
 
   Both as Creality's Sonic Pad SDK has them.
 
+## R36S (a start, no image yet)
+
+- **The device tree**, `rk3326-gameconsole-r36s.dts`,
+  `rk3326-gameconsole-r3xs.dtsi` and `rk3326-device-group-r36.dtsi`
+  (GPL-2.0-or-later or MIT), (c) JELOS, as ROCKNIX's 20260901 release has
+  them (https://github.com/ROCKNIX/distribution, `projects/ROCKNIX/devices/
+  RK3326/linux/dts/rockchip/`), unchanged, on the Pixel 2's `rk3326.dtsi`.
+- **Linux** as the Pixel 2's, above, with `board/r36s/linux-r36s.fragment`.
+
 ## Files in this repository that aren't plastron's
 
 ```
@@ -123,6 +132,10 @@ Diatom's.
   buildroot/board/px2/dts/
                    The Pixel 2 device tree, from ROCKNIX, (c) GameKiddy and
                    Rockchip. GPL-2.0+ OR MIT, as each file states.
+
+  buildroot/board/r36s/dts/
+                   The R36S device tree, from ROCKNIX, (c) JELOS.
+                   GPL-2.0+ OR MIT, as each file states.
 
   buildroot/board/px2/linux.config.rocknix
                    ROCKNIX's kernel config for the RK3326, which
