@@ -86,6 +86,7 @@ typedef struct {
 	char field_text[512];
 	SDL_Color field_color;
 	int field_w, field_h;
+	char note[256];     /* kb_note_next's line under the field, or empty */
 } kb_state;
 
 /* Neither a retained panel nor the shared UI text cache owns typed text.
@@ -623,6 +624,21 @@ static void kb_draw(SDL_Renderer *r, kb_state *k, const char *title, unsigned no
 		}
 	}
 
+	/* A note (kb_note_next) in the quiet line's place, **meta** in
+	 * **text-soft**: what the name typed is for, where that is not what it
+	 * seems (Rename on a game whose file keeps its name). The panel has
+	 * room for no third line under the keys on a 768-unit screen, and the
+	 * two verbs are the keyboard's every other time it opens. Cut with an
+	 * ellipsis, never wider than the keys. */
+	if (k->note[0]) {
+		char fit[sizeof k->note];
+
+		ui_fit_text(fm, k->note, fit, sizeof fit, KB_GRID_W);
+		ui_text(r, fm, fit, panel.x + panel.w / 2, ui_cap_y(fm, g.line_cy), 0,
+		        ui_col(t->text_soft, 255));
+		return;
+	}
+
 	/* One quiet line, **meta** **text-dim**: the two verbs that have no key.
 	 * A has no caption - it is OK everywhere. */
 	{
@@ -699,6 +715,19 @@ static void kb_draw_pose(SDL_Renderer *r, kb_state *k, const char *title,
 	key_restore(r, &saved);
 }
 
+static char g_note_next[256];
+void kb_note_next(const char *note)
+{
+	snprintf(g_note_next, sizeof g_note_next, "%s", note ? note : "");
+}
+
+/* kb_note_next's line, taken once */
+static void note_take(kb_state *k)
+{
+	snprintf(k->note, sizeof k->note, "%s", g_note_next);
+	g_note_next[0] = '\0';
+}
+
 static void preview(SDL_Renderer *r, const char *title, const char *text,
                     int layer, int row, int col, bool pressed, unsigned now,
                     const kb_pose *pose)
@@ -713,6 +742,7 @@ static void preview(SDL_Renderer *r, const char *title, const char *text,
 	k.row = row;
 	k.col = col;
 	kb_clamp(&k.row, &k.col);
+	note_take(&k);
 	if (pressed) kb_pop_press(&k.pop[k.row][k.col], 0);
 	if (pose) kb_draw_pose(r, &k, title, now, *pose);
 	else kb_draw(r, &k, title, now, true);
@@ -788,6 +818,7 @@ void kb_capital_next(void)
 	g_capital_next = true;
 }
 
+
 kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
                     char *buf, int cap, kb_panel panel, kb_idle idle,
                     void *ctx)
@@ -807,6 +838,7 @@ kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
 	/* A name's first letter a capital (kb_capital_next) */
 	first = g_capital_next && k.len == 0;
 	g_capital_next = false;
+	note_take(&k);
 	if (first) k.layer = 1;
 	if (panel) panel(ctx, KB_PANEL_OPEN, false);
 

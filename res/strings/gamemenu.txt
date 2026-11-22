@@ -225,7 +225,7 @@ ja = %s は他のゲームが必要とする BIOS です。削除しません。
 it = %s è un BIOS che serve ad altri giochi. Resta.
 
 [gamemenu.rename]
-note = The game info screen's row above Delete Game: a new name for the game's file and everything named after it, typed on the keyboard (DESIGN.md 11.41). Also the keyboard's title and the heading of its messages. tight: a row label beside no value
+note = The game info screen's row above Delete Game: a new name for the game's file and everything named after it, typed on the keyboard (DESIGN.md 11.41); on an arcade set or a port, the name shown only. Also the keyboard's title and the heading of its messages. tight: a row label beside no value
 en = Rename
 zh-Hans = 重命名
 es = Renombrar
@@ -278,6 +278,28 @@ fr = Renommé, mais certains de ses fichiers ont gardé l'ancien nom.
 de = Umbenannt, aber einige seiner Dateien haben noch den alten Namen.
 ja = 名前を変更しましたが、一部のファイルは古い名前のままです。
 it = Rinominato, ma alcuni suoi file hanno ancora il vecchio nome.
+
+[gamemenu.rename_shown]
+note = The keyboard's title for Rename on a game whose file must keep its name (an arcade set, a Neo Geo set, a port): only the name ZyperOS shows changes (DESIGN.md 11.41). Also the heading of its messages. tight: a panel heading
+en = Rename Shown Name
+zh-Hans = 重命名显示名称
+es = Renombrar nombre mostrado
+pt-BR = Renomear nome exibido
+fr = Renommer le nom affiché
+de = Angezeigten Namen ändern
+ja = 表示名を変更
+it = Rinomina nome mostrato
+
+[gamemenu.rename_shown_note]
+note = The keyboard's bottom line on that keyboard, in place of its cursor and cancel hints: the game's file is not renamed, and an empty field (START on it) gives back the name it had (the downloaded one, else the file's). tight: one line of 44 characters at most, measured in the menu font
+en = The file keeps its name. Clear for the original.
+zh-Hans = 文件名不变。留空恢复原名。
+es = El archivo no cambia. Vacío para el original.
+pt-BR = O arquivo fica igual. Vazio para o original.
+fr = Le fichier ne change pas. Vide pour l'original.
+de = Die Datei bleibt gleich. Leer für das Original.
+ja = ファイル名はそのまま。空欄で元の名前に。
+it = Il file non cambia. Vuoto per l'originale.
 
 # ---- the in-game menu -------------------------------------------------------
 

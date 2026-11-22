@@ -488,9 +488,17 @@ const char *shot_kb_title = "Wi-Fi password";
 /* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
  * language, so check-i18n-shots measures it in every one */
 int shot_kb_ss_user;
+/* --kb-rename-shown: Rename's keyboard on a game whose file keeps its name
+ * (src/gamern_screen.c), its title and its note, in the shot's language,
+ * on the focused game's name unless --keyboard gave a text */
+int shot_kb_rename_shown;
 
 static const char *kb_title_shown(void)
 {
+	if (shot_kb_rename_shown) {
+		kb_note_next(T(S_GAMEMENU_RENAME_SHOWN_NOTE));
+		return T(S_GAMEMENU_RENAME_SHOWN);
+	}
 	return shot_kb_ss_user ? T(S_SCRAPER_SS_USER) : shot_kb_title;
 }
 int shot_slots, shot_slot_sel;
@@ -1791,6 +1799,10 @@ static void shot_compose_once(app *a)
 		eh_cheer_draw(a->r, games_on_card(a), (unsigned)shot_cheer, cheer_zyper, &c);
 	}
 	if (shot_kb) {
+		sysview *v = &a->view[a->sys_cursor];
+
+		if (shot_kb_rename_shown && !shot_kb_text[0] && v->list.count > 0)
+			shot_kb_text = v->list.items[v->cursor].title;
 		if (shot_at >= 0)
 			kb_preview_press(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, (unsigned)shot_at);

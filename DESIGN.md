@@ -4698,10 +4698,26 @@ renames. The details page stays open on the game, under its new name.
   name whose save, state or cover is already another file's. The message
   says which (11.8), and the keyboard opens again on what was typed. A
   change of case alone is a rename, though the card ignores case.
-- **No Rename** for an arcade set, a BIOS set or a port: their names are
-  what the core or PortMaster runs them by.
+- **The name shown only** for an arcade set (FinalBurn Neo, MAME, a
+  Flycast NAOMI or Atomiswave set), a BIOS set or a port, whose file names
+  are what the core or PortMaster runs them by *(2026-11-22, reported on
+  Discord: "Ports, Arcade, MAME and Neo Geo are unable to change the game's
+  names")*. The same row and keyboard, opened on the name it shows, titled
+  **Rename Shown Name**, its quiet line saying the file keeps its name and
+  an empty field gives the original back, in the place of L1/R1 and MENU's
+  (the panel has no room for a third line). START keeps the name typed in
+  the library (its own table, `user_titles`), and no file moves: its saves,
+  states, cover and play time stay as they are. Any title's characters are
+  taken, `:` and `/` too. The name every screen shows is the first there
+  is: **the player's name**, then the downloaded title (Names and Details,
+  else what a `gamelist.xml` named it), then the file's name tidied. A
+  download of names writes only its title, so the player's name stays; a
+  rescan shows it; Delete Game takes it with the game. **Back**: START on an
+  empty field, or on the name it would show without one, clears it.
 
-Host shots: `--info-delete` shows the row above Delete Game.
+Host shots: `--info-delete` shows the row above Delete Game;
+`--kb-rename-shown` the keyboard for a name shown only, on the focused
+game's name.
 
 ### 11.42 Display's Theme, Screen Colors and Night Mode
 
