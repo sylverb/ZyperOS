@@ -13,6 +13,9 @@
 #include "panel.h"
 #include "uisound.h"
 #include "wifi.h"
+#include "db.h"
+#include "usbpeer.h"
+#include "usblink.h"
 #include "zyperdraw.h"
 
 #include <SDL.h>
@@ -44,6 +47,7 @@ static const char *const SHOT_NAMES[LINK_SHOT_KINDS] = {
 	"tiles", "no-adapter", "starting", "waiting", "looking", "found", "joining",
 	"linked", "lost", "failed", "stopping",
 	"failed-network", "failed-join", "failed-busy", "failed-game", "failed-code",
+	"cable-tiles", "cable-waiting", "cable-joining", "failed-cable",
 };
 
 bool link_shot_parse(const char *kind)
@@ -69,7 +73,34 @@ typedef struct {
 	const char  *hosts[LINKPANEL_HOSTS];
 	int          nhosts;
 	bool         scanned;
+	link_medium  medium;       /* what it is on, or what a start would take */
 } link_view;
+
+/* Another device on the USB-C port, for the cable link: a plug that wants
+ * power and gives none (usbrole may make the port its host), the port a
+ * host already, or a port that powers this one with data. Looked at five
+ * times a second at most: two small files. */
+static bool cable_peer(void)
+{
+	static unsigned at;
+	static bool was;
+	unsigned now = plat_now_ms();
+	usb_power p;
+
+	if (at && now - at < 200u) return was;
+	at = now ? now : 1;
+	was = (plat_usb_power(&p) && p.known && ((p.plug && p.ask) || p.host)) ||
+	      plat_usb_peer() == USB_PEER_COMPUTER;
+	return was;
+}
+
+/* What a start takes now: the adapter's Wi-Fi, else the cable */
+static link_medium medium_now(void)
+{
+	link_medium m = link_medium_now();
+
+	return m != LINK_NONE ? m : link_medium_of(hotspot_available(), cable_peer());
+}
 
 static void view_now(link_view *v, bool stopping)
 {
@@ -87,6 +118,7 @@ static void view_now(link_view *v, bool stopping)
 	if (v->nhosts > LINKPANEL_HOSTS) v->nhosts = LINKPANEL_HOSTS;
 	for (i = 0; i < v->nhosts; i++) v->hosts[i] = link_host_name(i);
 	v->scanned = link_scanned();
+	v->medium = medium_now();
 }
 
 static void view_shot(link_view *v)
@@ -94,6 +126,7 @@ static void view_shot(link_view *v)
 	static const char *const HOSTS[] = { "Pixel 2 0C11", "Pixel 2 B3E4" };
 
 	memset(v, 0, sizeof *v);
+	v->medium = LINK_WIFI;
 	v->self = "Pixel 2 7F2A";
 	v->code = "4821";
 	v->peer = v->joining = "Pixel 2 0C11";
@@ -118,6 +151,10 @@ static void view_shot(link_view *v)
 	case LINK_SHOT_FAILED_CODE:    v->st = LINK_FAILED; v->why = LINK_FAIL_CODE; break;
 	case LINK_SHOT_FAILED_BUSY:    v->st = LINK_FAILED; v->why = LINK_FAIL_BUSY; break;
 	case LINK_SHOT_FAILED_GAME:    v->st = LINK_FAILED; v->why = LINK_FAIL_GAME; break;
+	case LINK_SHOT_CABLE_TILES:    v->medium = LINK_CABLE; v->st = LINK_OFF; break;
+	case LINK_SHOT_CABLE_WAITING:  v->medium = LINK_CABLE; v->st = LINK_HOST_WAITING; v->code = ""; break;
+	case LINK_SHOT_CABLE_JOINING:  v->medium = LINK_CABLE; v->st = LINK_JOIN_JOINING; break;
+	case LINK_SHOT_FAILED_CABLE:   v->medium = LINK_CABLE; v->st = LINK_FAILED; v->why = LINK_FAIL_CABLE; break;
 	default:                 v->st = LINK_OFF; break;
 	}
 }
@@ -134,7 +171,7 @@ link_state link_row_state(void)
 bool link_row_adapter(void)
 {
 	if (g_shot_link) return g_shot_link_kind != LINK_SHOT_NO_ADAPTER;
-	return hotspot_available();
+	return medium_now() != LINK_NONE;
 }
 
 static bool view_tiles(const link_view *v)
@@ -160,10 +197,12 @@ static const char *tiles_line(const link_view *v)
 		case LINK_FAIL_ANSWER: return T(S_LINK_FAIL_ANSWER);
 		case LINK_FAIL_BUSY:   return T(S_LINK_FAIL_BUSY);
 		case LINK_FAIL_GAME:   return T(S_LINK_FAIL_GAME);
+		case LINK_FAIL_CABLE:  return T(S_LINK_FAIL_CABLE);
 		default:               return T(S_LINK_FAIL_NETWORK);
 		}
 	}
-	return T(S_LINK_ADAPTERS);
+	/* On the cable: no adapter and no code, and Join gives power */
+	return T(v->medium == LINK_CABLE ? S_LINK_CABLE_LINE : S_LINK_ADAPTERS);
 }
 
 /* Host and Join, as the tiles take them: the two, a line under the heading
@@ -200,7 +239,7 @@ static int panel_rows(const link_view *v, menu_row *rows, link_bufs *b)
 		         T(v->st == LINK_HOST_STARTING ? S_LINK_STARTING : S_LINK_WAITING));
 		snprintf(b->line[0], sizeof b->line[0], T(S_LINK_THIS_ONE), v->self);
 		lines[0] = b->line[0];
-		lines[1] = T(S_LINK_THEN_JOIN);
+		lines[1] = T(v->medium == LINK_CABLE ? S_LINK_THEN_JOIN_CABLE : S_LINK_THEN_JOIN);
 		/* The code the other one types, once there is one */
 		code = v->code && *v->code ? v->code : NULL;
 		dots = true;
@@ -214,6 +253,12 @@ static int panel_rows(const link_view *v, menu_row *rows, link_bufs *b)
 	} else if (v->st == LINK_JOIN_LOOKING) {
 		snprintf(b->big, sizeof b->big, "%s", T(S_LINK_LOOKING));
 		lines[0] = T(S_LINK_THEN_HOST);
+		dots = true;
+		snprintf(b->legend, sizeof b->legend, "%s", b_legend(S_KEYHINT_STOP));
+	} else if ((v->st == LINK_JOIN_JOINING || v->st == LINK_JOIN_ASKING) && v->medium == LINK_CABLE) {
+		/* The cable: no list and no name yet, and this one gives power */
+		snprintf(b->big, sizeof b->big, "%s", T(S_LINK_JOINING_CABLE));
+		lines[0] = T(S_LINK_POWER_LINE);
 		dots = true;
 		snprintf(b->legend, sizeof b->legend, "%s", b_legend(S_KEYHINT_STOP));
 	} else if (v->st == LINK_JOIN_JOINING || v->st == LINK_JOIN_ASKING) {
@@ -384,7 +429,14 @@ bool link_page(app *a, SDL_Texture *bg)
 				uisound_play(DS_SOUND_ACCEPT);
 				/* What a lost link or a failure left goes first */
 				if (st != LINK_OFF) stop_shown(a, bg);
-				if (sel == 0) {
+				if (v.medium == LINK_CABLE) {
+					/* The cable: Host binds this end's network, Join makes
+					 * this port the host and gives the other power */
+					if (!(sel == 0 ? link_host_cable(game_title(a)) : link_join_cable(game_title(a))))
+						uisound_play(DS_SOUND_DENY);
+				} else if (v.medium == LINK_NONE) {
+					uisound_play(DS_SOUND_DENY);
+				} else if (sel == 0) {
 					link_view s;
 
 					view_now(&s, false);
@@ -523,6 +575,54 @@ static void lop_join_end(void)
 }
 static unsigned lop_now(void) { return plat_now_ms(); }
 
+/* The cable's host end: its network gadget bound, as USB File Transfer
+ * binds it, and this plug never asked about (Computer Connected) after:
+ * the other Pixel 2 that powers it looks like a computer */
+static bool lop_cable_host_up(void)
+{
+	usblink_for_transfer();
+	usblink_skip_ask();
+	return plat_usb_link(-1);
+}
+
+static void lop_cable_host_down(void) { usblink_after_transfer(db_dev()); }
+
+/* The cable's joining end: the port the host for the plug on it, through
+ * usbrole and every one of its safety rules (rule.h): it never gives power
+ * while power comes in, so two that both chose Join cannot both */
+static bool lop_cable_join_start(void)
+{
+	usb_power p;
+
+	if (!plat_usb_power(&p) || !p.known) return false;
+	if (p.host) return true;
+	if (!p.plug || !p.ask) return false;
+	fprintf(stderr, "link: the port the host for plug %u, for the cable\n", p.plug);
+	return plat_usb_power_grant(p.plug);
+}
+
+/* The other one's network gadget, met as a phone's is (cdc_ncm,
+ * plat_phone_link), and the address its udhcpd gives; asked twice a second */
+static int lop_cable_join_poll(char *addr, unsigned n)
+{
+	static unsigned at;
+	unsigned now = plat_now_ms();
+	char ifn[16], ip[32] = "";
+
+	if (at && now - at < 500u) return 0;
+	at = now ? now : 1;
+	if (!plat_phone_link(true, ifn, sizeof ifn, ip, sizeof ip) || !ip[0]) return 0;
+	snprintf(addr, n, "%s", ip);
+	return 1;
+}
+
+/* The port stays the host until the cable comes out: usbrole alone writes
+ * the role, and ends it with the plug */
+static void lop_cable_join_end(void)
+{
+	fprintf(stderr, "link: the cable's link off; the port stays the host until the cable comes out\n");
+}
+
 /* "Linked with Pixel 2 0C11" over the game, in the queue with the other
  * pop-ups */
 static void lop_notice(link_news what, const char *peer)
@@ -540,6 +640,7 @@ static const link_ops g_link_ops = {
 	lop_scan_start, lop_scan_poll, lop_scan_take,
 	lop_join_start, lop_join_poll, lop_join_end,
 	linknet_open, linknet_send, linknet_recv, linknet_close,
+	lop_cable_host_up, lop_cable_host_down, lop_cable_join_start, lop_cable_join_poll, lop_cable_join_end,
 	lop_now, lop_notice,
 };
 

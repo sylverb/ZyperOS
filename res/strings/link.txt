@@ -334,3 +334,58 @@ fr = Un code compte quatre chiffres, comme l'affiche l'autre Pixel 2.
 de = Ein Code hat vier Ziffern, wie der andere Pixel 2 ihn zeigt.
 ja = コードは 4 桁の数字で、もう一台の Pixel 2 に表示されています。
 it = Un codice ha quattro cifre, come lo mostra l'altro Pixel 2.
+
+[link.cable_line]
+note = Under the Host and Join tiles when another device is on the USB-C cable: the link goes over the cable, with no code, and the one that chooses Join powers the other.
+en = On the USB-C cable: no code. Join gives the other one power.
+zh-Hans = 通过 USB-C 线连接：无需代码。加入的一方为另一台供电。
+es = Por el cable USB-C: sin código. Unirse le da energía al otro.
+pt-BR = Pelo cabo USB-C: sem código. Quem entra alimenta o outro.
+fr = Par le câble USB-C : pas de code. Rejoindre alimente l'autre.
+de = Über das USB-C-Kabel: kein Code. Beitreten versorgt den anderen mit Strom.
+ja = USB-C ケーブルで接続：コード不要。参加する側がもう一台に給電します。
+it = Con il cavo USB-C: nessun codice. Chi si unisce alimenta l'altro.
+
+[link.then_join_cable]
+note = Under link.this_one while this handheld hosts on the USB-C cable (no code): what to do on the other. Link Cable and Join are link.row and link.join as they read in this language.
+en = On the other one: Link Cable, then Join.
+zh-Hans = 在另一台上：联机线，然后加入。
+es = En el otro: Cable Link y luego Unirse.
+pt-BR = No outro: Cabo Link e depois Entrar.
+fr = Sur l'autre : Câble Link, puis Rejoindre.
+de = Auf dem anderen: Link-Kabel, dann Beitreten.
+ja = もう一台で：通信ケーブル、次に参加。
+it = Sull'altro: Cavo Link, poi Unisciti.
+
+[link.joining_cable]
+note = The large line while this handheld joins the other over the USB-C cable. No full stop.
+en = Joining over the cable
+zh-Hans = 正在通过线缆加入
+es = Uniéndose por el cable
+pt-BR = Entrando pelo cabo
+fr = Connexion par le câble
+de = Verbinde über das Kabel
+ja = ケーブルで参加しています
+it = Connessione tramite cavo
+
+[link.power_line]
+note = Under link.joining_cable: the handheld that joins on the cable powers the other one for as long as they are linked (its battery goes down faster).
+en = This one gives the other power while they are linked.
+zh-Hans = 联机时，这台为另一台供电。
+es = Este le da energía al otro mientras estén enlazados.
+pt-BR = Este alimenta o outro enquanto estiverem conectados.
+fr = Celui-ci alimente l'autre tant qu'ils sont reliés.
+de = Dieser versorgt den anderen mit Strom, solange sie verbunden sind.
+ja = 通信中は、この本体がもう一台に給電します。
+it = Questo alimenta l'altro finché sono collegati.
+
+[link.fail_cable]
+note = Under the tiles when the link over the USB-C cable did not come: the other one was not on Host, or both chose Join, or it is no Pixel 2. Two lines at most.
+en = No link on the cable. Choose Host on the other Pixel 2, then Join here.
+zh-Hans = 线缆上没有连接。请先在另一台 Pixel 2 上选择主持，再在这里加入。
+es = No hay enlace por el cable. Elige Anfitrión en el otro Pixel 2 y luego Unirse aquí.
+pt-BR = Sem conexão pelo cabo. Escolha Hospedar no outro Pixel 2 e depois Entrar aqui.
+fr = Aucune liaison par le câble. Choisissez Héberger sur l'autre Pixel 2, puis Rejoindre ici.
+de = Keine Verbindung per Kabel. Erst Hosten auf dem anderen Pixel 2, dann hier Beitreten.
+ja = ケーブルで通信できません。もう一台の Pixel 2 でホストを選び、こちらで参加してください。
+it = Nessun collegamento sul cavo. Scegli Ospita sull'altro Pixel 2, poi Unisciti qui.

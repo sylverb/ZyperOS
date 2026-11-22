@@ -7787,6 +7787,32 @@ keeps listening, keys only. The joiner joins it for the game's time (src/wifi.h'
 it joins, and at the end the network removed, every saved network enabled
 again and a new lease from the one it rejoins.
 
+**The cable.** *(My ask, 2026-11-22: two Pixel 2s on one USB-C cable, a
+closed link with no code and no adapters.)* The Pixel 2's one port has no
+Type-C controller; plastron's usbrole sets its role from the PHY's ID pin
+and asks the launcher before it ever gives power (11.36). So with no adapter
+in and another device on the port (a plug that wants power, the port a host
+already, or a port that powers this one with data: `cable_peer`), the page
+takes the cable (`link_medium_of`): the line under the tiles says "On the
+USB-C cable: no code. Join gives the other one power." **Host** binds the
+port's network gadget (NCM, `usblink_for_transfer`, as USB File Transfer
+does; S40usbgadget's 10.42.0.1 and its udhcpd), marks the plug answered
+(no Computer Connected after it), and waits as the Wi-Fi's host waits, with
+no code ("On the other one: Link Cable, then Join."). **Join** asks usbrole
+to make its port the host for the plug on it (the USB Accessory answer,
+`plat_usb_power_grant`; usbrole's rules never give power while power comes
+in, so two that both chose Join cannot both), meets the other's gadget as it
+meets a phone's network (cdc_ncm, `plat_phone_link`), takes 10.42.0.2, and
+says hello to 10.42.0.1: "Joining over the cable", "This one gives the other
+power while they are linked." From there the hello, the beat and the core's
+options are the Wi-Fi's, with 10.42.0.1 for the server's address. The
+joiner's port stays the host until the cable comes out: only usbrole writes
+the role. What only two real Pixel 2s can say: whether each end's ID pin
+reads the other as a plug that wants power on a C-to-C cable; whether the
+PHY reports the joiner as a data port on the host end; that cdc_ncm binds
+the gadget; how much the host end draws to charge from the joiner (its
+battery); and the What did you plug in? question after the game.
+
 **The launchers' word.** A datagram each way on port 56399, beside
 Gambatte's 56400 (`ZLINK1`, then hello, welcome, busy, beat or bye, the
 name and the game's title): the joiner says hello, the host turns Gambatte

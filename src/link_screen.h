@@ -18,6 +18,8 @@ typedef enum {
 	/* the other failures' lines under the tiles */
 	LINK_SHOT_FAILED_NETWORK, LINK_SHOT_FAILED_JOIN, LINK_SHOT_FAILED_BUSY, LINK_SHOT_FAILED_GAME,
 	LINK_SHOT_FAILED_CODE,
+	/* the USB-C cable's: Host and Join, waiting, joining, its failure */
+	LINK_SHOT_CABLE_TILES, LINK_SHOT_CABLE_WAITING, LINK_SHOT_CABLE_JOINING, LINK_SHOT_FAILED_CABLE,
 	LINK_SHOT_KINDS
 } link_shot;
 
@@ -31,8 +33,9 @@ bool link_shot_parse(const char *kind);
  * (the menu closes with it) */
 bool link_page(app *a, SDL_Texture *bg);
 
-/* What the row says: the state, and whether a Wi-Fi adapter is in (the row
- * is quiet without one) */
+/* What the row says: the state, and whether the link can start: a Wi-Fi
+ * adapter in, or another device on the USB-C cable (the row is quiet with
+ * neither) */
 link_state link_row_state(void);
 bool       link_row_adapter(void);
 

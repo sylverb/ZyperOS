@@ -133,6 +133,19 @@ static int f_udp_recv(int s, char *buf, unsigned n, char *from, unsigned fromn)
 	return len;
 }
 static void f_udp_close(int s) { say("udp close %d", s); }
+/* The cable: the gadget, and the port asked to be the host */
+static bool g_cable_up_ok = true, g_cable_host_ok = true;
+static int  g_cable_net;                     /* what cable_join_poll says */
+static const char *g_cable_addr = "10.42.0.2";
+static bool f_cable_host_up(void) { say("cable gadget"); return g_cable_up_ok; }
+static void f_cable_host_down(void) { say("cable gadget off"); }
+static bool f_cable_join_start(void) { say("cable port host"); return g_cable_host_ok; }
+static int  f_cable_join_poll(char *addr, unsigned n)
+{
+	if (g_cable_net > 0) snprintf(addr, n, "%s", g_cable_addr);
+	return g_cable_net;
+}
+static void f_cable_join_end(void) { say("cable port end"); }
 static unsigned f_now(void) { return g_clock; }
 static void f_notice(link_news what, const char *peer)
 {
@@ -144,6 +157,7 @@ static const link_ops FAKE = {
 	f_scan_start, f_scan_poll, f_scan_take,
 	f_join_start, f_join_poll, f_join_end,
 	f_udp_open, f_udp_send, f_udp_recv, f_udp_close,
+	f_cable_host_up, f_cable_host_down, f_cable_join_start, f_cable_join_poll, f_cable_join_end,
 	f_now, f_notice,
 };
 
@@ -592,6 +606,103 @@ static void game_end_is_quiet(void)
 	CHECK(!link_holds_radio());
 }
 
+/* The USB-C cable: no code, no hotspot, no scan; the host's gadget and the
+ * beat on 10.42.0.1 alone, the joiner's port the host and its address on
+ * the cable's network, then the same hello and options as over Wi-Fi */
+static void cable(void)
+{
+	/* Which a start takes: the adapter holds the port, so it is the Wi-Fi */
+	CHECK(link_medium_of(true, true) == LINK_WIFI);
+	CHECK(link_medium_of(true, false) == LINK_WIFI);
+	CHECK(link_medium_of(false, true) == LINK_CABLE);
+	CHECK(link_medium_of(false, false) == LINK_NONE);
+
+	/* Host */
+	link_stop();
+	reset_log();
+	g_codes = 0;
+	CHECK(link_host_cable("Tetris"));
+	CHECK(at("cable gadget") == 0);
+	CHECK(at("udp 10.42.0.1 56399") >= 0 && logged("udp * ") == 0);
+	CHECK(logged("hotspot") == 0 && g_codes == 0 && !strcmp(link_code(), ""));
+	CHECK(link_state_now() == LINK_HOST_WAITING && link_medium_now() == LINK_CABLE);
+	CHECK(!link_holds_radio());
+	run(2000);
+	CHECK(logged("resident") == 0);
+	arrive(LINK_MSG_HELLO, "Pixel 2 0C11", "Tetris", "10.42.0.2");
+	run(100);
+	CHECK(link_state_now() == LINK_LINKED);
+	CHECK(at("resident SETOPT\tkey=gambatte_gb_link_mode\tvalue=Network Server") >= 0);
+	CHECK(at("send 10.42.0.2:56399 ZLINK1\twelcome\tPixel 2 7F2A\tTetris") >= 0);
+	/* No hotspot to lose on the cable: only the beat says it is lost */
+	g_hs = HOTSPOT_FAILED;
+	run(1000);
+	CHECK(link_state_now() == LINK_LINKED);
+	g_hs = HOTSPOT_UP;
+	run(6000);
+	CHECK(link_state_now() == LINK_LOST);
+	reset_log();
+	link_stop();
+	CHECK(at("cable gadget off") >= 0 && logged("hotspot") == 0 && logged("join end") == 0);
+	CHECK(link_medium_now() == LINK_NONE);
+
+	/* Join */
+	reset_log();
+	g_cable_net = 0;
+	CHECK(link_join_cable("Tetris DX"));
+	CHECK(at("cable port host") == 0 && logged("scan") == 0 && logged("join ") == 0);
+	CHECK(link_state_now() == LINK_JOIN_JOINING && link_medium_now() == LINK_CABLE);
+	run(2000);
+	CHECK(logged("send") == 0);
+	/* An address that is not the cable's is none yet */
+	g_cable_net = 1;
+	g_cable_addr = "192.168.1.9";
+	run(500);
+	CHECK(logged("send") == 0);
+	g_cable_addr = "10.42.0.2";
+	run(100);
+	CHECK(link_state_now() == LINK_JOIN_ASKING);
+	CHECK(at("send 10.42.0.1:56399 ZLINK1\thello\tPixel 2 7F2A\tTetris DX") >= 0);
+	arrive(LINK_MSG_WELCOME, "Pixel 2 0C11", "Tetris", "10.42.0.1");
+	run(100);
+	CHECK(link_state_now() == LINK_LINKED);
+	/* The client's address is the cable host's, 10.42.0.1 */
+	CHECK(at("resident SETOPT\tkey=gambatte_gb_link_network_server_ip_6\tvalue=2") >= 0);
+	CHECK(at("resident SETOPT\tkey=gambatte_gb_link_network_server_ip_9\tvalue=0") >= 0);
+	CHECK(at("resident SETOPT\tkey=gambatte_gb_link_network_server_ip_12\tvalue=1") >= 0);
+	CHECK(at("resident SETOPT\tkey=gambatte_gb_link_mode\tvalue=Network Client") >= 0);
+	reset_log();
+	link_stop();
+	CHECK(at("cable port end") >= 0 && logged("cable gadget off") == 0);
+
+	/* Failures: the port may not be the host (the other end gives power:
+	 * both chose Join), the gadget will not bind, no network on the cable */
+	g_cable_host_ok = false;
+	CHECK(!link_join_cable("Tetris"));
+	CHECK(link_failure_now() == LINK_FAIL_CABLE);
+	reset_log();
+	link_stop();
+	CHECK(at("cable port end") >= 0);
+	g_cable_host_ok = true;
+	g_cable_up_ok = false;
+	CHECK(!link_host_cable("Tetris"));
+	CHECK(link_failure_now() == LINK_FAIL_CABLE);
+	link_stop();
+	g_cable_up_ok = true;
+	g_cable_net = 0;
+	link_join_cable("Tetris");
+	run(30000);
+	CHECK(link_failure_now() == LINK_FAIL_CABLE);
+	link_stop();
+	/* And the Wi-Fi's addresses again after the cable */
+	g_hs = HOTSPOT_UP;
+	reset_log();
+	link_host("Tetris");
+	run(100);
+	CHECK(at("udp 10.42.1.1 56399") >= 0);
+	link_stop();
+}
+
 /* src/linknet.c's socket on the loopback: one sends, the other hears it and
  * whom from, and nothing waiting is 0, at once */
 static void real_socket(void)
@@ -647,6 +758,7 @@ int main(void)
 	join_side();
 	join_failures();
 	game_end_is_quiet();
+	cable();
 	real_socket();
 	if (fails) { printf("link: %d failed\n", fails); return 1; }
 	printf("link: ok\n");

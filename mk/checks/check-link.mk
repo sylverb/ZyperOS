@@ -14,7 +14,9 @@ CHECKS += check-link
 #| before an address and one every half second until the welcome, then the client's options; a bye
 #| said as left; each failure (no hotspot, no scan, no join, no answer, busy, Diatom refusing); the
 #| game's end quiet; the beat's socket on 10.42.1.1 alone; the stop's bye twice with nothing to
-#| Diatom; and `src/linknet.c`'s socket on the loopback
+#| Diatom; the USB-C cable (the adapter's Wi-Fi before it, no code, no hotspot, the gadget and the
+#| beat on 10.42.0.1, the joiner's port the host and 10.42.0.2, the client's address 10.42.0.1, no
+#| hotspot to lose, each failure); and `src/linknet.c`'s socket on the loopback
 
 check-link: build-native/link-check
 	@./build-native/link-check

@@ -1553,7 +1553,7 @@ EXTRA.setdefault("gamemenu-player2", ("demo", "NES", ["--screen", "games", "--ga
 # adapter in
 for _kind in ("tiles", "starting", "waiting", "looking", "found", "joining", "linked", "lost",
               "failed", "stopping", "failed-network", "failed-join", "failed-busy", "failed-game",
-              "failed-code"):
+              "failed-code", "cable-tiles", "cable-waiting", "cable-joining", "failed-cable"):
     EXTRA.setdefault("link-" + _kind, ("demo", "GB", ["--screen", "games", "--link", _kind]))
 # ...and the joiner's keyboard asking for the code the host shows
 EXTRA.setdefault("keyboard-link", ("demo", "PS1", ["--keyboard", "0", "48", "--kb-link"]))

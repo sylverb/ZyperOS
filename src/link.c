@@ -18,6 +18,12 @@
  * started after the Join page opened shows without a key */
 #define RESCAN_MS  3000
 
+link_medium link_medium_of(bool adapter_in, bool cable_peer)
+{
+	if (adapter_in) return LINK_WIFI;
+	return cable_peer ? LINK_CABLE : LINK_NONE;
+}
+
 bool link_offered(const char *core, bool device)
 {
 	return device && core && !strcmp(core, LINK_CORE);
@@ -208,9 +214,12 @@ static struct {
 	bool looked;     /* the radio scanned for hosts: join_end is owed too */
 	bool opts;       /* the core's link was turned on: off is owed */
 	bool over;       /* the game is over (link_game_over) */
+	bool cable_host; /* the gadget was bound: cable_host_down is owed */
+	bool cable_join; /* the port was asked to be the host: cable_join_end is owed */
+	const char *host_addr;   /* LINK_HOST_ADDR, or LINK_CABLE_ADDR on the cable */
 	int  sock;
 	unsigned t0, sent_at, heard_at, scan_at;
-} g = { .sock = -1 };
+} g = { .sock = -1, .host_addr = LINK_HOST_ADDR };
 
 void link_use(const link_ops *ops, const char *mac)
 {
@@ -239,7 +248,7 @@ static void fail(link_failure why, const char *what)
 static bool core_link(link_role role)
 {
 	char lines[16][LINK_LINE_MAX];
-	int n = link_opt_lines(role, LINK_HOST_ADDR, lines, 16), i;
+	int n = link_opt_lines(role, g.host_addr, lines, 16), i;
 
 	if (!n) return false;
 	for (i = 0; i < n; i++)
@@ -322,6 +331,49 @@ bool link_host(const char *game)
 	}
 	g.st = LINK_HOST_STARTING;
 	fprintf(stderr, "link: hosting as %s\n", g.ssid);
+	return true;
+}
+
+bool link_host_cable(const char *game)
+{
+	if (!g_ops) return false;
+	link_stop();
+	snprintf(g.game, sizeof g.game, "%s", game ? game : "");
+	g.role = LINK_ROLE_SERVER;
+	g.host_addr = LINK_CABLE_ADDR;
+	g.cable_host = true;
+	if (!g_ops->cable_host_up()) {
+		fail(LINK_FAIL_CABLE, "the cable's network did not come up");
+		return false;
+	}
+	/* The beat on the cable's address alone: no code, the cable is closed */
+	g.sock = g_ops->udp_open(LINK_CABLE_ADDR, LINK_BEAT_PORT);
+	if (g.sock < 0) {
+		fail(LINK_FAIL_CABLE, "no socket for the beat on the cable");
+		return false;
+	}
+	g.t0 = now();
+	g.st = LINK_HOST_WAITING;
+	fprintf(stderr, "link: hosting on the cable at %s\n", LINK_CABLE_ADDR);
+	return true;
+}
+
+bool link_join_cable(const char *game)
+{
+	if (!g_ops) return false;
+	link_stop();
+	snprintf(g.game, sizeof g.game, "%s", game ? game : "");
+	g.role = LINK_ROLE_CLIENT;
+	g.host_addr = LINK_CABLE_ADDR;
+	g.joining[0] = '\0';
+	g.cable_join = true;
+	if (!g_ops->cable_join_start()) {
+		fail(LINK_FAIL_CABLE, "the port may not be the host");
+		return false;
+	}
+	fprintf(stderr, "link: joining on the cable, this port the host\n");
+	g.t0 = now();
+	g.st = LINK_JOIN_JOINING;
 	return true;
 }
 
@@ -465,13 +517,16 @@ void link_tick(unsigned now_ms)
 		r = g_ops->hotspot_poll();
 		if (r == HOTSPOT_STARTING) break;
 		if (r != HOTSPOT_UP) { fail(LINK_FAIL_NETWORK, "the hotspot did not come up"); break; }
-		g.sock = g_ops->udp_open(LINK_HOST_ADDR, LINK_BEAT_PORT);
+		g.sock = g_ops->udp_open(g.host_addr, LINK_BEAT_PORT);
 		if (g.sock < 0) { fail(LINK_FAIL_NETWORK, "no socket for the beat"); break; }
 		fprintf(stderr, "link: %s is up, waiting\n", g.ssid);
 		g.st = LINK_HOST_WAITING;
 		break;
 	case LINK_HOST_WAITING:
-		if (g_ops->hotspot_poll() != HOTSPOT_UP) { fail(LINK_FAIL_NETWORK, "the hotspot went away"); break; }
+		if (!g.cable_host && g_ops->hotspot_poll() != HOTSPOT_UP) {
+			fail(LINK_FAIL_NETWORK, "the hotspot went away");
+			break;
+		}
 		hear(t);
 		break;
 	case LINK_JOIN_LOOKING:
@@ -485,10 +540,10 @@ void link_tick(unsigned now_ms)
 		}
 		break;
 	case LINK_JOIN_JOINING:
-		r = g_ops->join_poll(addr, sizeof addr);
+		r = g.cable_join ? g_ops->cable_join_poll(addr, sizeof addr) : g_ops->join_poll(addr, sizeof addr);
 		/* An address on the host's network only: the one the last network
 		 * gave can still be on the adapter while the new lease comes */
-		if (r > 0 && !link_same_net(addr, LINK_HOST_ADDR)) r = 0;
+		if (r > 0 && !link_same_net(addr, g.host_addr)) r = 0;
 		if (r > 0) {
 			g.sock = g_ops->udp_open(NULL, 0);
 			if (g.sock < 0) { fail(LINK_FAIL_NETWORK, "no socket for the beat"); break; }
@@ -496,15 +551,16 @@ void link_tick(unsigned now_ms)
 			g.t0 = t;
 			g.st = LINK_JOIN_ASKING;
 			/* The first hello at once */
-			say(LINK_MSG_HELLO, LINK_HOST_ADDR, LINK_BEAT_PORT);
+			say(LINK_MSG_HELLO, g.host_addr, LINK_BEAT_PORT);
 			g.sent_at = t;
 		} else if (r < 0 || t - g.t0 >= JOIN_MS) {
-			fail(LINK_FAIL_JOIN, "the host's network did not join");
+			if (g.cable_join) fail(LINK_FAIL_CABLE, "no network came on the cable");
+			else fail(LINK_FAIL_JOIN, "the host's network did not join");
 		}
 		break;
 	case LINK_JOIN_ASKING:
 		if (t - g.sent_at >= HELLO_MS) {
-			say(LINK_MSG_HELLO, LINK_HOST_ADDR, LINK_BEAT_PORT);
+			say(LINK_MSG_HELLO, g.host_addr, LINK_BEAT_PORT);
 			g.sent_at = t;
 		}
 		hear(t);
@@ -512,7 +568,7 @@ void link_tick(unsigned now_ms)
 			fail(LINK_FAIL_ANSWER, "the host did not answer");
 		break;
 	case LINK_LINKED:
-		if (g.role == LINK_ROLE_SERVER && g_ops->hotspot_poll() != HOTSPOT_UP) {
+		if (g.role == LINK_ROLE_SERVER && g.hot && g_ops->hotspot_poll() != HOTSPOT_UP) {
 			lost(LINK_NEWS_LOST);
 			break;
 		}
@@ -546,6 +602,8 @@ void link_stop(void)
 	if (g.opts && !g.over) core_link(LINK_ROLE_OFF);
 	if (g.sock >= 0) g_ops->udp_close(g.sock);
 	if (g.hot) g_ops->hotspot_stop();
+	if (g.cable_host) g_ops->cable_host_down();
+	if (g.cable_join) g_ops->cable_join_end();
 	if (g.joined || g.looked) g_ops->join_end();
 	if (g.st != LINK_OFF) fprintf(stderr, "link: off\n");
 	g.st = LINK_OFF;
@@ -553,6 +611,8 @@ void link_stop(void)
 	g.role = LINK_ROLE_OFF;
 	g.sock = -1;
 	g.hot = g.joined = g.looked = g.opts = g.over = g.scanning = g.scanned = false;
+	g.cable_host = g.cable_join = false;
+	g.host_addr = LINK_HOST_ADDR;
 	g.nhosts = 0;
 	g.peer[0] = g.peer_addr[0] = g.joining[0] = '\0';
 	memset(g.pass, 0, sizeof g.pass);
@@ -569,6 +629,11 @@ bool         link_scanned(void)     { return g.scanned; }
 const char  *link_joining_name(void) { return g.joining; }
 bool         link_owes_wifi(void)   { return g.hot || g.joined; }
 bool         link_holds_radio(void) { return g.hot || g.joined || g.looked; }
+link_medium  link_medium_now(void)
+{
+	if (g.st == LINK_OFF) return LINK_NONE;
+	return g.cable_host || g.cable_join ? LINK_CABLE : LINK_WIFI;
+}
 const char  *link_code(void)
 {
 	return g.st == LINK_HOST_STARTING || g.st == LINK_HOST_WAITING ? g.pass : "";

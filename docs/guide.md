@@ -1715,6 +1715,13 @@ handhelds joining could find the code. So while the link is up, nothing else
 of the handheld's (Developer Mode's SSH over Wi-Fi among it) answers on its
 network.
 
+**With a USB-C cable instead:** take the Wi-Fi adapters out and join the two
+Pixel 2s with one USB-C to USB-C cable. The page then says the link goes over
+the cable, with no code. Choose **Host** on one first, then **Join** on the
+other: the one that joins gives the other power for as long as they are
+linked, so its battery goes down faster. The port stays powering the other
+until you pull the cable out.
+
 The row says `Off`, `Waiting` (hosting, nobody yet), `Linked` or `Lost`.
 With no adapter in, it says `Needs Wi-Fi`. The two games run in step, so
 while a menu is open on one, the other's game stands still at its next
