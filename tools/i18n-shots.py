@@ -1508,7 +1508,8 @@ SHOT_STATUS["night-page-off-auto"] = "10:08 12h wifi=off batt=82"
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped", "shot", "shader", "display", "cheats", "cheats_one"):
+              "player2_stopped", "shot", "shader", "display", "cheats", "cheats_one",
+              "link_linked", "link_lost", "link_left"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 # A Famicom Disk System game's disk as L1 and R1 move it (src/diskpopup.h)
 for _kind in ("disk_side", "disk_in", "disk_out", "disk_first"):
@@ -1544,6 +1545,19 @@ for _kind in ("hotspot", "connected", "cable", "off", "off-cable", "none", "fail
     EXTRA.setdefault("player2-" + _kind, ("demo", "NES", ["--screen", "games", "--player2", _kind]))
 EXTRA.setdefault("gamemenu-player2", ("demo", "NES", ["--screen", "games", "--gamemenu", "4",
                                                        "--player2", "connected"]))
+# The Game Boy's Link Cable (src/link.h, DESIGN.md 11.70): its page over a
+# paused Game Boy game in every state (--link), Host and Join, the host's
+# network starting and waiting, the joiner looking and the hosts found, joining,
+# linked, after a lost link and each failure, and the Wi-Fi coming back; and
+# the in-game menu on its row on Gambatte, linked, waiting, lost and with no
+# adapter in
+for _kind in ("tiles", "starting", "waiting", "looking", "found", "joining", "linked", "lost",
+              "failed", "stopping", "failed-network", "failed-join", "failed-busy", "failed-game"):
+    EXTRA.setdefault("link-" + _kind, ("demo", "GB", ["--screen", "games", "--link", _kind]))
+for _name, _kind in (("gamemenu-link", "linked"), ("gamemenu-link-waiting", "waiting"),
+                     ("gamemenu-link-lost", "lost"), ("gamemenu-link-no-adapter", "no-adapter")):
+    EXTRA.setdefault(_name, ("demo", "GB", ["--screen", "games", "--gamemenu", "4", "--link", _kind]))
+    SHOT_SETTINGS[_name] = {"core.GB": "gambatte"}
 
 # MENU > System Update in the states whose lines are longest, each as the
 # status file the update program writes it (src/sysupdate.c); the second is

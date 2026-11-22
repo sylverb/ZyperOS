@@ -5640,7 +5640,7 @@ the tiles' style is read off a name.
 | Layout tokens | `tools/designdef.py` → `src/ds/layout.h` | where the launcher's own parts sit (section 5, Layout): `DS_PAGE_*`, `DS_TILE_*`, `DS_LIST_*`, `DS_BADGE*`, `DS_MARK_*`, `DS_HINT*` |
 | Primitives | `src/ui.c`, `src/ui.h` | text and its faces, the rounded rect, the panel's slab (`ui_panel`), lift, scrim, the rail, button glyphs (`ui_button`, 11.9), the generated cards |
 | Layout engine | `src/ds/flex.c`, `flex.h` | boxes laid out by rules (section 5, The system): `ds_flex_begin`, `ds_flex_add`, `ds_flex_solve`, `ds_flex_rect`; `check-flex` holds its rules |
-| Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
+| Stroke marks | `src/ds/glyph.c`, `glyph.h` | the `ui_glyph` marks (30) and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`, one column of boxes on the layout engine (the heading's band **page-body-y** tall, the body with two tiles and a line of words **page-news-drop** under them, the line of marks **page-line-over** over the keys, the keys on the foot inset); the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` (`src/usbdrive_screen.c`) draws the ground and Zyper and hands back the frame. |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
 | The grid | `src/gamegrid.c`, `gamegrid.h`; the rule `src/gridrule.c`, `gridrule.h` | 11.47: the shape from the art, the cells, the covers in them, the band; `check-gridrule` |
@@ -7184,8 +7184,9 @@ Display, Shader and the buttons stay the system's, whatever the core.
   (src/coreopts.c): the first Game Boy's green ("Internal", GB - DMG) where
   the core's own default is no color, and the shelf's hardware a Game Boy.
 
-Gambatte is libretro/gambatte-libretro at 77f2567, built in the small
-cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
+Gambatte is libretro/gambatte-libretro at 77f2567 with its network Game
+Link and mk/patches/gambatte-link.patch (the Link Cable's, 11.70), built in
+the small cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
 undefined symbols and pinned by sha256), the same binary for both handhelds.
 No machine has to remember to build it: tools/release.sh, tools/px2-payload.sh
 and plastron's card builds run `mk/build-small-cores.sh --missing` first,
@@ -7698,3 +7699,114 @@ its cursor on Buttons (`--info-on-buttons`), which File put below the first
 screenful. `check-titles` holds
 the names and the counts of discs on real folders, `check-menus` the rows'
 order.
+
+### 11.70 The Link Cable
+
+*(metior on the Discord asked for the link cable, 16 Nov. My pick on the
+mock, 2026-11-18: "perfect", ideas-plan item 10. The Game Boy first; PSP ad
+hoc is a later step of its own.)*
+
+Two Pixel 2s play a Game Boy or Game Boy Color game together as the Game
+Boy's link cable did: trading, battling, two-player Tetris. Gambatte's
+network Game Link carries it; the handhelds reach each other on the host's
+own Wi-Fi, made as Player 2's is (11.43). Each needs a Wi-Fi adapter in.
+
+**The row.** The in-game menu's Game tab has **Link Cable** after Quick
+Slot (Player 2's place, which a Game Boy game never has) for a game on
+Gambatte, the Game Boy shelves' second core (11.62): mGBA has no network
+link, so on mGBA there is no row. Its value is Off, Waiting (this one hosts
+and the other has not joined), Linked, or Lost (the other one went). With no
+adapter in, the row is quiet and says Needs Wi-Fi (12's one name for no
+network). The Pixel 2 only (`plat_player2`, the hotspot it is built on).
+
+**The page**, over the paused game:
+
+- **Host and Join**, two tiles as the USB question's (11.18): a dot sending
+  out (`UI_GLYPH_BEACON`) over "The other Pixel 2 joins this one.", and a
+  magnifying glass (`UI_GLYPH_SEARCH`) over "Find a Pixel 2 that hosts.".
+  Under them "Each handheld needs a Wi-Fi adapter in.", or what went wrong
+  last time (the link lost, a host that did not answer or is linked with
+  another, an adapter that would not start), in the same place. Both
+  handhelds start the same game first, or two that link (Red and Blue).
+- **Hosting**: a panel as wide as Player 2's page and as tall as the mock's
+  (src/linkpanel.c), "Waiting for the other Pixel 2" in **title** **text**,
+  "This one is Pixel 2 7F2A." and "On the other one: Link Cable, then Join."
+  in **meta** **text-soft**, and three dots in **accent-ink** whose brightest
+  goes round every 300 ms. B stops. "Starting the network" while the
+  hotspot comes up.
+- **Joining**: "Looking for a Pixel 2 that hosts" with the dots and "On the
+  other one: Link Cable, then Host.", scanned again every 3 s; once some are
+  found, "Choose the Pixel 2 to join" over them as rows, the one under the
+  cursor the **accent** fill. A joins; "Joining Pixel 2 0C11" while it does.
+- **Linked**, the page closes on both and the game goes on at once, with a
+  notice (11.7): **Link Cable** over "Linked with Pixel 2 0C11". The row
+  opens "Linked with ..." and "While a menu is open on one, the other one
+  waits.",
+  A to stop, B to close.
+- A stop that brings the Wi-Fi back says "Bringing the Wi-Fi back" while it
+  does, a second or two, as File Transfer's hotspot says its own.
+
+"Pixel 2" is never broken across two lines: the strings hold a no-break
+space between its words.
+
+**The network.** The host makes its hotspot (src/hotspot.h's
+`hotspot_start_named`) under a name of its own, `ZyperOS-Link-` and the
+adapter's last two bytes (`ZyperOS-Link-7F2A`), so a scan tells it from File
+Transfer's `ZyperOS-7F2A`, and a password made from that name alone (two
+groups of four, as File Transfer's), so the joiner makes the same and
+nobody types anything. That password is no secret, since this code is open:
+it keeps a phone from joining by chance, and nothing but the game listens on
+that network. The joiner joins it for the game's time (src/wifi.h's
+`wifi_join_temp`): never saved to wpa_supplicant.conf, a new lease asked as
+it joins, and at the end the network removed, every saved network enabled
+again and a new lease from the one it rejoins.
+
+**The launchers' word.** A datagram each way on port 56399, beside
+Gambatte's 56400 (`ZLINK1`, then hello, welcome, busy, beat or bye, the
+name and the game's title): the joiner says hello, the host turns Gambatte
+into the server and welcomes it, the joiner turns it into the client. While
+linked each sends a beat every half second, from the game's tick and from
+every screen over its pause, so a menu open is never a lost link. No beat
+for 6 s is the link lost: the core's link turned off at once, one notice,
+"Link lost", and the row says Lost. A bye (the other one stopped, or its
+game ended) says "Pixel 2 0C11 left the link". A third handheld's hello is
+told busy. Every end of the game says bye and takes the network down.
+
+**Gambatte.** Its link is two bytes each way a transfer over TCP, the side
+that clocks a transfer waiting for the other's answer, so the two games run
+in step: while a menu is open on one, the other stands still at its next
+transfer, ten seconds at most. The core options
+(`gambatte_gb_link_mode`, `gambatte_gb_link_network_port` and the server's
+address as twelve digits, `gambatte_gb_link_network_server_ip_1` to `_12`)
+go to Diatom as SETOPT while the game is paused, and the core reads them on
+its next frame. mk/patches/gambatte-link.patch makes the link safe to lose:
+a read or a write waits ten seconds at most (a peer gone without a word
+froze the game until TCP gave up), no SIGPIPE, the two bytes read whole, a
+closed peer noticed, a lost connection tried again every second on a
+monotonic clock (it was five seconds of CPU time), a connect that waits half
+a second, SO_REUSEADDR for a second game hosting at once, and the link
+ended with its game (Diatom keeps the core loaded between games). It also
+mends the core's own serial shift: a byte read in the middle of a transfer
+took the value's top bits again at every read, so a game that waits on SC
+read every byte as 0x00 or 0xFF. Diatom keeps up to 64 options a game (32
+until the Link Cable's fourteen came).
+
+**The parts.** src/link.c (no SDL; every action through `link_ops`, which
+tools/link-check.c fakes: `check-link`), src/linknet.c (the datagram
+socket), src/link_screen.c (the row's state, the page, the ops on the
+device), src/linkpanel.c (the panel). tools/gblink-loopback.c links two
+Gambatte cores built for a computer over the loopback and holds the core's
+side: bytes that cross whole both ways, a peer stopped for 13 s costing the
+other one frame of ten seconds and no more, the link back by itself, and an
+unloaded game freeing the other at once.
+
+Host shots: `link-tiles`, `link-starting`, `link-waiting`, `link-looking`,
+`link-found`, `link-joining`, `link-linked`, `link-lost`, `link-failed` and
+`link-stopping` (`--link KIND`), and `gamemenu-link` and
+`gamemenu-link-no-adapter` on the row (`--gamemenu 4 --link KIND`, the Game
+Boy shelf on Gambatte).
+
+**Not yet.** Two handhelds on the same home Wi-Fi do not link through it:
+the host always makes its own network, as the plan has it. The Brick is not
+offered the row (its radio's access point is untried). PSP ad hoc, the
+plan's second step, is its own work.

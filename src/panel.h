@@ -490,7 +490,9 @@ void language_apply(app *a, lang l, bool keep);
  * (Computer Connected), PANEL_LIST rows the panel's width with a line under
  * each name (What did you plug in?, the Scraper's Settings). They were read
  * off the first tile's name before (tile_glyph), which cut "ScreenScraper". */
-enum { PANEL_MENU, PANEL_HOT, PANEL_TILES, PANEL_P2, PANEL_MOVE, PANEL_TILES_GRID, PANEL_LIST };
+/* PANEL_LINK: the Link Cable's page (src/linkpanel.h) */
+enum { PANEL_MENU, PANEL_HOT, PANEL_TILES, PANEL_P2, PANEL_MOVE, PANEL_TILES_GRID, PANEL_LIST,
+       PANEL_LINK };
 typedef struct {
 	bool     run;            /* ours runs now, as `mode`, and has the name (mdns) */
 	bool     up;             /* sshlink_start or sshlink_start_net said yes */

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "launch_screen.h"
+#include "link_screen.h"
 
 #include "aout_route.h"
 #include "app.h"
@@ -1437,6 +1438,9 @@ void launch(app *a)
 			if (p2_link_on() == P2_HOTSPOT)
 				wait_panel(a, T(S_PLAYER2_ROW), T(S_XFER_CLOSING_HOTSPOT));
 			p2_stop();
+			/* And the Link Cable: bye to the other handheld, and this
+			 * one's Wi-Fi back as it was */
+			link_game_end(a);
 
 			/* The Auto card's picture, written ONLY here - at the same moment
 			 * Diatom wrote the state it belongs to, so the two cannot drift.

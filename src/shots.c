@@ -44,6 +44,7 @@
 #include "osdbar.h"
 #include "panel.h"
 #include "player2_screen.h"
+#include "link_screen.h"
 #include "pminstall.h"
 #include "portload.h"
 #include "powerscreens.h"
@@ -970,6 +971,18 @@ static void shot_draw_player2(app *a)
 	if (bg) SDL_DestroyTexture(bg);
 }
 
+/* --link KIND: the Link Cable's page over a paused game (a made-up frame),
+ * in one of its states (src/link_screen.h); with --gamemenu the in-game
+ * menu instead, its Link Cable row saying that state */
+static void shot_draw_link(app *a)
+{
+	SDL_Texture *bg = shot_backdrop ? IMG_LoadTexture(a->r, shot_backdrop)
+	                                : fake_frame(a->r, 10.0f / 9);
+
+	link_shot_draw(a, bg);
+	if (bg) SDL_DestroyTexture(bg);
+}
+
 /* --gamecontrols [page] [TAG]: the in-game menu's Controls page over a
  * paused game, page `page`, for the game under the cursor on the shelf of
  * the system tagged TAG (the shelf the shot is on when none is given), as
@@ -1755,6 +1768,7 @@ static void shot_compose_once(app *a)
 	if (shot_cheats_crash) cheats_crash_shot(a);
 	if (shot_gamemenu && a->sys.count > 0 && !shot_look_over_game(a)) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
+	else if (g_shot_link && a->sys.count > 0) shot_draw_link(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
 	if (shot_controls_fit) controls_fit_report(a);
 	if (shot_rows_report) {
@@ -2324,6 +2338,14 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strncmp(shot_popup, "link_", 5)) {
+			/* The Link Cable's (lop_notice): linked, lost, the other one
+			 * left */
+			shot_notice_head = T(S_LINK_ROW);
+			if (!strcmp(shot_popup, "link_lost")) snprintf(pbody, sizeof pbody, "%s", T(S_LINK_LOST));
+			else snprintf(pbody, sizeof pbody,
+			              T(!strcmp(shot_popup, "link_left") ? S_LINK_LEFT : S_LINK_LINKED_WITH),
+			              "Pixel\xc2\xa0" "2 0C11");
 		} else if (!strncmp(shot_popup, "disk_", 5)) {
 			/* L1 or R1 moving a Famicom Disk System game's disk (on_disk):
 			 * disk_side, disk_in, disk_out on disk 1's side B, disk_first

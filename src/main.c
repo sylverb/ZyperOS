@@ -189,6 +189,7 @@
 #include "saver_screen.h"
 #include "mp4_screen.h"
 #include "player2_screen.h"
+#include "link_screen.h"
 #include "tour_screen.h"
 #include "devmode_screen.h"
 #include "signin_screen.h"
@@ -3083,6 +3084,9 @@ static void on_game_tick(void)
 	/* NES Player 2 (src/p2.h): the hotspot coming up and p2d after it, and
 	 * a friend joining or leaving said over the game. Bounded. */
 	p2_tick(plat_now_ms());
+	/* The Game Boy's Link Cable (src/link.h): the beat to the other
+	 * handheld, and a lost link said over the game. Bounded. */
+	link_tick(plat_now_ms());
 	/* The chip's temperature, every HEAT_POLL_MS; "Getting hot" over the
 	 * game when it passes the trip, ahead of any pop-up waiting */
 	heat_tick();
@@ -4264,6 +4268,10 @@ void snap_draw(app *a, mm_pose pose)
 		p2_panel(a, s->heading, s->rows, s->n, s->accent, pose);
 		return;
 	}
+	if (s->kind == PANEL_LINK) {
+		link_panel(a, s->heading, s->rows, s->n, s->sel, s->accent, pose);
+		return;
+	}
 	if (s->kind == PANEL_MOVE) {
 		move_page(a, s->heading, s->rows, s->n, pose);
 		return;
@@ -4355,6 +4363,7 @@ void panel_show(app *a, int kind, const char *heading,
 	if (panel_is_tiles(kind)) tiles_panel(a, kind, heading, rows, g_snap->marks, n, sel, f.panel);
 	else if (kind == PANEL_HOT) hot_panel(a, heading, rows, n, f.panel);
 	else if (kind == PANEL_P2) p2_panel(a, heading, rows, n, accent, f.panel);
+	else if (kind == PANEL_LINK) link_panel(a, heading, rows, n, sel, accent, f.panel);
 	else if (kind == PANEL_MOVE) move_page(a, heading, rows, n, f.panel);
 	else menu_panel(a, heading, rows, n, sel, fixed_w, accent, vcolors,
 	                visits_all, loop_at, heading_note, f.panel);
@@ -7114,6 +7123,16 @@ int main(int argc, char *argv[])
 				v->url = "zyperos.local/play";
 			}
 		}
+		/* --link KIND: the Link Cable's page over a paused Game Boy game
+		 * (src/link_screen.h's kinds: tiles, no-adapter, starting,
+		 * waiting, looking, found, joining, linked, lost, failed,
+		 * stopping, failed-network, -join, -busy, -game); with --gamemenu the in-game menu, its row saying it */
+		else if (!strcmp(argv[i], "--link") && i + 1 < argc) {
+			if (!link_shot_parse(argv[++i])) {
+				fprintf(stderr, "--link: no such kind %s\n", argv[i]);
+				return 2;
+			}
+		}
 		else if (!strcmp(argv[i], "--hotspot")) {
 			shot_hot = 1;
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_hot_ssid   = argv[++i];
@@ -7716,6 +7735,7 @@ int main(int argc, char *argv[])
 		plat_on_input_wait(dlq_wait);
 		dlq_on_step(downloads_stepped);
 		p2_setup();
+		link_setup();
 		heat_init(&g_heat);
 
 		/* Without this every HTTPS request fails verification, because the

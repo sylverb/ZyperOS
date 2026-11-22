@@ -12,7 +12,7 @@ the reasons behind them.
 - [Controls and menus](#controls-and-menus), [Scraper](#scraper), [Achievements](#achievements), [Screensaver](#screensaver), [Date & Time](#date--time), [Shaders](#shaders) and [in a game](#in-a-game)
 - [Languages](#languages), [Light and dark](#light-and-dark), [Screen Colors and Night Mode](#screen-colors-and-night-mode), [Battery and power](#battery-and-power) and [Rumble](#rumble)
 - [File transfer](#file-transfer), [System Update](#system-update) and [PortMaster](#portmaster)
-- [Changing discs](#changing-discs), [Player 2](#player-2), [Audio](#audio), [Equalizer](#equalizer) and [MP4](#mp4)
+- [Changing discs](#changing-discs), [Player 2](#player-2), [Link Cable](#link-cable), [Audio](#audio), [Equalizer](#equalizer) and [MP4](#mp4)
 - [The shelf](#the-shelf), [Delete Game](#delete-game), [Storage](#storage), [Ports](#ports) and [Coming from EmulationStation](#coming-from-emulationstation)
 - [Questions](#questions), [How it compares](#how-it-compares) and [Screens](#screens)
 
@@ -326,7 +326,7 @@ Dreamcast games run on flycast2021, the 2021 libretro [Flycast](https://github.c
 | **F1/F2** | brightness, everywhere, including in game |
 | **MENU** (on the systems row) | the ZyperOS menu - settings that are about the firmware |
 | **MENU** (inside a system) | that system's menu, below |
-| **MENU** (in game) | the in-game menu, in four tabs that L1 and R1 go round: **Game** (Continue, Save, Load, Undo Load after a load, Quick Slot, Disc in a game on more than one disc, Player 2 in an NES game on the Pixel 2, Achievements, Reset, Quit), **Display** (Display, Shader, Strength while the shader is an old screen, a DS game's Screens, Swap Screens and Stylus, and On-Screen Stats), **Controls** (what each button does, Pak in a Nintendo 64 game) and **Achievements** (the game's list, A opening one, or why it has none; A on the Game tab's Achievements row turns to it). See **Changing a button** below and **Player 2**. It opens when you let go, so MENU can be held for brightness, and it opens on the tab and row you left while you play the same game |
+| **MENU** (in game) | the in-game menu, in four tabs that L1 and R1 go round: **Game** (Continue, Save, Load, Undo Load after a load, Quick Slot, Disc in a game on more than one disc, Player 2 in an NES game on the Pixel 2, Link Cable in a Game Boy or Game Boy Color game on Gambatte on the Pixel 2, Achievements, Reset, Quit), **Display** (Display, Shader, Strength while the shader is an old screen, a DS game's Screens, Swap Screens and Stylus, and On-Screen Stats), **Controls** (what each button does, Pak in a Nintendo 64 game) and **Achievements** (the game's list, A opening one, or why it has none; A on the Game tab's Achievements row turns to it). See **Changing a button** below and **Player 2**. It opens when you let go, so MENU can be held for brightness, and it opens on the tab and row you left while you play the same game |
 | **X** (in the in-game menu) | Quit, from any row of any tab: the game ends and the shelf comes back, as A on Quit does. The Quit row shows the X button to remind you |
 | **SELECT+R1** (in game) | quick save: a state into the Quick Slot |
 | **SELECT+L1** (in game) | quick load: the state in the Quick Slot |
@@ -1690,6 +1690,34 @@ no other site can show the page inside its own.
 
 A game controller paired with the phone or the computer does not work yet.
 It needs the page over HTTPS, which comes with a later update.
+
+## Link Cable
+
+On two Pixel 2s, a Game Boy or Game Boy Color game can be linked as by the
+Game Boy's link cable: trade and battle in Pokémon, or play Tetris against
+each other. Each Pixel 2 needs a Wi-Fi adapter in, and the game runs on
+**Gambatte**: in the Game Boy's (or the Game Boy Color's) system menu, set
+**Core** to gambatte. mGBA has no link.
+
+1. Start the same game on both, or two that link (Pokémon Red and Blue).
+2. On one: MENU, then **Link Cable** on the Game tab, then **Host**. It makes
+   its own Wi-Fi network and says its name, `Pixel 2 7F2A`.
+3. On the other: MENU, **Link Cable**, **Join**. It looks for a Pixel 2 that
+   hosts and lists it; choose it with **A**.
+4. Both close their menus by themselves and the games go on, linked. A
+   notice says **Linked with Pixel 2 ...** on each. Use the link in the game
+   as with a real cable (in Pokémon, the Cable Club).
+
+The row says `Off`, `Waiting` (hosting, nobody yet), `Linked` or `Lost`.
+With no adapter in, it says `Needs Wi-Fi`. The two games run in step, so
+while a menu is open on one, the other's game stands still at its next
+transfer on the link; after ten seconds it gives that transfer up, as if the
+cable were pulled out, and the link comes back once the menu closes. If the other one goes
+out of range or turns off, a notice says **Link lost** after six seconds and
+the game goes on alone; if it stops the link or quits its game, the notice
+says it left. Choose Host or Join again to link once more. The game's end
+stops the link, however it ends, and each handheld's Wi-Fi comes back as it
+was. Nothing is saved to the Wi-Fi list.
 
 ## Audio
 

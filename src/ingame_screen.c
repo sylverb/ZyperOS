@@ -24,6 +24,7 @@
 #include "look.h"
 #include "mp4c.h"
 #include "p2.h"
+#include "link_screen.h"
 #include "panel.h"
 #include "portmenu.h"
 #include "rabadge.h"
@@ -669,6 +670,14 @@ void gm_gather(app *a, gm_ui *out)
 		if (p2_offered(q->core, plat_player2() || g_shot_p2)) {
 			u.player2 = true;
 			u.player2_value = gm_player2_value(p2_row_state());
+		}
+		/* The Game Boy's Link Cable, on Gambatte on a device with the
+		 * hotspot it is built on; quiet with no adapter in (a shot draws
+		 * it on the host) */
+		if (link_offered(q->core, plat_player2() || g_shot_link)) {
+			u.link = true;
+			u.link_value = gm_link_value(link_row_state());
+			u.link_quiet = !link_row_adapter();
 		}
 	}
 	if (!u.port) {
@@ -2421,6 +2430,13 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		break;
 	case GM_PLAYER2:
 		player2_page(a, c->bg);
+		break;
+	/* Linked from the page: the game goes on at once, as the mock has it */
+	case GM_LINK:
+		if (link_page(a, c->bg)) {
+			c->resume = true;
+			return MENU_DONE;
+		}
 		break;
 	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
 	case GM_CHEATS:

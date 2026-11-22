@@ -13,6 +13,7 @@
 
 #include "menu.h"
 #include "library.h"
+#include "link.h"
 #include "p2.h"
 #include "rahash.h"
 
@@ -226,12 +227,21 @@ typedef enum {
 	 * display has a table: its value the look, and A opens MENU >
 	 * Display's own page over the paused game (1.1.0) */
 	GM_SCREEN_COLORS,
+	/* Link Cable (src/link.h, DESIGN.md 11.70), a Game Boy or Game Boy
+	 * Color game's on Gambatte, on the Game tab after Player 2's place:
+	 * Off, Waiting, Linked or Lost, and A opens its page; quiet, Needs
+	 * Wi-Fi, with no adapter in */
+	GM_LINK,
 	GM_MAX_ROWS
 } gm_row;
 
 /* The Player 2 row's value for its state: off (a start that failed too),
  * waiting for a friend, or one connected */
 const char *gm_player2_value(p2_state st);
+
+/* The Link Cable row's value for its state (src/link.h): Waiting while this
+ * handheld hosts, Linked, Lost after the other one went; Off otherwise */
+const char *gm_link_value(link_state st);
 
 /* The layouts Diatom's SETSCREENS takes, in the Screens row's order, and how
  * the row says them. */
@@ -309,6 +319,12 @@ typedef struct {
 	 * value (gm_player2_value) */
 	bool        player2;
 	const char *player2_value;
+	/* The Link Cable is offered on this game's core (link_offered), its
+	 * row's value (gm_link_value), and whether it is quiet: no Wi-Fi
+	 * adapter in, the value then Needs Wi-Fi */
+	bool        link;
+	const char *link_value;
+	bool        link_quiet;
 	/* The discs of a game on more than one (Diatom's DISC answer): how many
 	 * (under 2: no Disc row), the one in the tray, 0 based, and the core's
 	 * name for it, NULL or empty for none. disc_fits says whether a label

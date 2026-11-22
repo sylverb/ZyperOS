@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
+#include "link_screen.h"
 #include "shelf_draw.h"
 #include "cheats_screen.h"
 #include "homesys.h"
@@ -313,6 +314,9 @@ bool tick_theme(app *a)
 	/* NES Player 2's, in the screens over a paused game (its page, the
 	 * in-game menu): on with the game, nothing on the shelf */
 	p2_tick(plat_now_ms());
+	/* The Link Cable's, the same way: its beat goes on while the game is
+	 * paused, so a menu open is never a lost link */
+	link_tick(plat_now_ms());
 	if (!g_ctl_shelf_pass) ctl_poll(a, CTL_AT_SCREEN);
 	tick_update_trial();
 	/* A list's cursor showing an accent or a theme that is not kept
