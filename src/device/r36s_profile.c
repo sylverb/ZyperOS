@@ -94,8 +94,9 @@ const device_profile device_profile_r36s = {
 	.wifi = DEV_WIFI_ADAPTER,
 	.thermal_zones = r36s_zones,
 	/* None until a real R36S's cutoff is measured: ROCKNIX's battery table
-	 * for it puts 3.38 V at 20%, under its 3.40 V design minimum, so the
-	 * Pixel 2's 3.45 V would power it off with a fifth of the battery
-	 * left. The level's rule alone. */
+	 * for it (rk3326-gameconsole-r3xs.dtsi, the BSP's curve) puts 3.38 V at
+	 * 20%, under the design minimum its trees give (3.50 V in its 20260901
+	 * release, 3.40 V since), so the Pixel 2's 3.45 V would power it off
+	 * with a fifth of the battery left. The level's rule alone. */
 	.batt_empty_mv = 0,
 };
