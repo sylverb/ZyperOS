@@ -111,6 +111,13 @@ static void pack(void)
 	 * masked as the rest */
 	snprintf(p, sizeof p, "%s/logs/kernel.log", dir);
 	if ((f = fopen(p, "w"))) { fputs("<6>[ 9.1] xr829: joined ReinFi\n", f); fclose(f); }
+	/* The system log, logread's at the pack: bluetoothd's lines on the
+	 * Brick, masked as the rest */
+	snprintf(p, sizeof p, "%s/logs/system.log", dir);
+	if ((f = fopen(p, "w"))) {
+		fputs("Nov 21 22:10:01 zyperos daemon.err bluetoothd[812]: a2dp-source profile connect failed for C0:86:B3:A7:48:7F\n", f);
+		fclose(f);
+	}
 	snprintf(p, sizeof p, "%s/logs/crash-notes.md", dir);
 	if ((f = fopen(p, "w"))) { fputs("not a report\n", f); fclose(f); }
 	snprintf(p, sizeof p, "%s/logs/other.txt", dir);
@@ -135,7 +142,7 @@ static void pack(void)
 		}
 		pclose(f);
 	}
-	CHECK(files == 7, "three logs (wifi.log among them), the kernel's log, the card checks, a crash report and about.txt, "
+	CHECK(files == 8, "three logs (wifi.log among them), the kernel's log, the system log, the card checks, a crash report and about.txt, "
 	      "not the other files: %d", files);
 	CHECK(found_net && found_mac && found_about,
 	      "each masked, in the logs and in about.txt: %d %d %d",

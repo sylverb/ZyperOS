@@ -29,6 +29,7 @@
 #include "shelfbuild.h"
 #include "signin_screen.h"
 #include "ss.h"
+#include "spawn.h"
 #include "sshlink.h"
 #include "taskhold.h"
 #include "uisound.h"
@@ -519,6 +520,25 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 		if (klog[0] && (f = fopen(kpath, "w"))) {
 			fputs(klog, f);
 			fclose(f);
+		}
+	}
+	/* And the system log, the memory ring logread prints: on the Brick it
+	 * runs while Bluetooth is on (/etc/init.d/bluetooth), and bluetoothd's
+	 * and bluealsa's lines are only there, so a pairing that connects
+	 * nothing says why (a tester's Brick, 2026-11-21, sent none). Where no
+	 * system logger runs, an old one is not packed again as if it were new */
+	{
+		static char slog[1 << 16];
+		char spath[CFG_STR * 2 + 16];
+		char *argv[] = { (char *)"/sbin/logread", NULL };
+
+		snprintf(spath, sizeof spath, "%s/system.log", logs);
+		if (spawn_capture(argv, slog, sizeof slog, 5) == 0 && slog[0] &&
+		    (f = fopen(spath, "w"))) {
+			fputs(slog, f);
+			fclose(f);
+		} else {
+			remove(spath);
 		}
 	}
 	snprintf(name, nn, "%s.tar.gz", folder);

@@ -189,11 +189,13 @@ static bool run(char *const argv[])
  * port's plugs (usblog.h), the Wi-Fi supplicant's joins and drops (wifi.log
  * and wifi.log.1, /etc/init.d/wpa_supplicant on the Pixel 2), and the card
  * checks after a power-off that left the card dirty (card-check.txt,
- * plastron's /etc/init.d/datapart: what fsck.exfat found and did) */
+ * plastron's /etc/init.d/datapart: what fsck.exfat found and did), and the
+ * system log as logread printed it at the pack (system.log: the Brick's
+ * bluetoothd and bluealsa write nowhere else) */
 static bool packed(const char *name)
 {
 	return !strncmp(name, "zyperos.log", 10) || !strcmp(name, "usb.log") ||
-	       !strcmp(name, "kernel.log") ||
+	       !strcmp(name, "kernel.log") || !strcmp(name, "system.log") ||
 	       !strcmp(name, "wifi.log") || !strcmp(name, "wifi.log.1") ||
 	       !strcmp(name, "card-check.txt") ||
 	       /* and the reports of a panic or a reset before a start
