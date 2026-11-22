@@ -163,7 +163,8 @@ typedef struct {
 	/* The host's network joined for the game's time, nothing saved: the
 	 * start (false when it could not even ask), its poll (1 once an address
 	 * is in hand, into `addr`; 0 not yet; -1 failed) and its end, the Wi-Fi
-	 * as it was (blocking: only link_stop asks it) */
+	 * as it was before the scan (blocking: only link_stop asks it, after a
+	 * join or a scan alone) */
 	bool (*join_start)(const char *ssid, const char *pass);
 	int  (*join_poll)(char *addr, unsigned n);
 	void (*join_end)(void);

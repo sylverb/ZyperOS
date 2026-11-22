@@ -455,7 +455,18 @@ static bool lop_resident(const char *line) { return plat_resident_line("%s", lin
 static bool lop_hs_start(const char *ssid, const char *pass) { return hotspot_start_named(ssid, pass); }
 static int  lop_hs_poll(void) { return (int)hotspot_poll(); }
 static void lop_hs_stop(void) { hotspot_stop(); }
-static bool lop_scan_start(void) { return wifi_up() && wifi_scan_start(); }
+/* The radio as it was before the Join page's first scan: a scan brings the
+ * supplicant up, and the end of the link puts it back down if it was */
+static bool g_radio_known, g_radio_was_off;
+
+static bool lop_scan_start(void)
+{
+	if (!g_radio_known) {
+		g_radio_was_off = wifi_status(NULL, 0, NULL, 0) == WIFI_OFF;
+		g_radio_known = true;
+	}
+	return wifi_up() && wifi_scan_start();
+}
 static int  lop_scan_poll(void) { return wifi_scan_poll(); }
 
 static int lop_scan_take(char ssids[][LINK_SSID_MAX], int max)
@@ -481,7 +492,12 @@ static int lop_join_poll(char *addr, unsigned n)
 	return wifi_join_temp_poll(addr, (int)n);
 }
 
-static void lop_join_end(void) { wifi_join_temp_end(); }
+static void lop_join_end(void)
+{
+	wifi_join_temp_end();
+	if (g_radio_known && g_radio_was_off) wifi_down();
+	g_radio_known = g_radio_was_off = false;
+}
 static unsigned lop_now(void) { return plat_now_ms(); }
 
 /* "Linked with Pixel 2 0C11" over the game, in the queue with the other

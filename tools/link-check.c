@@ -451,6 +451,14 @@ static void join_failures(void)
 	link_stop();
 	g_scan_ok = true;
 
+	/* A scan alone owes the radio back as it was too */
+	g_scan_state = 1;
+	link_join_look("Tetris");
+	run(100);
+	reset_log();
+	link_stop();
+	CHECK(at("join end") >= 0);
+
 	/* The network never joins */
 	g_scan_state = 1;
 	link_join_look("Tetris");

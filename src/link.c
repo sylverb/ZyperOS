@@ -205,6 +205,7 @@ static struct {
 	char joining[LINK_NAME_MAX];
 	bool hot;        /* the hotspot was asked: hotspot_stop is owed */
 	bool joined;     /* a network was joined: join_end is owed */
+	bool looked;     /* the radio scanned for hosts: join_end is owed too */
 	bool opts;       /* the core's link was turned on: off is owed */
 	bool over;       /* the game is over (link_game_over) */
 	int  sock;
@@ -317,6 +318,7 @@ bool link_join_look(const char *game)
 		return false;
 	}
 	g.scanning = true;
+	g.looked = true;
 	g.scan_at = now();
 	g.st = LINK_JOIN_LOOKING;
 	return true;
@@ -517,13 +519,13 @@ void link_stop(void)
 	if (g.opts && !g.over) core_link(LINK_ROLE_OFF);
 	if (g.sock >= 0) g_ops->udp_close(g.sock);
 	if (g.hot) g_ops->hotspot_stop();
-	if (g.joined) g_ops->join_end();
+	if (g.joined || g.looked) g_ops->join_end();
 	if (g.st != LINK_OFF) fprintf(stderr, "link: off\n");
 	g.st = LINK_OFF;
 	g.why = LINK_FAIL_NONE;
 	g.role = LINK_ROLE_OFF;
 	g.sock = -1;
-	g.hot = g.joined = g.opts = g.over = g.scanning = g.scanned = false;
+	g.hot = g.joined = g.looked = g.opts = g.over = g.scanning = g.scanned = false;
 	g.nhosts = 0;
 	g.peer[0] = g.peer_addr[0] = g.joining[0] = '\0';
 	memset(g.pass, 0, sizeof g.pass);
