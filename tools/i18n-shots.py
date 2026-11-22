@@ -343,6 +343,9 @@ EXTRA = {
     "keyboard": ("demo", "PS1", ["--keyboard"]),
     # The ScreenScraper sign-in's title, the longest the keyboard has
     "keyboard-ss-user": ("demo", "PS1", ["--keyboard", "--kb-ss-user"]),
+    # Rename on an arcade set or a port: the name shown only, its title and
+    # the line in the place of the hints (src/gamern_screen.c)
+    "keyboard-rename-shown": ("demo", "PS1", ["--screen", "games", "--kb-rename-shown"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
     "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
     # A video this CPU cannot carry, its notice: too big (AV1 at 60 fps), with
