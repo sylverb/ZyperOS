@@ -40,7 +40,7 @@ static const td_part r36s_parts[] = {
 	{ TD_START,  TD_FACE_FRONT,   7.4f, -30.4f,  3.6f },
 	/* POWER on the left side, a pill 8.0 long; the volume rocker on the
 	 * right, its two halves 6.6 long each, meeting at z 39.7 */
-	{ TD_POWER,  TD_FACE_LEFT,   -5.75f, 37.5f,  4.0f },
+	{ TD_POWER,  TD_FACE_LEFT,   -5.75f, 40.0f,  4.0f },
 	{ TD_VOLUP,  TD_FACE_RIGHT,  -5.75f, 43.0f,  3.3f },
 	{ TD_VOLDN,  TD_FACE_RIGHT,  -5.75f, 36.4f,  3.3f },
 	/* Tall paddles on the back ledge (the grip's top, z 9.5, 50 mm under
@@ -75,7 +75,7 @@ static const td_flat_key r36s_flat_keys[] = {
 };
 static const td_flat_label r36s_flat_labels[] = {
 	{ "FN", 0.0f, -17.3f, false },
-	{ "POWER", -43.6f, 37.5f, true }, { "VOL", 43.6f, 39.7f, true },
+	{ "POWER", -43.6f, 40.0f, true }, { "VOL", 43.6f, 39.7f, true },
 };
 /* The sticks, at the bottom either side: their wells 22 across, their caps
  * 15 (no keys of the launcher's: drawn, never pressed) */
@@ -119,8 +119,8 @@ const td_model td_model_r36s = {
 	/* Every vertex of every pose and turn, a halo's faint edge too, as
 	 * --handheld-box measures it under --device r36s (src/tourdevice.c,
 	 * td_box_holds), with a unit or more to spare: the tutorial's reaches
-	 * x 11.4 to 252.7 and y 100.0 to 422.9 on the screen, the Controls
-	 * tab's x -105.8 to 107.8 and y -144.2 to 143.0 about its middle */
+	 * x 11.2 to 255.3 and y 100.0 to 422.9 on the screen, the Controls
+	 * tab's x -107.2 to 110.7 and y -144.2 to 143.0 about its middle */
 	.keep_tour = { 10, 95, 256, 334 },
 	.keep_tab = { 111, 148, 224, 294 },
 	.flat = &r36s_flat,

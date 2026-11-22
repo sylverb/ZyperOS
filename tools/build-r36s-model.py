@@ -20,8 +20,8 @@ z up, millimetres, the body's middle at the origin. glTF export converts to
 y-up. The editable .blend and review renders go in build/r36s-model/; the
 deployment asset goes in site/models/r36s.glb. --render also draws the
 poster and its thumbnail in the Pixel 2 poster's pose and scale (8.807 px a
-millimetre), with R36S_SCREEN (a 640x480 launcher picture; the README's
-res/readme/systems.png if unset) on its screen.
+millimetre), with the R36S's home (res/readme/r36s/systems.png, the
+Pixel 2's README shot as the R36S draws it) on its screen, or R36S_SCREEN.
 """
 import math
 import sys
@@ -67,8 +67,11 @@ def coated(m, weight=.6, rough=.12):
 # Plastic, so no metal: a satin finish under a light clear coat.
 shell = coated(material('White plastic shell', os.environ.get('R36S_SHELL','ecece8'), 0, .38), .4)
 grip = coated(material('White plastic, shaded', 'deded9', 0, .42), .4)
-plastic = coated(material('Black plastic keys', '1d1e21', 0, .32), .5)
-rubber = material('Stick caps', '18191b', 0, .7)
+# Glossy black keys, as the product photos show them; the sticks' caps
+# matte, in a light grey ring that stands out of the face
+plastic = coated(material('Black plastic keys', '0d0e10', 0, .22), .8, .06)
+rubber = material('Stick caps', '121315', 0, .65)
+ring = coated(material('Stick rings', 'c4c4bf', 0, .4), .4)
 printed = material('Printed words', '55585d', 0, .5)
 black = material('Port and socket interiors', '0b0c10', 0, .75)
 silver = material('Steel port rims', 'b9bfc0', .9, .24)
@@ -223,7 +226,7 @@ def crossmesh(name,half,arm,front,rear,mat,bevel=.35):
 cut(body,crossmesh('D-pad socket cutter',10.75+.45,3.75+.45,FRONT-1,FRONT+1.6,None))
 crossmesh('D-pad socket',10.75+.43,3.75+.43,FRONT+1.2,FRONT+1.5,black,.2)
 crossmesh('D-pad',10.75,3.75,FRONT-1.4,FRONT+1.3,plastic,.6)
-cylinder('D-pad pivot',2.2,.3,(dx,FRONT-1.45,dz),printed,bevel=.08)
+cylinder('D-pad pivot',2.2,.3,(dx,FRONT-1.45,dz),plastic,bevel=.08)
 for i in range(4):
     a=i*math.pi/2; pts=[(-1.2,6.6),(1.2,6.6),(0,8.4)]
     verts=[(dx+x*math.cos(a)-z*math.sin(a),FRONT-1.42,dz+x*math.sin(a)+z*math.cos(a)) for x,z in pts]
@@ -248,21 +251,29 @@ text('SELECT word','SELECT',1.6,(-7.4,FRONT-.02,-36.2),printed)
 text('START word','START',1.6,(7.4,FRONT-.02,-36.2),printed)
 
 # The speaker's grille between the d-pad and A B X Y: three rows of two
-# slots, 6.6 x 1.3, about (0, -9.4)
+# slots, 6.6 x 1.3, about (0, -9.4), a dot between the middle row's two;
+# and the microphone's hole between SELECT and START
 slots=[]
 for row in range(3):
     for side in (-1,1):
         slots.append(rounded('Grille slot',6.6,1.3,3,.6,(side*4.4,FRONT,-6.8-2.6*row),None))
+slots.append(cylinder('Grille dot',.6,3,(0,FRONT,-9.4),None,bevel=0))
+slots.append(cylinder('Microphone hole',.45,3,(0,FRONT,-30.4),None,bevel=0))
 cut(body,joined('Grille cutter',slots))
+cylinder('Microphone floor',.45,.1,(0,FRONT+1.2,-30.4),black,bevel=0)
+# The seam across the face just under the glass, where the front's two
+# mouldings meet (the product photos). GUESS: 1.6 under the glass.
+cut(body,rounded('Seam cutter',W+4,.35,.8,.1,(0,FRONT,31.2-55.6/2-1.6),None))
 rounded('Grille floor',16.0,7.2,.1,.6,(0,FRONT+1.2,-9.4),black)
 
-# The sticks: a well 22 across in the face, the cap 15 across on its shaft.
-# GUESS: the well's depth and the cap's dish.
+# The sticks: a light grey ring 22 across standing out of the face, the
+# black base in it, the cap 15 across on its shaft. GUESS: the ring's
+# height and width, and the cap's dish.
 for side in (-1,1):
     x,z=side*26.3,-38.6
-    cut(body,cylinder('Stick well cutter',11.0,2.4,(x,FRONT,z),None,bevel=0))
-    cylinder('Stick well',11.0,.2,(x,FRONT+1.1,z),black,bevel=.05)
-    cylinder('Stick base',9.0,1.2,(x,FRONT+.4,z),plastic,bevel=.3)
+    rg=cylinder('Stick ring',11.0,1.4,(x,FRONT-.3,z),ring,bevel=.4)
+    cut(rg,cylinder('Stick ring hole',8.6,3,(x,FRONT,z),None,bevel=0))
+    cylinder('Stick base',8.6,1.2,(x,FRONT-.1,z),plastic,bevel=.3)
     cylinder('Stick shaft',3.0,STICK_OUT,(x,FRONT-STICK_OUT/2+.5,z),plastic,bevel=0)
     cap=cylinder('Stick cap',7.5,1.8,(x,FRONT-STICK_OUT+.9,z),rubber,bevel=.7)
     dish=cylinder('Stick dish cutter',6.0,.6,(x,FRONT-STICK_OUT-.05,z),None,bevel=0)
@@ -284,36 +295,58 @@ def side_slot(name,length,side,z):
     # A microSD slot, its slit across the side. GUESS: 11 x 1.4.
     cut(body,sidepiece(name+' cutter',1.4,length,3,.6,side,SIDE_Y,z,None,EDGE))
     sidepiece(name+' interior',1.3,length-.1,.1,.55,side,SIDE_Y,z,black,EDGE-1.2)
-# Left: POWER, a pill 8.0 long, and the reset hole under it; the TF2-GAME
-# slot lower (GUESS: z 5.5)
-side_key('POWER',8.0,3.0,-1,37.5)
-cut(body,cylinder('Reset hole',1.2,3,(-EDGE,SIDE_Y,26.8),None,'X',0))
-cylinder('Reset hole floor',1.2,.1,(-EDGE+1.3,SIDE_Y,26.8),black,'X',0)
-side_slot('TF2 slot',11,-1,5.5)
-# Right: the volume rocker, its halves 6.6 long meeting at z 39.7, VOL+
-# the top one; the TF1-OS slot (GUESS: z 14.5)
-side_key('VOL+',6.6,3.0,1,43.0)
-side_key('VOL-',6.6,3.0,1,36.4)
-side_slot('TF1 slot',11,1,14.5)
+# Left: POWER, a pill 8.0 long, the reset hole under it, and the TF2-GAME
+# slot lower. GUESS: their heights, between what TechTactician's side
+# photo and the maker's front photo give (POWER 37.5 to 42.3, the slot
+# 5.5 to 15)
+side_key('POWER',8.0,3.0,-1,40.0)
+cut(body,cylinder('Reset hole',1.2,3,(-EDGE,SIDE_Y,29.5),None,'X',0))
+cylinder('Reset hole floor',1.2,.1,(-EDGE+1.3,SIDE_Y,29.5),black,'X',0)
+side_slot('TF2 slot',11,-1,12.0)
+# Right: the volume rocker, one key 13.2 long about z 39.7, VOL+ its top
+# end, and the TF1-OS slot. GUESS: the slot's height (8 to 14.5)
+side_key('Volume rocker',13.2,3.0,1,39.7)
+side_slot('TF1 slot',11,1,11.0)
 
 # The shoulders: tall paddles on the grip's top, behind the thin part, from
 # the ledge up to z 21.0, L1 and R1 15.0 wide at +-30.7, L2 and R2 14.4 wide
 # at +-13.1 (iFixit's photo of the back). GUESS: their depth, as the grip's
 # less 1 mm, and their rounding.
-LY=(THIN_BACK+GRIP_BACK)/2+.3; LD=GRIP_BACK-THIN_BACK-1.2
+# Each a black paddle angled back: from just behind the thin part to past
+# the grip's back, further at its top (the product photo's back view).
+# GUESS: 2.0 past the back at the ledge, 4.5 at the top.
+def paddle(name,x,w):
+    y0,yb,yt=THIN_BACK+.3,GRIP_BACK+2.0,GRIP_BACK+4.5
+    z0,z1=LEDGE-.5,21.0
+    x0,x1=x-w/2+.3,x+w/2-.3
+    v=[(x0,y0,z0),(x1,y0,z0),(x1,yb,z0),(x0,yb,z0),(x0,y0,z1),(x1,y0,z1),(x1,yt,z1),(x0,yt,z1)]
+    f=[(0,1,2,3),(7,6,5,4),(0,4,5,1),(1,5,6,2),(2,6,7,3),(3,7,4,0)]
+    ob=mesh(name,v,f,plastic); consistent(ob)
+    bpy.context.view_layer.objects.active=ob; ob.select_set(True)
+    mod=ob.modifiers.new('Rounded paddle','BEVEL'); mod.width=1.2; mod.segments=4
+    bpy.ops.object.modifier_apply(modifier=mod.name); ob.select_set(False)
+    return ob
 for prefix,side in [('L',-1),('R',1)]:
     for n,x,w in [('1',30.7,15.0),('2',13.1,14.4)]:
         name=prefix+n
-        rounded(name,w-.6,21.0-LEDGE,LD,(2.0,.6),(side*x,LY,(21.0+LEDGE)/2),plastic,.4)
-        text(name+' marking',name,2.4,(side*x,GRIP_BACK+.25,(21.0+LEDGE)/2+1.5),printed,(math.pi/2,0,math.pi))
+        paddle(name,side*x,w)
+        text(name+' marking',name,2.4,(side*x,GRIP_BACK+3.5,16.5),printed,(math.pi/2-.38,0,math.pi))
+
+# The back: a rectangular panel on the thin part (the product photo's
+# back view), and the grip's back ribbed across. GUESS: their sizes.
+cut(body,rounded('Back panel cutter',60.0,28.0,.8,2.0,(0,THIN_BACK,41.0),None))
+rounded('Back panel',59.4,27.4,.5,1.8,(0,THIN_BACK-.1,41.0),grip,.1)
+grooves=[rounded('Back rib',64.0,.9,1.0,.4,(0,GRIP_BACK,-6.0-i*3.0),None) for i in range(15)]
+cut(body,joined('Back rib cutter',grooves))
 
 # The back: four screws on the thin part, two on the grip. GUESS: places.
 for x,y,z in [(-35.5,THIN_BACK,55.0),(35.5,THIN_BACK,55.0),(-35.5,THIN_BACK,23.5),(35.5,THIN_BACK,23.5),
               (-35.5,GRIP_BACK,-54.0),(35.5,GRIP_BACK,-54.0)]:
     cylinder('Screw',1.1,.4,(x,y+.1,z),silver,bevel=.15)
-# The grip's ribs down its sides (the side photos). GUESS: eight, 1 mm.
+# The ribs down the sides' lower part (the side photos), from 72 to 103
+# mm under the top edge. GUESS: twelve, 1 mm.
 for side in (-1,1):
-    ribs=[sidepiece('Rib',8.0,1.0,1.6,.45,side,GRIP_BACK-6.0,-12.0-i*2.6,None,EDGE) for i in range(8)]
+    ribs=[sidepiece('Rib',8.0,1.0,1.6,.45,side,GRIP_BACK-6.0,-13.0-i*2.6,None,EDGE) for i in range(12)]
     bpy.context.view_layer.update()
     for rib in ribs:
         bpy.context.view_layer.objects.active=rib; rib.select_set(True)
@@ -422,7 +455,7 @@ if '--render' in sys.argv:
     camdata.ortho_scale=1200*109/960
     scene.render.resolution_x=880; scene.render.resolution_y=1200
     scene.render.film_transparent=True
-    picture=os.environ.get('R36S_SCREEN', str(ROOT/'res/readme/systems.png'))
+    picture=os.environ.get('R36S_SCREEN', str(ROOT/'res/readme/r36s/systems.png'))
     nodes=display.node_tree.nodes; nodes.clear()
     image=nodes.new('ShaderNodeTexImage'); image.image=bpy.data.images.load(picture)
     emission=nodes.new('ShaderNodeEmission'); output=nodes.new('ShaderNodeOutputMaterial')

@@ -96,7 +96,7 @@ extension Handheld {
                 Key(button: .menu, kind: .round, x: 0, y: -22.9, w: 7.2, h: 7.2, label: "", under: nil, hint: .right, hintDX: 0),
                 Key(button: .select, kind: .round, x: -7.4, y: -30.4, w: 7.2, h: 7.2, label: "", under: "SELECT", hint: .left, hintDX: 0),
                 Key(button: .start, kind: .round, x: 7.4, y: -30.4, w: 7.2, h: 7.2, label: "", under: "START", hint: .right, hintDX: 0),
-                Key(button: .power, kind: .side, x: -40.8, y: 37.5, w: 3, h: 8, label: "", under: nil, hint: .right, hintDX: 0),
+                Key(button: .power, kind: .side, x: -40.8, y: 40, w: 3, h: 8, label: "", under: nil, hint: .right, hintDX: 0),
                 Key(button: .volup, kind: .side, x: 40.8, y: 43, w: 3, h: 6.6, label: "+", under: nil, hint: .left, hintDX: 0),
                 Key(button: .voldown, kind: .side, x: 40.8, y: 36.4, w: 3, h: 6.6, label: "-", under: nil, hint: .left, hintDX: 0),
                 Key(button: .l1, kind: .shoulder, x: -30.7, y: 60.15, w: 15, h: 3.6, label: "L1", under: nil, hint: .on, hintDX: 0),
@@ -104,6 +104,6 @@ extension Handheld {
                 Key(button: .r2, kind: .shoulder, x: 13.1, y: 60.15, w: 14.4, h: 3.6, label: "R2", under: nil, hint: .on, hintDX: 0),
                 Key(button: .r1, kind: .shoulder, x: 30.7, y: 60.15, w: 15, h: 3.6, label: "R1", under: nil, hint: .on, hintDX: 0),
             ],
-            labels: [Label(text: "FN", x: 0, y: -17.3, turned: false), Label(text: "POWER", x: -43.6, y: 37.5, turned: true), Label(text: "VOL", x: 43.6, y: 39.7, turned: true)]),
+            labels: [Label(text: "FN", x: 0, y: -17.3, turned: false), Label(text: "POWER", x: -43.6, y: 40, turned: true), Label(text: "VOL", x: 43.6, y: 39.7, turned: true)]),
     ]
 }

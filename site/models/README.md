@@ -136,16 +136,21 @@ real one for `src/device/r36s_model.c` (`docs/devices/r36s.md` names them).
 The photos are reference only: nothing is traced from them, and no maker's
 mark is on the model. It is a visual reconstruction, not CAD: every number
 the script marks GUESS was not measured, and a caliper's number replaces it.
-It is the white R36S of the product sheet: a white shell, black keys and
-sticks, A B X Y's letters in their four colours. The R36S is on no page of the
-site yet (`site/devices.json` has no entry for it).
+It is the white R36S of the maker's product photos: a white shell, glossy
+black keys and d-pad, A B X Y's letters in their four colours, the sticks'
+black caps in light grey rings, the seam under the glass, the grille's dot
+and the microphone's hole, one volume rocker, the ribs down the sides' lower
+part, the panel and the ribbed grip on the back, and the shoulders as black
+paddles angled out past it. The R36S is on no page of the site yet
+(`site/devices.json` has no entry for it).
 
 ```sh
 R36S_SCREEN=SHOT.png blender -t 4 --background --python-exit-code 1 --python tools/build-r36s-model.py -- --render
 ```
 
-`R36S_SCREEN` is the picture on the poster's screen (a 1024x768 launcher
-shot, `--device r36s`); without it, `res/readme/systems.png`. The video's
+The poster's screen is `res/readme/r36s/systems.png`, the Pixel 2 poster's
+home as the R36S draws it (`tools/readme-shots.py`'s `systems` shot with its
+DEVICE set to `r36s`); `R36S_SCREEN` puts another 1024x768 shot there. The video's
 straight-on render: `blender --background build/r36s-model/r36s.blend
 --python video/device/render-device.py -- OUT_DIR 2000`, which writes
 `r36s-front.png` and its `.json` at the Pixel 2's and the Brick's 22 px a
