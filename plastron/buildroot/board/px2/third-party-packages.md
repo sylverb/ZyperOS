@@ -41,7 +41,7 @@ the boot loader and the closed parts.
 | linux | 7.1.2 | GPL-2.0 | https://cdn.kernel.org/pub/linux/kernel/v7.x |
 | linux-firmware | 20251011 | Proprietary | https://cdn.kernel.org/pub/linux/kernel/firmware |
 | linux-headers | 6.19.14 | GPL-2.0 | https://cdn.kernel.org/pub/linux/kernel/v6.x |
-| mesa3d-px2 | 25.0.7 | MIT, SGI, Khronos | https://archive.mesa3d.org |
+| mesa3d-px2 | 26.2.6 | MIT, SGI, Khronos | https://archive.mesa3d.org |
 | mpg123 | 1.33.4 | LGPL-2.1 | https://downloads.sourceforge.net/project/mpg123/mpg123/1.33.4 |
 | ncurses | 6.6-20251231 | MIT with advertising clause | https://github.com/ThomasDickey/ncurses-snapshots/archive/v6_6_20251231 |
 | openal | 1.24.3 | LGPL-2.0+ | https://github.com/kcat/openal-soft/archive/1.24.3 |
@@ -63,3 +63,4 @@ the boot loader and the closed parts.
 | wpa_supplicant | 2.11 | BSD-3-Clause | http://w1.fi/releases |
 | xz | 5.8.3 | Public Domain, BSD-0-Clause, GPL-2.0+, GPL-3.0+, LGPL-2.1+ | https://github.com/tukaani-project/xz/releases/download/v5.8.3 |
 | zyperos | from its repository | GPL-3.0+ | ZyperOS, https://github.com/tarikbc/ZyperOS |
+| zyperos-eq | 1.0 | GPL-3.0 (plugin), LGPL-2.1+ (ladspa.h) | plastron, https://github.com/ericreinsmidt/plastron |

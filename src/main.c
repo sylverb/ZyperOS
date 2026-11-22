@@ -1908,6 +1908,23 @@ static void port_quiet_follow(bool force)
 	fprintf(stderr, "quiet: PICO-8 %s\n", q ? "quiet, MP4 plays" : "heard");
 }
 
+/* THE VOLUME BOOST OVER YOUR PICO-8 (src/boost.h, DESIGN.md 11.6), heard on
+ * MP4 behind it. portkeys has the keys over PICO-8 and writes the boost's
+ * gain into the equalizer's shared file, which the plugin in PICO-8's chain
+ * reads; MP4 takes it only from a GAIN line on its socket (the launcher's
+ * src/levels.c sends one with every step), and the launcher is gone. So the
+ * follower, which is MP4's connection beside PICO-8, passes the file's gain
+ * on at its ten a second (mp4c_gain says only a change): a step of the boost
+ * over PICO-8 reaches the song playing as it does over a Diatom game. Before
+ * this, with music over PICO-8 (PICO-8 quiet), the bar's cells moved and the
+ * song stayed as loud as the launcher had left it. */
+static void port_gain_follow(void)
+{
+	const int db = eq_share_gain_get();
+
+	if (db >= 0) mp4c_gain(db);
+}
+
 /* As the launcher hands over to a program (launch_port) and as it starts:
  * your PICO-8 quiet from its first sound when MP4 plays (`pico8`), any other
  * program never, MP4 being stopped for it */
@@ -3421,16 +3438,33 @@ static void on_speed(int half)
 }
 
 /* Called from inside plat_resident_wait for the player's hotkeys the
- * launcher carries out (src/hotkeys.h): a screenshot Diatom wrote, said
- * over the game with the picture small beside "Screenshot saved" and where
- * it went; the next shader or display mode, stepped and kept as the menu's
- * rows do, and named over the game */
+ * launcher carries out (src/hotkeys.h): a screenshot taken, its shutter
+ * heard over the game at once (DESIGN.md 9: the one sound over a game, none
+ * with UI Sounds Off), Diatom buzzing it itself; a screenshot Diatom wrote,
+ * said over the game with the picture small beside "Screenshot saved" and
+ * where it went; the next shader or display mode, stepped and kept as the
+ * menu's rows do, and named over the game */
 static app *g_hotkey_app;   /* main's, for on_hotkey's steps */
 
 static void on_hotkey(const char *key, const char *path)
 {
 	char p[CFG_STR * 2], body[CFG_STR * 2];
 
+	if (!strcmp(key, "shot") && !path) {
+		const uis_cue c = uisound_shot(uisound_setting());
+
+		/* On the mix the game plays into ("default", a dmix on both
+		 * handhelds), beside it: nothing of the game's sound is touched.
+		 * The output is let go once the shutter ends, not kept the usual
+		 * quiet spell over the game. */
+		if (c.level > 0.0f) {
+			uisound_cue(c);
+			uisound_release();
+		}
+		fprintf(stderr, "hotkey: screenshot taken, %s\n",
+		        c.level > 0.0f ? "its shutter" : "no shutter (UI Sounds Off)");
+		return;
+	}
 	if (!strcmp(key, "shot") && path) {
 		const char *folder = strstr(path, "/Screenshots/");
 		const char *end = folder ? strrchr(path, '/') : NULL;
@@ -4803,9 +4837,11 @@ bool random_pick(app *a, bool all, int *shelf, int *game)
 		             : i == a->sys_cursor && !is_mp4(s);
 	}
 	/* Never an entry of a shelf's own that is no game (Splore's, PortMaster's
-	 * while it is not on the card): picked again, a few times */
+	 * while it is not on the card): picked again, a few times. By its own
+	 * system's, on Recents too, where Splore is once it was opened */
 	for (i = 0;; i++) {
 		const game_list *gl;
+		int own;
 
 		if (i >= 8 || !rg_pick(count, use, a->sys.count, rg_random(), last_shelf, last_game,
 		                       shelf, game)) {
@@ -4813,9 +4849,9 @@ bool random_pick(app *a, bool all, int *shelf, int *game)
 			return false;
 		}
 		gl = sys_games(&a->view[*shelf]);
-		if (*game < 0 || *game >= gl->count ||
-		    (!splore_is_entry(a, *shelf, &gl->items[*game]) &&
-		     !pm_is_offer(a, *shelf, &gl->items[*game])))
+		if (*game < 0 || *game >= gl->count) break;
+		own = a->view[*shelf].all ? *shelf : shelf_owner(a, *shelf, *game);
+		if (!splore_is_entry(a, own, &gl->items[*game]) && !pm_is_offer(a, own, &gl->items[*game]))
 			break;
 	}
 	last_shelf = *shelf;
@@ -6115,6 +6151,8 @@ static int mp4_follow_main(void)
 		mp4_poll();
 		/* PICO-8 quiet while MP4 plays, heard again at a pause or the end */
 		port_quiet_follow(false);
+		/* And the boost's steps over PICO-8, portkeys's, on MP4 */
+		port_gain_follow();
 		nanosleep(&nap, NULL);
 	}
 	free(taken);
@@ -6124,6 +6162,29 @@ static int mp4_follow_main(void)
 	mp4_hand_save();
 	db_shutdown();
 	follow_log_end();
+	return 0;
+}
+
+/* --port-played (src/stats.h, "a program of its own"): the session of the
+ * program that just ended closed in the library database, from the note the
+ * launcher left as it handed the program over, and the note removed. launch.sh
+ * runs it the moment the program ends, POWER and Auto Off too, before the
+ * power-off, so a cart played on your PICO-8 reaches Recents and Played
+ * however it ended. Nothing more: no systems.cfg, no display, no input. */
+static int port_played_main(void)
+{
+	char dev[CFG_STR * 2], lib[CFG_STR * 2], env[CFG_STR * 2];
+	bool closed;
+
+	paths_init();
+	db_paths_ready(dev, sizeof dev, lib, sizeof lib, env, sizeof env);
+	if (!db_init(dev, lib, env)) {
+		fprintf(stderr, "port: no library database; its play time is not kept\n");
+		return 1;
+	}
+	closed = stats_handed_back(plat_flag(STATS_PORT_NOTE), stats_mono_ms());
+	db_shutdown();
+	fprintf(stderr, "port: %s\n", closed ? "its play time kept" : "no play time to keep");
 	return 0;
 }
 
@@ -6151,6 +6212,13 @@ static int port_menu_main(int argc, char **argv)
 	signal(SIGTERM, on_sigterm);
 	signal(SIGINT, on_sigterm);
 	t_boot0 = plat_now_ms();
+	/* --device ID after the game: a handheld's profile on a computer, as
+	 * the launcher's own --device, for a check of what the menu shows there
+	 * (Screen Colors where the display has a table); a device build has its
+	 * own alone, and finds no other */
+	for (i = 4; i + 1 < argc; i++)
+		if (!strcmp(argv[i], "--device") && !plat_profile_select(argv[i + 1]))
+			fprintf(stderr, "port menu: no profile \"%s\"\n", argv[i + 1]);
 	paths_init();
 	{
 		char dev[CFG_STR * 2], lib[CFG_STR * 2], env[CFG_STR * 2], tz[64];
@@ -6308,6 +6376,7 @@ int main(int argc, char *argv[])
 
 	if (argc > 1 && !strcmp(argv[1], PORT_MENU_ARG)) return port_menu_main(argc, argv);
 	if (argc > 1 && !strcmp(argv[1], MP4_FOLLOW_ARG)) return mp4_follow_main();
+	if (argc > 1 && !strcmp(argv[1], STATS_PORT_PLAYED_ARG)) return port_played_main();
 	if (argc > 1 && !strcmp(argv[1], ALSA_TRY_ARG)) return alsa_try_main(argc, argv);
 
 	for (int i = 1; i < argc; i++) {
@@ -6469,6 +6538,9 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
+		/* ...and the details with the cursor on its Buttons row, which a
+		 * scraped game's facts and its File put below the first screenful */
+		else if (!strcmp(argv[i], "--info-on-buttons")) shot_info = 6;
 		else if (!strcmp(argv[i], "--delete-ask")) shot_delete_ask = 1;
 		/* --gm-said K: Delete Game's and Rename's messages (shots.c's
 		 * GM_SAID: 0 the delete's wait, 1-6 Delete Game's, 7-10 Rename's) */
@@ -6614,10 +6686,8 @@ int main(int argc, char *argv[])
 			/* --gm-restart buttons: the question for new buttons */
 			if (i + 1 < argc && !strcmp(argv[i + 1], "buttons")) shot_gm_restart = 2, i++;
 		}
-		/* --gm-reset: over your PICO-8, Reset's question; and
-		 * --gm-port-controls, the Controls list its row opens */
+		/* --gm-reset: over your PICO-8, Reset's question */
 		else if (!strcmp(argv[i], "--gm-reset")) shot_gm_reset = 1;
-		else if (!strcmp(argv[i], "--gm-port-controls")) shot_gm_port_controls = 1;
 		/* --hud-page ROW: the On-Screen Stats page (src/hudmenu_screen.h)
 		 * over the paused game, the cursor on ROW, with --gamemenu;
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's
@@ -7617,6 +7687,12 @@ int main(int argc, char *argv[])
 	 * them and a shelf cannot be built from a list that has not been read. */
 	fav_load();
 
+	/* A program of its own that ended with its session still open, which
+	 * launch.sh closes as it ends (--port-played): closed here, now, before
+	 * stats_recover would call it lost and Recents is built. A shot reads
+	 * the card as it is. */
+	if (!shot_path && stats_handed_back(plat_flag(STATS_PORT_NOTE), stats_mono_ms()))
+		fprintf(stderr, "port: its play time kept at the launcher's start\n");
 	/* Close any session the device never saw end - a power cut, a flat
 	 * battery - at its last checkpoint, before anything reads a total. See
 	 * stats.h: short by up to the checkpoint interval beats lost entirely. */

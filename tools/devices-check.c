@@ -109,9 +109,9 @@ static void brick(void)
 	ck(p->chords.bright == DEV_BRIGHT_KEYS && !p->chords.menu_on_release &&
 	   !p->chords.lr2_taps && !p->chords.home_chord && !p->chords.battery_chord,
 	   "brick: brightness on its own keys, no chords of the Pixel 2's");
-	ck(p->model == &td_model_brick && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
+	ck(p->model == &td_model_brick && !p->model_borrowed && p->bluetooth && p->gpu_shaders && p->gpu_frames &&
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
-	   "brick: its own model, Bluetooth, CPU shaders, no GPU frames, two speakers, no Player 2, built-in Wi-Fi");
+	   "brick: its own model, Bluetooth, GPU shaders and frames (from 1.1.0), two speakers, no Player 2, built-in Wi-Fi");
 	ck(p->screen_colors, "brick: Screen Colors, on its display's own gamma table");
 	{
 		/* Its core options: some, and none of the Pixel 2's rumble until a
