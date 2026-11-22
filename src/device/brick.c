@@ -204,6 +204,7 @@ void plat_present(void)
 {
 	static bool shown;
 
+	plat_grab_frame(ren);
 	plat_overlay_present(ren);
 	plat_screen_finish();
 	if (!shown) {
@@ -459,6 +460,7 @@ void plat_input_flush(void)
 			       read(fds[i], &ev, sizeof ev) == (ssize_t)sizeof ev) { }
 	}
 #endif
+	plat_menu_forget();
 }
 
 /* No wait, as on the Pixel 2: the keys are read straight from the kernel, and
@@ -497,7 +499,7 @@ static void poll_fd(int fd, in_state *st)
 			if (keymap[i].code == ev.code) {
 				/* A repeat is no let-go of POWER (src/powerhold.h) */
 				if (keymap[i].b != IN_POWER || ev.value != 2)
-					plat_set_btn(st, keymap[i].b, ev.value == 1);
+					plat_key(st, keymap[i].b, ev.value == 1);
 				break;
 			}
 	}
@@ -568,7 +570,7 @@ void plat_input_poll(in_state *st)
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:
 			if (e.key.repeat) break;
-			plat_set_btn(st, map_key(e.key.keysym.scancode), e.type == SDL_KEYDOWN);
+			plat_key(st, map_key(e.key.keysym.scancode), e.type == SDL_KEYDOWN);
 			break;
 		}
 	}
@@ -576,6 +578,7 @@ void plat_input_poll(in_state *st)
 	poll_fd(fd_keys, st);
 	poll_fd(fd_power, st);
 	plat_power_poll(st);
+	plat_menu_after(st);
 }
 
 /* The launcher and Diatom take turns on one framebuffer here, so there is
