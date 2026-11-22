@@ -4,37 +4,37 @@
 # and the buttons at the foot. Version numbers ("0.2.0") are the %s's.
 
 [update.value_restart_update]
-note = MENU's System Update row, its value: an update is in and waits for a restart. Lowercase, a status.
-en = restart to update
+note = MENU's System Update row, its value: an update is in and waits for a restart. A status, begun with a capital.
+en = Restart to update
 zh-Hans = 重启以更新
-es = reiniciar para actualizar
-pt-BR = reiniciar para atualizar
-fr = redémarrer pour mettre à jour
+es = Reiniciar para actualizar
+pt-BR = Reiniciar para atualizar
+fr = Redémarrer pour mettre à jour
 de = Neustart für Update
 ja = 再起動で更新
-it = riavvia per aggiornare
+it = Riavvia per aggiornare
 
 [update.value_restart_back]
 note = MENU's System Update row, its value: going back to the version before waits for a restart
-en = restart to go back
+en = Restart to go back
 zh-Hans = 重启以回退
-es = reiniciar para volver
-pt-BR = reiniciar para voltar
-fr = redémarrer pour revenir
+es = Reiniciar para volver
+pt-BR = Reiniciar para voltar
+fr = Redémarrer pour revenir
 de = Neustart zum Zurückstufen
 ja = 再起動で戻す
-it = riavvia per tornare indietro
+it = Riavvia per tornare indietro
 
 [update.value_downloading]
 note = MENU's System Update row, its value while an update downloads
-en = downloading
+en = Downloading
 zh-Hans = 正在下载
-es = descargando
-pt-BR = baixando
-fr = téléchargement
-de = lädt herunter
+es = Descargando
+pt-BR = Baixando
+fr = Téléchargement
+de = Lädt herunter
 ja = ダウンロード中
-it = download in corso
+it = Download in corso
 
 [update.value_available]
 note = MENU's System Update row, its value: %s is the new version ("0.2.0 available")
@@ -333,7 +333,7 @@ ja = %d / %d
 it = %d di %d
 
 [update.back_goes_on]
-note = The B button's label while System Update downloads (or PortMaster installs): B leaves the page and the work keeps going in the background (2026-11-11: "Voltar, continua" read as unclear). Short: a button hint.
+note = The B button's label while System Update downloads (or PortMaster installs, or a Scraper or Achievements run goes): B leaves the page and the work keeps going in the background (2026-11-11: "Voltar, continua" read as unclear). Short: a button hint.
 en = Continue in background
 zh-Hans = 后台继续
 es = Seguir en segundo plano

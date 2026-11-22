@@ -29,21 +29,33 @@
  */
 #include <SDL.h>
 
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES3/gl3.h>
+#include <GLES2/gl2ext.h>
+
+#include <dlfcn.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <linux/fb.h>
 #include <linux/input.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "diatom_port.h"
 #include "ladder.h"
+#include "hud.h"
 #include "osdbar.h"
+#include "panelgamma.h"
+#include "panelgamma_sunxi.h"
 #include "port_clock.h"
 #include "port_cpufreq.h"
 #include "themefile.h"
@@ -57,6 +69,20 @@
 
 #define FB_PAGES 3
 
+/* The GPU path's state, shared with the Pixel 2's port (port/gles_state.h):
+ * the EGL objects, the frames' mailbox the presenting thread draws, the GL
+ * objects, and a GPU core's frames. Its g_presented ("anything presented
+ * since the last stop") and g_present_debug are this file's CPU path's too. */
+#define PORT_NAME "brick"
+#include "gles_state.h"
+
+/* The GPU path's start and stop, from init and shutdown (the GPU path, below) */
+static void gl_init(void);
+static void gl_quit(void);
+/* The GPU path can start (gl_init), and failed once (gl_ensure): then never
+ * again in this process, so a driver that refuses costs one try */
+static bool g_gl_possible, g_gl_failed;
+
 static int                       g_fb_fd = -1;
 static uint8_t                  *g_fb;
 static size_t                    g_fb_size;
@@ -66,32 +92,28 @@ static int                       g_pages;      /* usable pages, up to FB_PAGES *
 static bool                      g_pan_broken; /* pan failed; draw to front */
 
 /* Flip mailbox. All page-role fields are guarded by g_flip_mx:
- *   g_front    on glass (last pan that completed)
- *   g_inflight being panned right now, -1 if none
- *   g_pending  published by present(), waiting for the thread, -1 if none
+ *   g_page_front    on glass (last pan that completed)
+ *   g_page_inflight being panned right now, -1 if none
+ *   g_page_pending  published by present(), waiting for the thread, -1 if none
  * present() draws into any page holding none of those roles; when all three
- * are taken it steals g_pending back, which is safe precisely because the
+ * are taken it steals g_page_pending back, which is safe precisely because the
  * thread only takes pending under the same lock. Latest wins, nothing waits. */
 static pthread_t        g_flip_thread;
 static pthread_mutex_t  g_flip_mx = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t   g_flip_cv = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t   g_flip_idle = PTHREAD_COND_INITIALIZER;
-static int              g_front;
-static int              g_inflight = -1;
-static int              g_pending  = -1;
+static int              g_page_front;
+static int              g_page_inflight = -1;
+static int              g_page_pending  = -1;
 static bool             g_flip_stop;
 static bool             g_flip_running;
-
-/* Has anything been presented since the last present_stop? A handover only
- * gets to choose what is on glass if it is the one putting it there. */
-static bool             g_presented;
 
 static SDL_AudioDeviceID g_audio;
 static int               g_pad_fd = -1;  /* "Brick Gamepad": every button */
 static bool              g_quit;
 static uint32_t          g_buttons;
+static uint32_t          g_pressed;     /* went down during the last poll */
 static bool              g_input_debug;
-static bool              g_present_debug;
 
 /* Opaque value for the framebuffer's alpha channel, zero if it has none.
  * The disp2 engine composites the fb layer in PER-PIXEL alpha mode: pixels
@@ -284,6 +306,49 @@ static const unsigned char bright_ladder[] = {
 
 static int g_disp_fd = -1;
 
+/* The display's gamma table (port/panelgamma_sunxi.h): the Screen Colors and
+ * Night Mode the launcher keeps in PANELGAMMA_COLOR_FILE. The kernel keeps a
+ * table for every program after, so the launcher's is on the display when a
+ * game starts; this port sets it again when it takes the display (a game
+ * resumed at the boot comes before the launcher has set any), and at a
+ * night's start and end over a game, which the launcher does not see while
+ * the game has the screen. The frame loop's thread only. */
+static panelgamma_color g_gamma_color;
+static panelgamma_night g_gamma_night;
+static time_t           g_night_looked;
+/* The brightness boost's lift (diatom_port_level_lift), never in the file:
+ * put on what is read at each take */
+static int              g_gamma_lift;
+
+static void display_gamma(bool take)
+{
+	time_t now = time(NULL);
+	char msg[96];
+
+	if (take) {
+		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
+		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)now);
+		g_gamma_color.lift = g_gamma_lift;
+	} else {
+		int w;
+
+		if (now == g_night_looked) return;
+		w = panelgamma_night_at(&g_gamma_night, (long long)now);
+		g_night_looked = now;
+		if (w == g_gamma_color.night) return;
+		g_gamma_color.night = w;
+	}
+	g_night_looked = now;
+	if (g_disp_fd < 0) return;
+	if (panelgamma_sunxi_apply(g_disp_fd, &g_gamma_color) == 0)
+		snprintf(msg, sizeof msg, "brick: the display's gamma table %s%s",
+		         panelgamma_color_standard(&g_gamma_color) ? "off" : "set",
+		         g_gamma_color.night ? ", Night Mode on" : "");
+	else
+		snprintf(msg, sizeof msg, "brick: could not set the display's gamma table");
+	diatom_port_log(DIATOM_LOG_INFO, msg);
+}
+
 static int g_mixer_fd = -1;
 static int g_level = -1;        /* the position last read or written; -1 none */
 
@@ -315,6 +380,11 @@ static int      g_osd_theme;    /* DS_LIGHT or DS_DARK */
  * file's second line, themefile_read_bar); the gen moves when they do */
 static ds_theme g_osd_colors;
 static unsigned g_osd_colors_gen;
+/* The level bar's look as the host's boost has it (diatom_port_level_look):
+ * drawn for the kind it is of, osd_look_now says. Written under g_mx, which
+ * the GPU path's thread reads it under; the CPU path reads it on the thread
+ * that writes it. */
+static osdbar_look g_osd_look;
 
 /* Is there a plug in the headphone jack?
  *
@@ -460,10 +530,16 @@ static void mixer_defaults(void)
  * game ends. */
 static int g_jack_was = -1;                /* last state written; -1 = never */
 static void gain_apply(void);
+/* A plug in or out seen here, not the first look after a handover
+ * (g_jack_was -1), for diatom_port_level_plugged. Atomic: this poll runs in
+ * the input poll, which a core with a thread of its own may call from there,
+ * and the host asks from the frame loop. */
+static bool g_jack_moved;
 
 static void gain_jack_poll(void)
 {
 	if (jack_present() == g_jack_was || g_level < 0) return;
+	if (g_jack_was >= 0) __atomic_store_n(&g_jack_moved, true, __ATOMIC_RELAXED);
 	gain_apply();
 }
 
@@ -532,6 +608,8 @@ static void osd_show(int kind, int level, int max)
 
 	/* Coming in only when it was not already up: a press while it holds or
 	 * fades keeps it where it is, as on the shelf. */
+	/* Under g_mx, which the GPU path's thread reads them under */
+	pthread_mutex_lock(&g_mx);
 	if (!g_osd_on || !osdbar_envelope((uint32_t)((now - g_osd_shown) / 1000),
 	                                  (uint32_t)((now - g_osd_changed) / 1000), &a, &rise))
 		g_osd_shown = now;
@@ -546,6 +624,18 @@ static void osd_show(int kind, int level, int max)
 	}
 	g_osd_theme   = theme;
 	g_osd_changed = now;
+	pthread_mutex_unlock(&g_mx);
+}
+
+/* What the bar shows now: the host's look while it is the look of the bar's
+ * kind, else the plain bar (POWER's hold, a kind it has not given a look for
+ * yet). Under g_mx on the GPU path's thread (port/gles_present.h). */
+static void osd_look_now(osdbar_look *l)
+{
+	const int kind = g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME;
+
+	if (g_osd_kind != 2 && g_osd_look.kind == kind) *l = g_osd_look;
+	else osdbar_look_plain(l, kind, g_osd_level, g_osd_max);
 }
 
 /* The panel at a rung, and back as the nearest rung, so a level the launcher
@@ -589,6 +679,21 @@ static bool dot_visible(void)
 	return g_lowbat && (!g_lowbat_blink || (diatom_port_now_us() / 1000000u) % 2 == 0);
 }
 
+/* The Border (diatom_port_border) in the pages' pixels, xres x yres, or NULL
+ * for black: what lies outside the picture. The bars are painted once, when
+ * the pages are (clear_pages), and whatever was drawn over a bar and comes
+ * down (the low battery's dot, a notice, the level bar) puts the border's
+ * pixel back where black was. Never read from a page: from here. */
+static uint32_t *g_bd_px;
+/* A new border to paint, at the next frame this path draws: not from the
+ * host's call, which may come while the launcher shows the pages (paused) */
+static bool      g_bd_repaint;
+
+static inline uint32_t bd_px(int x, int y)
+{
+	return g_bd_px ? g_bd_px[(size_t)y * g_vinfo.xres + (size_t)x] : g_opaque;
+}
+
 static void dot_page(uint8_t *base, diatom_rect dst, bool draw)
 {
 	const unsigned ro = g_vinfo.red.offset, go = g_vinfo.green.offset;
@@ -610,7 +715,7 @@ static void dot_page(uint8_t *base, diatom_rect dst, bool draw)
 			if (draw)
 				row[x] = red;
 			else if (!covered || x < dst.x || x >= dst.x + dst.w)
-				row[x] = g_opaque;
+				row[x] = bd_px(x, y);
 		}
 	}
 }
@@ -621,16 +726,8 @@ void diatom_port_low_battery(bool on, bool blink)
 	g_lowbat_blink = blink;
 }
 
-/* On-Screen Stats (diatom_port.h): not drawn on the Brick yet */
-void diatom_port_hud(bool on, double fps, double speed)
-{
-	(void)on; (void)fps; (void)speed;
-}
-
-void diatom_port_hud_style(const diatom_hud_words *w)
-{
-	(void)w;
-}
+/* On-Screen Stats: diatom_port_hud and _hud_style are port/hud_host.h's
+ * (the GPU path's section, below), drawn by either path */
 
 /* The picture under the notice, in ordinary memory.
  *
@@ -648,7 +745,7 @@ static bool      g_ov_live;          /* drawn this frame: decided once, in prese
 static int ov_x0(void) { return ((int)g_vinfo.xres - g_ov_w) / 2; }
 static int ov_y0(void) { return (int)g_vinfo.yres - g_ov_h - (int)g_vinfo.yres / 24; }
 
-void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms)
+static void cpu_overlay(const uint8_t *bgra, int w, int h, unsigned ms)
 {
 	if (!bgra || ms == 0 || w <= 0 || h <= 0) {
 		g_ov = NULL;
@@ -738,7 +835,7 @@ static void clear_overlay(uint8_t *base, diatom_rect r, diatom_rect dst)
 
 		for (x = r.x; x < r.x + r.w; x++) {
 			if (covered && x >= dst.x && x < dst.x + dst.w) continue;
-			row[x] = g_opaque;
+			row[x] = bd_px(x, y);
 		}
 	}
 }
@@ -796,11 +893,14 @@ static diatom_rect g_bar_painted[FB_PAGES];
  * starts black, as the page is where the picture does not reach. */
 static void bar_frame(void)
 {
-	static int drawn_kind = -1, drawn_level, drawn_max, drawn_theme;
+	static osdbar_look drawn;
+	static bool drawn_any;
+	static int drawn_theme;
 	static float drawn_alpha;
 	static unsigned colors_seen;
 	const float s = (float)g_vinfo.xres / 1024.0f;
 	const uint64_t now = diatom_port_now_us();
+	osdbar_look look;
 	float alpha, rise;
 	diatom_rect r;
 	size_t i, n;
@@ -818,16 +918,21 @@ static void bar_frame(void)
 	if (colors_seen != g_osd_colors_gen) {
 		osdbar_colors(g_osd_theme, &g_osd_colors);
 		colors_seen = g_osd_colors_gen;
-		drawn_kind = -1;
+		drawn_any = false;
 	}
-	if (g_osd_kind != drawn_kind || g_osd_level != drawn_level ||
-	    g_osd_max != drawn_max || g_osd_theme != drawn_theme || alpha != drawn_alpha) {
+	/* The look (the level, its mark moving, the boost past the top) painted
+	 * again when it moves; the fade alone is osdbar_render_look's
+	 * conversion of what it painted last */
+	osd_look_now(&look);
+	if (!drawn_any || memcmp(&look, &drawn, sizeof look) ||
+	    g_osd_theme != drawn_theme || alpha != drawn_alpha) {
 		osdbar_size(s, &g_bar_w, &g_bar_h);
-		osdbar_render(g_bar_px, g_bar_w, g_bar_h, g_bar_w, s, g_osd_theme,
-		              g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME,
-		              g_osd_level, g_osd_max, alpha, true);
-		drawn_kind = g_osd_kind; drawn_level = g_osd_level; drawn_max = g_osd_max;
-		drawn_theme = g_osd_theme; drawn_alpha = alpha;
+		osdbar_render_look(g_bar_px, g_bar_w, g_bar_h, g_bar_w, s, g_osd_theme, &look,
+		                   alpha, true);
+		drawn = look;
+		drawn_any = true;
+		drawn_theme = g_osd_theme;
+		drawn_alpha = alpha;
 	}
 	g_bar_x = (int)roundf(OSDBAR_X * s);
 	g_bar_y = (int)roundf((OSDBAR_Y - rise) * s);
@@ -839,7 +944,7 @@ static void bar_frame(void)
 	                                              : (int)g_vinfo.yres) - r.y;
 	if (r.w <= 0 || r.h <= 0) return;
 	n = (size_t)r.w * (size_t)r.h;
-	for (i = 0; i < n; i++) g_bar_under[i] = g_opaque;
+	for (i = 0; i < n; i++) g_bar_under[i] = bd_px(r.x + (int)(i % (size_t)r.w), r.y + (int)(i / (size_t)r.w));
 	g_bar_rect = r;
 	g_bar_live = true;
 }
@@ -917,9 +1022,9 @@ static int flip_drain(void)
 	int front;
 
 	pthread_mutex_lock(&g_flip_mx);
-	while (g_flip_running && (g_pending >= 0 || g_inflight >= 0))
+	while (g_flip_running && (g_page_pending >= 0 || g_page_inflight >= 0))
 		pthread_cond_wait(&g_flip_idle, &g_flip_mx);
-	front = g_front;
+	front = g_page_front;
 	pthread_mutex_unlock(&g_flip_mx);
 	return front;
 }
@@ -931,29 +1036,12 @@ static uint8_t *page_base(int page)
 
 static void clear_pages(void);
 
-void diatom_port_present_stop(diatom_park park_mode)
+/* The last frame parked where a launcher's two pages are not, after a stop
+ * that had presented: the CPU path's, and the GPU path's give_display */
+static void park(diatom_park park_mode, int front)
 {
-	int front, park;
+	int pg;
 	struct fb_var_screeninfo v;
-	bool was_presenting;
-
-	if (!g_fb) return;
-	front = flip_drain();
-
-	was_presenting = g_presented;
-	g_presented = false;
-
-	/* Nothing presented since the last stop means somebody else has the
-	 * display, and parking would TAKE it - which is what happens when a
-	 * player quits from the launcher's in-game menu. Diatom paused at MENU,
-	 * the launcher has been drawing its menu ever since, and a park here
-	 * seized the panel to show a black page for 150ms before the launcher
-	 * got it back. Measured: a pan to the park page landing between two of
-	 * the launcher's own, with nothing of Diatom's on screen either side.
-	 *
-	 * Draining still matters - it is cheap and it costs nothing to be sure
-	 * the flip thread is idle - but the pan does not happen. */
-	if (!was_presenting) return;
 
 	/* Quiescent is necessary and not sufficient.
 	 *
@@ -978,34 +1066,131 @@ void diatom_port_present_stop(diatom_park park_mode)
 	 * imperceptible, and a stale frame for 30ms is a better trade than a torn
 	 * one. */
 	if (g_pages < 2 || g_fb_fd < 0) return;
-	park = g_pages - 1;
+	pg = g_pages - 1;
 
 	if (park_mode == DIATOM_PARK_BLANK) {
 		/* Opaque black, never a memset to zero: a zero alpha byte makes the
 		 * pixel invisible on this panel rather than black, which is the trap
 		 * documented at g_opaque and cost a day in 2026-08-24. */
-		uint32_t *q = (uint32_t *)page_base(park);
+		uint32_t *q = (uint32_t *)page_base(pg);
 		size_t n = (size_t)g_vinfo.yres * g_finfo.line_length / sizeof *q, i;
 
 		for (i = 0; i < n; i++) q[i] = g_opaque;
 	} else {
-		if (front == park) return;
-		memcpy(page_base(park), page_base(front),
+		if (front == pg) return;
+		memcpy(page_base(pg), page_base(front),
 		       (size_t)g_vinfo.yres * g_finfo.line_length);
 	}
 
 	v = g_vinfo;
-	v.yoffset  = (uint32_t)park * v.yres;
+	v.yoffset  = (uint32_t)pg * v.yres;
 	v.activate = FB_ACTIVATE_VBL;
 	if (ioctl(g_fb_fd, FBIOPAN_DISPLAY, &v) != 0) {
 		diatom_port_log(DIATOM_LOG_WARN, "pan to park page failed");
 		return;
 	}
 	pthread_mutex_lock(&g_flip_mx);
-	g_front = park;
+	g_page_front = pg;
 	pthread_mutex_unlock(&g_flip_mx);
 }
 
+static void cpu_present_stop(diatom_park park_mode)
+{
+	int front;
+	bool was_presenting;
+
+	if (!g_fb) return;
+	front = flip_drain();
+
+	was_presenting = g_presented;
+	g_presented = false;
+
+	/* Nothing presented since the last stop means somebody else has the
+	 * display, and parking would TAKE it - which is what happens when a
+	 * player quits from the launcher's in-game menu. Diatom paused at MENU,
+	 * the launcher has been drawing its menu ever since, and a park here
+	 * seized the panel to show a black page for 150ms before the launcher
+	 * got it back. Measured: a pan to the park page landing between two of
+	 * the launcher's own, with nothing of Diatom's on screen either side.
+	 *
+	 * Draining still matters - it is cheap and it costs nothing to be sure
+	 * the flip thread is idle - but the pan does not happen. */
+	if (!was_presenting) return;
+	park(park_mode, front);
+}
+
+
+/* The refreshes, for the frame loop's display lock (diatom_port_vblank,
+ * Timing's Smooth): the panel's rate from fb0's timings (panel_refresh_hz),
+ * and from the flip thread's pans, which return at the refresh that latched
+ * them, the last one's time and the period, which starts at the timings' and
+ * moves a thirty-second of each pan's difference, as the Pixel 2's moves with
+ * its flips. Written by the flip thread, read by the loop: a word each. */
+static volatile uint64_t g_vbl_at;
+static volatile double   g_vbl_period, g_vbl_nominal;
+
+static void vbl_mark(uint64_t at)
+{
+	static uint64_t prev;
+
+	if (prev && g_vbl_nominal > 0 && at > prev) {
+		double d = (double)(at - prev);
+		long k = lround(d / g_vbl_nominal);
+
+		/* A pan one to four refreshes after the last, its period within 2%
+		 * of the timings': a wake-up late or a frame skipped moves nothing */
+		if (k >= 1 && k <= 4) {
+			double one = d / (double)k;
+
+			if (fabs(one - g_vbl_nominal) < g_vbl_nominal * 0.02)
+				g_vbl_period += (one - g_vbl_period) / 32;
+		}
+	}
+	prev = at;
+	g_vbl_at = at;
+}
+
+/* The panel's refresh rate from fb0's timings, Hz: the pixel clock (Allwinner's
+ * dev_fb.c fills pixclock, in picoseconds, and the porches and syncs from the
+ * LCD's timings) over the whole frame's pixels; 0 when they are missing or
+ * make no sense */
+static double panel_refresh_hz(void)
+{
+	const struct fb_var_screeninfo *v = &g_vinfo;
+	double htotal = (double)v->xres + v->left_margin + v->right_margin + v->hsync_len;
+	double vtotal = (double)v->yres + v->upper_margin + v->lower_margin + v->vsync_len;
+	double hz;
+
+	if (!v->pixclock || !v->left_margin || !v->upper_margin) return 0;
+	hz = 1e12 / ((double)v->pixclock * htotal * vtotal);
+	return hz >= 30 && hz <= 120 ? hz : 0;
+}
+
+/* The rate and where it came from, once at the start */
+static void refresh_log(double hz)
+{
+	char msg[200];
+
+	if (hz > 0)
+		snprintf(msg, sizeof msg, "brick: the panel refreshes at %.3f Hz (fb0's timings: "
+		         "pixclock %u ps, %ux%u of %ux%u)", hz, g_vinfo.pixclock, g_vinfo.xres, g_vinfo.yres,
+		         g_vinfo.xres + g_vinfo.left_margin + g_vinfo.right_margin + g_vinfo.hsync_len,
+		         g_vinfo.yres + g_vinfo.upper_margin + g_vinfo.lower_margin + g_vinfo.vsync_len);
+	else
+		snprintf(msg, sizeof msg, "brick: the panel's rate is not in fb0's timings "
+		         "(pixclock %u ps); no display lock", g_vinfo.pixclock);
+	diatom_port_log(DIATOM_LOG_INFO, msg);
+}
+
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	uint64_t at = g_vbl_at;
+
+	if (!at || g_vbl_period <= 0) return false;
+	*at_us = at;
+	*period_us = g_vbl_period;
+	return true;
+}
 
 static void *flip_worker(void *arg)
 {
@@ -1015,13 +1200,13 @@ static void *flip_worker(void *arg)
 	while (!g_flip_stop) {
 		int page;
 
-		if (g_pending < 0) {
+		if (g_page_pending < 0) {
 			pthread_cond_wait(&g_flip_cv, &g_flip_mx);
 			continue;
 		}
-		page = g_pending;
-		g_pending  = -1;
-		g_inflight = page;
+		page = g_page_pending;
+		g_page_pending  = -1;
+		g_page_inflight = page;
 		pthread_mutex_unlock(&g_flip_mx);
 
 		/* Blocks until the address latches at a vsync - the whole reason
@@ -1030,10 +1215,12 @@ static void *flip_worker(void *arg)
 		v.activate = FB_ACTIVATE_VBL;
 		if (ioctl(g_fb_fd, FBIOPAN_DISPLAY, &v) != 0)
 			diatom_port_log(DIATOM_LOG_WARN, "pan failed in flip thread");
+		else
+			vbl_mark(diatom_port_now_us());
 
 		pthread_mutex_lock(&g_flip_mx);
-		g_front    = page;
-		g_inflight = -1;
+		g_page_front    = page;
+		g_page_inflight = -1;
 		pthread_cond_broadcast(&g_flip_idle);
 	}
 	pthread_mutex_unlock(&g_flip_mx);
@@ -1221,12 +1408,14 @@ bool diatom_port_init(diatom_port_caps *out)
 	} else {
 		g_flip_running = true;
 	}
-	g_front = 0;
+	g_page_front = 0;
 
 	/* No audio here: it opens once the launcher has drawn, or at the first
 	 * game; see diatom_port_audio_start. */
 
 	input_open();
+	/* The GPU path last: it needs the pages and the flip thread */
+	gl_init();
 
 	{
 		char msg[160];
@@ -1247,13 +1436,21 @@ bool diatom_port_init(diatom_port_caps *out)
 	out->audio_rate          = AUDIO_RATE;
 	out->audio_buffer_frames = AUDIO_BUFFER_FRAMES;
 	out->present_blocks      = false;
-	out->gpu                 = false;
+	out->gpu                 = g_gl_possible;
+	out->refresh_hz          = panel_refresh_hz();
+	if (out->refresh_hz > 0) g_vbl_nominal = g_vbl_period = 1e6 / out->refresh_hz;
+	refresh_log(out->refresh_hz);
 	out->rumble              = false;
 	return true;
 }
 
 void diatom_port_shutdown(void)
 {
+	int i;
+
+	/* The GPU path first: its thread hands pages to the flip thread */
+	gl_quit();
+	for (i = 0; i < MAILBOX_FRAMES; i++) free(g_frames[i].pixels);
 	if (g_flip_running) {
 		pthread_mutex_lock(&g_flip_mx);
 		g_flip_stop = true;
@@ -1565,7 +1762,9 @@ static void blit(uint8_t *page, const void *src, int w, int h, size_t pitch,
 
 		uy0 = ov_y0();
 		ux0 = ov_x0();
-		for (i = 0; i < n; i++) g_ov_under[i] = opaque;
+		for (i = 0; i < n; i++)
+			g_ov_under[i] = g_bd_px ? bd_px(ux0 + (int)(i % (size_t)g_ov_w), uy0 + (int)(i / (size_t)g_ov_w))
+			                        : opaque;
 	}
 	/* And under the level bar, the same way: see g_bar_under, which
 	 * bar_frame has made black. */
@@ -1621,27 +1820,656 @@ static void clear_pages(void)
 {
 	uint32_t *p = (uint32_t *)g_fb;
 	size_t n = g_fb_size / sizeof *p, i;
+	int pg, y;
+
 	for (i = 0; i < n; i++) p[i] = g_opaque;
+	/* And the Border over every page's panel, from the copy kept for it */
+	if (!g_bd_px) return;
+	for (pg = 0; pg < g_pages; pg++)
+		for (y = 0; y < (int)g_vinfo.yres; y++)
+			memcpy(page_base(pg) + (size_t)y * g_finfo.line_length,
+			       g_bd_px + (size_t)y * g_vinfo.xres, (size_t)g_vinfo.xres * sizeof *p);
 }
 
-static diatom_plane g_planes[DIATOM_PLANES_MAX];
-static int          g_nplanes;
-
-void diatom_port_planes(const diatom_plane *planes, int n)
+/* The host's picture in the pages' pixels at the panel's size: stretched,
+ * smoothly (bilinear: a small picture is soft by being stretched, one of the
+ * panel's size is itself), opaque. Built once a call. */
+static void cpu_border(const uint8_t *bgra, int w, int h)
 {
-	if (!planes || n < 0) n = 0;
-	if (n > DIATOM_PLANES_MAX) n = DIATOM_PLANES_MAX;
-	if (n) memcpy(g_planes, planes, sizeof *planes * (size_t)n);
-	g_nplanes = n;
+	const unsigned ro = g_vinfo.red.offset, go = g_vinfo.green.offset, bo = g_vinfo.blue.offset;
+	const int W = (int)g_vinfo.xres, H = (int)g_vinfo.yres;
+	uint32_t *px;
+	int x, y;
+
+	g_bd_repaint = true;
+	if (!bgra || w <= 0 || h <= 0 || W <= 0 || H <= 0) {
+		free(g_bd_px);
+		g_bd_px = NULL;
+		return;
+	}
+	px = g_bd_px ? g_bd_px : malloc((size_t)W * (size_t)H * sizeof *px);
+	if (!px) return;
+	for (y = 0; y < H; y++) {
+		/* The panel pixel's centre in the picture's pixels */
+		const float fy = ((float)y + 0.5f) * (float)h / (float)H - 0.5f;
+		const int y0 = fy < 0 ? 0 : (int)fy, y1 = y0 + 1 < h ? y0 + 1 : h - 1;
+		const float ty = fy < 0 ? 0 : fy - (float)y0;
+
+		for (x = 0; x < W; x++) {
+			const float fx = ((float)x + 0.5f) * (float)w / (float)W - 0.5f;
+			const int x0 = fx < 0 ? 0 : (int)fx, x1 = x0 + 1 < w ? x0 + 1 : w - 1;
+			const float tx = fx < 0 ? 0 : fx - (float)x0;
+			const uint8_t *a = bgra + ((size_t)y0 * w + x0) * 4, *b = bgra + ((size_t)y0 * w + x1) * 4;
+			const uint8_t *c = bgra + ((size_t)y1 * w + x0) * 4, *d = bgra + ((size_t)y1 * w + x1) * 4;
+			unsigned ch[3];
+			int k;
+
+			for (k = 0; k < 3; k++) {
+				const float top = a[k] + (b[k] - a[k]) * tx, bot = c[k] + (d[k] - c[k]) * tx;
+
+				ch[k] = (unsigned)(top + (bot - top) * ty + 0.5f);
+			}
+			px[(size_t)y * W + x] = (ch[2] << ro) | (ch[1] << go) | (ch[0] << bo) | g_opaque;
+		}
+	}
+	g_bd_px = px;
 }
 
-/* The old screens are Sharp-Shimmerless's map here (diatom_port.h), with no
- * lines or grid to weaken */
-void diatom_port_strength(int percent) { (void)percent; }
+/* ---------- the GPU path ------------------------------------------------------
+ *
+ * The GPU draws a frame here when the frame needs it: an old screen's shader
+ * or its strength (the CRT, the scanlines, the LCD grid, which the launcher
+ * offers where plat_gpu_shaders says), a GPU core's frame (SET_HW_RENDER), or
+ * every frame when told to (below). Nearest and Sharp-Shimmerless stay the
+ * CPU's blit, as kit 2 proved them. Both paths put the frame in one of fb0's
+ * pages and hand the page to the same flip thread, so the panel never knows
+ * which one drew it.
+ *
+ * No window surface. The PowerVR's null window system has one swap chain on
+ * this display, and the launcher's SDL window holds it while a game runs (the
+ * launcher keeps its window; src/device/brick.c hands nothing over). The fb
+ * driver gives its memory as a dma-buf instead (FBIOGET_DMABUF, Allwinner's
+ * dev_fb.c), EGL makes an image of each page (EGL_EXT_image_dma_buf_import),
+ * and the presenting thread draws into the page's framebuffer object on a
+ * context with no surface (EGL_KHR_surfaceless_context), waits for the GPU on
+ * a fence and publishes the page, as the CPU path does after its blit.
+ *
+ * The drawing is the Pixel 2's (port/gles_state.h, gles_draw.h, gles_objects.h,
+ * gles_present.h, gles_gpu.h); what differs is here: the EGL objects
+ * (gl_start), where a frame is drawn (PRESENT_TARGET: a page), which way up
+ * (PRESENT_TOP_DOWN: a page's first row is the top), what drawn means
+ * (PRESENT_SWAP: the alpha made opaque, then a fence waited), putting it on
+ * the panel (show_frame: the flip thread) and the display handed back
+ * (give_display: the park page). make check-gpu-upright draws every kind of
+ * picture through it into a page's stand-in on the host.
+ *
+ * DIATOM_PRESENT=cpu never starts it. DIATOM_PRESENT=gpu, or the card's
+ * .userdata/brick/diatom-present saying "gpu", draws every frame with it, so
+ * a kit can time the two paths on the same game; the card's file, whatever
+ * it says, also puts both paths' present times in the log. */
 
-void diatom_port_present(const void *src, int w, int h, size_t pitch,
-                         diatom_pixfmt fmt, diatom_rect dst,
-                         diatom_filter filter)
+#define BRICK_PRESENT_FILE "/mnt/SDCARD/.userdata/brick/diatom-present"
+
+/* Allwinner's fb driver's own command (drivers/video/fbdev/sunxi/disp2/disp/
+ * dev_fb.c): the whole of fb0's memory as one dma-buf */
+struct brick_fb_dmabuf { int fd; uint32_t flags; };
+#define BRICK_FBIOGET_DMABUF _IOR('F', 0x21, struct brick_fb_dmabuf)
+
+/* DRM's four-character codes, written out: no libdrm here */
+#define BRICK_FOURCC(a, b, c, d) \
+	((uint32_t)(a) | (uint32_t)(b) << 8 | (uint32_t)(c) << 16 | (uint32_t)(d) << 24)
+
+static bool        g_gl_all;            /* every frame by the GPU */
+static bool        g_gl_last;           /* the last frame presented was the GPU's */
+static int         g_dmabuf_fd = -1;
+static EGLImageKHR g_page_img[FB_PAGES];
+static GLuint      g_page_tex[FB_PAGES], g_page_fb[FB_PAGES];
+static int         g_gl_page = -1;      /* the page the thread draws into; its own */
+static PFNEGLCREATEIMAGEKHRPROC            p_create_image;
+static PFNEGLDESTROYIMAGEKHRPROC           p_destroy_image;
+static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC p_image_target;
+
+/* What the shared code reads that the CPU path has no use for: the
+ * overlay's new image and the level bar's colors handed over. And On-Screen
+ * Stats' line, style and colors, which both paths draw (the GPU path's
+ * draw_hud, the CPU path's hud_page), written under g_mx by the host side */
+static bool      g_ov_dirty;
+static unsigned  g_osd_colors_seen;
+static bool      g_hud_on, g_hud_dirty;
+static char      g_hud_text[160];
+static ds_theme  g_hud_colors;
+static hud_style g_hud_style;
+
+/* On-Screen Stats' host side (port/hud_host.h), on the Brick's sensors: the
+ * A133's CPU and GPU zones, as its device tree names them, and the AXP2202's
+ * gauge (plastron's kernel patch 0016) */
+#define HUD_ZONE_A       "cpu_thermal_zone"
+#define HUD_ZONE_B       "gpu_thermal_zone"
+#define HUD_BATTERY_FILE "/sys/class/power_supply/axp2202-battery/capacity"
+#include "hud_host.h"
+
+static void port_logf(diatom_log_level lvl, const char *fmt, ...)
+	__attribute__((format(printf, 2, 3)));
+static void port_logf(diatom_log_level lvl, const char *fmt, ...)
+{
+	char msg[256];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(msg, sizeof msg, fmt, ap);
+	va_end(ap);
+	diatom_port_log(lvl, msg);
+}
+
+/* port/gles_present.h's, which the drawing needs first */
+static float ov_scale(void);
+
+/* A page's first row in memory is the panel's top: the display reads fb0
+ * from the page's first byte, the dma-buf import makes that byte the image's
+ * first texel, and GL draws a texture's first row at y 0, the bottom of a
+ * window surface. So the drawing's y goes the other way here (to_clip), and a
+ * capture's rows come back in order (capture_front). Without it every frame
+ * the GPU drew, a shader's or a GPU core's, the Border and every notice on
+ * it, reached the panel upside down (issue #419, 1.0.7-kit.1). */
+#define PRESENT_TOP_DOWN
+
+#include "gles_draw.h"
+
+/* Whether this EGL names an extension in its string */
+static bool egl_has(const char *name)
+{
+	const char *ext = eglQueryString(g_egl_display, EGL_EXTENSIONS);
+	size_t n = strlen(name);
+
+	while (ext && (ext = strstr(ext, name))) {
+		if (ext[n] == ' ' || ext[n] == '\0') return true;
+		ext += n;
+	}
+	return false;
+}
+
+/* fb0's pixel layout as a DRM code: the A133's is B, G, R, A in memory */
+static uint32_t page_fourcc(void)
+{
+	bool alpha = g_vinfo.transp.length > 0;
+
+	if (g_vinfo.red.offset == 16 && g_vinfo.blue.offset == 0)
+		return alpha ? BRICK_FOURCC('A', 'R', '2', '4') : BRICK_FOURCC('X', 'R', '2', '4');
+	if (g_vinfo.red.offset == 0 && g_vinfo.blue.offset == 16)
+		return alpha ? BRICK_FOURCC('A', 'B', '2', '4') : BRICK_FOURCC('X', 'B', '2', '4');
+	return 0;
+}
+
+/* The pages as images, textures and framebuffer objects; false, logged, at
+ * the first that fails */
+static bool pages_start(void)
+{
+	struct brick_fb_dmabuf exp = { -1, 0 };
+	uint32_t fourcc = page_fourcc();
+	int i;
+
+	if (!fourcc) {
+		port_logf(DIATOM_LOG_WARN, "brick: GPU path off: fb0's layout (red at %u, blue at %u) "
+		          "has no DRM code here", g_vinfo.red.offset, g_vinfo.blue.offset);
+		return false;
+	}
+	if (ioctl(g_fb_fd, BRICK_FBIOGET_DMABUF, &exp) != 0 || exp.fd < 0) {
+		port_logf(DIATOM_LOG_WARN, "brick: GPU path off: fb0 gave no dma-buf (%s)", strerror(errno));
+		return false;
+	}
+	g_dmabuf_fd = exp.fd;
+	glGenTextures(FB_PAGES, g_page_tex);
+	glGenFramebuffers(FB_PAGES, g_page_fb);
+	for (i = 0; i < g_pages; i++) {
+		const EGLint attrs[] = {
+			EGL_WIDTH, (EGLint)g_vinfo.xres,
+			EGL_HEIGHT, (EGLint)g_vinfo.yres,
+			EGL_LINUX_DRM_FOURCC_EXT, (EGLint)fourcc,
+			EGL_DMA_BUF_PLANE0_FD_EXT, g_dmabuf_fd,
+			EGL_DMA_BUF_PLANE0_OFFSET_EXT, (EGLint)((size_t)i * g_vinfo.yres * g_finfo.line_length),
+			EGL_DMA_BUF_PLANE0_PITCH_EXT, (EGLint)g_finfo.line_length,
+			EGL_NONE
+		};
+
+		g_page_img[i] = p_create_image(g_egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
+		                               (EGLClientBuffer)NULL, attrs);
+		if (g_page_img[i] == EGL_NO_IMAGE_KHR) {
+			port_logf(DIATOM_LOG_WARN, "brick: GPU path off: page %d as an image (0x%x)",
+			          i, eglGetError());
+			return false;
+		}
+		glBindTexture(GL_TEXTURE_2D, g_page_tex[i]);
+		p_image_target(GL_TEXTURE_2D, (GLeglImageOES)g_page_img[i]);
+		glBindFramebuffer(GL_FRAMEBUFFER, g_page_fb[i]);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_page_tex[i], 0);
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			port_logf(DIATOM_LOG_WARN, "brick: GPU path off: page %d cannot be drawn into", i);
+			return false;
+		}
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return true;
+}
+
+/* On the presenting thread: EGL with no surface, the pages, and the GL
+ * objects the drawing needs (port/gles_objects.h) */
+static bool gl_start(void)
+{
+	static const EGLint config_attribs[] = {
+		EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+		EGL_NONE
+	};
+	static const EGLint context_attribs[] = { EGL_CONTEXT_MAJOR_VERSION, 3, EGL_NONE };
+	EGLint n = 0;
+
+	g_egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+	if (g_egl_display == EGL_NO_DISPLAY || !eglInitialize(g_egl_display, NULL, NULL)) {
+		diatom_port_log(DIATOM_LOG_WARN, "brick: GPU path off: no EGL display");
+		g_egl_display = EGL_NO_DISPLAY;
+		return false;
+	}
+	port_logf(DIATOM_LOG_INFO, "brick: EGL %s, %s", eglQueryString(g_egl_display, EGL_VENDOR),
+	          eglQueryString(g_egl_display, EGL_VERSION));
+	if (!egl_has("EGL_EXT_image_dma_buf_import") || !egl_has("EGL_KHR_surfaceless_context") ||
+	    !egl_has("EGL_KHR_image_base")) {
+		diatom_port_log(DIATOM_LOG_WARN, "brick: GPU path off: EGL lacks dma-buf images or "
+		                "surfaceless contexts");
+		return false;
+	}
+	eglBindAPI(EGL_OPENGL_ES_API);
+	if (!eglChooseConfig(g_egl_display, config_attribs, &g_egl_config, 1, &n) || n < 1) {
+		diatom_port_log(DIATOM_LOG_WARN, "brick: GPU path off: no OpenGL ES 3 config");
+		return false;
+	}
+	g_egl_context = eglCreateContext(g_egl_display, g_egl_config, EGL_NO_CONTEXT, context_attribs);
+	g_egl_surface = EGL_NO_SURFACE;
+	if (g_egl_context == EGL_NO_CONTEXT ||
+	    !eglMakeCurrent(g_egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, g_egl_context)) {
+		port_logf(DIATOM_LOG_WARN, "brick: GPU path off: no OpenGL ES 3 context (0x%x)", eglGetError());
+		return false;
+	}
+	port_logf(DIATOM_LOG_INFO, "brick: GL %s, %s", (const char *)glGetString(GL_RENDERER),
+	          (const char *)glGetString(GL_VERSION));
+	p_create_image  = (PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+	p_destroy_image = (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
+	p_image_target  = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)eglGetProcAddress("glEGLImageTargetTexture2DOES");
+	if (!p_create_image || !p_destroy_image || !p_image_target || !sync_procs()) {
+		diatom_port_log(DIATOM_LOG_WARN, "brick: GPU path off: no image or fence calls");
+		return false;
+	}
+	g_panel_w = g_surface_w = (int)g_vinfo.xres;
+	g_panel_h = g_surface_h = (int)g_vinfo.yres;
+	g_turned = false;
+	if (!pages_start()) return false;
+
+#include "gles_objects.h"
+	diatom_port_log(DIATOM_LOG_INFO, "brick: GPU path ready, drawing into fb0's pages");
+	return true;
+}
+
+static void gl_stop(void)
+{
+	int i;
+
+	if (g_egl_display == EGL_NO_DISPLAY) return;
+	if (g_egl_context != EGL_NO_CONTEXT) {
+		glDeleteFramebuffers(FB_PAGES, g_page_fb);
+		glDeleteTextures(FB_PAGES, g_page_tex);
+	}
+	for (i = 0; i < FB_PAGES; i++)
+		if (g_page_img[i] != EGL_NO_IMAGE_KHR && p_destroy_image) {
+			p_destroy_image(g_egl_display, g_page_img[i]);
+			g_page_img[i] = EGL_NO_IMAGE_KHR;
+		}
+	if (g_dmabuf_fd >= 0) { close(g_dmabuf_fd); g_dmabuf_fd = -1; }
+	eglMakeCurrent(g_egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	if (g_egl_context != EGL_NO_CONTEXT) eglDestroyContext(g_egl_display, g_egl_context);
+	g_egl_context = EGL_NO_CONTEXT;
+	eglTerminate(g_egl_display);
+	g_egl_display = EGL_NO_DISPLAY;
+}
+
+/* A page holding no role in the flip mailbox; when all are taken, the pending
+ * one, which the flip thread has not started: a frame nobody saw. The CPU
+ * path's choice too (present). */
+static int page_take(void)
+{
+	int page;
+
+	pthread_mutex_lock(&g_flip_mx);
+	for (page = 0; page < g_pages; page++)
+		if (page != g_page_front && page != g_page_inflight && page != g_page_pending)
+			break;
+	if (page == g_pages) {
+		page = g_page_pending;
+		g_page_pending = -1;
+	}
+	pthread_mutex_unlock(&g_flip_mx);
+	return page;
+}
+
+/* PRESENT_TARGET: the next frame into a free page's framebuffer object */
+static void gl_target(void)
+{
+	g_gl_page = page_take();
+	glBindFramebuffer(GL_FRAMEBUFFER, g_page_fb[g_gl_page]);
+	glViewport(0, 0, g_panel_w, g_panel_h);
+}
+
+/* PRESENT_SWAP: every pixel's alpha opaque (the display engine shows a pixel
+ * by its alpha byte, see g_opaque), then the GPU done before the page goes
+ * to the flip thread, as the display reads memory, not the GPU */
+static void gl_drawn(void)
+{
+	EGLSyncKHR s;
+
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	s = p_create_sync(g_egl_display, EGL_SYNC_FENCE_KHR, NULL);
+	if (s != EGL_NO_SYNC_KHR) {
+		glFlush();
+		wait_sync(s);
+	} else {
+		glFinish();
+	}
+}
+
+/* The drawn page to the flip thread, latest wins */
+static void show_frame(void)
+{
+	if (g_gl_page < 0) return;
+	pthread_mutex_lock(&g_flip_mx);
+	g_page_pending = g_gl_page;
+	pthread_cond_signal(&g_flip_cv);
+	pthread_mutex_unlock(&g_flip_mx);
+	g_gl_page = -1;
+}
+
+static void park(diatom_park park_mode, int front);
+
+/* At a stop, after the shared code drew black for BLANK: the last page parked
+ * where the launcher's two pages are not (park) */
+static void give_display(void)
+{
+	park(DIATOM_PARK_KEEP, flip_drain());
+}
+
+#define PRESENT_TARGET() gl_target()
+#define PRESENT_SWAP()   gl_drawn()
+#define PORT_FN(n)       gl_##n
+
+/* port/gles_gpu.h's diatom_port_gpu_begin as gl_gpu_begin, so this file's
+ * own can start the GPU path first, and its diatom_port_gpu_proc as
+ * gl_gpu_proc, so this file's own can look further (both below) */
+#define diatom_port_gpu_begin gl_gpu_begin
+#define diatom_port_gpu_proc  gl_gpu_proc
+bool gl_gpu_begin(const diatom_gpu_spec *spec);
+void *gl_gpu_proc(const char *name);
+#include "gles_present.h"
+#undef diatom_port_gpu_begin
+#undef diatom_port_gpu_proc
+
+/* The presenting thread started at the first frame or core that needs it,
+ * not at Diatom's start: its EGL and its programs cost nothing to a boot or
+ * to the games the CPU draws */
+static bool gl_ensure(void)
+{
+	if (g_thread_running) return true;
+	if (!g_gl_possible || g_gl_failed) return false;
+	{
+		pthread_condattr_t ca;
+
+		pthread_condattr_init(&ca);
+		pthread_condattr_setclock(&ca, CLOCK_MONOTONIC);
+		pthread_cond_destroy(&g_idle);
+		pthread_cond_init(&g_idle, &ca);
+		pthread_condattr_destroy(&ca);
+	}
+	g_thread_ready = 0;
+	g_thread_stop = false;
+	if (pthread_create(&g_thread, NULL, present_thread, NULL) != 0) {
+		diatom_port_log(DIATOM_LOG_WARN, "brick: GPU path off: no presenting thread");
+		g_gl_failed = true;
+		return false;
+	}
+	pthread_mutex_lock(&g_mx);
+	while (g_thread_ready == 0) pthread_cond_wait(&g_idle, &g_mx);
+	pthread_mutex_unlock(&g_mx);
+	if (g_thread_ready < 0) {
+		pthread_join(g_thread, NULL);
+		g_gl_failed = true;
+		return false;
+	}
+	g_thread_running = true;
+	return true;
+}
+
+/* The frame wanted from the GPU: an old screen drawn by a shader, or every
+ * frame when told to */
+static bool gl_wanted(diatom_filter filter)
+{
+	return (g_gl_all || (filter != DIATOM_FILTER_NEAREST && filter != DIATOM_FILTER_SHARP)) &&
+	       gl_ensure();
+}
+
+/* A core that draws with the GPU: the GPU path first */
+bool diatom_port_gpu_begin(const diatom_gpu_spec *spec)
+{
+	if (!gl_ensure()) {
+		diatom_port_log(DIATOM_LOG_ERROR, "brick: no GPU for the core (the GPU path is off)");
+		return false;
+	}
+	return gl_gpu_begin(spec);
+}
+
+/* A core's GL or EGL call by name: EGL's answer first, as on the Pixel 2,
+ * then the libraries' own symbols. EGL 1.4, the PowerVR's, owes
+ * eglGetProcAddress only for extensions, and a core's GL loader (libretro's
+ * glsm, the cores' own) asks for core calls by name too; Diatom links both
+ * libraries, so opening them again only finds them. */
+void *diatom_port_gpu_proc(const char *name)
+{
+	static void *gles, *egl;
+	void *f = gl_gpu_proc(name);
+
+	if (f || !name) return f;
+	if (!gles) gles = dlopen("libGLESv2.so.2", RTLD_NOW | RTLD_GLOBAL);
+	if (gles && (f = dlsym(gles, name))) return f;
+	if (!egl) egl = dlopen("libEGL.so.1", RTLD_NOW | RTLD_GLOBAL);
+	return egl ? dlsym(egl, name) : NULL;
+}
+
+/* Whether the last frame on the panel was the GPU's: a shader's frame, or a
+ * GPU core's (present_gpu, counted in g_gpu_seq), since the CPU's last */
+static unsigned g_gpu_seq_seen;
+static bool gl_drew_last(void)
+{
+	return g_gl_last || g_gpu_seq != g_gpu_seq_seen;
+}
+
+/* Whether the GPU path may start, with why not in the log */
+static void gl_init(void)
+{
+	const char *want = getenv("DIATOM_PRESENT");
+	char line[16] = "";
+	FILE *f;
+
+	if (!want && (f = fopen(BRICK_PRESENT_FILE, "r"))) {
+		if (fgets(line, sizeof line, f)) line[strcspn(line, " \r\n")] = '\0';
+		fclose(f);
+		want = line;
+		/* A kit's timing: both paths' present times in the log, once a
+		 * second (DIATOM_PRESENT_DEBUG's lines) */
+		g_present_debug = true;
+	}
+	if (want && !strcmp(want, "cpu")) {
+		diatom_port_log(DIATOM_LOG_INFO, "brick: GPU path off (DIATOM_PRESENT=cpu)");
+		return;
+	}
+	if (g_pan_broken || !g_flip_running || g_pages < 3) {
+		diatom_port_log(DIATOM_LOG_INFO, "brick: GPU path off: no flip thread or no three pages");
+		return;
+	}
+	g_gl_possible = true;
+	g_gl_all = want && !strcmp(want, "gpu");
+	if (g_gl_all) diatom_port_log(DIATOM_LOG_INFO, "brick: every frame by the GPU (DIATOM_PRESENT=gpu)");
+}
+
+static void gl_quit(void)
+{
+	if (!g_thread_running) return;
+	drain();
+	pthread_mutex_lock(&g_mx);
+	g_thread_stop = true;
+	pthread_cond_signal(&g_cv);
+	pthread_mutex_unlock(&g_mx);
+	pthread_join(g_thread, NULL);
+	g_thread_running = false;
+}
+
+/* On-Screen Stats on the CPU path: the line made into pixels when it, its
+ * style or its colors change (hud_render, as the GPU path's draw_hud does),
+ * placed by the style (hud_place), then on every page it goes on its
+ * rectangle cleared outside the picture (the letterbox, where a page keeps
+ * what was drawn three frames ago: blending over that again would darken a
+ * half-clear pill each time) and the line blended in, straight alpha. Taken
+ * off a page it was on once it is off or has moved. On the frame loop's
+ * thread, in present. */
+static uint32_t    g_hudc_px[1024 * 128];
+static diatom_rect g_hudc_rect;                 /* where it goes now; w 0, nowhere */
+static diatom_rect g_hudc_painted[FB_PAGES];
+static char        g_hudc_text[sizeof g_hud_text];
+static hud_style   g_hudc_style;
+static ds_theme    g_hudc_colors;
+
+static void hud_cpu_update(void)
+{
+	char text[sizeof g_hud_text];
+	hud_style st;
+	ds_theme colors;
+	bool on;
+	int w = 0, h = 0, x = 0, y = 0;
+
+	pthread_mutex_lock(&g_mx);
+	on = g_hud_on;
+	if (on) {
+		memcpy(text, g_hud_text, sizeof text);
+		st = g_hud_style;
+		colors = g_hud_colors;
+	}
+	pthread_mutex_unlock(&g_mx);
+	if (!on) {
+		g_hudc_rect.w = 0;
+		g_hudc_text[0] = '\0';
+		return;
+	}
+	if (g_hudc_rect.w > 0 && !strcmp(text, g_hudc_text) &&
+	    !memcmp(&st, &g_hudc_style, sizeof st) && !memcmp(&colors, &g_hudc_colors, sizeof colors))
+		return;
+	memcpy(g_hudc_text, text, sizeof text);
+	g_hudc_style = st;
+	g_hudc_colors = colors;
+	g_hudc_rect.w = 0;
+	hud_size(text, 1.0f, &st, &w, &h);
+	if (!w || w > 1024 || h > 128 || w > (int)g_vinfo.xres || h > (int)g_vinfo.yres) return;
+	hud_render(g_hudc_px, w, h, w, 1.0f, text, &st, &colors, false);
+	hud_place(&st, 1.0f, w, h, (int)g_vinfo.xres, (int)g_vinfo.yres, &x, &y);
+	if (x < 0 || y < 0 || x + w > (int)g_vinfo.xres || y + h > (int)g_vinfo.yres) return;
+	g_hudc_rect = (diatom_rect){ x, y, w, h };
+}
+
+static void hud_page(uint8_t *base, int page, diatom_rect dst)
+{
+	const unsigned ro = g_vinfo.red.offset, go = g_vinfo.green.offset;
+	const unsigned bo = g_vinfo.blue.offset;
+	diatom_rect *was = &g_hudc_painted[page], r = g_hudc_rect;
+	int yy, xx;
+
+	if (was->w > 0 && (r.w == 0 || memcmp(was, &r, sizeof r) != 0)) {
+		clear_overlay(base, *was, dst);
+		was->w = 0;
+	}
+	if (r.w == 0) return;
+	clear_overlay(base, r, dst);
+	for (yy = 0; yy < r.h; yy++) {
+		uint32_t *row = (uint32_t *)(base + (size_t)(r.y + yy) * g_finfo.line_length) + r.x;
+		const uint32_t *src = g_hudc_px + (size_t)yy * (size_t)r.w;
+
+		for (xx = 0; xx < r.w; xx++) {
+			const uint32_t q = src[xx];
+			const unsigned a = q >> 24;
+			unsigned cr = (q >> 16) & 0xff, cg = (q >> 8) & 0xff, cb = q & 0xff;
+
+			if (a == 0) continue;
+			if (a < 255) {
+				const uint32_t p = row[xx];
+
+				cr = (cr * a + ((p >> ro) & 0xff) * (255 - a) + 127) / 255;
+				cg = (cg * a + ((p >> go) & 0xff) * (255 - a) + 127) / 255;
+				cb = (cb * a + ((p >> bo) & 0xff) * (255 - a) + 127) / 255;
+			}
+			row[xx] = (cr << ro) | (cg << go) | (cb << bo) | g_opaque;
+		}
+	}
+	*was = r;
+}
+
+/* The planes and the strength are held for both paths: the CPU path reads
+ * g_planes in present, the GPU path copies both into each frame */
+void diatom_port_planes(const diatom_plane *planes, int n) { gl_planes(planes, n); }
+void diatom_port_strength(int percent) { gl_strength(percent); }
+
+/* A stop by the path that drew the last frame */
+void diatom_port_present_stop(diatom_park park_mode)
+{
+	if (g_thread_running && gl_drew_last()) gl_present_stop(park_mode);
+	else                                    cpu_present_stop(park_mode);
+}
+
+/* The notice to both: the CPU path keeps the picture under it, the GPU path
+ * uploads it */
+static void cpu_overlay(const uint8_t *bgra, int w, int h, unsigned ms);
+void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms)
+{
+	cpu_overlay(bgra, w, h, ms);
+	if (g_thread_running) gl_overlay(bgra, w, h, ms);
+}
+
+/* The Border to both: the CPU path keeps it at the panel's size and paints
+ * the pages with it at its next frame, the GPU path uploads it */
+void diatom_port_border(const uint8_t *bgra, int w, int h)
+{
+	cpu_border(bgra, w, h);
+	/* Kept by the GPU path's state even with its thread not started: a
+	 * thread that starts later uploads it (gles_objects.h) */
+	gl_border(bgra, w, h);
+}
+
+/* A capture of the last frame by the path that drew it: the GPU's draws it
+ * again on its thread (port/gles_present.h's capture_front) */
+static bool cpu_capture(const char *path);
+bool diatom_port_capture(const char *path)
+{
+	bool ok;
+
+	if (!g_thread_running || !gl_drew_last() || !path) return cpu_capture(path);
+	drain();
+	pthread_mutex_lock(&g_mx);
+	g_capture_path = path;
+	pthread_cond_signal(&g_cv);
+	while (g_capture_path) pthread_cond_wait(&g_idle, &g_mx);
+	ok = g_capture_ok;
+	pthread_mutex_unlock(&g_mx);
+	return ok;
+}
+
+static void cpu_present(const void *src, int w, int h, size_t pitch,
+                        diatom_pixfmt fmt, diatom_rect dst,
+                        diatom_filter filter)
 {
 	uint64_t t0 = 0, t1 = 0;
 	bool rect_changed;
@@ -1719,7 +2547,8 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 	}
 	/* A smaller rect leaves the old picture around the new one. Only on a mode
 	 * change, so the cost of wiping every page does not matter. */
-	if (rect_changed) {
+	if (rect_changed || g_bd_repaint) {
+		g_bd_repaint = false;
 		clear_pages();
 		memset(g_bar_painted, 0, sizeof g_bar_painted);
 		memset(g_dot_painted, 0, sizeof g_dot_painted);
@@ -1730,17 +2559,17 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 	bar_frame();
 
 	if (g_pan_broken) {
-		blit(page_base(g_front), src, w, h, pitch, fmt, dst);
-		bar_page(page_base(g_front), g_front, dst);
+		blit(page_base(g_page_front), src, w, h, pitch, fmt, dst);
+		bar_page(page_base(g_page_front), g_page_front, dst);
 		{
 			bool dot = dot_visible();
 
-			if (dot || g_dot_painted[g_front]) {
-				dot_page(page_base(g_front), dst, dot);
-				g_dot_painted[g_front] = dot;
+			if (dot || g_dot_painted[g_page_front]) {
+				dot_page(page_base(g_page_front), dst, dot);
+				g_dot_painted[g_page_front] = dot;
 			}
 		}
-		overlay_page(page_base(g_front), g_front, dst);
+		overlay_page(page_base(g_page_front), g_page_front, dst);
 		return;
 	}
 
@@ -1748,19 +2577,14 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 	 * consuming slower than the core produces - steal the pending one: the
 	 * thread has not started panning it, so overwriting it just replaces a
 	 * frame nobody saw with a newer one. Latest wins. */
-	pthread_mutex_lock(&g_flip_mx);
-	for (page = 0; page < g_pages; page++)
-		if (page != g_front && page != g_inflight && page != g_pending)
-			break;
-	if (page == g_pages) {
-		page      = g_pending;
-		g_pending = -1;
-	}
-	pthread_mutex_unlock(&g_flip_mx);
+	page = page_take();
 
 	if (g_present_debug) t0 = diatom_port_now_us();
 
 	blit(page_base(page), src, w, h, pitch, fmt, dst);
+	/* On-Screen Stats first, so the bar, the disc and a notice go over it */
+	hud_cpu_update();
+	hud_page(page_base(page), page, dst);
 	/* Painted, or unpainted. A page keeps whatever was last written outside
 	 * dst, so the bar has to be taken off the same page it was put on - and
 	 * only here, where this page is the one being prepared and no one is
@@ -1780,7 +2604,7 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 
 	pthread_mutex_lock(&g_flip_mx);
 	g_presented = true;
-	g_pending = page;
+	g_page_pending = page;
 	pthread_cond_signal(&g_flip_cv);
 	pthread_mutex_unlock(&g_flip_mx);
 
@@ -1795,6 +2619,43 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 			diatom_port_log(DIATOM_LOG_DEBUG, msg);
 		}
 	}
+}
+
+/* A frame to the panel by the path it needs (the GPU path, above). Between the
+ * two, the one stopping first finishes what it has in hand: the GPU's frame in
+ * flight, before the CPU writes a page; and the pages cleared, as the CPU path
+ * draws only inside the picture and keeps track of what it painted around it,
+ * which a page the GPU drew wholly would leave wrong. */
+void diatom_port_present(const void *src, int w, int h, size_t pitch,
+                         diatom_pixfmt fmt, diatom_rect dst,
+                         diatom_filter filter)
+{
+	bool gpu = gl_wanted(filter);
+
+	if (!src || w <= 0 || h <= 0) {
+		if (!gpu) cpu_present(src, w, h, pitch, fmt, dst, filter);
+		return;
+	}
+	/* The display's gamma table at the take (nothing presented since the
+	 * last stop), and a night's start or end after it, whichever path draws */
+	display_gamma(!g_presented);
+	if (gpu != gl_drew_last()) {
+		port_logf(DIATOM_LOG_INFO, "brick: frames now by the %s", gpu ? "GPU" : "CPU");
+		if (gl_drew_last()) {
+			drain();
+			flip_drain();
+			clear_pages();
+			g_map_valid = false;
+			memset(g_bar_painted, 0, sizeof g_bar_painted);
+			memset(g_ov_painted, 0, sizeof g_ov_painted);
+			memset(g_dot_painted, 0, sizeof g_dot_painted);
+			memset(g_hudc_painted, 0, sizeof g_hudc_painted);
+		}
+		g_gl_last = gpu;
+		g_gpu_seq_seen = g_gpu_seq;
+	}
+	if (gpu) gl_present(src, w, h, pitch, fmt, dst, filter);
+	else     cpu_present(src, w, h, pitch, fmt, dst, filter);
 }
 
 size_t diatom_port_audio_write(const int16_t *frames, size_t n)
@@ -1929,6 +2790,7 @@ void diatom_port_input_poll(void)
 {
 	struct input_event ev[32];
 	SDL_Event sev;
+	const uint32_t before = g_buttons;
 	ssize_t n;
 	size_t i, k;
 
@@ -1940,6 +2802,9 @@ void diatom_port_input_poll(void)
 	while (SDL_PollEvent(&sev))
 		if (sev.type == SDL_QUIT) g_quit = true;
 
+	/* Every press since the last poll, a tap gone up again too
+	 * (diatom_port_input_pressed) */
+	g_pressed = 0;
 	while (g_pad_fd >= 0 && (n = read(g_pad_fd, ev, sizeof ev)) > 0) {
 		for (i = 0; i < (size_t)n / sizeof ev[0]; i++) {
 			if (ev[i].type == EV_SYN && ev[i].code == SYN_DROPPED) {
@@ -1957,20 +2822,29 @@ void diatom_port_input_poll(void)
 			if (level_button(ev[i].code, ev[i].value != 0)) continue;
 			for (k = 0; k < sizeof keymap / sizeof keymap[0]; k++) {
 				if (keymap[k].code != ev[i].code) continue;
-				if (ev[i].value) g_buttons |=  DIATOM_BIT(keymap[k].btn);
-				else             g_buttons &= ~DIATOM_BIT(keymap[k].btn);
+				if (ev[i].value) {
+					g_buttons |= DIATOM_BIT(keymap[k].btn);
+					g_pressed |= DIATOM_BIT(keymap[k].btn);
+				} else {
+					g_buttons &= ~DIATOM_BIT(keymap[k].btn);
+				}
 			}
 		}
 	}
+	/* And a key a resync found down whose press was in the events dropped */
+	g_pressed |= g_buttons & ~before;
 }
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
+uint32_t diatom_port_input_pressed(void) { return g_pressed; }
 
-/* No motor. */
-bool diatom_port_rumble(uint16_t strong, uint16_t weak)
+/* No motor yet: GPIO 227 and the bldo3 rail wait for the tester's buzz
+ * (the Brick parity plan's item 14), and `scale` will set the voltage */
+bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
 {
 	(void)strong;
 	(void)weak;
+	(void)scale;
 	return false;
 }
 
@@ -1982,6 +2856,7 @@ void diatom_port_input_reset(void)
 	SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
 	while (g_pad_fd >= 0 && read(g_pad_fd, ev, sizeof ev) > 0) { }
 	g_level_down = g_level_pressed = 0;
+	g_pressed = 0;
 	pad_resync();
 }
 
@@ -2068,6 +2943,35 @@ void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 	osd_show(kind == DIATOM_LEVEL_BRIGHTNESS ? 1 : 0, pos, positions - 1);
 }
 
+void diatom_port_level_look(const osdbar_look *look)
+{
+	pthread_mutex_lock(&g_mx);
+	if (look) g_osd_look = *look;
+	else memset(&g_osd_look, 0, sizeof g_osd_look);
+	pthread_mutex_unlock(&g_mx);
+}
+
+/* The table again at once, on the frame loop's thread as display_gamma is,
+ * while a game has the display; else at the take (display_gamma) */
+void diatom_port_level_lift(int lift)
+{
+	if (lift < 0) lift = 0;
+	if (lift > PANELGAMMA_LIFT_MAX) lift = PANELGAMMA_LIFT_MAX;
+	if (lift == g_gamma_lift) return;
+	g_gamma_lift = lift;
+	g_gamma_color.lift = lift;
+	if (g_disp_fd < 0 || !g_presented) return;
+	if (panelgamma_sunxi_apply(g_disp_fd, &g_gamma_color) == 0)
+		port_logf(DIATOM_LOG_INFO, "brick: the display's gamma table lifted %d", lift);
+	else
+		diatom_port_log(DIATOM_LOG_WARN, "brick: could not set the display's gamma table");
+}
+
+bool diatom_port_level_plugged(void)
+{
+	return __atomic_exchange_n(&g_jack_moved, false, __ATOMIC_RELAXED);
+}
+
 void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)
 {
 	ds_theme colors;
@@ -2103,7 +3007,7 @@ void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)
 }
 bool     diatom_port_should_quit(void) { return g_quit; }
 
-bool diatom_port_capture(const char *path)
+static bool cpu_capture(const char *path)
 {
 	SDL_Surface *s, *rgb;
 	bool ok;
@@ -2143,12 +3047,6 @@ bool diatom_port_capture(const char *path)
 	return ok;
 }
 
-/* No display lock on the Brick yet: its panel's rate is not read */
-bool diatom_port_vblank(uint64_t *at_us, double *period_us)
-{
-	(void)at_us; (void)period_us;
-	return false;
-}
 
 uint64_t diatom_port_now_us(void)
 {
@@ -2200,13 +3098,5 @@ void diatom_port_fast_clock(bool cpu, bool gpu)
 void diatom_port_power(int level) { (void)level; }
 void diatom_port_power_invalidate(void) { }
 
-/* No GPU frames: the Brick's display is a framebuffer, and its cores all draw
- * in software. A core that asks for the GPU is refused (see diatom_port.h). */
-bool      diatom_port_gpu_begin(const diatom_gpu_spec *spec) { (void)spec; return false; }
-void      diatom_port_gpu_end(void) {}
-uintptr_t diatom_port_gpu_target(void) { return 0; }
-void     *diatom_port_gpu_proc(const char *name) { (void)name; return NULL; }
-void      diatom_port_present_gpu(int w, int h, diatom_rect dst, diatom_filter filter)
-{ (void)w; (void)h; (void)dst; (void)filter; }
-bool      diatom_port_gpu_read(void *xrgb, int *w, int *h, size_t cap)
-{ (void)xrgb; (void)w; (void)h; (void)cap; return false; }
+/* GPU frames: port/gles_gpu.h, through the GPU path (above), which a core
+ * asking for the GPU is refused without (see diatom_port.h) */

@@ -5,6 +5,7 @@
 
 #include "db.h"
 #include "ds/hover.h"
+#include "panel.h"
 
 #include <SDL.h>
 #include <stdio.h>
@@ -38,16 +39,18 @@ static long written(void)
 	return db_changes(db_dev()) + db_changes(db_lib());
 }
 
-/* Each choice shown in turn, as a cursor going down the list would, then
- * back on the kept one, then the list closed: the shows it made */
-static int sweep(app *a, const ds_hover *h, int kept, int n, double *worst_ms)
+/* Each choice shown in turn, as a cursor going down the list would, three
+ * frames of the shelf behind it drawn after each, then back on the kept
+ * one, then the list closed: the shows it made, and the slowest show and
+ * frame */
+static int sweep(app *a, const ds_hover *h, int kept, int n, double *worst_ms, double *frame_ms)
 {
 	ds_hover_run r;
 	unsigned now = 0;
-	int k, shown = 0;
+	int k, f, shown = 0;
 	const double per_ms = 1000.0 / (double)SDL_GetPerformanceFrequency();
 
-	*worst_ms = 0;
+	*worst_ms = *frame_ms = 0;
 	ds_hover_begin(&r, h, a, kept, kept >= 0 ? kept : 0, now);
 	for (k = 0; k < n; k++) {
 		Uint64 t0;
@@ -68,6 +71,12 @@ static int sweep(app *a, const ds_hover *h, int kept, int n, double *worst_ms)
 		}
 		if (ms > *worst_ms) *worst_ms = ms;
 		if (r.shown == k) shown++;
+		for (f = 0; f < 3; f++) {
+			t0 = SDL_GetPerformanceCounter();
+			draw_shelf(a);
+			ms = (double)(SDL_GetPerformanceCounter() - t0) * per_ms;
+			if (ms > *frame_ms) *frame_ms = ms;
+		}
 	}
 	if (kept >= 0) ds_hover_at(&r, kept, now + 1);
 	ds_hover_end(&r);
@@ -80,16 +89,16 @@ void hover_sweep_list(app *a, const char *page, const char *label, const ds_hove
 	page_read before, after;
 	long w0;
 	int shown;
-	double worst;
+	double worst, frame;
 
 	if (!h || !h->show || n <= 0) return;
 	page_take(a, build, ctx, &before);
 	w0 = written();
-	shown = sweep(a, h, kept, n, &worst);
+	shown = sweep(a, h, kept, n, &worst, &frame);
 	page_take(a, build, ctx, &after);
-	printf("hover: %s\t%s\t%d\t%ld\t%s\t%.2f\n", page, label ? label : "", shown, written() - w0,
+	printf("hover: %s\t%s\t%d\t%ld\t%s\t%.2f\t%.2f\n", page, label ? label : "", shown, written() - w0,
 	       before.n == after.n && !memcmp(before.value, after.value, sizeof before.value) ? "same" : "changed",
-	       worst);
+	       worst, frame);
 	fflush(stdout);
 }
 

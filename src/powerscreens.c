@@ -3,7 +3,7 @@
 
 #include "bgm.h"
 #include "design.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "place.h"
 #include "status.h"
 #include "theme.h"
@@ -650,8 +650,10 @@ static int charging_run(app *a)
 		if (step == CS_START || step == CS_OFF) {
 			fprintf(stderr, "charging: %s\n", step == CS_START ? "POWER, starting"
 			                                                   : "unplugged, turning off");
-			/* The hold that started it is not one that turns it off
-			 * (MENU > Power Button on Hold: the same two seconds) */
+			/* The hold that started it is not one that turns it off:
+			 * MENU > Power Button on Hold's second (DS_MS_HOLD_POWER) is
+			 * this screen's too, and this screen reads no turn-off;
+			 * taken, the key goes up before POWER is one again */
 			if (step == CS_START) plat_power_consume();
 			return step;
 		}
@@ -764,7 +766,7 @@ bool charge_instead(app *a)
 	snap_off();
 	remember_place(a);
 	book_keep(true);
-	if (musec_playing()) musec_stop();
+	if (mp4c_playing()) mp4c_stop();
 	bgm_hold(BGM_HOLD_START, true);
 	playing_mark_clean();
 	anim_poweroff(a);

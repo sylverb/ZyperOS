@@ -1,9 +1,52 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "games.h"
 #include "design.h"
+#include "home.h"
+#include "platform.h"
+#include "theme.h"
+#include "ui.h"
+#include "videoview.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+static SDL_Texture *no_cover(void *ctx, int index, int *w, int *h, float *bottom)
+{
+    (void)ctx; (void)index; (void)w; (void)h; (void)bottom;
+    return NULL;
+}
+
+/* The Video view's band (src/videoview.h, DESIGN.md 11.57): a frame each
+ * while its covers glide, as the cover row's (games_draw), past the end of
+ * the band's own slide; none once they have landed and nothing plays. It
+ * asked for none for the glide, so its last frame stayed up with a cover
+ * half faded at the band's side until the next picture or the heartbeat
+ * (2026-11-19, on the 1.1.0 test build: "a black box stays on the side") */
+static void video_view_glide(void)
+{
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 1024, 768, 32, SDL_PIXELFORMAT_ARGB8888);
+    SDL_Renderer *r = SDL_CreateSoftwareRenderer(surface);
+    vv_motion m = { 0 };
+    games_row vr = { 0 };
+    vv_info in = { .heading = "SNES", .title = "Bravo", .count = 8, .cursor = 1, .band = -1 };
+    uint32_t t, start = 5000;
+
+    assert(r);
+    theme_set_file(NULL);
+    theme_init(APPEAR_LIGHT);
+    assert(ui_init(r, "res/fonts/menu.ttf"));
+    assert(page_fonts_init("res/fonts/menu.ttf"));
+    games_reset(&vr, 0, 8, 1000);
+    vv_reset(&m, 1000);
+    assert(vv_draw(&m, &vr, r, &in, no_cover, NULL, 4000, 0) == UINT32_MAX);
+    games_select(&vr, 1, 8, 1, start);
+    vv_touch(&m, start);
+    for (t = start; t < start + DS_MS_MOVE; t += 4)
+        assert(vv_draw(&m, &vr, r, &in, no_cover, NULL, t, 0) == 0);
+    assert(vv_draw(&m, &vr, r, &in, no_cover, NULL, start + DS_MS_MOVE + 1, 0) == UINT32_MAX);
+    SDL_DestroyRenderer(r);
+    SDL_FreeSurface(surface);
+}
+
 int main(void)
 {
     games_row row={0}; games_slot slots[GAMES_WINDOW];
@@ -40,6 +83,32 @@ int main(void)
         assert(box.w<=GAMES_COVER_W && box.h<=GAMES_COVER_H);
         assert(fabsf(box.w/box.h-(float)w[i]/h[i])<.001f);
     }
+    /* The five covers (DESIGN.md 11.1): the focused one flat; the near pair
+     * turned, its near edge outward and taller, clear of the focused cover
+     * for every shape of box; the far pair's inner edge on the screen; the
+     * last seat, where a cover slides in from, unseen */
+    for(int r=0;r<=30;r++) {
+        float aspect=.5f+r*.05f; int w=(int)lroundf(aspect*600),h=600;
+        SDL_FPoint q[4]; float al;
+        SDL_FRect focus=games_cover_rect(w,h,0);
+        games_cover_corners(w,h,0,q,&al);
+        assert(al==1 && fabsf(q[0].y-q[1].y)<.01f && fabsf(q[0].x-focus.x)<.01f);
+        for(int side=-1;side<=1;side+=2) {
+            games_cover_corners(w,h,(float)side,q,&al);
+            float inner=side>0?q[0].x:q[1].x;
+            float outer_h=side>0?q[2].y-q[1].y:q[3].y-q[0].y, inner_h=side>0?q[3].y-q[0].y:q[2].y-q[1].y;
+            assert(al>0 && al<1 && outer_h>inner_h);
+            assert(side>0?inner>focus.x+focus.w:inner<focus.x);
+            games_cover_corners(w,h,2.0f*side,q,&al);
+            inner=side>0?q[0].x:q[1].x;
+            assert(al>0 && inner>0 && inner<ZYPEROS_SCREEN_W);
+            games_cover_corners(w,h,3.0f*side,q,&al);
+            assert(al==0);
+        }
+    }
+    video_view_glide();
     puts("ok: game-row aspect, wrap, tiny lists, rapid reversals, and bounded jumps");
+    puts("ok: the Video view asks a frame for every step of its covers' glide");
+    puts("ok: five covers, the focused one flat, the near pair clear of it for every shape");
     return 0;
 }

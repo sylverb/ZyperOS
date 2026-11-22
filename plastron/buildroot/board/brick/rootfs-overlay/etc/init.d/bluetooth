@@ -77,7 +77,7 @@ attach() {
 start() {
 	# The system log, first, so it hears everything below: bluetoothd and
 	# bluealsa (-S) log only to it. A ring in memory (logread prints it),
-	# lost at power-off; Muse's stall report saves a copy to the card
+	# lost at power-off; MP4's stall report saves a copy to the card
 	daemon syslogd syslogd -n -C64
 	state
 	for m in bluetooth hci_uart xradio_btlpm xradio_btfdi; do
@@ -92,7 +92,7 @@ start() {
 	daemon bluetoothd /usr/libexec/bluetooth/bluetoothd
 	daemon bluealsa bluealsa -S -p a2dp-source -p hfp-ag --a2dp-volume
 	# ZyperOS's btplayer, from the card when it is there: a headset's play,
-	# pause, next and previous for Muse (they arrive as keys on its AVRCP
+	# pause, next and previous for MP4 (they arrive as keys on its AVRCP
 	# keyboard, which nothing else reads), and its own volume. After
 	# bluetoothd, whose restart forgets the player it registers
 	[ -x $BTPLAYER ] && daemon btplayer $BTPLAYER

@@ -10,6 +10,7 @@
 #include "ui.h"
 #include "uisound.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <stdio.h>
@@ -87,7 +88,7 @@ bool stats_screen(app *a)
 				 * disappearing: the time was still spent. */
 				int k, found = 0;
 
-				for (k = 0; k < a->sys.count; k++)
+				for (k = 0; k < sys_kept(a); k++)      /* off the home too */
 					if (!strcmp(a->sys.systems[k].tag, tag)) {
 						snprintf(labels[shown], sizeof labels[0], "%s",
 						         a->sys.systems[k].name);
@@ -111,7 +112,7 @@ bool stats_screen(app *a)
 
 				snprintf(bare, sizeof bare, "%.*s", len, file);
 				const char *folder = NULL;
-				for (int k = 0; k < a->sys.count; k++)
+				for (int k = 0; k < sys_kept(a); k++)  /* off the home too */
 					if (!strcmp(a->sys.systems[k].tag, tag)) {
 						folder = a->sys.systems[k].folder;
 						break;
@@ -170,7 +171,7 @@ bool stats_screen(app *a)
 		if (a->in.quit_requested) { a->running = false; return false; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return false; }
 		if (menu_leaving(a)) done = true;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 
 		/* A goes to the row under the cursor: the game on its own shelf, or in
 		 * by-system mode that system's. Not a launch.
@@ -250,10 +251,7 @@ bool stats_screen(app *a)
 			if (cursor >= top + vis) top = cursor - vis + 1;
 		}
 
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		if (!panel_frame(a, lv, &k)) continue;
 		tick_tint(a);

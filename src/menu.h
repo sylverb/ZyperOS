@@ -27,6 +27,25 @@ extern const char MENU_TICK[];
  * Quit (11.28). Known by its address, as MENU_TICK is. */
 extern const char MENU_KEY_X[];
 
+/* A row's label that is buttons, not words: MENU_KEYS_MARK and then the
+ * buttons by their ids' names (src/ds/button.h), "+" for together, "," and
+ * a space for one after the other, "/" for either ("\x1bKSELECT+R1",
+ * "\x1bKMENU, X"), drawn as this handheld's glyphs (DESIGN.md 11.9) at
+ * MENU_KEYS_SIZE where the label goes, the value at the right as ever. The
+ * Controls pages' (src/controls.c, ctl_glyph_rows). Text, so a panel's
+ * snapshot keeps it as it keeps any label. */
+#define MENU_KEYS_MARK "\x1bK"
+/* A value with buttons after it: the value's words, MENU_PARTNER_MARK, then
+ * buttons by name with a space between ("B\x1bPY"), drawn as their glyphs
+ * at MENU_PARTNER_SIZE in the dim look after the words: the Controls tab's
+ * mark of a game button another button gives too (DESIGN.md 11.45) */
+#define MENU_PARTNER_MARK "\x1bP"
+#define MENU_PARTNER_SIZE 32
+#define MENU_KEYS_SIZE 44
+bool menu_keys_is(const char *label);
+/* The buttons after the mark, or `label` itself when it has none */
+const char *menu_keys_names(const char *label);
+
 /* Y's glyph at a row's right with On or Off before it: a setting Y toggles
  * from anywhere on its page, its state still read (the details page's
  * Favorite, 2026-11-09). Known by their addresses, as MENU_KEY_X is. */
@@ -78,9 +97,14 @@ typedef struct menu_choice {
 	 * the choice under it on the whole screen or in the speaker (show,
 	 * undo: Night Warmth's warmth, Accent's color, UI Sounds' voice), or a
 	 * picture of it in a column at the list's left, its note under it in
-	 * place of under the list (draw: the Display list's mini screen). The
-	 * hover's ctx is the app. NULL: none. */
+	 * place of under the list (draw: the Display list's mini screen), or
+	 * both (Theme's Folder Color: the folders, in a picture of the shelf).
+	 * The hover's ctx is the app. NULL: none. */
 	const struct ds_hover *hover;
+	/* Two choices whose list opens on A all the same, for the picture and
+	 * the note that tell them apart (Timing, DESIGN.md 9); Left and Right
+	 * still turn the row over */
+	bool list;
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past
@@ -202,5 +226,10 @@ int menu_window_first(const menu_row *rows, int n, int sel, int vis, int first);
  * rule quietly meant something else nobody could see it: the achievement list
  * scrolled a title or cut it depending on whether the player had EARNED it. */
 bool menu_row_moves(menu_row row, bool selected, bool visits_all);
+
+/* Whether the cursor has a row to land on: a live one, or any with
+ * `visits_all`. A list with none is a message, not a choice, and the panel
+ * draws no focus plate on it (menu_panel) */
+bool menu_rows_landable(const menu_row *rows, int n, bool visits_all);
 
 #endif

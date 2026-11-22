@@ -2,6 +2,7 @@
 /* Actual main.c sort, refresh and scrape-exit hooks; only view resources and
  * scrape transport are stubbed. This needs no window, network or device. */
 #include "../src/library.h"
+#include "../src/pico8.h"
 #include "../src/sort.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +17,9 @@ typedef struct { int cursor; } coverflow;
 /* A shelf with folders (src/shelfdir.h) has every game in `all` and its
  * folders first in `list`; these have none */
 typedef struct { game_list list; game_list *all; int *owner; int sort, cursor, dropped, nfold; coverflow cf; } sysview;
-typedef struct { struct { int count; system_cfg systems[4]; } sys; sysview view[4]; int sys_cursor; bool running; } app;
+typedef struct { struct { int count; system_cfg systems[4]; } sys; sysview view[4]; int parked; int sys_cursor; bool running; } app;
+/* src/app.h's: the home's shelves and the systems turned off it (app.parked) */
+static inline int sys_kept(const app *a) { return a->sys.count + a->parked; }
 typedef enum { MENU_STAY, MENU_CHANGED, MENU_FAILED } menu_result;
 static int failures;
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %d: %s\n", __LINE__, #c); failures++; } } while (0)
@@ -31,8 +34,11 @@ static void dated(const char *rel, bool dir, long when)
 	else { FILE *f = fopen(path, "wb"); CHECK(f != NULL); if (f) fclose(f); }
 	CHECK(utime(path, &t) == 0);
 }
-static bool is_muse(const system_cfg *s) { return !strcmp(s->tag, "MUSE"); }
-static void muse_order_view(sysview *v) { (void)v; failures++; }
+static bool is_mp4(const system_cfg *s) { return !strcmp(s->tag, "MUSE"); }
+static void mp4_order_view(sysview *v) { (void)v; failures++; }
+/* The Screenshots shelf's own order (src/shots_screen.h): no shelf here is it */
+static bool shots_shelf(app *a, int s) { (void)a; (void)s; return false; }
+static void shots_sort(app *a, int s) { (void)a; (void)s; failures++; }
 static int shelf_owner(app *a, int s, int i) { return a->view[s].owner ? a->view[s].owner[i] : s; }
 static void free_view_textures(sysview *v) { v->dropped++; }
 static void cf_reset(coverflow *cf, int cursor) { cf->cursor = cursor; }
@@ -50,6 +56,11 @@ static void scp_page(app *a, const char *only)
 	strcpy(m.title, "Alpha");
 	CHECK(db_game_set(db_lib(), only, "same.zip", &m));
 }
+/* Splore's pin on the PICO-8 shelf (src/pico8.c), stubbed: which games it
+ * was handed, after the sort */
+static int pins;
+static const game_entry *pinned;
+void splore_pin(game_entry *items, int n) { pins++; pinned = n > 0 ? items : NULL; }
 #include "title-refresh-hooks.h"
 
 static void put(game_entry *e, const char *name, const char *file)
@@ -59,7 +70,7 @@ static void put(game_entry *e, const char *name, const char *file)
 int main(void)
 {
 	app a = {0};
-	game_entry nes[2], snes[1], fav[3], muse[1];
+	game_entry nes[2], snes[1], fav[3], mp4[1];
 	int owners[3] = {1, 2, 1};
 	CHECK(db_init(":memory:", ":memory:", NULL));
 	a.sys.count = 4; a.sys_cursor = 0;
@@ -70,14 +81,14 @@ int main(void)
 	a.view[0].list = (game_list){.items = fav, .count = 3}; a.view[0].owner = owners;
 	a.view[1].list = (game_list){.items = nes, .count = 2};
 	a.view[2].list = (game_list){.items = snes, .count = 1};
-	a.view[3].list = (game_list){.items = muse, .count = 1};
+	a.view[3].list = (game_list){.items = mp4, .count = 1};
 	/* Same filename on two systems. Refresh and movement must retain owners. */
 	for (int outcome = 0; outcome < 3; outcome++) {
 		game_meta empty = {0}; strcpy(empty.title, "Zulu");
 		CHECK(db_game_set(db_lib(), "NES", "same.zip", &empty));
 		put(&nes[0], "Middle", "middle.zip"); put(&nes[1], "Zulu", "same.zip");
 		put(&snes[0], "Zulu", "same.zip");
-		put(&muse[0], "Artist", "album"); strcpy(muse[0].title, "Album");
+		put(&mp4[0], "Artist", "album"); strcpy(mp4[0].title, "Album");
 		fav[0] = nes[0]; fav[1] = snes[0]; fav[2] = nes[1];
 		owners[0] = 1; owners[1] = 2; owners[2] = 1;
 		a.view[0].cursor = 2; a.view[1].cursor = 1;
@@ -86,7 +97,7 @@ int main(void)
 		CHECK(media_changes == outcome + 1); /* the focused game's snap looked for again */
 		CHECK(a.view[0].cursor == 0 && a.view[1].cursor == 0);
 		CHECK(owners[0] == 1 && !strcmp(fav[0].file, "same.zip") && !strcmp(fav[0].title, "Alpha"));
-		CHECK(!strcmp(snes[0].title, "Zulu") && !strcmp(muse[0].title, "Album"));
+		CHECK(!strcmp(snes[0].title, "Zulu") && !strcmp(mp4[0].title, "Album"));
 		CHECK(!strcmp(nes[0].name, "Zulu") && !strcmp(nes[0].file, "same.zip"));
 		CHECK(a.view[0].cf.cursor == 0 && a.view[1].cf.cursor == 0);
 		CHECK(a.view[0].dropped == outcome + 1 && a.view[1].dropped == outcome + 1);
@@ -133,6 +144,12 @@ int main(void)
 	nes[0].added = nes[1].added = LIB_ADDED_UNKNOWN; a.view[1].sort = 0;
 	sort_shelf(&a, 1);
 	CHECK(!strcmp(nes[0].name, "A") && nes[0].added == LIB_ADDED_UNKNOWN && nes[1].added == LIB_ADDED_UNKNOWN);
+	/* Splore is pinned on the PICO-8 shelf alone, after its games' sort */
+	CHECK(pins == 0);
+	strcpy(a.sys.systems[1].tag, P8_TAG);
+	sort_shelf(&a, 1);
+	CHECK(pins == 1 && pinned == nes);
+	strcpy(a.sys.systems[1].tag, "NES");
 	{
 		const char *gone[] = { "NES/old.zip", "SNES/new.zip", "NES/Set/Set.m3u" };
 		char path[512];

@@ -23,8 +23,10 @@
  * No I/O: the caller hands it its facts and its textures, as games_draw's
  * and gl_draw's are handed. */
 #include "coverflow.h"
+#include "keyhints.h"
 
 #include <SDL.h>
+#include "ds/focus.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -45,6 +47,14 @@ typedef struct {
 	unsigned     key;
 	SDL_Texture *blur;
 	bool         cutout, generated;
+	/* A game's card as its cell shows it (the ground and the name over it),
+	 * drawn once at the cell's size and copied after: what it was drawn
+	 * for, its size, its name and color, the corners and the face, so a
+	 * change of any draws it again (gamegrid.c's named_card) */
+	SDL_Texture *card;
+	int          card_w, card_h;
+	unsigned     card_for;
+	const void  *card_face;
 } gg_art;
 
 typedef struct {
@@ -57,8 +67,8 @@ typedef struct {
 void gg_note(gg_arts *t, SDL_Renderer *r, int count, int i, SDL_Texture *of,
              unsigned key, SDL_Surface *s, bool generated);
 /* Cover `i`'s, when it was made for `of` and `key`; NULL otherwise */
-const gg_art *gg_art_of(const gg_arts *t, int i, const SDL_Texture *of, unsigned key);
-/* Cover `i`'s let go, with its texture (main.c's evict_far) */
+gg_art *gg_art_of(const gg_arts *t, int i, const SDL_Texture *of, unsigned key);
+/* Cover `i`'s let go, with its textures (main.c's evict_far, evict_grid) */
 void gg_drop(gg_arts *t, int i);
 void gg_arts_free(gg_arts *t);
 /* ---- the grid on a shelf ------------------------------------------------- */
@@ -69,6 +79,7 @@ typedef struct {
 	float    top_from, top_to;     /* the first row in sight, in rows */
 	float    fx_from, fy_from;     /* the ring's cell when its glide began */
 	uint32_t moved, ring_moved;
+	ds_focus_weights fw;           /* each cover's weight in the focus's glide */
 	/* The shelf's shape: the one kept for it, or measured from its covers
 	 * as they arrive, until it settles (GG_SETTLE_MS after it opened, or
 	 * once every cover in sight is in); `measured` is what the covers in
@@ -99,8 +110,9 @@ typedef struct {
 	/* Cover i's texture if it is in hand, without asking for it, for the
 	 * shape (cf_tex_fn's own asks) */
 	cf_tex_fn peek;
-	/* What is known of cover i (gg_note), or NULL */
-	const gg_art *(*art_of)(void *ctx, int i);
+	/* What is known of cover i (gg_note), or NULL; the grid keeps a game's
+	 * card drawn at the cell's size in it */
+	gg_art *(*art_of)(void *ctx, int i);
 	/* The shape kept for this shelf, 0 for none */
 	float kept;
 	/* The focused game's video snap (src/snapshelf.h), as the cover row has
@@ -112,12 +124,24 @@ typedef struct {
 	SDL_Rect snap_src;
 	float snap_k, snap_wait;
 	bool has_snap;
-	/* The focused entry's facts, as the cover row has them */
-	const char *played, *origin;
+	/* The focused entry's facts, as the cover row has them; `needs` its
+	 * firmware the card lacks, in **warning** */
+	const char *played, *origin, *needs;
 	bool has_achievements, resumable, install, inside;
+	const char *cheats;   /* "2 cheats on" (src/cheats_screen.h), NULL or "" for none */
+	bool howto, opens;     /* Splore's entry (src/games.h) */
 	int earned, total;
 	/* START's word at the foot: what the shelf turns into next */
 	const char *start_word;
+	/* A shelf of another kind's own words (MP4's albums, DESIGN.md 11.67):
+	 * A's word for the focused entry, and the foot's hints whole; NULL and
+	 * 0 for a games shelf's */
+	const char *a_word;
+	const key_hint *foot;
+	int nfoot;
+	/* Entry i's art badge (src/artbadge.h): what it is, on a shelf of
+	 * kinds (MP4's All); NULL, or AB_NONE for i, for none */
+	int (*badge_of)(void *ctx, int i);
 } gg_info;
 
 /* Reset to the cursor, with no motion and no shape: a shelf opened, a

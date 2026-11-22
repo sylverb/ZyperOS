@@ -7,6 +7,7 @@
 #include <time.h>
 
 #include "sidelights.h"
+#include "startfail.h"   /* plat_start_error: why a game never started, with no SDL */
 #include "device/profile.h"   /* what the handheld is, and the answers it gives */
 
 /* Everything that knows which device it is running on sits behind this file:
@@ -52,6 +53,12 @@
 /* And restarts it with this one: System Update's Restart Now, which the next
  * start's switch (docs/updates.md) is waiting for. */
 #define ZYPEROS_REBOOT_FLAG "/tmp/zyperos_reboot"
+/* Where one of those flags is for this launcher: the path as it is on a card;
+ * on a computer, in $ZYPEROS_FLAG_DIR when that is set. Every launcher on a
+ * computer shares /tmp, a shot of the power-off writes its flag there, and a
+ * desk mode window (tools/desk) took another's for its own and quit after a
+ * game: tools/desk gives each window a folder of its own. */
+const char *plat_flag(const char *path);
 
 /* Overridable at runtime so the launcher can be pointed at a test tree. */
 extern const char *P_ROOT;     /* /mnt/SDCARD/ZyperOS      */
@@ -92,15 +99,34 @@ unsigned plat_now_ms(void);
  * instead, and fits it to the panel at present. */
 void plat_present(void);
 void plat_draw_to_screen(void);
+/* ZyperOS's own screens' shader (src/screenfx.h, DESIGN.md 11.50): Diatom's
+ * name for it ("crt", "crt-curved", "scanlines", "lcd"; anything else is
+ * Off) and its strength, 10 to 100, on every frame plat_present shows from
+ * now on, at the panel's own pixels. The launcher asks for Off while a game
+ * is up: what it draws then is over the game. Off draws the frame as it was,
+ * with no pass of its own; an old screen where plat_gpu_shaders says no is
+ * Off. Defined in src/screenfx_draw.c, for every device. */
+void plat_screen_shader(const char *name, int strength);
+/* That shader on the frame drawn so far, now, for a shot that reads the
+ * screen back before plat_present: where the shader goes on as the frame
+ * goes to the panel (the Pixel 2), nothing. Once a frame: the present after
+ * it does not put it on again. */
+void plat_screen_finish(void);
+/* The shader is put on the frame itself, in the window it is drawn in (the
+ * host's file): a frame drawn over the last one's picture, as a focus frame
+ * is (src/shelf_draw.c), would put it on twice, so none is, while this is
+ * true. False where it goes on as the frame goes to the panel (the Pixel 2). */
+bool plat_screen_shader_in_frame(void);
 /* A video picture UNDER the screen, for the next plat_present only: MP4's
  * player, called at the start of a frame in place of clearing it. The frame
- * is `bg` everywhere, then `tex` (which may be NULL) in `dst` - in screen
- * coordinates - and then everything drawn after this call, on top, its alpha
- * kept. Where the device scales the screen to its panel, the picture is drawn
- * at the panel's own resolution rather than through the screen's 1024x768:
- * on the Pixel 2 a 640x360 video lands on the 640x480 panel pixel for pixel,
- * instead of scaled up and back down. */
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg);
+ * is `bg` everywhere, then the `src` part of `tex` (which may be NULL; `src`
+ * NULL for all of it) in `dst` - in screen coordinates - and then everything
+ * drawn after this call, on top, its alpha kept. Where the device scales the
+ * screen to its panel, the picture is drawn at the panel's own resolution
+ * rather than through the screen's 1024x768: on the Pixel 2 a 640x360 video
+ * lands on the 640x480 panel pixel for pixel, instead of scaled up and back
+ * down. */
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg);
 /* Shows the screen as it is drawn and also writes it to path as the panel
  * shows it, raw XRGB8888 at the panel's own size and turn: a still for
  * plastron's splash --still to hold while a port loads (launch_port). False
@@ -116,6 +142,11 @@ bool plat_save_screen_hidden(const char *path);
 SDL_Texture *plat_load_screen(const char *path);
 
 bool plat_input_init(void);
+/* The motor once, at `scale` (0 to 1, rumble_run_pct's share over 100) for
+ * `ms` milliseconds, then still by itself: Rumble's step, felt as it is
+ * chosen (src/rumble.h). True when it buzzed, or `scale` is 0 (Off); false
+ * where the handheld has no motor it can run (plat_has_rumble). */
+bool plat_rumble_buzz(float scale, int ms);
 void plat_input_quit(void);
 void plat_input_poll(in_state *st);
 void plat_input_flush(void);
@@ -125,12 +156,25 @@ void plat_input_flush(void);
  * the shelf reached the panel two blanks later (33 ms). With no button
  * devices to wait on (a desktop), it sleeps `ms`. */
 void plat_input_wait(unsigned ms);
+/* Work that goes on behind every screen while it rests: each device's
+ * plat_input_wait calls the hook with the wait it was asked for, and the
+ * hook does its step and returns how long the wait may be (`ms`, or less to
+ * be back sooner). The downloads' lanes (src/dlq.h, dlq_wait); none set,
+ * the wait is as asked. */
+void plat_on_input_wait(unsigned (*hook)(unsigned ms));
+unsigned plat_input_wait_hook(unsigned ms);
 /* Once, just before the shelf's first frame: throw away whatever input the
  * boot produced, so nothing pressed while the device came up is honored, and
  * leave `st` empty. How long that takes depends on the device - on one whose
  * input arrives in bursts as it starts, settling means waiting them out. */
 void plat_input_settle(in_state *st);
 bool in_repeat(in_state *st, in_button b);
+/* A pair of opposite buttons, `neg` and `pos` (Up and Down, Left and Right),
+ * each read once this frame by in_repeat: -1 for `neg`'s press or repeat,
+ * +1 for `pos`'s (both: `pos`), 0 for neither. A repeat is true once: a
+ * second in_repeat of the same button in a frame is false, so a held
+ * direction read twice turns round */
+int in_repeat_axis(in_state *st, in_button neg, in_button pos);
 
 /* Tell the input layer the process is going away. The next plat_input_poll
  * raises quit_requested, which every loop already checks. */
@@ -207,6 +251,12 @@ int  plat_resident_wait(void);
 /* Whether the game last sent has said RUNNING: its first frame is up */
 bool plat_resident_started(void);
 
+/* Why the game last sent never started, when Diatom says: its ERROR before
+ * RUNNING, a core that would not load (plat_start_error, src/startfail.h).
+ * Taken once: false when the last start gave no such error, or when it was
+ * taken already. */
+bool plat_resident_start_error(plat_start_error *out);
+
 /* Called from inside plat_resident_wait when Diatom reports an achievement
  * unlocked. A callback rather than a queue because the wait blocks: anything
  * buffered would have to be sized against a play session, and this has nothing
@@ -224,6 +274,12 @@ void plat_resident_on_speed(void (*fn)(int half));
  * STICK line. Not for the answer to a SETSTICK sent by
  * plat_resident_set_stick. NULL to stop. */
 void plat_resident_on_stick(void (*fn)(bool on));
+/* Called from inside plat_resident_wait as L1 or R1 moves a Famicom Disk
+ * System game's disk (Diatom's DISK line, diatom/src/fdsdisk.h): `state`
+ * "selected" (L1 turned it), "in", "out" (R1) or "eject-first" (L1 with the
+ * disk in, which turns nothing), the disk 1 to 4 and its side 'A' or 'B'
+ * (0 and 0 for eject-first). NULL to stop. */
+void plat_resident_on_disk(void (*fn)(const char *state, int disk, char side));
 /* SETSTICK mode=..., the d-pad as the stick at once (the Controls tab's
  * row), counted so that its STICK answer reaches no on_stick callback */
 bool plat_resident_set_stick(const char *mode);
@@ -239,6 +295,15 @@ enum {
 	PLAT_QUICK_SAVE_FAILED, PLAT_QUICK_LOAD_FAILED
 };
 void plat_resident_on_quick(void (*fn)(int what, const char *path));
+/* Called from inside plat_resident_wait for the player's hotkeys the
+ * launcher carries out (src/hotkeys.h): `key` "shot" with path NULL as the
+ * shot is taken (its shutter) and again with the PNG's path once Diatom
+ * wrote it, or "shader" or "display" (path NULL) for the next */
+void plat_resident_on_hotkey(void (*fn)(const char *key, const char *path));
+/* What the PAUSED that made plat_resident_wait return RES_PAUSED was for:
+ * "reset" (Reset Game's hotkey: ask first) or "quit" (Quit's: stop), ""
+ * for MENU's, the menu */
+const char *plat_resident_paused_for(void);
 
 /* Called from inside plat_resident_wait when Diatom reports an achievement's
  * count moving ("CHEEVO id=.. state=progress value=.. target=.. text=.."),
@@ -274,6 +339,9 @@ void plat_resident_low_battery(int level);
  * "right", already decided for where Diatom's sound goes (src/audioout.h).
  * Sent like quiet: on a change, and before every RUN. */
 void plat_resident_channels(const char *mode);
+/* The equalizer's bands for where Diatom plays (src/eq.h), dB each: SETEQ,
+ * on a change and before every RUN, as the channels. All 0 is flat. */
+void plat_resident_eq(const int8_t db[5]);
 /* Where Diatom says its sound actually is, which may not be where it was asked
  * to put it - a sink that will not open, or one that died, makes the port fall
  * back and report the fallback. False until it has said. */
@@ -343,6 +411,10 @@ void plat_resident_opt(const char *key, const char *value);
  * R2 turns it in the game, where this process cannot see. Off at every RUN.
  * _note records what the menu just asked for, so the row says it at once. */
 bool plat_resident_stylus(void);
+/* The game's core asked for the motor, as Diatom's last PAUSED said
+ * (rumble=1): the in-game Controls tab's Rumble row is for its games alone.
+ * Off at every RUN, and from a Diatom too old to say. */
+bool plat_resident_rumble_asked(void);
 void plat_resident_note_stylus(bool on);
 /* Whether the bottom screen is in front, as Diatom last said (SCREENS swap=):
  * L2 switches it in the game. Off at every RUN, so each game starts on the
@@ -383,13 +455,16 @@ void plat_volume_nudge(int delta);
 void plat_brightness_nudge(int delta);
 void plat_volume_set_pct(int pct);
 void plat_brightness_set(int level);
+/* The brightness boost past the top rung (src/levels.c): 0 none, up to
+ * PANELGAMMA_LIFT_MAX steps of a mid-tone lift on the display's table */
+void plat_brightness_lift(int lift);
 /* The backlight's own value at rung `level` (its ladder), -1 where there is
  * none to hand to another program: Flash Drive's usbdrive steps the same
  * rungs, and the boot screens light at the player's (src/boottheme.h) */
 int  plat_brightness_raw(int level);
 
 /* The panel's backlight off or on, leaving the brightness level as it was -
- * Muse's pocket lock. Off is the display engine's own switch, not a black
+ * MP4's pocket lock. Off is the display engine's own switch, not a black
  * frame: measured 2026-09-30, it takes a book playing from about 470 mA to
  * 300, where a dark picture would leave the light burning. On comes back at
  * the level it had. Nothing on the host. */
@@ -436,7 +511,7 @@ bool plat_screen_saturation_here(void);
 /* Night Mode (src/nightmode.h, MENU > Display): the whole screen warmer,
  * always or by the Night Hours, in the same table as the Screen Colors.
  * Only where the profile has that table (plat_night_here, as
- * plat_screen_colors_here): not on the Brick.
+ * plat_screen_colors_here): the Pixel 2's VOP, the Brick's TCON.
  *
  * plat_night: the kept settings (src/nightkeep.c's night_keep calls it, and
  * plat_settings_init reads them at the start): the table now, at once, and

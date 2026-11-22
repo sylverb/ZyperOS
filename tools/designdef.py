@@ -127,11 +127,11 @@ PAGE_CURVES = {"out": "cubic-bezier(0.22, 1, 0.36, 1)",
 # Roles that must be one value in both themes, and why. A theme change reaches
 # whatever is drawn from theme() on the next frame, but not a value the
 # launcher has kept: src/main.c keeps the accent as the color of Favorites
-# and Muse (ZYPEROS_ACCENT, in their systems' accents and the covers drawn
+# and MP4 (ZYPEROS_ACCENT, in their systems' accents and the covers drawn
 # from it) for as long as it runs, and src/ui.c's ui_sys_mark knows that
 # lime, and draws it as accent-ink, by its value.
 SAME_IN_BOTH = {
-    "accent": "src/main.c keeps it as Favorites' and Muse's color "
+    "accent": "src/main.c keeps it as Favorites' and MP4's color "
               "(ZYPEROS_ACCENT) and src/ui.c's ui_sys_mark knows it by value",
 }
 
@@ -186,6 +186,7 @@ TYPE = [
     ("support", 28, "Regular", "home counts, compact game metadata, and the action beside its button glyph (action 27 and support 29 until 1.0.6)"),
     ("game-title", 37, "SemiBold", "the full game name below its cover row: meta's size, title's weight; its lines 40 apart (38 and 44 until 1.0.6)"),
     ("card",  71, "Regular",  "the title drawn into a generated card (512 px wide)"),
+    ("clock", 120, "SemiBold", "MP4's Classic look: the time played, large; digits only, so Lexend in every language"),
 ]
 
 # ---- space and shape -----------------------------------------------------------
@@ -198,6 +199,10 @@ SPACE = [
     ("rail-inset",  23,  "the rail from the bottom edge"),
     ("rail-ends",   90,  "the rail's inset at both ends"),
     ("rail-min",    18,  "the rail marker's least length"),
+    ("level-mark",  42,  "the volume and brightness bar's mark: its middle, in from the pill's left end"),
+    ("boost-gap",   12,  "the bar's gap at the top, its thin mark in the middle, before the boost cells"),
+    ("boost-charge-w", 36, "the bar's charging cell before the boost opens, wide..."),
+    ("boost-charge-h", 30, "...and tall: big, so its fill is easy to see"),
 ]
 
 SHAPE = [
@@ -210,6 +215,7 @@ SHAPE = [
     ("rule",         2,  "a heading's rule, the keyboard field's edge"),
     ("caret",        3,  "the keyboard's caret"),
     ("ring",         4,  "a button glyph's ring"),
+    ("radius-bar",   4,  "MP4's bars (Player Look); a bar's cap is a pill"),
 ]
 
 # ---- layout --------------------------------------------------------------------
@@ -239,6 +245,16 @@ LAYOUT = [
     ("page-line-gap",   48,  "between the line's marks and words"),
     ("page-line-gap-tight", 24, "...where they are wider than the page"),
     ("foot-y",          720, "every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724)"),
+    # the Video view (src/videoview.h, DESIGN.md 11.57)
+    ("video-band-top",  524, "the Video view's band of covers and keys: its top while it is up"),
+    ("video-step",      108, "its covers a step apart"),
+    ("video-cover-w",   90,  "a cover's box in the band"),
+    ("video-cover-h",   120, "...its height"),
+    ("video-focus-w",   108, "the focused cover's box"),
+    ("video-focus-h",   144, "...its height"),
+    ("video-card-y",    96,  "the name's card at the top left: its top, clear of the header row"),
+    ("video-card-pad-x", 28, "the card's padding at its sides"),
+    ("video-card-pad-y", 18, "...at its top and foot"),
     ("page-foot-gap",   40,  "between the hints at a page's foot"),
     ("page-foot-gap-tight", 20, "...where they are wider than the page"),
     ("page-tile-w",     472, "a page's tile, two side by side from the insets"),
@@ -314,14 +330,32 @@ LAYOUT = [
     # the dense grid (src/gamegrid.c)
     ("grid-gap",        24,  "between a grid's cells"),
     ("grid-band-gap",   24,  "a grid's foot to the band under it: the name and its facts"),
-    ("focus-ring",      4,   "the ring round a focused cell"),
-    ("focus-gap",       4,   "the ground between that ring and the cell"),
-    ("radius-cell",     14,  "a grid cell's corners; its ring's are radius-card (14 + 4 + 4)"),
+    # Highlight's marks (src/ds/focus.h), each drawn as the whole panel
+    # pixels it comes to (src/focusgeo.h): 2 on the Pixel 2, 3 on the Brick
+    ("focus-ring",      3,   "Border's ring round the item in focus, as whole panel pixels"),
+    ("focus-gap",       3,   "the ground between that ring and the item, as whole panel pixels"),
+    ("focus-bar-w",     40,  "Bar's bar under the item in focus"),
+    ("focus-bar-h",     6,   "...its height, a pill"),
+    ("focus-bar-under", 8,   "...under the item's foot (a cover's, a still's name)"),
+    ("radius-cell",     14,  "a grid cell's corners; its ring's are the cell's, the gap's and the ring's added"),
     # a choice's picture beside its list (src/ds/preview.h)
     ("preview-col-w",   336, "the picture column at an option list's left: the screen in small and its note"),
     ("preview-col-min", 200, "...narrower where the list's choices run long, to this"),
     ("preview-gap",     32,  "the column to the list's rows"),
     ("preview-note-gap", 16, "the small screen's foot to its note's first line"),
+    # MP4's Player Looks (src/nowplaying_looks.c, DESIGN.md 11.64): every
+    # edge on the grid, so whole pixels on the Pixel 2 as on the Brick
+    ("look-bar-w",      16,  "a bar: 10 whole pixels on the Pixel 2"),
+    ("look-bar-gap",    8,   "between two bars: 5"),
+    ("look-cap",        4,   "a bar's cap: its height, and its gap over the bar"),
+    ("look-classic-w",  488, "Classic: the clock's panel, 18 bars and their pad wide, and the words under it"),
+    ("look-panel-pad",  32,  "Classic: the clock's panel's words and bars from its edges"),
+    ("look-list-row",   56,  "Classic: a row of the track list"),
+    ("look-list-num",   48,  "Classic: a row's number, tabular, before its name"),
+    ("line-clock",      128, "Classic: the clock's line, as a box"),
+    ("look-cover",      192, "Spectrum: the cover beside the names"),
+    ("look-record",     448, "Vinyl: the platter, a 12-inch record and its rim, 424 and 12 each side"),
+    ("look-cassette-w", 592, "Cassette: a C-cassette, 100.4 x 63.8 mm, 74 x 47 grid steps (592 x 376), the nearest whole steps to its proportions"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
@@ -331,7 +365,7 @@ LAYOUT = [
 
 GLOWS = [
     ("focus",       105, 2.3, "a card on the shelf"),
-    ("focus-small", 85,  1.5, "a thumbnail, Muse's cover"),
+    ("focus-small", 85,  1.5, "a thumbnail, MP4's cover"),
     ("panel",       60,  1.5, "a menu panel, the keyboard"),
     ("wash",        34,  1.7, "the system's light along the bottom of the shelf"),
 ]
@@ -373,10 +407,23 @@ MOTION = [
     ("zyper-ears",  420,  "-",     "Zyper's ears swinging out and back as he says hello"),
     ("tour-reward", 1100, "-",     "a tutorial step's reward, before the next"),
     ("tour-pulse",  440,  "-",     "the right glyph's two pulses after a press of the wrong button"),
-    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold"),
+    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it"),
+    ("hold-power",  1000, "-",     "POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld"),
+    ("hold-boost",  1000, "-",     "a level key held this long on the top opens the boost past it; the charging cell fills over it, linearly, and drains back the same way when let go early"),
+    ("tap-gap",     1000, "-",     "the most time between two presses on the top that count toward the three that open the boost; the charge drains after it"),
+    ("boost-open",  240,  "out",   "the bar opening to its boost cells while the charging cell settles to a cell's size"),
+    ("boost-flash", 360,  "fade",  "the bar's rim in the boost color as the boost opens, going back to its edge"),
     ("hold-lock-lit", 4000, "-",   "MP4's lock screen, lit as it locks"),
     ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
+    ("peak-hold",   400,  "-",     "MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity"),
+    ("bar-fall",    140,  "follow", "MP4's bars falling to the sound: follow's tau, where a bar rises at once"),
+    ("spin-up",     360,  "out",   "MP4's reels (Player Look) coming up to speed as the music plays"),
+    ("spin-down",   520,  "out",   "...and coming to a stop as it pauses; the sound stops at once"),
+    ("rewind",      700,  "turn",  "MP4's cassette winding back to the start for the next song"),
+    ("wind",        180,  "follow", "MP4's cassette winding to a seek's place: follow's tau"),
+    ("arm-glide",   180,  "follow", "MP4's tonearm gliding to the song's place on the record: follow's tau"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
+    ("hold-band",   2000, "-",     "the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip"),
     ("sheen",       480,  "turn",  "one light crossing a game's card with no art, once, as the cover row stops on it"),
     ("sharpen",     200,  "fade",  "a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it"),
     ("hold-low-battery", 6000, "-", "the low-battery start screen before the handheld powers off"),
@@ -389,9 +436,10 @@ MOTION = [
 # Synthesized by tools/gensounds.py into res/sounds/<voice>/<sound>.wav, which
 # is what src/uisound.c plays. A tone is (wave, Hz, ms, peak 0-1, start ms),
 # its Hz one pitch or a (from, to) pair that glides over the tone's first
-# third; a chord is several tones. Three voices of the same six sounds: Wood
-# is a new device's, and MENU > UI Sounds picks another or none. my,
-# 2026-11-04, in the sound lab (docs/design/mock/sound-lab.html).
+# third; a chord is several tones, and a "noise" is a band of white noise at
+# the pitch, for what is struck rather than rung. Three voices of the same
+# seven sounds: Wood is a new device's, and MENU > UI Sounds picks another or
+# none. my, 2026-11-04, in the sound lab (docs/design/mock/sound-lab.html).
 
 SOUNDS = [
     ("move",   "a step on a shelf or a list"),
@@ -400,6 +448,20 @@ SOUNDS = [
     ("back",   "B, a menu closing"),
     ("deny",   "a press nothing can act on"),
     ("reward", "something good"),
+    ("shutter", "the Screenshot hotkey's shot, over a game or your PICO-8"),
+]
+
+# The shutter, the same in every voice (2026-11-20, on the PICO-8 hotkeys
+# test: "Can we have the screenshot make a photo sound and vibrate?"): a
+# camera's two clicks, the shutter opening and closing 115 ms apart, each a
+# bright snap of noise, a darker body under it and a soft thump; the second a
+# little softer and lower, as it falls back. 175 ms in all. Louder than a
+# tick, as it is heard over a game's own sound.
+SHUTTER = [
+    ("noise", 5200, 12, 0.32, 0), ("noise", (2600, 1800), 40, 0.16, 0),
+    ("sine", (220, 160), 45, 0.08, 2),
+    ("noise", 4400, 12, 0.22, 115), ("noise", (2200, 1500), 60, 0.12, 115),
+    ("sine", (190, 140), 55, 0.06, 117),
 ]
 
 VOICES = [
@@ -416,6 +478,7 @@ VOICES = [
         "deny":   [("triangle", 466.2, 50, 0.080, 0), ("triangle", 440.0, 60, 0.080, 85)],
         "reward": [("sine", (1098.825, 1046.5), 220, 0.080, 0), ("sine", 4186.0, 8, 0.015, 0),
                    ("sine", (1646.4, 1568.0), 380, 0.070, 100), ("sine", 6272.0, 8, 0.012, 100)],
+        "shutter": SHUTTER,
     }),
     # Pure high ticks and clicks: what the design lab played and DESIGN.md
     # first wrote down.
@@ -426,6 +489,7 @@ VOICES = [
         "back":   [("triangle", 820, 50, 0.08, 0)],
         "deny":   [("square", 330, 40, 0.04, 0), ("square", 330, 40, 0.04, 70)],
         "reward": [("triangle", 1318.5, 160, 0.08, 0), ("triangle", 1975.5, 260, 0.07, 90)],
+        "shutter": SHUTTER,
     }),
     # Drops that pop: forward runs up, back runs down, the end and deny are
     # short falls.
@@ -436,6 +500,7 @@ VOICES = [
         "back":   [("sine", (1300, 650), 50, 0.070, 0)],
         "deny":   [("triangle", (520, 400), 45, 0.070, 0), ("triangle", (520, 400), 45, 0.070, 80)],
         "reward": [("sine", (900, 1318.5), 160, 0.075, 0), ("sine", (1300, 1975.5), 280, 0.065, 90)],
+        "shutter": SHUTTER,
     }),
 ]
 VOICE_DEFAULT = "wood"
@@ -652,7 +717,7 @@ def design_h():
     L.append("\treturn t * t * (3 - 2 * t);")
     L.append("}")
     L.append("")
-    L.append("/* Sound (DESIGN.md 9): six sounds in three voices, each sound a WAV,")
+    L.append("/* Sound (DESIGN.md 9): seven sounds in three voices, each sound a WAV,")
     L.append(" * res/sounds/<voice id>/<sound id>.wav, that tools/gensounds.py")
     L.append(" * synthesizes from the tones in tools/designdef.py. */")
     L.append("typedef enum {")

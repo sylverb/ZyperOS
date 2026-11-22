@@ -4,15 +4,17 @@
     python3 tools/hover-sweep-check.py        (make check-hover-sweep)
 
 Each card below is shot with --hover-sweep: every list whose cursor shows a
-choice (MENU's, a system's, Muse's, Theme's, Screen Colors' Look, Time
+choice (MENU's, a system's, MP4's, Theme's, Night Mode's, Screen Colors' Look, Time
 Zone's, the game menu's, Menu Music's, On-Screen Stats') shows every choice
-and puts the kept one back, as its list would. The launcher says, a line a
-list, how many it showed, how many database rows were written meanwhile and
-whether the page reads the same after (src/hover_sweep.h). This fails on a
-row written, a page that reads otherwise after, or a list that should show
-and is missing; and on any file the sweep left on the card that the same
-shot without it does not (the theme file, the boot screen's words, the
-night's hours).
+and puts the kept one back, as its list would, and three frames of the shelf
+behind are drawn after each show. The launcher says, a line a list, how many
+it showed, how many database rows were written meanwhile, whether the page
+reads the same after, and the slowest show and frame (src/hover_sweep.h).
+This fails on a row written, a page that reads otherwise after, or a list
+that should show and is missing; and on any file the sweep left on the card
+that the same shot without it does not (the theme file, the boot screen's
+words, the night's hours). It says the slowest shows and frame here, a
+Mac's, not the Pixel 2's.
 """
 import hashlib
 import importlib.util
@@ -26,22 +28,24 @@ spec = importlib.util.spec_from_file_location("rs", ROOT / "tools" / "readme-sho
 R = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(R)
 
+# Theme's lists, on every card they are shown on
+THEME = {("theme", "Accent"), ("theme", "Light Background"), ("theme", "Dark Background"),
+         ("theme", "Folder Color")}
 # (name, card, shelf, focus, device, settings, extra flags, lists that must show)
 CASES = [
     ("pixel2", "demo", "PS1", True, "pixel2", {}, [],
-     {("menu", "Home Screen"), ("menu", "Battery Icon"), ("menu", "Night Mode"), ("menu", "Language"),
+     {("menu", "Home Screen"), ("menu", "Battery Icon"), ("night", "Night Mode"), ("menu", "Language"),
       ("menu", "UI Sounds"), ("menu", "Audio Channels"),
-      ("theme", "Accent"), ("theme", "Light Background"), ("theme", "Dark Background"),
       ("screen", "Look"), ("system", "Sort By"), ("system", "View"), ("datetime", "Time Zone"),
       ("music", "Volume"), ("music", "Track"),
-      ("hud", "Corner"), ("hud", "Edge Distance"), ("hud", "Opacity"), ("hud", "Text Color")}),
+      ("hud", "Corner"), ("hud", "Edge Distance"), ("hud", "Opacity"), ("hud", "Text Color")} | THEME),
     ("night on", "demo", "PS1", True, "pixel2", {"night.mode": "on"}, [],
-     {("menu", "Night Warmth"), ("menu", "Night Mode")}),
+     {("night", "Night Warmth"), ("night", "Night Mode")}),
     ("dark", "demo", "PS1", True, "pixel2", {"appearance": "dark"}, [],
-     {("theme", "Light Background"), ("theme", "Dark Background")}),
+     THEME),
     ("brick", "demo", "PS1", True, "brick", {}, [],
-     {("menu", "Home Screen"), ("menu", "Battery Icon"), ("menu", "Language"), ("theme", "Accent")}),
-    ("muse", "media", "MUSE", False, "pixel2", {}, [],
+     {("menu", "Home Screen"), ("menu", "Battery Icon"), ("menu", "Language")} | THEME),
+    ("mp4", "media", "MUSE", False, "pixel2", {}, [],
      {("system", "Show")}),
 ]
 
@@ -86,7 +90,7 @@ def main():
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first")
         return 1
-    fails, lists, slow = [], 0, []
+    fails, lists, slow, frame_ms = [], 0, [], 0.0
     for name, card_kind, shelf, focus, device, settings, extra, want in CASES:
         with tempfile.TemporaryDirectory() as tmp:
             plain, plain_tree = shoot(card_kind, shelf, focus, device, settings, extra, False, tmp)
@@ -98,8 +102,9 @@ def main():
         for line in r.stdout.splitlines():
             if not line.startswith("hover: "):
                 continue
-            page, label, shown, written, same, ms = line[7:].split("\t")
+            page, label, shown, written, same, ms, f_ms = line[7:].split("\t")
             slow.append((float(ms), "%s > %s" % (page, label)))
+            frame_ms = max(frame_ms, float(f_ms))
             seen.add((page, label))
             lists += 1
             if int(written):
@@ -121,7 +126,8 @@ def main():
         return 1
     slow.sort(reverse=True)
     print("ok: %d lists in %d cases show every choice and write nothing, and their pages read the same after;"
-          " slowest shows here: %s" % (lists, len(CASES), ", ".join("%s %.1f ms" % (n, m) for m, n in slow[:4])))
+          " slowest shows here: %s; the slowest frame after a show %.2f ms"
+          % (lists, len(CASES), ", ".join("%s %.1f ms" % (n, m) for m, n in slow[:4]), frame_ms))
     return 0
 
 

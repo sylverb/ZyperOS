@@ -2,15 +2,15 @@
 # says when it cannot start.
 
 [launch.needs_bios]
-note = A message under the game's name when a game (a disc, or any ColecoVision game) needs a firmware file the card lacks: %.*s is the file's name; Bios/ is the folder on the card (never translated)
-en = needs Bios/%.*s
-zh-Hans = 需要 Bios/%.*s
-es = requiere Bios/%.*s
-pt-BR = requer Bios/%.*s
-fr = nécessite Bios/%.*s
-de = braucht Bios/%.*s
-ja = Bios/%.*s が必要
-it = richiede Bios/%.*s
+note = Under a game's name on the shelf (in the line of facts under it) and in the message when A is pressed, when the game (a disc, any ColecoVision game, a Famicom Disk System .fds image) needs a firmware file the card lacks: %.*s is the file's name (disksys.rom); Bios is the folder on the card (never translated). Starts with a capital, as a value does
+en = Needs %.*s in Bios
+zh-Hans = 需要 Bios 中的 %.*s
+es = Requiere %.*s en Bios
+pt-BR = Requer %.*s em Bios
+fr = Nécessite %.*s dans Bios
+de = Braucht %.*s in Bios
+ja = Bios に %.*s が必要です
+it = Richiede %.*s in Bios
 
 [launch.bios_size]
 note = A message under the game's name when its firmware file is in Bios/ but is not the size a good copy is (an empty or cut-short file, which would start the game to a black screen): the file's name, the size it is ("0 bytes", "10 bytes", "256 KB", from launch.bios_bytes or sysmenu.size_kb / size_mb) and the size it should be ("512 KB"). Bios/ is the folder on the card (never translated). Drawn on up to three lines
@@ -83,3 +83,69 @@ fr = impossible de le lancer
 de = Start fehlgeschlagen
 ja = 起動できませんでした
 it = avvio non riuscito
+
+[launch.zip_method]
+note = A message under a game's name when its zip is compressed in a way ZyperOS cannot unpack (bzip2, Zstandard): nothing started. Says how to make one that works: zip it again with Deflate, the usual method of every zip tool
+en = This zip uses a compression ZyperOS can't read. Zip the game again with Deflate, the usual method.
+zh-Hans = 这个 zip 使用了 ZyperOS 无法读取的压缩方式。请用 Deflate（常用方式）重新压缩游戏。
+es = Este zip usa una compresión que ZyperOS no puede leer. Vuelve a comprimir el juego con Deflate, el método habitual.
+pt-BR = Este zip usa uma compressão que o ZyperOS não consegue ler. Compacte o jogo de novo com Deflate, o método comum.
+fr = Ce zip utilise une compression que ZyperOS ne sait pas lire. Recompressez le jeu avec Deflate, la méthode habituelle.
+de = Dieses Zip nutzt eine Kompression, die ZyperOS nicht lesen kann. Packe das Spiel mit Deflate neu, der üblichen Methode.
+ja = この zip は ZyperOS が読めない圧縮方式です。一般的な Deflate でゲームを圧縮し直してください。
+it = Questo zip usa una compressione che ZyperOS non sa leggere. Comprimi di nuovo il gioco con Deflate, il metodo usuale.
+
+[launch.core_machine]
+note = A message under the game's name when its core's file would not load because it is a build for another kind of computer (an x86-64 or 32-bit one: an added core). %s is the core's file name (bsnes_libretro.so), never translated. Linux, ARM and the numbers are as written. Drawn on up to five lines
+en = %s could not be loaded: it is not a 64-bit ARM Linux build
+zh-Hans = 无法加载 %s：它不是 64 位 ARM Linux 版本
+es = No se pudo cargar %s: no es una versión para Linux ARM de 64 bits
+pt-BR = Não foi possível carregar %s: não é uma versão para Linux ARM de 64 bits
+fr = %s n'a pas pu être chargé\u00a0: ce n'est pas une version pour Linux ARM 64 bits
+de = %s konnte nicht geladen werden: Es ist keine Version für 64-Bit-ARM-Linux
+ja = %s を読み込めませんでした（64 ビット ARM Linux 用ではありません）
+it = Impossibile caricare %s: non è una versione per Linux ARM a 64 bit
+
+[launch.core_library]
+note = A message under the game's name when its core would not load because a library it needs (a file with .so in its name) is not on the system: the core's file name and the library's file name (libfoo.so.2), both never translated. Drawn on up to five lines
+en = %s could not be loaded: it needs %s, which ZyperOS does not have
+zh-Hans = 无法加载 %s：它需要 %s，但 ZyperOS 中没有
+es = No se pudo cargar %s: necesita %s, que ZyperOS no tiene
+pt-BR = Não foi possível carregar %s: precisa de %s, que o ZyperOS não tem
+fr = %s n'a pas pu être chargé\u00a0: il a besoin de %s, que ZyperOS n'a pas
+de = %s konnte nicht geladen werden: Es braucht %s, das ZyperOS nicht hat
+ja = %s を読み込めませんでした（%s が必要ですが、ZyperOS にはありません）
+it = Impossibile caricare %s: richiede %s, che ZyperOS non ha
+
+[launch.core_version]
+note = A message under the game's name when its core would not load because a library it needs is on the system and too old: the core's file name, the library's file name (libstdc++.so.6) and the version of it the core asks for (GLIBCXX_3.4.30), all never translated. Drawn on up to five lines
+en = %s could not be loaded: it needs %s (%s), which ZyperOS does not have
+zh-Hans = 无法加载 %s：它需要 %s（%s），但 ZyperOS 中没有
+es = No se pudo cargar %s: necesita %s (%s), que ZyperOS no tiene
+pt-BR = Não foi possível carregar %s: precisa de %s (%s), que o ZyperOS não tem
+fr = %s n'a pas pu être chargé\u00a0: il a besoin de %s (%s), que ZyperOS n'a pas
+de = %s konnte nicht geladen werden: Es braucht %s (%s), das ZyperOS nicht hat
+ja = %s を読み込めませんでした（%s（%s）が必要ですが、ZyperOS にはありません）
+it = Impossibile caricare %s: richiede %s (%s), che ZyperOS non ha
+
+[launch.core_symbol]
+note = A message under the game's name when its core would not load because it calls a function that nothing on the system has: the core's file name and the function's name (_ZN5bsnes3fooEv), both never translated. Drawn on up to five lines
+en = %s could not be loaded: it calls %s, which ZyperOS does not have
+zh-Hans = 无法加载 %s：它调用了 %s，但 ZyperOS 中没有
+es = No se pudo cargar %s: usa %s, que ZyperOS no tiene
+pt-BR = Não foi possível carregar %s: usa %s, que o ZyperOS não tem
+fr = %s n'a pas pu être chargé\u00a0: il appelle %s, que ZyperOS n'a pas
+de = %s konnte nicht geladen werden: Es ruft %s auf, das ZyperOS nicht hat
+ja = %s を読み込めませんでした（%s を呼び出しますが、ZyperOS にはありません）
+it = Impossibile caricare %s: chiama %s, che ZyperOS non ha
+
+[launch.core_failed]
+note = A message under the game's name when its core would not load and nothing more is known (the log has the system's own words): the core's file name, never translated. Drawn on up to five lines
+en = %s could not be loaded
+zh-Hans = 无法加载 %s
+es = No se pudo cargar %s
+pt-BR = Não foi possível carregar %s
+fr = %s n'a pas pu être chargé
+de = %s konnte nicht geladen werden
+ja = %s を読み込めませんでした
+it = Impossibile caricare %s

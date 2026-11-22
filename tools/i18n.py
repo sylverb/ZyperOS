@@ -2,11 +2,13 @@
 """ZyperOS's words: every string a player reads, in every language, in one place.
 
     python3 tools/i18n.py            write everything below (make strings)
-    python3 tools/i18n.py --check    fail if anything below is stale, if a
-                                     string lacks a language, if a translation's
-                                     printf conversions differ from English's, or
-                                     if an ID is used where none is defined or
-                                     defined where none is used (make check-strings)
+    python3 tools/i18n.py --check    fail if anything below is stale (but the
+                                     tables, which the build writes) or the
+                                     tables are committed, if a string lacks a
+                                     language, if a translation's printf
+                                     conversions differ from English's, or if an
+                                     ID is used where none is defined or defined
+                                     where none is used (make check-strings)
     python3 tools/i18n.py --list ID...   one string's every language, for a look
     python3 tools/i18n.py --widths   the widest language of each string against
                                      English's, in Lexend (needs Pillow)
@@ -46,7 +48,14 @@ Writes, from those files alone:
   src/i18n_ids.h      the IDs as an enum (S_MENU_LANGUAGE, ...) and the languages
   src/i18n_tables.c   each language's strings, one blob a language and an
                       offset table, read only, no relocations: T(id) is a load
-                      and an add (src/i18n.h)
+                      and an add (src/i18n.h). A build product, never
+                      committed (.gitignore): every build that compiles it
+                      (Makefile, mk/native.mk, mk/cross.mk, so plastron's
+                      device builds, tools/px2-payload.sh) runs this first
+                      when res/strings or this file is newer. Committed, its
+                      offsets moved with every string anyone added, so every
+                      open pull request that touched a string conflicted
+                      with every other after each merge.
   res/web/i18n/LANG.js  the File Transfer page's strings (IDs under web.) and
                       NES player 2's play page's (play.), a file a language
                       that each page loads as it is
@@ -94,7 +103,7 @@ RULE = {l[0]: l[3] for l in LANGS}
 PSEUDO = "xx"
 
 # An area and a name at least, so every enum name has an underscore after
-# S_: one without (S_ISDIR, a museart.c enum's S_NEXT) is never this table's
+# S_: one without (S_ISDIR, an mp4art.c enum's S_NEXT) is never this table's
 ID_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
 FMT_RE = re.compile(r"%(?:(\d+)\$)?([-+ #0]*)(\d+|\*)?(?:\.(\d+|\*))?(hh|h|ll|l|z|j|t)?([diouxXeEfgGcspn%])")
 
@@ -735,30 +744,77 @@ def main():
     outs = outputs(strs)
     stale = []
     for path, text in outs.items():
+        if check and path == OUT_C:
+            # A build product: what the build compiles is what this writes
+            continue
         old = None
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 old = f.read()
         if old == text:
+            if path == OUT_C:
+                fresh(path)
             continue
         if check:
             stale.append(os.path.relpath(path, ROOT))
         else:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(text)
+            write(path, text)
             print("wrote " + os.path.relpath(path, ROOT))
     if check:
         for path in glob.glob(os.path.join(OUT_WEB, "*.js")):
             if path not in outs:
                 stale.append(os.path.relpath(path, ROOT) + " (no such language)")
-        if stale:
-            for p in stale:
-                print("i18n: stale %s: run python3 tools/i18n.py" % p, file=sys.stderr)
+        for p in stale:
+            print("i18n: stale %s: run python3 tools/i18n.py" % p, file=sys.stderr)
+        # A merge from a branch older than the tables' leaving the repository
+        # can bring them back: they are the build's
+        tracked = committed(OUT_C)
+        if tracked:
+            print("i18n: src/i18n_tables.c is committed, and the build writes it: "
+                  "git rm --cached src/i18n_tables.c", file=sys.stderr)
+        if stale or tracked:
             return 1
         n = sum(2 if s.plural else 1 for s in strs)
         print("check-strings: %d strings (%d IDs) in %d languages, every one complete and used" % (len(strs), n, len(LANGS)))
     return 0
+
+
+def write(path, text):
+    """Into a file of this run's own and then moved into place: several makes
+    at once (make check's, a payload build beside it) can each find the
+    tables stale and write them, and a compiler never reads half a file"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def fresh(path):
+    """The tables were already right but are older than what they are made
+    from (a checkout, a note changed): their time moves on, so make does not
+    run this again on every build, and nothing else is rewritten"""
+    inputs = glob.glob(os.path.join(SRC_DIR, "*.txt")) + [os.path.abspath(__file__)]
+    newest = max(os.path.getmtime(p) for p in inputs)
+    if os.path.getmtime(path) < newest:
+        os.utime(path)
+
+
+def committed(path):
+    """Whether git tracks the file (False outside a git checkout, as in
+    plastron's copy of the tree)"""
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", ROOT, "ls-files", "--error-unmatch",
+                            os.path.relpath(path, ROOT)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    return r.returncode == 0
 
 
 def widths(strs):

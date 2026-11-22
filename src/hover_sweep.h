@@ -2,12 +2,14 @@
 /* For check-hover-sweep (--hover-sweep, tools/hover-sweep-check.py): a
  * page's option lists with a show, each choice shown and the kept one put
  * back as its list would (src/ds/hover.h), proving a hover writes nothing
- * and leaves the page as it found it. A line each:
+ * and leaves the page as it found it, and what a show costs. A line each:
  *
- *   hover: <page>\t<row>\t<choices shown>\t<db rows written>\t<same|changed>\t<ms>
+ *   hover: <page>\t<row>\t<choices shown>\t<db rows written>\t<same|changed>\t<show ms>\t<frame ms>
  *
  * "same": the page built again after reads the same, every row's value;
- * <ms> the slowest show, here (a show's cost on the host, not the Pixel 2's). */
+ * <show ms> the slowest show, <frame ms> the slowest of the three shelf
+ * frames drawn after each show (the screen behind the list repainted in
+ * the shown colors), on this machine (the host's cost, not the Pixel 2's). */
 #ifndef ZYPEROS_HOVER_SWEEP_H
 #define ZYPEROS_HOVER_SWEEP_H
 

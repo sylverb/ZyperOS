@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include <sys/stat.h>
@@ -15,11 +16,12 @@
 
 #include "captive.h"
 #include "clients.h"
+#include "esmedia.h"
 #include "fileio.h"
 #include "hare.h"
 #include "i18n.h"
 #include "monoclock.h"
-#include "muselib.h"
+#include "mp4lib.h"
 #include "xfer.h"
 #include "sheet.h"
 
@@ -298,6 +300,34 @@ static void note(const char *fmt, ...)
 	va_end(ap);
 }
 
+/* A write in ROMs, `rel` its path there ("nds/images/x.png"): a console's
+ * folder itself, its gamelist.xml or anything in one of EmulationStation's
+ * media folders in it (images, videos, media...: lib_es_media_dir) has the
+ * folder's index (src/esmedia.h) built again when a game of it next asks,
+ * so a gamelist.xml or a folder of pictures sent from this page shows on
+ * its next listing, not after the next rescan. Anything else in the folder
+ * leaves the index be: a batch of games does not have the list read again
+ * for each. */
+static void es_wrote(const char *rel)
+{
+	char folder[XFER_NAME_MAX + 1], first[XFER_NAME_MAX + 1];
+	const char *slash = strchr(rel, '/'), *in, *end;
+
+	if (!slash) {
+		es_forget_folder(rel);
+		return;
+	}
+	if ((size_t)(slash - rel) >= sizeof folder) return;
+	snprintf(folder, sizeof folder, "%.*s", (int)(slash - rel), rel);
+	in = slash + 1;
+	end = strchr(in, '/');
+	if (!end) end = in + strlen(in);
+	if ((size_t)(end - in) >= sizeof first) return;
+	snprintf(first, sizeof first, "%.*s", (int)(end - in), in);
+	if ((!*end && !strcasecmp(first, "gamelist.xml")) || lib_es_media_dir(first))
+		es_forget_folder(folder);
+}
+
 /* Did that write land somewhere the shelf reads?
  *
  * Only the ROM, Music, Audiobooks and Videos roots count; MP4 is a shelf too. A save state, a
@@ -319,8 +349,10 @@ static void note_write(const char *abs)
 		    strcmp(rt->name, "books") != 0 && strcmp(rt->name, "videos") != 0)
 			continue;
 		n = strlen(rt->path);
-		if (!strncmp(abs, rt->path, n) && (abs[n] == '/' || abs[n] == '\0'))
+		if (!strncmp(abs, rt->path, n) && (abs[n] == '/' || abs[n] == '\0')) {
 			g_shelf_changed = true;
+			if (!strcmp(rt->name, "roms") && abs[n] == '/') es_wrote(abs + n + 1);
+		}
 	}
 }
 
@@ -340,7 +372,7 @@ void hare_set_after_rename(void (*fn)(const char *from, const char *to, bool tid
 /* ---- Tidy names --------------------------------------------------------
  *
  * A music or audiobook folder's names as the shelf shows them, made real on
- * the card: its tracks' and its own (muselib's ml_tidy_file and
+ * the card: its tracks' and its own (mp4lib's ml_tidy_file and
  * ml_tidy_folder, the shelf's own rules, so the two cannot disagree). GET
  * lists what would change and POST changes it. A name that would land on one
  * already there, or on another track's new one, is skipped and never
@@ -579,7 +611,7 @@ static const char *base_of(const char *p)
 	return s ? s + 1 : p;
 }
 
-/* An album's cover where Muse reads one, as a path the page can ask for:
+/* An album's cover where MP4 reads one, as a path the page can ask for:
  * <parent>/.media/<album>.jpg or .png (what Album Art fetched, or the files
  * carried), else a cover or folder picture in the album's own folder.
  * `abs`/`req` are the folder being listed, `name` the album in it. */
@@ -650,7 +682,7 @@ static void artist_covers(hj *j, const char *abs, const char *req, const char *a
 	if (shown) JLIT(j, "]");
 }
 
-/* Whether a folder holds songs of its own, and so is an album where Muse
+/* Whether a folder holds songs of its own, and so is an album where MP4
  * reads one, rather than an artist's folder of albums. Read until the first:
  * the page gives an album a cover's slot, and an artist none (2026-10-05, an
  * outline beside every artist read as a cover missing). */
@@ -664,6 +696,86 @@ static bool holds_songs(const char *dir)
 		found = e->d_name[0] != '.' && ml_is_audio(e->d_name);
 	if (d) closedir(d);
 	return found;
+}
+
+/* ---- a game's picture and video ------------------------------------------
+ *
+ * Beside each game in ROMs, what the shelf shows for it, found by the
+ * launcher's own lookup (src/esmedia.h's game_media): its cover and video
+ * snap in its console's .media first, then the ones EmulationStation left
+ * (gamelist.xml, images/, videos/, media/...: DESIGN.md 11.40), so the page
+ * and the handheld can never give a game different ones (2026-11-20, metior
+ * on the Discord: "The web interface doesn't read from the EmulationStation
+ * folder structure for images and video like the OS itself does"). The page
+ * had looked only in the listed folder's .media, which missed every ES card
+ * and every game in a folder of games, whose cover the shelf keeps in its
+ * console's .media.
+ *
+ * An entry is asked about as the shelf names its game (src/library.c's
+ * walk_game): its console's folder, the first past roms/; its launch path
+ * in that folder; and its name, the file's stem, or a folder's own name (a
+ * disc set, a ScummVM game), which is its cover's name too. EmulationStation's
+ * index of a folder is the launcher's, built once and kept (es_build), so a
+ * listing reads gamelist.xml only the first time any of its games is asked
+ * about, here or on the shelf; then each game costs the stats the shelf's
+ * cover costs it. Built here, in File Transfer's loop, where the listing
+ * reads the folder already; the shelf leaves it to the covers' worker. */
+
+/* Where a listing of `req` is among a console's games: the console's
+ * folder, and the listed folder in it ("" for its own) in *sub. False for
+ * ROMs itself and for anything that holds no games: a dot folder (.media,
+ * where covers are) or one of EmulationStation's media folders, which the
+ * shelf never reads for games either (lib_es_media_dir). */
+static bool games_at(const char *req, char *folder, size_t fn, const char **sub)
+{
+	const char *f, *slash, *p;
+
+	if (strncmp(req, "roms/", 5) || !req[5]) return false;
+	f = req + 5;
+	slash = strchr(f, '/');
+	if (f[0] == '.' ||
+	    snprintf(folder, fn, "%.*s", slash ? (int)(slash - f) : (int)strlen(f), f) >= (int)fn)
+		return false;
+	*sub = slash ? slash + 1 : "";
+	for (p = *sub; *p;) {
+		const char *e = strchr(p, '/');
+		char part[XFER_NAME_MAX + 1];
+		size_t len = e ? (size_t)(e - p) : strlen(p);
+
+		if (len >= sizeof part) return false;
+		snprintf(part, sizeof part, "%.*s", (int)len, p);
+		if (part[0] == '.' || lib_es_media_dir(part)) return false;
+		if (!e) break;
+		p = e + 1;
+	}
+	return true;
+}
+
+/* Entry `entry` of a listing at games_at's place: its picture (ES_COVER) or
+ * video (ES_VIDEO), as the page's path to it, "roms/...", into `out` */
+static bool game_art(const char *roms, const char *folder, const char *sub, const char *entry,
+                     bool dir, es_kind kind, char *out, size_t n)
+{
+	char file[XFER_PATH_MAX], name[XFER_NAME_MAX + 1], abs[XFER_PATH_MAX];
+	size_t rl = strlen(roms);
+	char *dot;
+
+	if (snprintf(file, sizeof file, "%s%s%s", sub, *sub ? "/" : "", entry) >= (int)sizeof file ||
+	    snprintf(name, sizeof name, "%s", entry) >= (int)sizeof name)
+		return false;
+	if (!dir && (dot = strrchr(name, '.')) && dot != name) *dot = '\0';
+	if (!game_media(roms, folder, file, name, kind, true, abs, sizeof abs)) return false;
+	/* Every answer is under ROMs; anything that is not is not named */
+	if (strncmp(abs, roms, rl) || abs[rl] != '/') return false;
+	return snprintf(out, n, "roms%s", abs + rl) < (int)n;
+}
+
+/* The ROMs root on the card, or NULL */
+static const char *roms_root(void)
+{
+	for (int i = 0; i < xfer_root_count(); i++)
+		if (!strcmp(xfer_root_at(i)->name, "roms")) return xfer_root_at(i)->path;
+	return NULL;
 }
 
 static void route_list(httpd_req *r)
@@ -692,6 +804,12 @@ static void route_list(httpd_req *r)
 	/* A folder per system lives in two roots: the consoles in ROMs, and
 	 * their save states, which the launcher files under the same names */
 	bool  systems;
+	/* A folder of a console's games, whose entries come with their
+	 * pictures and videos (game_art): the console's folder, and the listed
+	 * one in it */
+	char  console[XFER_NAME_MAX + 1];
+	const char *sub = "", *roms = roms_root();
+	bool  games;
 
 	httpd_query(r, "p", raw, sizeof raw);
 	if (raw[0] && !xfer_decode(raw, req, sizeof req)) {
@@ -740,6 +858,7 @@ static void route_list(httpd_req *r)
 	d = opendir(abs);
 	if (!d) { httpd_reply_status(r, 404, T(S_HARE_NO_FOLDER)); return; }
 	systems = !strcmp(req, "roms") || !strcmp(req, "states");
+	games = roms && games_at(req, console, sizeof console, &sub);
 
 	j = (hj){ .max = JSON_MAX };
 	JLIT(&j, "{\"path\":");
@@ -777,24 +896,25 @@ static void route_list(httpd_req *r)
 			JLIT(&j, ",\"path\":");
 			hj_str(&j, child);
 
-			/* A game's cover, where the shelf reads it: <folder>/.media/
-			 * <stem>.png. Named in the listing so the page can draw it beside
-			 * the game; a stat per file, in a folder of games only. */
-			if (S_ISREG(st.st_mode) && !strncmp(req, "roms/", 5) &&
-			    !strstr(req, "/.media")) {
-				char stem[XFER_NAME_MAX], cover[XFER_PATH_MAX], have[XFER_PATH_MAX];
-				char *dot;
-				struct stat cs;
+			/* A game's cover and video, where the shelf finds them
+			 * (game_art): a file's, and a folder's that is a game of its
+			 * own. Not a dot folder's, nor one of EmulationStation's media
+			 * folders. The page draws the cover beside the game; the video
+			 * it does not draw in 1.1.0 (my call, 2026-11-20): it is named
+			 * for a later design (DESIGN.md 11.40). */
+			if (games && (S_ISREG(st.st_mode) ||
+			              (S_ISDIR(st.st_mode) && e->d_name[0] != '.' && !lib_es_media_dir(e->d_name)))) {
+				char art[XFER_PATH_MAX];
 
-				snprintf(stem, sizeof stem, "%s", e->d_name);
-				if ((dot = strrchr(stem, '.'))) *dot = '\0';
-				if (snprintf(have, sizeof have, "%s/.media/%s.png", abs, stem)
-				    < (int)sizeof have &&
-				    snprintf(cover, sizeof cover, "%s/.media/%s.png", req, stem)
-				    < (int)sizeof cover &&
-				    stat(have, &cs) == 0 && cs.st_size > 0) {
+				if (game_art(roms, console, sub, e->d_name, S_ISDIR(st.st_mode), ES_COVER,
+				             art, sizeof art)) {
 					JLIT(&j, ",\"cover\":");
-					hj_str(&j, cover);
+					hj_str(&j, art);
+				}
+				if (game_art(roms, console, sub, e->d_name, S_ISDIR(st.st_mode), ES_VIDEO,
+				             art, sizeof art)) {
+					JLIT(&j, ",\"video\":");
+					hj_str(&j, art);
 				}
 			}
 			/* A console's color and its pixel art on its folder, in ROMs
@@ -811,6 +931,9 @@ static void route_list(httpd_req *r)
 					JLIT(&j, ",\"icon\":");
 					hj_str(&j, icon);
 				}
+				/* A console's own folder: the page offers no move, rename
+				 * or delete of it (the routes refuse them all the same) */
+				if (xfer_console(full)) JLIT(&j, ",\"console\":true");
 			}
 			/* And an album's or a book's, for a folder in Music or
 			 * Audiobooks. An artist's folder has none, and shows none. */
@@ -2056,6 +2179,19 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 			httpd_reply_status(r, 403, T(S_HARE_CANNOT_WRITE));
 			return;
 		}
+		/* A folder a delete may never take keeps its name too: a root, and a
+		 * console's own folder, the name the shelf looks for its games by
+		 * (xfer_console). Its games and folders rename as before. */
+		{
+			const char *why = NULL;
+			struct stat st;
+
+			if (stat(abs, &st) == 0 && S_ISDIR(st.st_mode) &&
+			    xfer_delete_rule(abs, &why) == XFER_DEL_NO) {
+				httpd_reply_status(r, 403, why && why[0] ? why : T(S_HARE_CANNOT_RENAME));
+				return;
+			}
+		}
 		/* The destination is decoded HERE and checked as one name. It is not
 		 * run through xfer_resolve, because a rename names a sibling: letting
 		 * it be a path would let a rename move a file to another root. */
@@ -2075,7 +2211,7 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 			}
 			strcpy(slash + 1, dec);
 		}
-		/* In Music or Audiobooks, Muse stopped first if it plays this or from
+		/* In Music or Audiobooks, MP4 stopped first if it plays this or from
 		 * in here, and the launcher told after, as for Tidy names */
 		music = tidy_root(abs) != NULL;
 		if (music && g_before_delete) g_before_delete(abs);
@@ -2119,7 +2255,7 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 			return;
 		}
 		if (apply) {
-			/* Muse stopped first if it plays from in here */
+			/* MP4 stopped first if it plays from in here */
 			if (n && g_before_delete) g_before_delete(abs);
 			for (i = 0; i < n; i++) {
 				if (it[i].skip) { skipped++; continue; }
@@ -2378,7 +2514,7 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 				return;
 			}
 		}
-		/* In Music or Audiobooks, Muse stopped first if it plays this, and
+		/* In Music or Audiobooks, MP4 stopped first if it plays this, and
 		 * the launcher told after, as for a rename */
 		music = tidy_root(abs) != NULL;
 		if (music && g_before_delete) g_before_delete(abs);

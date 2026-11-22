@@ -5,14 +5,25 @@ capture. It retains the supplied image without edits.
 
 The screenshots in this folder show the current launcher in Beard, the light
 theme: the README and the website show every screen in light. `dark/` holds
-the screens their light-and-dark sections show in Salt & Pepper, the
+the screens the guide's and the website's light-and-dark sections show in Salt & Pepper, the
 Nintendo 64 shelf, the home, the ZyperOS menu and a game's Cover and Video
 page, and the top bar's shot (`topbar`, the song's note and the
 headphone mark) in both themes. The 3D device on the website shows the light ones too.
 The logo/wordmark files remain the branding generator's output.
 
 These are 1024x768 frames rendered by the native ZyperOS launcher, not edited
-mockups or photographs of a running device. The three `portal` shots are the
+mockups or photographs of a running device. `brick/` holds the
+TrimUI Brick's, by the Pixel 2 shots' names (`--device brick`, at its own
+1024x768 screen with its keys and its drawing): `tools/readme-shots.py` with its
+`DEVICE` set to `brick`. The web page's device switch shows them in place of the
+Pixel 2's. The `desk-` shots are desk mode's own window (docs/building.md,
+"Work on the UI without a device"): the launcher drawn as the GKD Pixel 2 or
+the TrimUI Brick, on the sample card `tools/desk` makes, taken with
+`tools/desk shot FILE window` on a Retina display. The game in them is
+`ZyperOS Test.nes`, ZyperOS's own NES test cartridge, and `desk-card` is the
+top of `desk-pixel2`, cut to 4:3 for the blog's index. The two `simulator` shots are the ZyperOS
+Simulator's drawn Pixel 2 (`simulator/simctl window-shot`) over a QEMU image
+of plastron (docs/qemu.md): the first start, and the home on the cable. The three `portal` shots are the
 File Transfer page (res/web) in headless Chrome, at a computer's 1280x800 and
 a phone's 390x844, served by the real routes over a scratch card of freeware
 names (build-native/portal-serve). The two `play-phone` shots are NES Player

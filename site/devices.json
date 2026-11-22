@@ -1,0 +1,87 @@
+{
+  "about": "The handhelds zyperos.com shows, first the default. mk/site_devices.py builds the page's device parts from this list: the hero's handheld and its row of picks, the facts, the tour's and galleries' screenshots, the marks on what a handheld doesn't have yet, the install step and its FAQ. Adding a handheld is one entry here and its files: its model (tools/build-<id>-model.py writes the .glb, the poster and its thumbnail) and its captures in res/readme/<captures>/, by the first handheld's names (tools/readme-shots.py with DEVICE set to its id). Keys: missing names what the page offers that it doesn't have yet (the data-needs marks in site/index.html; null for the plain mark, or the mark's own words); lines replaces a data-line element's words for it; swap uses another capture in a screen's place; alts gives a capture its own description. model.studio sets the 3D model's light on the page (site/pixel2.js): env, its studio reflections; tone, on its colours; softbox, the light its face mirrors; coat, its clear coat; tuned until its face is its colour's hex.",
+  "devices": [
+    {
+      "id": "pixel2",
+      "name": "GKD Pixel 2",
+      "short": "Pixel 2",
+      "size_mm": [63, 81],
+      "color": { "hex": "#9bba4d", "of": "green", "source": "GKD's six-view of the green Pixel 2, as its sellers show it" },
+      "model": {
+        "glb": "models/pixel2.glb",
+        "poster": "models/pixel2-poster.png",
+        "thumb": "models/pixel2-thumb.png",
+        "poster_px": [800, 960],
+        "frame_mm": 109,
+        "label": "Green GKD Pixel 2",
+        "studio": { "env": 0.5, "tone": 0.47, "softbox": 0.3 }
+      },
+      "captures": "",
+      "facts": [
+        { "value": "2", "unit": "s", "label": "From power to play", "note": true },
+        { "value": "45", "label": "Systems to explore" },
+        { "value": "2", "label": "Players. One handheld." }
+      ],
+      "fact_note": "*About two seconds, measured on my Pixel 2.",
+      "hidden_systems": [],
+      "missing": {},
+      "lines": {}
+    },
+    {
+      "id": "brick",
+      "name": "TrimUI Brick",
+      "short": "Brick",
+      "size_mm": [73.2, 109.9],
+      "color": { "hex": "#564f78", "of": "purple", "source": "TrimUI's own photo of the purple Brick, trimui.com" },
+      "model": {
+        "glb": "models/brick.glb",
+        "poster": "models/brick-poster.png",
+        "thumb": "models/brick-thumb.png",
+        "poster_px": [800, 1100],
+        "frame_mm": 124.9,
+        "label": "Purple TrimUI Brick",
+        "studio": { "env": 0.4, "tone": 0.58, "softbox": 0.35, "coat": 0.2 }
+      },
+      "captures": "brick",
+      "swap": { "shelf-n64": "shelf-snes" },
+      "alts": {
+        "shelf-snes": "SNES library with Super Mario World, Donkey Kong Country, and Super Metroid.",
+        "controls-tab": "The in-game Controls tab with button remapping and a TrimUI Brick drawing that highlights the selected buttons."
+      },
+      "facts": [
+        { "value": "45", "label": "Systems to explore", "note": true },
+        { "value": "Wi-Fi", "label": "Built into the Brick" },
+        { "value": "0", "label": "Writes to the Brick's own storage" }
+      ],
+      "fact_note": "*Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn among them, drawn by the Brick's graphics chip from 1.1.0.",
+      "hidden_systems": [],
+      "missing": {
+        "ports": null,
+        "usb-tethering": null,
+        "usb-ask": "no SSH on its release image",
+        "player2": null,
+        "charge-limit": null,
+        "side-lights": null
+      },
+      "lines": {
+        "summary-gameplay": "Save slots, hotkeys and shaders.",
+        "summary-systems": "45 systems and Nintendo DS.",
+        "summary-connections": "File Transfer and system updates, over Wi-Fi.",
+        "summary-care": "Battery, heat and sensible power use."
+      },
+      "install": "The Brick's graphics and Wi-Fi need closed files made for its chips, which ZyperOS doesn't pass on. The installer downloads them from where they are published and puts them only on your card.",
+      "after_install": "Take the card out, and the Brick starts its own system, as before.",
+      "faq": [
+        {
+          "id": "brick-faq",
+          "q": "Does it run on the TrimUI Brick?",
+          "a": [
+            "Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card. It never writes to the Brick's own storage. Pick it in ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. The Dreamcast, Nintendo 64, PSP and Saturn, the old-screen shaders, Screen Colors, Night Mode and Flash Drive came to it in 1.1.0. Ports, rumble, NES Player 2, the charge limit and its lights are not there yet. Nobody has tried Bluetooth headphones on it yet. The Brick Hammer runs the same card, but nobody has tried one yet either. Not the Brick Pro yet.",
+            "I don't have a Brick myself: players on the ZyperOS Discord test it for me, and their logs show me what to fix."
+          ],
+          "link": "See the page for the Brick"
+        }
+      ]
+    }
+  ]
+}

@@ -7,6 +7,16 @@ const char MENU_KEY_X[] = "";
 const char MENU_KEY_Y_ON[] = "";
 const char MENU_KEY_Y_OFF[] = "";
 
+bool menu_keys_is(const char *label)
+{
+	return label && label[0] == MENU_KEYS_MARK[0] && label[1] == MENU_KEYS_MARK[1];
+}
+
+const char *menu_keys_names(const char *label)
+{
+	return menu_keys_is(label) ? label + sizeof MENU_KEYS_MARK - 1 : label;
+}
+
 int menu_step_sel(const menu_row *rows, int n, int sel, int dir)
 {
 	int k;
@@ -138,6 +148,16 @@ int menu_window_first(const menu_row *rows, int n, int sel, int vis, int first)
 bool menu_row_moves(menu_row row, bool selected, bool visits_all)
 {
 	return selected || (!row.live && !visits_all);
+}
+
+bool menu_rows_landable(const menu_row *rows, int n, bool visits_all)
+{
+	int i;
+
+	if (visits_all) return n > 0;
+	for (i = 0; i < n; i++)
+		if (rows[i].live) return true;
+	return false;
 }
 
 unsigned menu_sound_at(const unsigned char *sound, int n, int sel)

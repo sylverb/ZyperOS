@@ -7,7 +7,9 @@
 #include "i18n.h"
 #include "keyhints.h"
 #include "keyhints_draw.h"
+#include "mp4frame.h"    /* MPF_TOO_BIG, MPF_NO_PICTURE */
 #include "mp4video.h"
+#include "nowplaying_looks.h"
 #include "panel.h"
 #include "topbar.h"
 #include "ui.h"
@@ -16,11 +18,14 @@
 #include "ds/mark.h"     /* ds_bar_in */
 #include "uisound.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
+#include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
-/* ---- Muse: Now Playing ---------------------------------------------------- */
+/* ---- MP4: Now Playing ---------------------------------------------------- */
 
 /* How far one step of left or right seeks: ten seconds a tap, and further the
  * longer it is held - a minute a step after a second, five after three.
@@ -59,7 +64,7 @@ void mmss(char *out, size_t n, double sec)
  * Dungeon Crawler Carl's thirty-seven are "001" to "037" - or none. */
 static bool chapter_titled(int i)
 {
-	const char *t = musec_chapter_title(i);
+	const char *t = mp4c_chapter_title(i);
 	const char *p;
 
 	for (p = t; *p && (isdigit((unsigned char)*p) || *p == ' '); p++) { }
@@ -70,8 +75,8 @@ static bool chapter_titled(int i)
  * reading, "Chapter 3" when the title is only its number or missing. */
 void chapter_label(int i, char *out, size_t n)
 {
-	if (chapter_titled(i)) snprintf(out, n, "%s", musec_chapter_title(i));
-	else                   snprintf(out, n, T(S_MUSE_CHAPTER), i + 1);
+	if (chapter_titled(i)) snprintf(out, n, "%s", mp4c_chapter_title(i));
+	else                   snprintf(out, n, T(S_MP4_CHAPTER), i + 1);
 }
 
 /* One line of the words, sliding when it is wider than the column. `y` is
@@ -96,7 +101,7 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 	SDL_Renderer *r = a->r;
 	SDL_Rect cov = { NP_X, NP_Y, NP_SIDE, NP_SIDE };
 	TTF_Font *fs = ui_font(UI_F_META);
-	/* Muse's lime for everything that is not the cover or the words, the
+	/* MP4's lime for everything that is not the cover or the words, the
 	 * same its shelf and its menus wear: the light around the cover and along
 	 * the foot, and as **accent-ink**, lime as a mark, the bar, the mode's
 	 * mark and the word for a stopped track. It was the cover's own most
@@ -105,21 +110,21 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 	unsigned rgb = ZYPEROS_ACCENT, wait = (unsigned)-1, phase;
 	SDL_Color acc = ui_col(theme()->accent_ink, 255);
 	const char *state = mn->state == MU_PLAYING ? NULL
-	                  : mn->state == MU_PAUSED  ? T(S_MUSE_PAUSED) : T(S_MUSE_STOPPED);
-	int book = musec_is_book() ? ml_album_of(&g_muse, musec_track(mn->index)) : -1;
+	                  : mn->state == MU_PAUSED  ? T(S_MP4_PAUSED) : T(S_MP4_STOPPED);
+	int book = mp4c_is_book() ? ml_album_of(&g_mp4, mp4c_track(mn->index)) : -1;
 	double k = mn->len > 0 ? mn->at / mn->len : 0;
 	char t0[16], t1[16], line[200], fit[200];
 	int y, ty, bar, fill, left, right;
 
 	/* A book played to its end says so, rather than that it stopped. */
 	if (mn->state == MU_STOPPED && book >= 0 && g_book_done && g_book_done[book])
-		state = T(S_MUSE_FINISHED);
+		state = T(S_MP4_FINISHED);
 
 	g_frame_no++;
 	SDL_SetRenderDrawColor(r, UI_BG_R, UI_BG_G, UI_BG_B, 255);
 	SDL_RenderClear(r);
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-	/* The shelf's wash along the foot, and the lift a cover in Muse gets:
+	/* The shelf's wash along the foot, and the lift a cover in MP4 gets:
 	 * light in Salt & Pepper, and on Beard the wash laid on and a shadow
 	 * under the cover (DESIGN.md 7, focus-small). */
 	ui_lift(r, &(SDL_Rect){ 0, ZYPEROS_SCREEN_H - 240, ZYPEROS_SCREEN_W, 480 },
@@ -146,14 +151,14 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 		 * which is where ui_line_y puts them in the line. */
 		int th = ui_font_line(UI_F_META), gs = th * 3 / 2, gx = NP_TX;
 		/* No mark on a book: it plays in order, whatever the mode. */
-		int g = musec_is_book() ? -1 : MUSE_MODES[musec_mode()].glyph;
+		int g = mp4c_is_book() ? -1 : MP4_MODES[mp4c_mode()].glyph;
 
 		ty = ui_line_y(UI_F_META, y);
 
 		/* A book with chapters counts those instead of its one file. */
-		if (musec_is_book() && musec_chapters() > 1) {
-			snprintf(line, sizeof line, T(S_MUSE_CHAPTER_OF),
-			         musec_chapter_now() + 1, musec_chapters());
+		if (mp4c_is_book() && mp4c_chapters() > 1) {
+			snprintf(line, sizeof line, T(S_MP4_CHAPTER_OF),
+			         mp4c_chapter_now() + 1, mp4c_chapters());
 			gx += ui_text(r, fs, line, NP_TX, ty, -1, UI_TEXT_DIM) + 18;
 		} else if (mn->count > 1) {
 			snprintf(line, sizeof line, "%d / %d", mn->index + 1, mn->count);
@@ -164,8 +169,8 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 		if (g >= 0) ui_glyph_draw(r, (ui_glyph)g, gx + gs / 2, y + th * 2 / 5, gs, acc);
 		/* A book's speed where music's mode mark would be, and only when it
 		 * is not the ordinary one. */
-		if (musec_is_book() && fabs(musec_speed() - 1.0) > 0.01) {
-			snprintf(line, sizeof line, "%gx", musec_speed());
+		if (mp4c_is_book() && fabs(mp4c_speed() - 1.0) > 0.01) {
+			snprintf(line, sizeof line, "%gx", mp4c_speed());
 			ui_text(r, fs, line, gx, ty, -1, acc);
 		}
 	}
@@ -178,8 +183,8 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 		char chap[128];
 		const char *top = mn->title;
 
-		if (musec_is_book() && musec_chapters() > 1) {
-			int ci = musec_chapter_now() < 0 ? 0 : musec_chapter_now();
+		if (mp4c_is_book() && mp4c_chapters() > 1) {
+			int ci = mp4c_chapter_now() < 0 ? 0 : mp4c_chapter_now();
 
 			/* The book's own "Chapter 3" is only a number too */
 			chapter_label(ci, chap, sizeof chap);
@@ -214,14 +219,14 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 
 	/* The last line, its line ending where the cover does. */
 	if (next && next[0]) {
-		snprintf(line, sizeof line, T(S_MUSE_NEXT), next);
+		snprintf(line, sizeof line, T(S_MP4_NEXT), next);
 		ui_fit_text(fs, line, fit, sizeof fit, NP_TW);
 		ui_text(r, fs, fit, NP_TX,
 		        ui_line_y(UI_F_META, NP_Y + NP_SIDE - ui_font_line(UI_F_META)), -1,
 		        UI_TEXT_DIM);
 	}
 
-	np_hints(r, state == NULL, musec_is_book() ? 1 : 0, 0, 0, false, 255);
+	np_hints(r, state == NULL, mp4c_is_book() ? 1 : 0, 0, 0, false, 255);
 	{
 		/* The top bar, as on every MP4 screen (2026-11-09): the clock at
 		 * the left, the marks and the battery's words at the right */
@@ -232,9 +237,19 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 	return wait;
 }
 
+/* Now Playing in the look that is on (MENU > Player Look, DESIGN.md 11.64):
+ * Cover is np_draw above, as it always was; the others are
+ * src/nowplaying_looks.c's. A book and a video are always Cover's. */
+unsigned np_draw_now(app *a, const mu_now *mn, const char *next)
+{
+	mp4l_id look = np_look_for();
+
+	return look == MP4L_COVER ? np_draw(a, mn, next) : npl_draw(a, look, mn);
+}
+
 /* ---- MP4: the lock screen -------------------------------------------------
  *
- * mine, 2026-11-05, in place of Muse's pocket lock (#51, Eric's design,
+ * mine, 2026-11-05, in place of MP4's pocket lock (#51, Eric's design,
  * 2026-09-30), whose chord - F1+F2 held for a second, FUNCTION and both volume
  * keys on the Pixel 2 - it replaced. X on any MP4 screen while something
  * plays, SELECT and START pressed together there (2026-11-09), or MENU's Lock
@@ -254,13 +269,22 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
  * since that is what it was locked to watch, and the volume bar comes over
  * the picture alone.
  *
- * A headset's play, pause and skip still work: musec_poll reads them, and it
+ * A headset's play, pause and skip still work: mp4c_poll reads them, and it
  * runs here as everywhere. Auto Off still powers off a locked player once the
  * music has stopped long enough - it is no button. */
 
-static bool g_lock_asked;                /* MENU's Lock Screen, for muse_menu */
+static bool g_lock_asked;                /* MENU's Lock Screen, for mp4_menu */
 
-void muse_ask_lock(void) { g_lock_asked = true; }
+void mp4_ask_lock(void) { g_lock_asked = true; }
+
+/* QUIT: MP4's MENU, its last row or X on any row, as the in-game menu's Quit
+ * and its X (2026-11-18). MP4 closes as SELECT closes it - MP4_CLOSE up
+ * through every screen of it to mp4_shelf_screen, which puts back what it
+ * was opened over: the home, a menu, a paused game's menu. What plays keeps
+ * playing, as it does after SELECT; A pauses it first for silence. */
+static bool g_quit_asked;                /* MENU's Quit, for mp4_menu */
+
+void mp4_ask_quit(void) { g_quit_asked = true; }
 
 /* SHUFFLE ALL: every song on the card in a random order, from MENU on the
  * music shelf. mine, 2026-11-05: shuffle across the whole library, not one
@@ -271,27 +295,27 @@ void muse_ask_lock(void) { g_lock_asked = true; }
  * a switch on every player that has one, and the next album played is
  * shuffled too until Y moves it on. One queue of every track, so "3 / 1200"
  * counts the songs heard, and Now Playing names each song's own album and
- * artist (muse_track_names) where an album's queue names its one. */
-static bool g_shuffle_asked;             /* MENU's Shuffle All, for muse_menu */
+ * artist (mp4_track_names) where an album's queue names its one. */
+static bool g_shuffle_asked;             /* MENU's Shuffle All, for mp4_menu */
 
-void muse_ask_shuffle(void) { g_shuffle_asked = true; }
+void mp4_ask_shuffle(void) { g_shuffle_asked = true; }
 
-static bool muse_shuffle_all(void)
+static bool mp4_shuffle_all(void)
 {
-	const char **paths = calloc((size_t)(g_muse.ntracks > 0 ? g_muse.ntracks : 1), sizeof *paths);
+	const char **paths = calloc((size_t)(g_mp4.ntracks > 0 ? g_mp4.ntracks : 1), sizeof *paths);
 	int i, t, n = 0;
 
 	if (!paths) return false;
-	for (i = 0; i < g_muse.nalbums; i++)
-		if (g_muse.albums[i].kind == ML_MUSIC)
-			for (t = 0; t < g_muse.albums[i].n; t++)
-				paths[n++] = g_muse.tracks[g_muse.albums[i].first + t].path;
+	for (i = 0; i < g_mp4.nalbums; i++)
+		if (g_mp4.albums[i].kind == ML_MUSIC)
+			for (t = 0; t < g_mp4.albums[i].n; t++)
+				paths[n++] = g_mp4.tracks[g_mp4.albums[i].first + t].path;
 	if (n > 0) {
-		musec_set_mode(MUQ_SHUFFLE);
-		db_set_str(db_dev(), "muse.mode", MUSE_MODES[MUQ_SHUFFLE].key);
+		mp4c_set_mode(MUQ_SHUFFLE);
+		db_set_str(db_dev(), "mp4.mode", MP4_MODES[MUQ_SHUFFLE].key);
 		/* Shuffled, the start plays first and the rest follow in a random
-		 * order (musequeue.h), so the start is drawn at random too. */
-		muse_play(paths, n, (int)((plat_now_ms() * 2654435761u >> 7) % (unsigned)n), 0,
+		 * order (mp4queue.h), so the start is drawn at random too. */
+		mp4_play(paths, n, (int)((plat_now_ms() * 2654435761u >> 7) % (unsigned)n), 0,
 		          false, 1.0, NULL, NULL);
 		fprintf(stderr, "mp4: shuffle all, %d songs\n", n);
 	}
@@ -303,43 +327,44 @@ static bool muse_shuffle_all(void)
  * a paused game, whose power rule belongs to the game. */
 bool lock_allowed(void)
 {
-	return musec_playing() && !g_muse_over;
+	return mp4c_playing() && !g_mp4_over;
 }
 
 /* SELECT and START on an MP4 screen, as mp4chord_step reads them (the rule
  * and why is src/mp4lock.h's): what this pass's press of the two came to.
- * Every MP4 loop reads its buttons with muse_input, which says it, and asks
- * muse_select for SELECT rather than its press. */
-static mp4chord  g_muse_chord;
-static mp4c_said g_muse_said;
+ * Every MP4 loop reads its buttons with mp4_input, which says it, and asks
+ * mp4_select for SELECT rather than its press. */
+static mp4chord  g_mp4_chord;
+static mp4c_said g_mp4_said;
 
-void muse_input(app *a)
+void mp4_input(app *a)
 {
 	plat_input_poll(&a->in);
-	g_muse_said = mp4chord_step(&g_muse_chord, a->in.down, a->in.pressed);
+	g_mp4_said = mp4chord_step(&g_mp4_chord, a->in.down, a->in.pressed);
 }
 
 /* SELECT alone, let go: MP4 closes */
-bool muse_select(void) { return g_muse_said == MP4C_SELECT; }
+bool mp4_select(void) { return g_mp4_said == MP4C_SELECT; }
+
+/* START alone, let go: the screen turns - the shelf's View, Now Playing's
+ * Player Look (DESIGN.md 11.67) */
+bool mp4_start(void) { return g_mp4_said == MP4C_START; }
 
 /* A screen of MP4's coming up: a SELECT down already is not its own */
-void muse_input_reset(void)
+void mp4_input_reset(void)
 {
-	g_muse_chord = (mp4chord){ 0 };
-	g_muse_said = MP4C_NONE;
+	g_mp4_chord = (mp4chord){ 0 };
+	g_mp4_said = MP4C_NONE;
 }
 
 /* The volume and brightness keys on an MP4 screen, X, and SELECT with START.
  * True when the screen should lock. */
-bool muse_keys(app *a)
+bool mp4_keys(app *a)
 {
 	in_state *in = &a->in;
 
-	if (in_repeat(in, IN_VOLUP)) plat_volume_nudge(+1);
-	if (in_repeat(in, IN_VOLDN)) plat_volume_nudge(-1);
-	if (in_repeat(in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-	if (in_repeat(in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
-	if (in->pressed[IN_X] || g_muse_said == MP4C_LOCK) {
+	levels_keys(in, BOOST_OPEN);
+	if (in->pressed[IN_X] || g_mp4_said == MP4C_LOCK) {
 		if (lock_allowed()) { uisound_play(DS_SOUND_ACCEPT); return true; }
 		uisound_play(DS_SOUND_DENY);       /* nothing playing to lock over */
 	}
@@ -488,7 +513,7 @@ void lock_panel(app *a, const mp4lock *l)
 static void np_next_name(char *next, size_t n);
 
 /* Locked, until SELECT and START are held, or Auto Off. See above. */
-void muse_locked(app *a)
+void mp4_locked(app *a)
 {
 	mp4lock l = { 0 };
 	bool panel_was = true, dark = false;
@@ -497,6 +522,9 @@ void muse_locked(app *a)
 	Uint32 osd_due = UINT32_MAX;            /* the volume bar's next look */
 
 	fprintf(stderr, "mp4: locked\n");
+	/* Under the lock nothing moves: a look's bars rest, and with no frame
+	 * of bars the daemon stops measuring (mp4c_bands_keep) */
+	npl_still(true);
 	mp4lock_engage(&l, plat_now_ms(), a->in.down[MP4_UNLOCK_A] && a->in.down[MP4_UNLOCK_B]);
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
@@ -504,7 +532,7 @@ void muse_locked(app *a)
 		bool video, lit, awake, panel, fresh = false, vol = false;
 		const mu_now *mn;
 
-		muse_screen_poll();
+		mp4_screen_poll();
 		plat_input_poll(&a->in);
 		if (a->in.quit_requested) { a->running = false; break; }
 		/* Auto Off, once the music has stopped long enough: no button, so
@@ -513,23 +541,22 @@ void muse_locked(app *a)
 		if (idle_due(a)) {
 			plat_backlight_dim(false);
 			plat_backlight(true);
-			muse_power(a);
+			mp4_power(a);
 			break;
 		}
 		if (mp4lock_step(&l, plat_now_ms(), a->in.down, a->in.pressed)) break;
 		/* The volume keys, the two that get through (mp4lock_passes): the
 		 * same steps and the same bar as unlocked, repeating when held. */
-		if (in_repeat(&a->in, IN_VOLUP)) { plat_volume_nudge(+1); vol = true; }
-		if (in_repeat(&a->in, IN_VOLDN)) { plat_volume_nudge(-1); vol = true; }
-		mn = musec_now();
-		video = musec_video();
+		if (levels_keys(&a->in, BOOST_FILL)) vol = true;
+		mn = mp4c_now();
+		video = mp4c_video();
 		lit = mp4lock_lit(&l);
 		awake = mp4lock_awake(&l);
 		/* The lock panel: over music whenever the screen is on, the volume
 		 * bar over it; over a video only as it locks and while the pair is
 		 * held, so a volume press brings the bar alone over the picture. */
 		panel = video ? lit : awake;
-		musec_video_show(video);
+		mp4c_video_show(video);
 		if (video) fresh = mp4v_update(a->r);
 
 		if (!video && !awake) {
@@ -550,10 +577,10 @@ void muse_locked(app *a)
 
 			tick_theme(a);
 			if (video) {
-				np_draw_video(a, mn, 0);
+				np_draw_video(a, mn, 0, 1);
 			} else {
 				np_next_name(next, sizeof next);
-				np_draw(a, mn, next);
+				np_draw_now(a, mn, next);
 			}
 			if (panel) {
 				ui_scrim(a->r, 0);
@@ -575,32 +602,33 @@ void muse_locked(app *a)
 		panel_was = panel;
 		SDL_Delay(video || awake ? 8 : 30);
 	}
-	musec_video_show(false);
+	mp4c_video_show(false);
+	npl_still(false);
 	plat_backlight_dim(false);
 	plat_backlight(true);
 	fprintf(stderr, "mp4: unlocked\n");
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
-	muse_input_reset();
+	mp4_input_reset();
 }
 
-/* MENU, from any Muse screen: Muse's own menu, the one its shelf has always
- * had. One button, one meaning, wherever in Muse it is pressed - it used to
- * close Muse from Now Playing and the tracks, and open this on the shelf.
+/* MENU, from any MP4 screen: MP4's own menu, the one its shelf has always
+ * had. One button, one meaning, wherever in MP4 it is pressed - it used to
+ * close MP4 from Now Playing and the tracks, and open this on the shelf.
  * Eric's call, 2026-09-23.
  *
  * Rescan Folder inside it rebuilds the library, and every album index with it,
- * so a screen holding one cannot carry on: MUSE_REBUILT tells it to let go,
+ * so a screen holding one cannot carry on: MP4_REBUILT tells it to let go,
  * and the shelf finds itself again the way it does after its own MENU. */
 static int g_np_depth;                   /* Now Playing is open, under whatever is */
 
-muse_exit muse_menu(app *a)
+mp4_exit mp4_menu(app *a)
 {
-	unsigned gen = g_muse_gen;
+	unsigned gen = g_mp4_gen;
 	bool by_menu;
 
 	zyperos_menu_for(a, SCREEN_GAMES);
-	/* MENU inside it closed it, and only it: Muse is still up, and may itself
+	/* MENU inside it closed it, and only it: MP4 is still up, and may itself
 	 * be over a menu SELECT opened it from, which has to stay open. So the
 	 * screen under it comes back as after B. */
 	by_menu = g_menu_closing;
@@ -611,21 +639,25 @@ muse_exit muse_menu(app *a)
 	/* Lock Screen closed the menu to lock from the screen underneath. */
 	if (g_lock_asked) {
 		g_lock_asked = false;
-		if (lock_allowed()) muse_locked(a);
+		if (lock_allowed()) mp4_locked(a);
 	}
-	if (want_quit || !a->running || g_message_stopped) return MUSE_CLOSE;
+	if (want_quit || !a->running || g_message_stopped) return MP4_CLOSE;
+	if (g_quit_asked) {
+		g_quit_asked = false;
+		return MP4_CLOSE;
+	}
 	/* Shuffle All closed it to play: Now Playing, on whatever screen of
 	 * MP4's MENU was pressed - on Now Playing itself, it just carries on
 	 * with the new song (g_np_depth). */
 	if (g_shuffle_asked) {
 		g_shuffle_asked = false;
-		if (muse_shuffle_all() && !g_np_depth) {
-			muse_exit how = muse_now_screen(a);
+		if (mp4_shuffle_all() && !g_np_depth) {
+			mp4_exit how = mp4_now_screen(a);
 
-			if (how != MUSE_BACK) return how;
+			if (how != MP4_BACK) return how;
 		}
 	}
-	return g_muse_gen != gen ? MUSE_REBUILT : MUSE_BACK;
+	return g_mp4_gen != gen ? MP4_REBUILT : MP4_BACK;
 }
 
 /* What the mode will actually play next, for "Next:". Repeat one says so
@@ -633,15 +665,15 @@ muse_exit muse_menu(app *a)
  * book with chapters, the next chapter, until the last. */
 static void np_next_name(char *next, size_t n)
 {
-	const mu_now *mn = musec_now();
+	const mu_now *mn = mp4c_now();
 	const char *nt;
 
 	next[0] = '\0';
-	if (musec_is_book() && musec_chapters() > 1 &&
-	    musec_chapter_now() + 1 < musec_chapters())
-		chapter_label(musec_chapter_now() + 1, next, n);
-	else if ((musec_is_book() || musec_is_videos() || musec_mode() != MUQ_REPEAT_ONE) &&
-	         (nt = musec_upcoming()))
+	if (mp4c_is_book() && mp4c_chapters() > 1 &&
+	    mp4c_chapter_now() + 1 < mp4c_chapters())
+		chapter_label(mp4c_chapter_now() + 1, next, n);
+	else if ((mp4c_is_book() || mp4c_is_videos() || mp4c_mode() != MUQ_REPEAT_ONE) &&
+	         (nt = mp4c_upcoming()))
 		ml_track_name(strrchr(nt, '/') ? strrchr(nt, '/') + 1 : nt, next, (int)n);
 	(void)mn;
 }
@@ -664,6 +696,25 @@ static void np_next_name(char *next, size_t n)
  *                 paused, fading in over quick and out over fade-out; every
  *                 key also does what it does, the first one too. Y shows
  *                 them, or hides them at once
+ *   the header    goes and comes with the controls, at the same pace, and
+ *                 the ground around the picture goes to pure black with it
+ *                 (2026-11-18: "when the footer times out and disappears
+ *                 while video is playing, the top bar should too, and the
+ *                 background should go pitch black"): hidden, there is
+ *                 the picture and black, as a TV's player has it. A title
+ *                 wider than the header's row slides there, as a long name
+ *                 does everywhere (ui_text_marquee), from its start each
+ *                 time the header comes back
+ *   full screen   with the surround gone, the picture grows to the whole
+ *                 screen, its shape kept, black only where its shape is not
+ *                 the screen's: a 4:3 film fills the Pixel 2 (2026-11-19:
+ *                 "if we could make the video go full size when the
+ *                 surround collapses that's better"). Over turn, after the
+ *                 surround has gone; back to its box over quick, before
+ *                 the surround comes back, so the header never stands over
+ *                 the picture. A 16:9 film is the same size either way (its
+ *                 box under the header is the screen's middle) and does not
+ *                 wait for it
  *   paused        a play disc in the picture's middle (ds_play_disc), the
  *                 bar's fill faded
  *
@@ -685,24 +736,26 @@ static void np_next_name(char *next, size_t n)
 #define NPV_BAR_GAP  16
 
 /* What the buttons do on Now Playing, listed most needed first: A, B, X,
- * then Y (music and books) and L1/R1, then the d-pad. `kind`: 0 music, 1 a
- * book. On a video Y has no hint: it only shows or hides the controls. */
-static int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
+ * then Y and L1/R1, then the d-pad. `kind`: 0 music, 1 a book. On a video
+ * Y is Repeat (MP4's MENU > Repeat: Off, One, All), its mark beside the
+ * time when it is not Off. */
+int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
 {
 	int n = 0;
 
-	h[n].key = "A";  h[n++].label = playing ? T(S_MUSE_HINT_PAUSE) : T(S_MUSE_HINT_PLAY);
+	h[n].key = "A";  h[n++].label = playing ? T(S_MP4_HINT_PAUSE) : T(S_MP4_HINT_PLAY);
 	h[n].key = "B";  h[n++].label = T(S_CONTROLS_BACK);
 	h[n].key = "X";  h[n++].label = T(S_MP4_HINT_LOCK);
 	if (video) {
+		h[n].key = "Y"; h[n++].label = T(S_SYSMENU_MP4_REPEAT);
 		if (count > 1) { h[n].key = "L1/R1"; h[n++].label = T(S_MP4_HINT_VIDEO); }
 	} else {
-		h[n].key = "Y";     h[n++].label = kind == 1 ? T(S_MUSE_HINT_SPEED) : T(S_MUSE_HINT_MODE);
-		h[n].key = "L1/R1"; h[n++].label = !musec_is_book() ? T(S_MUSE_HINT_TRACK)
-		                                  : musec_chapters() > 1 ? T(S_MUSE_HINT_CHAPTER)
-		                                                         : T(S_MUSE_HINT_FILE);
+		h[n].key = "Y";     h[n++].label = kind == 1 ? T(S_MP4_HINT_SPEED) : T(S_MP4_HINT_MODE);
+		h[n].key = "L1/R1"; h[n++].label = !mp4c_is_book() ? T(S_MP4_HINT_TRACK)
+		                                  : mp4c_chapters() > 1 ? T(S_MP4_HINT_CHAPTER)
+		                                                         : T(S_MP4_HINT_FILE);
 	}
-	h[n].key = KEYHINT_LEFT_RIGHT; h[n++].label = T(S_MUSE_HINT_SEEK);
+	h[n].key = KEYHINT_LEFT_RIGHT; h[n++].label = T(S_MP4_HINT_SEEK);
 	return n;
 }
 
@@ -733,6 +786,12 @@ static void np_video_bar(SDL_Renderer *r, const mu_now *mn, int x, int y, int w,
 	          mn->state != MU_PLAYING ? ui_fade(acc, 0.45f) : acc);
 }
 
+/* The picture under the header, the screen's width at 16:9 */
+static SDL_Rect np_video_boxed(void)
+{
+	return (SDL_Rect){ 0, NPV_Y, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_W * 9 / 16 };
+}
+
 /* Where the player's parts go, laid out by rules from the canvas and what
  * it holds (np_player_layout): no y is typed. */
 typedef struct {
@@ -740,18 +799,25 @@ typedef struct {
 	SDL_Rect band;     /* the controls' surface, from the bar's row to the screen's foot */
 	SDL_Rect bar;      /* the bar between the two times */
 	SDL_Rect t0, t1;   /* the time played, the time left */
+	SDL_Rect mark;     /* Repeat's mark, before the time left; w 0 for none */
 	int keys_cy;       /* the keys' last row's middle */
 } np_player;
 
-static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1)
+/* Repeat's mark in the bar's row (MP4's MENU > Repeat): music's marks at
+ * music's size, half again the times' line, so repeat one's 1 reads at arm's
+ * length as it does beside music's count */
+#define NPV_MARK (ui_font_line(UI_F_META) * 3 / 2)
+
+static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1,
+                             bool mark)
 {
 	static ds_flex F;
 	TTF_Font *fs = ui_font(UI_F_META);
-	int root, band, row, keys, bar, c0, c1 = -1, i;
+	int root, band, row, keys, bar, c0, c1 = -1, mk = -1, i;
 
 	/* The picture: the canvas's width at 16:9, under the header's band. It
 	 * stands apart: the band floats over its foot and never moves it. */
-	L->pic = (SDL_Rect){ 0, NPV_Y, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_W * 9 / 16 };
+	L->pic = np_video_boxed();
 	/* The band, laid out by rules (src/ds/flex.h) from the screen's foot up:
 	 * the keys on every screen's foot, as many rows as their words take,
 	 * spread as keyhints_draw spreads them; the bar's row over them, the
@@ -765,6 +831,7 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	                                       .align = DS_A_CENTER });
 	c0 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t0), .h = NPV_BAR_ROW });
 	bar = ds_flex_add(&F, row, &(ds_box){ .h = UI_BAR_H, .grow = 1 });
+	if (mark) mk = ds_flex_add(&F, row, &(ds_box){ .w = NPV_MARK, .h = NPV_BAR_ROW });
 	if (t1[0]) c1 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t1), .h = NPV_BAR_ROW });
 	keys = ds_flex_add(&F, band, &(ds_box){ .dir = DS_ROW, .wrap = true, .gap = KEYHINTS_GAP_SPREAD,
 	                                        .line_gap = KEYHINTS_ROW - DS_HINT_GLYPH });
@@ -777,27 +844,158 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	L->bar = ds_flex_rect(&F, bar);
 	L->t1 = c1 >= 0 ? ds_flex_rect(&F, c1)
 	                : (SDL_Rect){ ZYPEROS_SCREEN_W - NPV_X, L->t0.y, 0, NPV_BAR_ROW };
+	L->mark = mk >= 0 ? ds_flex_rect(&F, mk) : (SDL_Rect){ 0, 0, 0, 0 };
 	L->keys_cy = ds_flex_rect(&F, keys).y + ds_flex_rect(&F, keys).h - DS_HINT_GLYPH / 2;
 }
 
-/* One frame of the video, the controls at `k` (0 hidden, 1 shown). The run
- * loop keeps them up while paused; the lock draws them hidden, since no key
- * they name does anything while it is locked. */
-void np_draw_video(app *a, const mu_now *mn, float k)
+/* The video's title in the header's row, between the clock and the marks, in
+ * the clock's face: centered when it fits, else sliding in that room on
+ * Now Playing's clock (MQ_NP, which the music view keeps and a video does
+ * not share a frame with). How long until it moves by itself: 0 while it
+ * slides, the rest of a hold at one end, never for one that fits. */
+static unsigned np_video_title(SDL_Renderer *r, const char *title, int index)
+{
+	TTF_Font *fh = page_font(PAGE_ACTION);
+	int half = header_half(), room = 2 * half, tw = ui_text_width(fh, title);
+	int y = ui_cap_y(fh, TOPBAR_MID);
+	unsigned phase;
+
+	if (tw <= room) {
+		ui_text(r, fh, title, ZYPEROS_SCREEN_W / 2, y, 0, UI_TEXT);
+		return (unsigned)-1;
+	}
+	phase = mq_phase(MQ_NP, index, (int)strlen(title));
+	ui_text_marquee(r, fh, title, ZYPEROS_SCREEN_W / 2 - half, y, room, phase, UI_TEXT);
+	return ui_pingpong_wait(tw - room, phase);
+}
+
+/* The picture's box `grow` of the way from its place under the header to the
+ * whole screen, on the turn curve, and the picture fitted in each */
+static SDL_Rect np_video_box(const SDL_Rect *boxed, float grow, SDL_Rect *pic)
+{
+	SDL_Rect full = { 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H };
+	SDL_Rect a = mp4v_fit(*boxed), b = mp4v_fit(full);
+	float e = ds_turn(grow);
+#define NPV_LERP(p, q) ((int)lroundf((p) + ((q) - (p)) * e))
+	if (pic) *pic = (SDL_Rect){ NPV_LERP(a.x, b.x), NPV_LERP(a.y, b.y), NPV_LERP(a.w, b.w), NPV_LERP(a.h, b.h) };
+	return (SDL_Rect){ NPV_LERP(boxed->x, full.x), NPV_LERP(boxed->y, full.y),
+	                   NPV_LERP(boxed->w, full.w), NPV_LERP(boxed->h, full.h) };
+#undef NPV_LERP
+}
+
+bool np_video_grows(void)
+{
+	SDL_Rect a, b, boxed = np_video_boxed();
+
+	np_video_box(&boxed, 0, &a);
+	np_video_box(&boxed, 1, &b);
+	return !SDL_RectEquals(&a, &b);
+}
+
+/* A picture format's name as people know it, from FFmpeg's short one */
+static void np_format_name(const char *ff, char *out, size_t n)
+{
+	static const struct { const char *ff, *name; } NAMES[] = {
+		{ "h264", "H.264" }, { "hevc", "HEVC" }, { "av1", "AV1" }, { "vp8", "VP8" },
+		{ "vp9", "VP9" }, { "mpeg4", "MPEG-4" }, { "mpeg2video", "MPEG-2" },
+		{ "mpeg1video", "MPEG-1" }, { "prores", "ProRes" }, { "vc1", "VC-1" },
+		{ "wmv3", "WMV" }, { "theora", "Theora" }, { "mjpeg", "Motion JPEG" },
+	};
+	size_t i;
+
+	for (i = 0; i < sizeof NAMES / sizeof NAMES[0]; i++)
+		if (!strcmp(ff, NAMES[i].ff)) { snprintf(out, n, "%s", NAMES[i].name); return; }
+	for (i = 0; i + 1 < n && ff[i]; i++) out[i] = (char)toupper((unsigned char)ff[i]);
+	if (n) out[i] = 0;
+}
+
+/* What the daemon says of a picture this handheld cannot carry, in the
+ * notice's slab (11.7) over the picture's foot, just over the band: what
+ * the video is ("AV1 · 1920x1080 · 60 fps") in **meta** **text-dim** over
+ * what that means in **label** **text**, on one line or two balanced, the
+ * slab no wider than a menu panel. Too big (MPF_TOO_BIG) it comes and goes
+ * with the controls at `al`; with no picture at all (MPF_NO_PICTURE) it
+ * stands whole in the black, so the screen is never only black. */
+static void np_video_notice(SDL_Renderer *r, const SDL_Rect *band, const mu_now *mn, Uint8 al)
+{
+	const ds_theme *t = theme();
+	TTF_Font *fh = ui_font(UI_F_META), *fb = ui_font(UI_F_LABEL);
+	const int padx = ui_font_line(UI_F_MENU) / 3, pady = ui_font_line(UI_F_MENU) / 6;
+	const int l1 = ui_font_line(UI_F_META), l2 = ui_font_line(UI_F_LABEL);
+	const int room = DS_PANEL_W - 2 * padx;
+	char ff[16], name[24], head[96], lines[2][LB_LINE];
+	const char *body, *nl;
+	unsigned milli = 0;
+	int trouble = mp4v_trouble(ff, sizeof ff, &milli), n, i, tw, w, h, x, y;
+
+	if (trouble == MPF_FINE || !fh || !fb) return;
+	if (trouble == MPF_NO_PICTURE) al = 255;
+	if (al == 0) return;
+	np_format_name(ff[0] ? ff : "?", name, sizeof name);
+	n = snprintf(head, sizeof head, "%s", name);
+	if (mn->vw > 0 && mn->vh > 0 && n > 0 && (size_t)n < sizeof head)
+		n += snprintf(head + n, sizeof head - (size_t)n, " · %dx%d", mn->vw, mn->vh);
+	if (milli > 0 && milli < 1000000 && n > 0 && (size_t)n < sizeof head) {
+		double fps = milli / 1000.0;
+
+		snprintf(head + n, sizeof head - (size_t)n, fabs(fps - round(fps)) < 0.01 ? " · %.0f fps" : " · %.2f fps", fps);
+	}
+	body = trouble == MPF_TOO_BIG ? T(S_MP4_TOO_BIG) : T(S_MP4_NO_PICTURE);
+	ui_fit_drawn(body);
+	if ((nl = strchr(body, '\n'))) {
+		/* Chinese and Japanese say where their two lines part, which a
+		 * break between any two characters would not */
+		snprintf(lines[0], sizeof lines[0], "%.*s", (int)(nl - body), body);
+		snprintf(lines[1], sizeof lines[1], "%s", nl + 1);
+		n = 2;
+	} else {
+		n = ui_balance_lines(fb, body, room, 2, lines);
+	}
+	tw = ui_text_width(fh, head);
+	for (i = 0; i < n; i++)
+		if (ui_text_width(fb, lines[i]) > tw) tw = ui_text_width(fb, lines[i]);
+	if (tw > room) tw = room;
+	/* The notice's lines, and the quarter of the body's descender room taken
+	 * off the bottom, as the menu music's pop-up has them */
+	w = tw + 2 * padx;
+	h = pady * 2 + l1 + n * l2 - l2 / 12;
+	x = (ZYPEROS_SCREEN_W - w) / 2;
+	y = band->y - DS_INSET - h;
+	ui_round_rect(r, &(SDL_Rect){ x, y, w, h }, DS_RADIUS_PANEL, ui_col(t->surface, (Uint8)(217 * al / 255)));
+	ui_text(r, fh, head, ZYPEROS_SCREEN_W / 2, ui_line_y(UI_F_META, y + pady), 0, ui_col(t->text_dim, al));
+	for (i = 0; i < n; i++)
+		ui_text(r, fb, lines[i], ZYPEROS_SCREEN_W / 2, ui_line_y(UI_F_LABEL, y + pady + l1 + i * l2), 0,
+		        ui_col(t->text, al));
+}
+
+/* One frame of the video, the controls and the header at `k` (0 hidden, 1
+ * shown), the ground around the picture the theme's at 1 and black at 0, and
+ * the picture `grow` of the way to the whole screen (drawn only with the
+ * header gone, k 0). The run loop keeps the controls up while paused; the
+ * lock draws them hidden and the picture whole, since no key they name does
+ * anything while it is locked. When the frame changes by itself, the title's
+ * slide: 0 while it moves. */
+unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 {
 	SDL_Renderer *r = a->r;
-	SDL_Texture *tex = mp4v_texture();
-	TTF_Font *fs = ui_font(UI_F_META), *fh = page_font(PAGE_ACTION);
+	SDL_Rect src;
+	SDL_Texture *tex = mp4v_texture(&src);
+	TTF_Font *fs = ui_font(UI_F_META);
 	ds_rgb g = theme()->ground;
-	SDL_Color soft = UI_TEXT_SOFT;
+	SDL_Color soft = UI_TEXT_SOFT, bg;
 	key_hint h[KEYHINTS_MAX];
-	char t0[16], t1[24], left[16], fit[200];
+	char t0[16], t1[24], left[16];
 	np_player L;
-	SDL_Rect pic;
-	int n;
+	SDL_Rect pic, box;
+	unsigned wait = (unsigned)-1;
+	int n, mg;
 	Uint8 al;
 
-	al = (Uint8)(255 * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5f);
+	k = k < 0 ? 0 : k > 1 ? 1 : k;
+	al = (Uint8)(255 * k + 0.5f);
+	/* The ground: the theme's with the controls, and pure black without, the
+	 * one eased to the other as they come and go (2026-11-18) */
+	bg = (SDL_Color){ (Uint8)(g.r * k + 0.5f), (Uint8)(g.g * k + 0.5f), (Uint8)(g.b * k + 0.5f), 255 };
 	n = np_hint_list(h, mn->state == MU_PLAYING, 0, mn->count, true);
 	mmss(t0, sizeof t0, mn->at);
 	t1[0] = 0;
@@ -805,40 +1003,57 @@ void np_draw_video(app *a, const mu_now *mn, float k)
 		mmss(left, sizeof left, mn->len > mn->at ? mn->len - mn->at : 0);
 		snprintf(t1, sizeof t1, "-%s", left);
 	}
-	np_player_layout(&L, h, n, t0, t1);
+	/* Repeat's mark (MP4's MENU > Repeat), music's own, when it is not Off */
+	mg = MP4_MODES[mp4c_video_mode()].glyph;
+	np_player_layout(&L, h, n, t0, t1, mg >= 0);
 
-	pic = mp4v_fit(L.pic);
-	plat_video_under(tex, &pic, (SDL_Color){ g.r, g.g, g.b, 255 });
+	/* The header stands over the box's band: the picture grows only once
+	 * it has gone (the run loop's order; held here too) */
+	if (al > 0) grow = 0;
+	box = np_video_box(&L.pic, grow < 0 ? 0 : grow > 1 ? 1 : grow, &pic);
+	plat_video_under(tex, &src, &pic, bg);
 	ui_fit_frame();   /* the picture covers what was drawn (the host's fit check) */
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 	/* Before the first picture: its box, empty, so nothing jumps. */
-	if (!tex) ui_round_rect(r, &L.pic, 0, (SDL_Color){ 0, 0, 0, 255 });
+	if (!tex) ui_round_rect(r, &box, 0, (SDL_Color){ 0, 0, 0, 255 });
 
 	/* The home's header, as on every MP4 screen (2026-11-09): the clock at
-	 * the left, the marks at the right, and the title between them in the
-	 * clock's face, centered */
-	draw_topbar(r, theme_index(), UI_TEXT_SOFT, true);
-	ui_fit_text(fh, mn->title, fit, sizeof fit, 2 * header_half());
-	ui_text(r, fh, fit, ZYPEROS_SCREEN_W / 2, ui_cap_y(fh, TOPBAR_MID), 0, UI_TEXT);
+	 * the left, the marks at the right, and the title between them. It goes
+	 * with the controls: above the picture's box there is only the ground,
+	 * so the ground laid over it at what is gone of `k` fades all of it as
+	 * one, on every device (over the Pixel 2's clear screen too: the blend
+	 * is the same there, premultiplied), and hidden it is not drawn. */
+	if (al > 0) {
+		draw_topbar(r, theme_index(), UI_TEXT_SOFT, true);
+		wait = np_video_title(r, mn->title, mn->index);
+		if (al < 255)
+			ui_round_rect(r, &(SDL_Rect){ 0, 0, ZYPEROS_SCREEN_W, L.pic.y }, 0,
+			              (SDL_Color){ bg.r, bg.g, bg.b, (Uint8)(255 - al) });
+	}
 
 	if (mn->state != MU_PLAYING) {
 		int d = 120;
 
 		ds_play_disc(r, pic.x + (pic.w - d) / 2, pic.y + (pic.h - d) / 2, d, 255);
 	}
-	if (al == 0) return;
+	np_video_notice(r, &L.band, mn, al);
+	if (al == 0) return wait;
 	ui_round_rect(r, &L.band, 0, ui_col(theme()->surface, (Uint8)(al * 0.92f)));
 	soft.a = al;
 	np_video_bar(r, mn, L.bar.x, L.bar.y, L.bar.w, al);
 	ui_text_tabular(r, fs, t0, L.t0.x, ui_cap_y(fs, L.t0.y + L.t0.h / 2), -1, soft);
 	if (t1[0]) ui_text_tabular(r, fs, t1, L.t1.x + L.t1.w, ui_cap_y(fs, L.t1.y + L.t1.h / 2), 1, soft);
+	if (L.mark.w > 0)
+		ui_glyph_draw(r, (ui_glyph)mg, L.mark.x + L.mark.w / 2, L.mark.y + L.mark.h / 2, L.mark.w,
+		              ui_col(theme()->accent_ink, al));
 	keyhints_draw(r, h, n, NPV_X, ZYPEROS_SCREEN_W - NPV_X, L.keys_cy, KEYHINTS_SPREAD, true, al);
+	return wait;
 }
 
-/* MUSE_CLOSE for SELECT and the power button, which leave Muse altogether;
- * MUSE_BACK for B, which is the album's tracks underneath; MUSE_REBUILT when
+/* MP4_CLOSE for SELECT and the power button, which leave MP4 altogether;
+ * MP4_BACK for B, which is the album's tracks underneath; MP4_REBUILT when
  * MENU's Rescan Folder replaced the library. MENU otherwise comes back here. */
-static muse_exit muse_now_screen_run(app *a)
+static mp4_exit mp4_now_screen_run(app *a)
 {
 	struct {
 		mu_state st;
@@ -849,14 +1064,15 @@ static muse_exit muse_now_screen_run(app *a)
 		SDL_Texture *tex;
 	} shown, drawn;
 	unsigned due = 0, ctl_until = 0, ctl_at = 0;
-	float ctl = 1, ctl_drawn = -1;
-	muse_exit how = MUSE_BACK;
+	float ctl = 1, ctl_drawn = -1, grow = 0, grow_drawn = -1;
+	int trouble_seen = MPF_FINE;
+	mp4_exit how = MP4_BACK;
 
 	mq_reset(MQ_NP);
 	memset(&drawn, 0, sizeof drawn);
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
-	muse_input_reset();
+	mp4_input_reset();
 	ctl_until = plat_now_ms() + DS_MS_HOLD_CONTROLS;
 	ctl_at = plat_now_ms();
 
@@ -864,25 +1080,25 @@ static muse_exit muse_now_screen_run(app *a)
 		const mu_now *mn;
 		char next[128] = "";
 		unsigned now;
-		bool touched = false, video, fresh = false, ctl_y = false, up;
+		bool touched = false, video, fresh = false;
 		int b;
 
-		muse_screen_poll();
+		mp4_screen_poll();
 		cover_answers();
-		mn = musec_now();
-		video = musec_video();
+		mn = mp4c_now();
+		video = mp4c_video();
 		/* Pictures are decoded only while somebody looks at them. */
-		musec_video_show(video);
-		muse_input(a);
-		if (a->in.quit_requested) { a->running = false; how = MUSE_CLOSE; break; }
-		if (a->in.pressed[IN_POWER] || idle_due(a)) { muse_power(a); how = MUSE_CLOSE; break; }
-		if (a->in.pressed[IN_BACK] || muse_select()) uisound_play(DS_SOUND_BACK);
+		mp4c_video_show(video);
+		mp4_input(a);
+		if (a->in.quit_requested) { a->running = false; how = MP4_CLOSE; break; }
+		if (a->in.pressed[IN_POWER] || idle_due(a)) { mp4_power(a); how = MP4_CLOSE; break; }
+		if (a->in.pressed[IN_BACK] || mp4_select()) uisound_play(DS_SOUND_BACK);
 		if (a->in.pressed[IN_BACK]) break;
-		if (muse_select()) { how = MUSE_CLOSE; break; }
+		if (mp4_select()) { how = MP4_CLOSE; break; }
 		if (a->in.pressed[IN_MENU]) {
-			musec_video_show(false);
-			how = muse_menu(a);
-			if (how != MUSE_BACK) break;
+			mp4c_video_show(false);
+			how = mp4_menu(a);
+			if (how != MP4_BACK) break;
 			memset(&drawn, 0, sizeof drawn);     /* the menu drew over it */
 			continue;
 		}
@@ -890,24 +1106,40 @@ static muse_exit muse_now_screen_run(app *a)
 		/* A, and only A. X did the same thing here and pausing in the list,
 		 * which made one button mean two things a screen apart; X is the lock
 		 * now, on every MP4 screen. Eric's call, 2026-09-19; X, 2026-11-05. */
-		if (a->in.pressed[IN_ACCEPT])       { uisound_play(DS_SOUND_ACCEPT); musec_toggle(); }
+		if (a->in.pressed[IN_ACCEPT])       { uisound_play(DS_SOUND_ACCEPT); mp4c_toggle(); }
 		/* The mode, on music; on a book, which plays in order whatever the
-		 * mode says, its speed; on a video, the view. */
+		 * mode says, its speed; on a video, Repeat: Off, One, All and round,
+		 * as MP4's MENU > Repeat turns it, kept, its mark beside the time as
+		 * the controls come up (2026-11-19: "Make the y button change it") */
 		if (a->in.pressed[IN_Y]) {
 			uisound_play(DS_SOUND_ACCEPT);
-			if (video)                 ctl_y = true;
-			else if (musec_is_book())  book_cycle_speed();
-			else if (!musec_is_videos()) muse_cycle_mode();
+			if (video)                 video_cycle_repeat();
+			else if (mp4c_is_book())  book_cycle_speed();
+			else if (!mp4c_is_videos()) mp4_cycle_mode();
 		}
-		if (in_repeat(&a->in, IN_L1))       { moved_sound(a, IN_L1); musec_prev(); }
-		if (in_repeat(&a->in, IN_R1))       { moved_sound(a, IN_R1); musec_next(); }
-		if (in_repeat(&a->in, IN_LEFT))     { moved_sound(a, IN_LEFT); musec_seek_by(-seek_step(&a->in, IN_LEFT)); }
-		if (in_repeat(&a->in, IN_RIGHT))    { moved_sound(a, IN_RIGHT); musec_seek_by(+seek_step(&a->in, IN_RIGHT)); }
-		if (muse_keys(a)) {
-			muse_locked(a);
-			if (!a->running || g_muse_gone) { how = MUSE_CLOSE; break; }
+		/* START turns the Player Look, round as MENU's row does, kept at
+		 * once (DESIGN.md 11.67); as it is let go, since SELECT with START
+		 * locks (mp4_input). A song's alone: a book shows its chapters
+		 * and a video its picture whatever the look (np_look_for). */
+		if (mp4_start()) {
+			if (mp4c_is_book() || mp4c_is_videos() || video) {
+				uisound_play(DS_SOUND_DENY);
+			} else {
+				uisound_play(DS_SOUND_MOVE);
+				np_look_set((mp4l_id)((np_look() + 1) % MP4L_COUNT));
+				memset(&drawn, 0, sizeof drawn);
+			}
+		}
+		if (in_repeat(&a->in, IN_L1))       { moved_sound(a, IN_L1); mp4c_prev(); }
+		if (in_repeat(&a->in, IN_R1))       { moved_sound(a, IN_R1); mp4c_next(); }
+		if (in_repeat(&a->in, IN_LEFT))     { moved_sound(a, IN_LEFT); mp4c_seek_by(-seek_step(&a->in, IN_LEFT)); }
+		if (in_repeat(&a->in, IN_RIGHT))    { moved_sound(a, IN_RIGHT); mp4c_seek_by(+seek_step(&a->in, IN_RIGHT)); }
+		if (mp4_keys(a)) {
+			mp4_locked(a);
+			if (!a->running || g_mp4_gone) { how = MP4_CLOSE; break; }
 			memset(&drawn, 0, sizeof drawn);   /* the screen is back: draw it */
 			ctl_drawn = -1;
+			grow_drawn = -1;
 			continue;
 		}
 
@@ -919,46 +1151,72 @@ static muse_exit muse_now_screen_run(app *a)
 
 		if (video) {
 			/* The controls: up for hold-controls after any press, and for
-			 * as long as it is paused; in over quick, out over fade-out. */
-			float want, step;
+			 * as long as it is paused; in over quick, out over fade-out.
+			 * The picture grows to the whole screen over turn once they
+			 * have gone, and is back in its box, over quick, before they
+			 * come again; a picture that does not grow waits for nothing. */
+			float dt;
+			bool want, grows;
+			int tr;
 
 			fresh = mp4v_update(a->r);
-			/* Y shows them, or hides them at once if they were up; any
-			 * other key shows them and does what it does */
-			up = (int)(ctl_until - now) > 0;
+			/* The daemon finding the file too big for this CPU: the
+			 * controls come up as on a key, so the notice with them is
+			 * read; it, or no picture at all, drawn as it changes */
+			tr = mp4v_trouble(NULL, 0, NULL);
+			if (tr != trouble_seen) {
+				if (tr == MPF_TOO_BIG) ctl_until = now + DS_MS_HOLD_CONTROLS;
+				trouble_seen = tr;
+				ctl_drawn = -1;
+			}
+			/* Any key shows them and does what it does: Y too, which
+			 * turns Repeat, whose mark is in them */
 			for (b = 0; b < IN_COUNT; b++)
-				if (b != IN_Y && a->in.pressed[b]) { ctl_until = now + DS_MS_HOLD_CONTROLS; break; }
-			if (ctl_y) ctl_until = up ? now : now + DS_MS_HOLD_CONTROLS;
-			want = mn->state != MU_PLAYING || (int)(ctl_until - now) > 0 ? 1.0f : 0.0f;
-			step = (float)(now - ctl_at) / (want > ctl ? DS_MS_QUICK : DS_MS_FADE_OUT);
-			ctl = want > ctl ? (ctl + step > want ? want : ctl + step)
-			                 : (ctl - step < want ? want : ctl - step);
+				if (a->in.pressed[b]) { ctl_until = now + DS_MS_HOLD_CONTROLS; break; }
+			want = mn->state != MU_PLAYING || (int)(ctl_until - now) > 0;
+			grows = np_video_grows();
+			dt = (float)(now - ctl_at);
+			if (want) {
+				if (grows && grow > 0) grow = grow - dt / DS_MS_QUICK > 0 ? grow - dt / DS_MS_QUICK : 0;
+				else { grow = 0; ctl = ctl + dt / DS_MS_QUICK < 1 ? ctl + dt / DS_MS_QUICK : 1; }
+			} else if (ctl > 0) {
+				ctl = ctl - dt / DS_MS_FADE_OUT > 0 ? ctl - dt / DS_MS_FADE_OUT : 0;
+			} else {
+				grow = !grows ? 1 : grow + dt / DS_MS_TURN < 1 ? grow + dt / DS_MS_TURN : 1;
+			}
 			ctl_at = now;
-			if (fresh || touched || ctl != ctl_drawn || drawn.at != (int)(mn->at + 0.5) ||
+			if (fresh || touched || ctl != ctl_drawn || grow != grow_drawn ||
+			    drawn.at != (int)(mn->at + 0.5) ||
 			    drawn.st != mn->state || !drawn.video || (int)(now - due) >= 0) {
 				Uint32 osd;
+				unsigned wait;
 
-				np_draw_video(a, mn, ctl);
+				/* The header coming back: its title reads from the start */
+				if (ctl > 0 && ctl_drawn == 0) mq_reset(MQ_NP);
+				wait = np_draw_video(a, mn, ctl, grow);
 				plat_draw_osd(a->r);
 				osd = plat_osd_until();
 				plat_present();
 				ctl_drawn = ctl;
+				grow_drawn = grow;
 				memset(&drawn, 0, sizeof drawn);
 				drawn.video = true;
 				drawn.at = (int)(mn->at + 0.5);
 				drawn.st = mn->state;
-				due = now + 1000;
+				/* A sliding title is drawn as it moves, paused too, when no
+				 * new picture would; its holds are slept through */
+				due = now + (wait < 1000 ? wait : 1000);
 				if (osd != UINT32_MAX && (int)(osd - due) < 0) due = osd;
 			}
 			/* A frame is due every 33 to 42 ms; looking every 4 catches it
-			 * within a few, which LEAD in src/muse/vid.c allows for. */
+			 * within a few, which LEAD in src/mp4d/vid.c allows for. */
 			SDL_Delay(4);
 			continue;
 		}
 
-		/* The queue's track, not musec_path: that goes blank when an album
+		/* The queue's track, not mp4c_path: that goes blank when an album
 		 * ends, and the screen should still show the album that just did. */
-		np_cover(a, ml_album_of(&g_muse, musec_track(mn->index)));
+		np_cover(a, ml_album_of(&g_mp4, mp4c_track(mn->index)));
 		np_next_name(next, sizeof next);
 
 		/* Drawn when what it shows has changed, not every pass. This is the
@@ -975,15 +1233,15 @@ static muse_exit muse_now_screen_run(app *a)
 		memcpy(shown.artist, mn->artist, sizeof shown.artist);
 		memcpy(shown.album, mn->album, sizeof shown.album);
 		shown.tex = g_np.tex;
-		shown.mode = musec_is_book() ? -1 : (int)musec_mode();
-		shown.chapter = musec_chapter_now();
-		shown.speed = (int)(musec_speed() * 100 + 0.5);
+		shown.mode = mp4c_is_book() ? -1 : (int)mp4c_mode();
+		shown.chapter = mp4c_chapter_now();
+		shown.speed = (int)(mp4c_speed() * 100 + 0.5);
 		/* Now Playing has its own draw clock, separate from g_redraw_at.
 		 * Include the battery even when paused and no playback time moves. */
 		if (!battery_now(&shown.battery_pct, &shown.charging)) shown.battery_pct = -1;
 
 		if (touched || memcmp(&shown, &drawn, sizeof shown) || (int)(now - due) >= 0) {
-			unsigned wait = np_draw(a, mn, next);
+			unsigned wait = np_draw_now(a, mn, next);
 			Uint32 osd;
 
 			/* Asked after the draw, which is what retires a line whose
@@ -997,26 +1255,29 @@ static muse_exit muse_now_screen_run(app *a)
 			 * at the moment it is due to go. */
 			due = now + (wait < 1000 ? wait : 1000);
 			if (osd != UINT32_MAX && (int)(osd - due) < 0) due = osd;
-			SDL_Delay(8);
+			/* A look moving draws every frame, paced by the panel: a sleep
+			 * on top of the present's wait would halve it (ui_frame_rest) */
+			if (wait == 0) ui_frame_rest(16);
+			else SDL_Delay(8);
 		} else {
 			SDL_Delay(16);
 		}
 	}
 
-	musec_video_show(false);
+	mp4c_video_show(false);
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
 	return how;
 }
 
 /* Now Playing, counted while it is open, so MENU's Shuffle All knows to
- * carry on in it rather than open another on top (muse_menu). */
-muse_exit muse_now_screen(app *a)
+ * carry on in it rather than open another on top (mp4_menu). */
+mp4_exit mp4_now_screen(app *a)
 {
-	muse_exit how;
+	mp4_exit how;
 
 	g_np_depth++;
-	how = muse_now_screen_run(a);
+	how = mp4_now_screen_run(a);
 	g_np_depth--;
 	return how;
 }

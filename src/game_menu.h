@@ -95,7 +95,7 @@ const char *gm_pak_other(const char *value);           /* the one it steps to */
 const char *gm_pak_name(const char *value);            /* "Rumble Pak" ... */
 void gm_pak_key(const char *tag, const char *file, char *out, size_t n);
 
-#define GI_MAX 9          /* four facts at most, Favorite, Buttons and three actions */
+#define GI_MAX 13         /* seven facts at most, Favorite, Add to Collection, Buttons and three actions */
 
 /* The genre line, from the scrape. Sized from the card rather than guessed:
  * measured 2026-09-17 over 1,704 rows, the whole comma-separated value has a
@@ -149,6 +149,23 @@ typedef struct {
 	 * Y on the shelf starts a game fresh (2026-11-08) */
 	bool  can_favorite;
 	bool  favorite;
+	/* Add to Collection (src/collect.h, DESIGN.md 11.56), after Favorite:
+	 * every game a favorite can be, its value how many collections it is in
+	 * ("In 2"), none when it is in none */
+	bool  can_collect;
+	char  collected[24];
+	/* The core the game starts on, while its shelf has more than one (the
+	 * Game Boys', the N64's, the Dreamcast's): a fact, so a person asking
+	 * for help can say which ran; "" for a shelf of one core */
+	char  core[64];
+	/* The game's file on the card (lib_file_shown), with the brackets its
+	 * title leaves out, "(USA) (Rev 1)", "(Disc 2)", by which one copy is
+	 * told from another (DESIGN.md 11.69); "" for an entry that is no file
+	 * on the card (Install PortMaster, Splore), which has no File row */
+	char  file[LIB_PATH + 1];
+	/* How many discs it is (lib_discs), "3", as the Discs fact under File;
+	 * "" for a game of one disc or none, which has no such row */
+	char  discs[12];
 	/* The game has a key of its own on the card (rms_game): its buttons
 	 * differ from the system's, so the Buttons row shows them */
 	bool  own_buttons;
@@ -169,9 +186,11 @@ int gi_rows(menu_row *out, const game_info *gi, bool net);
  * from, 1 to GM_SLOTS, kept per system; a system whose core keeps no state
  * (controls.h, ctl_has_states) has no such row. Shader (2026-11-12) is how
  * the picture is drawn at its last step, kept for the game's system.
- * GM_CONTROLS is in no tab now: Controls is a tab of its own, whose rows are
- * src/ctltab.c's, and the read-only pages the row opened are behind that
- * tab's Hotkeys row. A port's menu (OpenBOR) still has the Controls row.
+ * GM_CONTROLS is in no game's tab now: Controls is a tab of its own, whose
+ * rows are src/ctltab.c's, and the read-only pages the row opened are behind
+ * that tab's Hotkeys row (All Controls). Over a program whose buttons
+ * ZyperOS does not hand it (OpenBOR, a port, PortMaster) it is the Controls
+ * tab's one row, All Controls, those pages.
  *
  * After GM_ROWS, the rows only some games have, so that every other game's
  * rows keep their ids: a DS game's Screens (the layout), Swap Screens and
@@ -194,6 +213,19 @@ typedef enum {
 	/* On-Screen Stats over the game (src/hud.h), on or off, and A opens
 	 * its page (src/hudmenu.h): the Display tab's last row */
 	GM_HUD,
+	/* Border (src/border.h), under Display, while the mode leaves room */
+	GM_BORDER,
+	/* Handheld Color, under Border while it is a Handheld frame that comes
+	 * in more than one color (the Game Boy Color's) */
+	GM_BORDER_COLOR,
+	/* Cheats (src/cheats.h, DESIGN.md 11.66), on the Game tab right over
+	 * Achievements: how many are on, and A opens the game's list */
+	GM_CHEATS,
+	/* Screen Colors (src/panelgamma.h, DESIGN.md 11.42), the whole
+	 * screen's, on the Display tab right over On-Screen Stats where the
+	 * display has a table: its value the look, and A opens MENU >
+	 * Display's own page over the paused game (1.1.0) */
+	GM_SCREEN_COLORS,
 	GM_MAX_ROWS
 } gm_row;
 
@@ -216,13 +248,21 @@ int gm_layout_index(const char *name);                   /* 0 for one it does no
 /* What the in-game menu needs to know, gathered by the caller. */
 typedef struct {
 	/* the display mode's label; what each mode does is said in its list,
-	 * beside a picture of it (menu_pick_preview), not under the row */
+	 * beside a picture of it (menu_pick_hover), not under the row */
 	const char *dmode;
 	const char *shader;   /* the shader's label; NULL reads Off */
 	/* Its strength, "50%", when it is an old screen; NULL: no Strength row */
 	const char *strength;
+	/* Border's value (src/border.h) while the display mode leaves room
+	 * around the game, and no Super Game Boy border fills it; NULL: no row */
+	const char *border;
+	/* Handheld Color's value under it; NULL: no row */
+	const char *border_color;
 	/* On-Screen Stats, the player's (HUD_KEY), whatever the game */
 	bool        hud;
+	/* Screen Colors' look, as MENU > Display's row says it, where the
+	 * display has a table (plat_screen_colors_here); NULL: no row */
+	const char *screen_colors;
 	int         earned;
 	int         total;    /* 0: this game has no achievement set */
 	/* ...because it was never played with a network: not asked yet */
@@ -234,12 +274,30 @@ typedef struct {
 	int         layout;   /* into gm_layout_names */
 	bool        swap;
 	bool        stylus;
-	/* A program of its own under the menu, not a game Diatom runs: OpenBOR
-	 * (src/portmenu.h). Paused by stopping it, so there is nothing to save,
-	 * load, reset or show differently, and no achievements. */
+	/* A program of its own under the menu, not a game Diatom runs: OpenBOR,
+	 * a port, your PICO-8 (src/portmenu.h). Paused by stopping it, so there
+	 * is nothing to save or load, and no achievements; what more it answers
+	 * to, the flags below say. */
 	bool        port;
 	/* ...that has not drawn yet: Continue reads Keep Waiting (1.0.6) */
 	bool        waiting;
+	/* ...whose picture follows the Display row (your PICO-8,
+	 * src/portmenu.h's port_menu_display): the Display row, after Continue,
+	 * `dmode` its value. A picks a mode from its list, which starts the
+	 * program again after a question; Left and Right step nothing */
+	bool        port_display;
+	/* ...over which portkeys draws On-Screen Stats (your PICO-8,
+	 * port_menu_overlays): its row after Display, as over a game, On or
+	 * Off on Left and Right, A its page; portkeys reads it as the menu
+	 * closes */
+	bool        port_hud;
+	/* ...that restarts a cart on a key of its own (your PICO-8, src/portmenu.h's
+	 * port_resets) and has drawn: the Reset row, before Quit, asked first */
+	bool        port_reset;
+	/* ...whose buttons ZyperOS hands it as it starts (your PICO-8,
+	 * src/p8pad.h): the Controls tab is a game's, src/ctltab.c's rows. Over
+	 * any other program it is All Controls alone, the read-only pages */
+	bool        port_buttons;
 	/* The quick slot, 1 to GM_SLOTS; 0 where the system keeps no states */
 	int         quick;
 	/* The game has a state from before its last load (SLOT_UNDO): the Undo
@@ -260,6 +318,14 @@ typedef struct {
 	int         disc;
 	const char *disc_label;
 	bool      (*disc_fits)(const char *label);
+	/* The Cheats row: there for every game Diatom runs (not a port), and
+	 * how many of the game's cheats are on now, 0 for None */
+	bool        cheats;
+	int         cheats_on;
+	/* A cheat has been on in this game since it started: its achievements
+	 * stop until the next start with none (Diatom's cheats.h), and the
+	 * Achievements row says Paused */
+	bool        cheats_paused;
 	/* Each option row's choices by its gm_row (menu.h's menu_choice), which
 	 * the screen fills and gm_rows copies to its rows' places. NULL: none. */
 	const menu_choice *choice;
@@ -271,15 +337,15 @@ const char *gm_disc_value(const gm_ui *u, char *out, size_t n, bool (*fits)(cons
 /* The disc `d` (+1 or -1) steps to from `disc` of `discs`, round */
 int gm_disc_step(int disc, int discs, int d);
 
-/* The in-game menu is in tabs, MENU's tab row (docs/superpowers/specs/
- * 2026-11-13-button-remap-design.md, section 1): Game, Display and Controls,
+/* The in-game menu is in tabs, MENU's tab row (DESIGN.md
+ * 11.45): Game, Display and Controls,
  * L1 and R1 going round them. gm_tab_name is a tab's name in the language
  * that is on, the first for a tab past the ends.
  *
  * gm_tab_rows says which rows a tab has, in the order shown:
  *   Game      Continue, Save, Load, Quick Slot (a system that keeps states),
  *             Disc (a game on more than one disc), Player 2 (an NES game),
- *             Achievements, Reset, Quit
+ *             Cheats, Achievements, Reset, Quit
  *   Display   Display, Shader, Strength (an old screen's shader), and a DS
  *             game's Screens, Swap Screens, Stylus
  *   Controls  none from here: its rows are src/ctltab.c's
@@ -287,10 +353,34 @@ int gm_disc_step(int disc, int discs, int d);
  *             that says why there is none, are src/achtab.c's (1.0.5).
  *             The Game tab's Achievements row stays, its count at a
  *             glance, and A on it turns to this tab, the one L1 would
- * GM_CONTROLS and GM_PAK are in no tab: Controls is a tab now and Pak is one
- * of its rows. A port's menu (u->port) has no tabs and is Continue, Controls
- * and Quit whichever tab is asked for. */
+ * GM_PAK is in no tab: Pak is one of the Controls tab's rows.
+ *
+ * Over a program of its own (u->port: your PICO-8, OpenBOR, a port,
+ * PortMaster, the standalone Flycast) the same tabs, the rows the stopped
+ * program can answer to in a game's places, and no Achievements tab
+ * (gm_tab_count), as none earns any (1.1.0-rc.8, mine: "why pico 8 menu has
+ * no tabs? we should use the same component as in other systems", "openbor
+ * is also missing the menu as we have in other systems", "yeah have the
+ * same menu in ports as well"):
+ *   Game      Continue (Keep Waiting while it starts), Reset (your PICO-8
+ *             once it has drawn: u->port_reset), Quit
+ *   Display   your PICO-8's picture rows (u->port_display): Display, Border
+ *             and Strength where they would show in a game, Shader; Screen
+ *             Colors (a display with a table), the panel's, over any
+ *             program; On-Screen Stats where portkeys draws it (u->port_hud)
+ *   Controls  src/ctltab.c's over your PICO-8 (u->port_buttons); over any
+ *             other program All Controls (GM_CONTROLS), its read-only pages
+ * What a program cannot do is not there at all, not greyed: Save, Load,
+ * Undo Load, Quick Slot, Disc, Player 2, Cheats, Achievements. */
 typedef enum { GT_GAME, GT_DISPLAY, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
+
+/* How many tabs L1 and R1 go round, from GT_GAME: all of them over a game,
+ * all but Achievements over a program of its own (the last, so the others
+ * keep their places) */
+int gm_tab_count(const gm_ui *u);
+/* Whether the Controls tab's rows are src/ctltab.c's, the buttons to change:
+ * a game's, and your PICO-8's; else they are gm_tab_rows's All Controls */
+bool gm_ctltab(const gm_ui *u);
 
 /* On-Screen Stats' switch in the device's database, kept per player and
  * not per game: 1 draws the line over every game (src/hud.h, Diatom's
@@ -315,6 +405,7 @@ typedef struct {
 	char cheevos[64];   /* as game_info's: a value in any language, whole */
 	char quick[8];
 	char disc[160];
+	char cheats[32];
 	unsigned char sound[GM_MAX_ROWS];
 	menu_choice choice[GM_MAX_ROWS];   /* by place, from gm_ui's choice */
 } gm_bufs;

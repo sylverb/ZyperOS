@@ -4,15 +4,20 @@
 BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
+# The string tables are generated, not committed (Makefile, I18N_SRC), so
+# they are named on their own: the wildcard is read before they exist. Their
+# rule is below the first target.
+I18N_TABLES := src/i18n_tables.c
 # The device's build (config/device/<id>.mk, from src/device/<id>_build.c):
 # the baseline its code is built for, and the helpers its payload carries
 include config/device/$(DEVICE).mk
 MCPU := -mcpu=$(ZYDEV_MCPU)
 # and its profile (src/device/profile.h), the one the build is for
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
+SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
        $(wildcard src/device/$(DEVICE)_hw.c) \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
-       src/device/pixel2_coreopts.c
+       src/device/pixel2_coreopts.c \
+       $(filter-out src/device/pixel2_coreopts.c,$(wildcard src/device/$(DEVICE)_coreopts.c))
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0
@@ -46,6 +51,16 @@ CFLAGS += -I$(BUILD)
 CFLAGS += -Isrc
 # The device's profile is the one in force (src/profile.c)
 CFLAGS += -DZYPEROS_PROFILE=device_profile_$(DEVICE)
+# A test kit's build (src/kit.h; docs/building.md, "Test kits"): a VERSION
+# with "-kit" in it (tools/release.sh --kit, such as 1.0.7-kit.1) defines
+# ZYPEROS_KIT_BUILD and links the device's kit file, src/device/<id>_kit.c,
+# where it has one. A release's VERSION never has it, so a release compiles
+# the same objects with the same line as if neither existed (make
+# check-kitbuild). The host's build (mk/native.mk) is never a kit.
+ifneq ($(findstring -kit,$(VERSION)),)
+CFLAGS += -DZYPEROS_KIT_BUILD
+SRC += $(wildcard src/device/$(DEVICE)_kit.c)
+endif
 
 .PHONY: creds
 creds:
@@ -60,22 +75,64 @@ creds:
 	@cmp -s $(CREDS).new $(CREDS) 2>/dev/null || mv -f $(CREDS).new $(CREDS)
 	@rm -f $(CREDS).new
 
-# The device file's own headers too: src/device/pixel2_levels.h is the volume
-# and backlight ladders, which portkeys shares.
-$(BUILD)/zyperos.elf: $(SRC) $(CREDS) $(wildcard src/*.h) $(wildcard src/ds/*.h) $(wildcard src/device/*.h)
-	mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC) $(LDLIBS)
+# tools/i18n.py writes the string tables whenever res/strings or the script
+# is newer, so a tree fresh from git builds (Makefile, I18N_SRC)
+$(I18N_TABLES): $(wildcard res/strings/*.txt) tools/i18n.py
+	@python3 tools/i18n.py
+# It writes src/i18n_ids.h as well (committed, and rewritten only when the
+# strings' IDs change). Named here as made with the tables, so make looks at
+# its time again after the script ran: an object that includes it is
+# compared with the new IDs, not with the time make saw before.
+src/i18n_ids.h: $(I18N_TABLES) ;
 
-# Muse, the engine of MP4 (the media player, once the audio player Muse): a
+# The launcher: one object a source file, under $(BUILD)/obj, so a change to
+# one file compiles that file alone and make -j compiles the rest at once.
+# Then one link, the objects in SRC's order and with the flags the single
+# command had (CFLAGS too, which the compiler driver can pass on to the
+# linker), so the program is the same bytes as when SRC was compiled and
+# linked in one command. Each object's headers are the ones its compile read (-MMD, its .d
+# file beside it; -MP so a header taken away does not stop the build).
+OBJ := $(BUILD)/obj
+OBJS := $(patsubst src/%.c,$(OBJ)/%.o,$(SRC))
+
+# The compile line itself (VERSION, CC, SYSROOT and the device's -mcpu among
+# it), so a build with another one compiles every object again. Written every
+# build and moved into place only when it changed, as the creds header is.
+$(OBJ)/flags: FORCE
+	@mkdir -p $(@D)
+	@printf '%s\n' '$(subst ','\'',$(CC) $(CFLAGS))' > $@.new; \
+	 cmp -s $@.new $@ 2>/dev/null || mv -f $@.new $@; rm -f $@.new
+
+# The string tables and the ScreenScraper header before any compile,
+# order-only (their times alone rebuild nothing): the first build has no .d
+# file to say which object includes them. And src/i18n_ids.h, by that name,
+# a prerequisite of every object: an object can reach it as
+# src/ds/../i18n_ids.h, which make takes for another file, looked at before
+# the script ran, so new IDs would leave that object stale until the next
+# build. Half the objects read it, and new IDs are rare.
+$(OBJ)/%.o: src/%.c $(OBJ)/flags src/i18n_ids.h | $(I18N_TABLES) $(CREDS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILD)/zyperos.elf: $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
+
+-include $(OBJS:.o=.d)
+
+.PHONY: FORCE
+FORCE:
+
+# mp4d, the engine of MP4 (the media player, once the audio player Muse): a
 # second binary, not part of zyperos.elf - SRC above is src/*.c, which does not
-# descend into src/muse/. Linked against the FFmpeg and ALSA in SYSROOT;
-# swscale for the odd video whose pictures are not 8-bit 4:2:0 (src/muse/vid.c),
-# and src/mp4frame.h, the pictures' shared layout, is the launcher's too.
-MUSE_SRC := $(wildcard src/muse/*.c)
-$(BUILD)/muse: $(MUSE_SRC) $(wildcard src/muse/*.h) src/mp4frame.h src/monoclock.h
+# descend into src/mp4d/. Linked against the FFmpeg and ALSA in SYSROOT;
+# swscale for the odd video whose pictures are not 8-bit 4:2:0 (src/mp4d/vid.c),
+# and src/mp4frame.h, the pictures' shared layout, is the launcher's too, as
+# src/eqdsp.h, the equalizer's five bands, is.
+MP4D_SRC := $(wildcard src/mp4d/*.c)
+$(BUILD)/mp4d: $(MP4D_SRC) $(wildcard src/mp4d/*.h) src/mp4frame.h src/monoclock.h src/eqdsp.h
 	mkdir -p $(BUILD)
 	$(CC) -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
-	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(MUSE_SRC) \
+	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(MP4D_SRC) \
 	      -lavformat -lavcodec -lavfilter -lswscale -lswresample -lavutil -lasound -lpthread -lm
 
 # p2d, NES player 2's server (src/p2d/main.c): a program of its own beside
@@ -91,7 +148,7 @@ $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p
 	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(P2D_SRC) -lz
 
 # Registers a do-nothing media player with BlueZ so a headset's absolute
-# volume is not dropped, and hands a headset's keys to Muse; see the file.
+# volume is not dropped, and hands a headset's keys to MP4; see the file.
 # Linked against SYSROOT's libdbus, whose arch header lives under lib.
 # The Pixel 2's volume keys while a port runs, ZyperOS and Diatom being
 # stopped then, and the volume bar over the port (tools/portkeys.c, started by
@@ -99,23 +156,61 @@ $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p
 # (src/theme.c, for Auto's hours) and the theme file the bar falls back on,
 # Date & Time's zone list (src/clock.c), the settings it reads for the bar
 # (tools/pkset.c) and SQLite for them, the side lights' line for a level
-# (src/sidelights.c), and the heat warning's rules (src/heat.c); no SDL. Developer SSH for the port's length
+# (src/sidelights.c), the heat warning's rules (src/heat.c), the boost past the top (src/boost.h,
+# its gain in src/eqdsp.h's shared file), and the battery run flat's (src/battempty.c);
+# no SDL. Over your PICO-8, SELECT's hotkeys by Diatom's own chord rule
+# (tools/pkhot.c, diatom/src/chord.c), its keyboard for CTRL-R
+# (tools/pkkbd.c), Auto Off's clock (src/idle.c), where PICO-8 draws, for a
+# screenshot (src/p8draw.c, src/dmodefit.c), its Next Shader (src/p8fx.c,
+# src/p8fx_step.c), and the screenshot's crop, its PNG with zlib and its
+# pop-up (tools/pkshot.c), and the pad it gives PICO-8 while it holds the
+# joypad for the hotkeys (tools/pkvpad.c); a screenshot's buzz and shutter
+# (tools/pkfeel.c, the launcher's settings; tools/pkshutter.c, the interface
+# sounds' WAV and mix, src/uisound.c, played through src/pcm_out.c's alsa-lib
+# output on a thread of its own). Developer SSH for the port's length
 # (tools/pkssh.c), on the launcher's own sshlink, its run folder's clean and zyperos.local (src/sshlink.c,
 # src/rmtree.c, src/mdns.c). The bar's colors are src/design.h's,
 # which osdbar.h, theme.h and themefile.h include, so it is listed beside
 # them: a token changed there rebuilds this. The string tables (src/i18n.h)
 # because those files name their rows' words through them; read-only data
 # with no relocations, so portkeys pays file size, not memory or start time.
+# Over your PICO-8, the low-battery disc and On-Screen Stats in one picture
+# with the bar (tools/pkover.c): the line src/hud.c's, its settings' words
+# src/hudmenu.c's, the battery's rule src/status.c's.
 PORTKEYS_SRC := tools/portkeys.c tools/pkkeys.c tools/pkset.c src/audioout.c src/osdbar.c src/theme.c \
                 src/themefile.c src/look.c src/clock.c src/sidelights.c src/i18n.c src/i18n_tables.c src/heat.c \
-                src/powerhold.c tools/pkssh.c src/sshlink.c src/rmtree.c src/mdns.c src/panelgamma.c
+                src/powerhold.c tools/pkssh.c src/sshlink.c src/rmtree.c src/mdns.c src/panelgamma.c src/battempty.c \
+                tools/pkhot.c diatom/src/chord.c tools/pkkbd.c src/idle.c src/p8draw.c src/dmodefit.c \
+                src/p8fx.c src/p8fx_step.c tools/pkover.c src/hud.c src/hudmenu.c src/status.c tools/pkshot.c \
+                tools/pkvpad.c tools/pkfeel.c tools/pkshutter.c src/uisound.c src/pcm_out.c
 $(BUILD)/portkeys: $(PORTKEYS_SRC) tools/pkkeys.h src/keyrepeat.h tools/pkset.h src/osdbar.h src/theme.h src/themefile.h \
                    src/clock.h src/design.h src/look.h src/audioout.h src/device/pixel2_levels.h src/sidelights.h \
                    src/heat.h src/portmenu.h src/powerhold.h tools/pkssh.h src/sshlink.h src/rmtree.h src/mdns.h \
-                   src/panelgamma.h
+                   src/panelgamma.h src/boost.h src/eqdsp.h src/battempty.h src/status.h tools/pkhot.h \
+                   diatom/src/chord.h tools/pkkbd.h src/idle.h src/p8draw.h src/dmodefit.h src/p8fx.h \
+                   tools/pkover.h src/hud.h src/hudglyphs.h src/hudmenu.h tools/pkshot.h tools/pkvpad.h \
+                   src/ctl.h tools/zychord.h tools/pkfeel.h tools/pkshutter.h src/uisound.h src/pcm_out.h \
+                   src/fileio.h
 	mkdir -p $(BUILD)
-	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc -I$(SYSROOT)/usr/include \
-	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lm
+	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc -Idiatom/src -Idiatom/include -I$(SYSROOT)/usr/include \
+	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lz -lasound -lpthread -lm
+
+# Your PICO-8's Shader and Border (src/p8fx.h, DESIGN.md 11.55): a library
+# pico8_64 loads before the system's SDL2 (LD_PRELOAD, sd/pixel2/PICO-8.sh),
+# which draws PICO-8's screen through Diatom's own shaders
+# (diatom/port/gles_shaders.h) with the Border under it (Diatom's blur and its
+# picture file, diatom/src/border.c), the shaders by Diatom's names for them
+# (diatom/src/scale.c). SDL's functions and GL's are looked up as it runs, as
+# SDL's renderer looks up GL's, so it links libdl alone: where SDL or GL is not
+# what it needs, it loads and does nothing. tools/p8fx-gl-check.py builds the
+# same files for the computer it runs on.
+P8FX_SRC := src/p8fx/shim.c src/p8fx.c diatom/src/scale.c diatom/src/border.c
+$(BUILD)/p8fx.so: $(P8FX_SRC) src/p8fx.h src/strength.h src/i18n_ids.h diatom/port/gles_shaders.h \
+                  diatom/src/border.h diatom/src/diatom.h diatom/include/diatom_port.h
+	mkdir -p $(BUILD)
+	$(CC) -shared -fPIC -fvisibility=hidden -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 -D_GNU_SOURCE \
+	      -Isrc -Idiatom/include -Idiatom/src -I$(SYSROOT)/usr/include/SDL2 -I$(SYSROOT)/usr/include \
+	      $(LDFLAGS) -o $@ $(P8FX_SRC) -ldl
 
 # MENU+START held a second, back to the home from anything (tools/zyhome.c),
 # run by launch.sh beside everything
@@ -143,12 +238,13 @@ $(BUILD)/zyperos-update: $(UPDATE_SRC) update/update.h
 	      -DZYPEROS_VERSION='"$(VERSION)"' -I$(SYSROOT)/usr/include \
 	      $(LDFLAGS) -o $@ $(UPDATE_SRC) -lcurl -lcrypto -lz
 
-# The device's programs: the launcher, Muse, and its helpers' (ZYDEV_HELPERS;
-# ports and Bluetooth sound are files, no program)
+# The device's programs: the launcher, MP4, and its helpers' (ZYDEV_HELPERS;
+# ports and Bluetooth sound are files, no program; p8fx is a library)
 HELPER_ELF_portkeys := $(BUILD)/portkeys
 HELPER_ELF_zyhome := $(BUILD)/zyhome
 HELPER_ELF_update := $(BUILD)/zyperos-update
 HELPER_ELF_p2d := $(BUILD)/p2d
 HELPER_ELF_btplayer := $(BUILD)/btplayer
+HELPER_ELF_p8fx := $(BUILD)/p8fx.so
 .PHONY: device-programs
-device-programs: $(BUILD)/zyperos.elf $(BUILD)/muse $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))
+device-programs: $(BUILD)/zyperos.elf $(BUILD)/mp4d $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))

@@ -69,6 +69,33 @@ static int other_devices(const char *b)
  * fifty-four in a shot on 2026-09-19. */
 #define NOTE_MAX 30
 
+/* The button column as glyphs (ctl_keys_of): a chord of the handheld's
+ * buttons as it is, the d-pad's and the volume keys' words their glyphs,
+ * anything else words */
+static void keys_as_glyphs(void)
+{
+	char k[CTL_KEYS_MAX];
+	menu_row rows[2] = { { "MENU, X", "Quit", false }, { "Start", "Pause", false } };
+	char buf[2][CTL_KEYS_MAX];
+
+	printf("the button column as glyphs\n");
+	ck(ctl_keys_of("SELECT+R1", k, sizeof k) && !strcmp(k, MENU_KEYS_MARK "SELECT+R1"), "SELECT+R1");
+	ck(ctl_keys_of("MENU, X", k, sizeof k) && !strcmp(k, MENU_KEYS_MARK "MENU, X"), "MENU, X: one after the other");
+	ck(ctl_keys_of("X/Y/L2/R2", k, sizeof k), "four buttons, either");
+	ck(ctl_keys_of("Left/Right", k, sizeof k) && !strcmp(k, MENU_KEYS_MARK "< >"), "Left/Right: the d-pad's left and right");
+	ck(ctl_keys_of("Up/Down", k, sizeof k) && !strcmp(k, MENU_KEYS_MARK "^ v"), "Up/Down: its up and down");
+	ck(ctl_keys_of("D-pad", k, sizeof k) && !strcmp(k, MENU_KEYS_MARK "DPAD"), "D-pad: the whole cross");
+	ck(ctl_keys_of("SELECT+D-pad", k, sizeof k) && !strcmp(k, MENU_KEYS_MARK "SELECT+DPAD"), "SELECT+D-pad");
+	ck(ctl_keys_of("Volume rocker", k, sizeof k) && !strcmp(k, MENU_KEYS_MARK "VOL"), "the volume rocker");
+	ck(ctl_keys_of("VOL+", k, sizeof k), "VOL+ is a name, its plus no sign");
+	ck(!ctl_keys_of("Start", k, sizeof k) && !ctl_keys_of("SELECT+Fire", k, sizeof k) &&
+	   !ctl_keys_of("A/B/X/Y/L1", k, sizeof k) && !ctl_keys_of("", k, sizeof k),
+	   "words, a word in a chord and five buttons stay words");
+	ctl_glyph_rows(rows, 2, buf);
+	ck(!strcmp(rows[0].label, MENU_KEYS_MARK "MENU, X") &&
+	   !strcmp(rows[1].label, "Start"), "ctl_glyph_rows: the buttons' row marked, the words' left");
+}
+
 static void legends_are_one_form(void)
 {
 	printf("a key legend is one form\n");
@@ -83,7 +110,7 @@ static void legends_are_one_form(void)
 }
 
 /* How many pages name this button. A button belongs to as many pages as it has meanings - A opens a
- * game on the shelf and pauses a track in Muse - so what matters is that it is
+ * game on the shelf and pauses a track in MP4 - so what matters is that it is
  * on at least one. Written as "exactly one" first, which failed on eight
  * buttons and was the check being wrong about the feature rather than the
  * other way round. */
@@ -190,6 +217,14 @@ static void rows_fit(void)
 				snprintf(msg, sizeof msg, "%s: \"%s\" is not a button",
 				         ctl_page_name((ctl_page)p), rows[i].label);
 				ck(is_button(rows[i].label), msg);
+				{
+					/* drawn as the handheld's glyphs (ctl_glyph_rows) */
+					char keys[CTL_KEYS_MAX];
+
+					snprintf(msg, sizeof msg, "%s: \"%s\" is not drawn as glyphs",
+					         ctl_page_name((ctl_page)p), rows[i].label);
+					ck(ctl_keys_of(rows[i].label, keys, sizeof keys), msg);
+				}
 				snprintf(msg, sizeof msg, "%s: \"%s\" says nothing",
 				         ctl_page_name((ctl_page)p), rows[i].label);
 				ck(rows[i].value != NULL, msg);
@@ -351,6 +386,14 @@ static void game_page_fits(const ctl_game *g, int page)
 		keys++;
 		snprintf(msg, sizeof msg, "%s p%d: \"%s\" is not a button", g->tag, page, rows[i].label);
 		ck(ingame_key(rows[i].label), msg);
+		if (!g->doc) {
+			/* a system's page draws every button as the handheld's glyphs */
+			char glyphs[CTL_KEYS_MAX];
+
+			snprintf(msg, sizeof msg, "%s p%d: \"%s\" is not drawn as glyphs", g->tag, page,
+			         rows[i].label);
+			ck(ctl_keys_of(rows[i].label, glyphs, sizeof glyphs), msg);
+		}
 		snprintf(msg, sizeof msg, "%s p%d: \"%s\" says \"%s\", over %d", g->tag, page,
 		         rows[i].label, rows[i].value ? rows[i].value : "", VALUE_MAX);
 		ck(rows[i].value && (int)strlen(rows[i].value) <= VALUE_MAX, msg);
@@ -393,7 +436,8 @@ static void in_a_game(void)
 
 		if (!resident && !port_menu_pads(s->tag)) {
 			/* a standalone emulator or a port has no page of its buttons,
-			 * but OpenBOR, whose layout ships with it (src/portmenu.h) */
+			 * but OpenBOR, whose layout ships with it, and your PICO-8
+			 * (src/portmenu.h) */
 			snprintf(msg, sizeof msg, "%s runs outside Diatom and has a page", s->tag);
 			ck(!ctl_game_known(s->tag), msg);
 			continue;
@@ -566,6 +610,21 @@ static void in_a_game(void)
 			ck(says(all, n, MUST[k].key, MUST[k].val), msg);
 		}
 	}
+	/* The Saturn's page from systems.cfg's own map|SATURN, not a copy: each
+	 * face cap its letter, and C on R1 and Z on L1 as YabaSanshiro's
+	 * standalone and Beetle Saturn put them (check-remap holds the table) */
+	for (i = 0; i < sys.count; i++)
+		if (!strcmp(sys.systems[i].tag, "SATURN")) {
+			const system_cfg *s = &sys.systems[i];
+			ctl_game g = { s->tag, s->name, s->tag, s->map, turbo_of(s->tag), "chd" };
+			seen_row all[64];
+			int n = game_rows(&g, all, 64, NULL);
+
+			ck(says(all, n, "A", "A") && says(all, n, "B", "B") && says(all, n, "X/Y", "X/Y") &&
+			   says(all, n, "L1/R1", "Z/C") && says(all, n, "L2/R2", "L/R") &&
+			   says(all, n, "START", "Start"),
+			   "Saturn: each face cap its letter, L1/R1 Z/C, L2/R2 L/R (map|SATURN)");
+		}
 
 	/* A long name gives way to the home's short one, beside the page count */
 	{
@@ -597,9 +656,9 @@ static void in_a_game(void)
 		   port_menu_for("run:Emulators/Flycast/Flycast.sh") && port_menu_for("port") &&
 		   !port_menu_for("dsperate") && !port_menu_for("flycast2021"),
 		   "the in-game menu over every \"run:\" program and every port, and not over a Diatom core");
-		ck(port_menu_pads("OPENBOR") && !port_menu_pads("NDS") && !port_menu_pads("DC") &&
-		   !port_menu_pads("PORTS"),
-		   "OpenBOR's buttons on its Controls page; Flycast 2.7's are its own");
+		ck(port_menu_pads("OPENBOR") && port_menu_pads("PICO8") && !port_menu_pads("NDS") &&
+		   !port_menu_pads("DC") && !port_menu_pads("PORTS"),
+		   "OpenBOR's and your PICO-8's buttons on their Controls pages; Flycast 2.7's are its own");
 		ck(says(all, n, "A", "Attack") && says(all, n, "B", "Jump") &&
 		   says(all, n, "X", "Attack 2") && says(all, n, "Y", "Special") &&
 		   says(all, n, "L1/R1", "Attack 3/4") && says(all, n, "START", "Pause") &&
@@ -720,6 +779,7 @@ int main(void)
 {
 	printf("controls: what MENU > Controls says\n");
 	pages_are_named();
+	keys_as_glyphs();
 	legends_are_one_form();
 	horizontal_controls();
 	for (int d = 0; d < 2; d++) {

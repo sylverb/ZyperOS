@@ -1,13 +1,15 @@
-"""The tour video's Pixel 2: tools/build-pixel2-model.py's model, straight on,
-with its screen cut out so the launcher's frames show through it.
+"""The tour video's handhelds: tools/build-pixel2-model.py's Pixel 2, or
+tools/build-brick-model.py's TrimUI Brick, straight on, with its screen cut
+out so the launcher's frames show through it.
 
 blender --background BLEND --python video/device/render-device.py -- OUT_DIR [WIDTH]
 
-BLEND is the editable scene tools/build-pixel2-model.py saves
-(build/pixel2-model/pixel2.blend). Writes OUT_DIR/pixel2-front.png, the
-product on a transparent ground in the site poster's studio light, and
-OUT_DIR/pixel2-front.json, where its screen is in that picture, in pixels.
-video/scripts/prepare-assets.sh runs it.
+BLEND is the editable scene the model's script saves
+(build/pixel2-model/pixel2.blend, build/brick-model/brick.blend). Writes
+OUT_DIR/pixel2-front.png (or brick-front.png), the product on a transparent
+ground in the site poster's studio light, and its .json, where its screen is
+in that picture, in pixels. Both at the same pixels a millimetre, so the two
+stand side by side true to size. video/scripts/prepare-assets.sh runs it.
 """
 import json
 import sys
@@ -22,15 +24,20 @@ width = int(argv[1]) if len(argv) > 1 else 2000
 out.mkdir(parents=True, exist_ok=True)
 
 scene = bpy.context.scene
-root = bpy.data.objects['GKD Pixel 2']
+# Which handheld the scene holds: its name, the picture's height to its width,
+# and the camera's frame, 109 mm over the Pixel 2's height (22 px a mm at 2000)
+DEVICES = {'GKD Pixel 2': ('pixel2-front', 1.2, 109), 'TrimUI Brick': ('brick-front', 1.45, 109 * 1.45 / 1.2)}
+name = next(n for n in DEVICES if n in bpy.data.objects)
+stem, tall, frame = DEVICES[name]
+root = bpy.data.objects[name]
 root.rotation_euler = (0, 0, 0)          # straight on, still
 camera = scene.camera
 camera.location = (0, -220, 0)
 camera.rotation_euler = (1.5707963, 0, 0)
 camera.data.type = 'ORTHO'
-camera.data.ortho_scale = 109
+camera.data.ortho_scale = frame
 scene.render.resolution_x = width
-scene.render.resolution_y = round(width * 1.2)
+scene.render.resolution_y = round(width * tall)
 scene.render.resolution_percentage = 100
 scene.render.film_transparent = True
 scene.cycles.samples = 96
@@ -66,9 +73,9 @@ for v in screen.data.vertices:
     pts.append((p.x * w, (1 - p.y) * h))
 xs = [p[0] for p in pts]
 ys = [p[1] for p in pts]
-rect = {'image': 'pixel2-front.png', 'width': w, 'height': h,
+rect = {'image': f'{stem}.png', 'width': w, 'height': h,
         'screen': {'x': min(xs), 'y': min(ys), 'w': max(xs) - min(xs), 'h': max(ys) - min(ys)}}
-(out / 'pixel2-front.json').write_text(json.dumps(rect, indent=2) + '\n')
-scene.render.filepath = str(out / 'pixel2-front.png')
+(out / f'{stem}.json').write_text(json.dumps(rect, indent=2) + '\n')
+scene.render.filepath = str(out / f'{stem}.png')
 bpy.ops.render.render(write_still=True)
 print('render-device:', rect)

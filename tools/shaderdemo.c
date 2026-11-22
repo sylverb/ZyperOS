@@ -4,9 +4,13 @@
  * no game's art), drawn here at a console's 256x224, through
  * each of Diatom's filters as the handheld draws it, and the top left of it
  * kept at the handheld's own pixels, one image a filter and, for an old
- * screen, a Strength step. Each filter is Diatom's GLSL (diatom/port/pixel2.c)
- * in C, line for line: the same numbers in the same order, in float as the
- * GPU's highp is.
+ * screen, a Strength step. CRT Curved's is its whole screen instead, its
+ * curve made larger so it reads that small (curved_small). LCD No
+ * Backlight's, which only the Game Boy's three offer, is a Game Boy Color's
+ * 160x144 scene of the same things on white (draw_handheld), at the square
+ * pixels Original Shape draws it with: white is what it changes. Each filter is
+ * Diatom's GLSL (diatom/port/gles_shaders.h) in C, line for line: the same
+ * numbers in the same order, in float as the GPU's highp is.
  *
  *     build-native/shaderdemo OUT_DIR
  *
@@ -19,13 +23,20 @@
  * is for setting them beside a device's (tools/shaderdemo-device.sh): the
  * scene as a core hands it over, in RGB565 (OUT_DIR/scene.rgb565, the stub
  * core's STUBCORE_IMAGE), and what each filter makes of that, the whole
- * 640x480 panel at 100% and 50% (OUT_DIR/<filter>[-50].png). */
+ * 640x480 panel at 100% and 50% (OUT_DIR/<filter>[-50].png).
+ *
+ *     build-native/shaderdemo --image SCENE.ppm FILTER STRENGTH W H OUT.ppm
+ *
+ * is any picture up to 256x224 (a binary PPM) through one filter, drawn at
+ * W x H: what Diatom's GLSL makes of it, for setting beside what a GPU drew
+ * (tools/p8fx-gl-check.py, your PICO-8's shader). */
 #include <SDL.h>
 #include <SDL_image.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -36,12 +47,14 @@
 #define SH 224
 
 static unsigned char scene[SH][SW][3];
+/* The scene's size: SW x SH, or the handheld's, smaller (draw_handheld) */
+static int g_sw = SW, g_sh = SH;
 
 /* ---- the scene: a sky, a score, a hero on a ledge, a coin, a slope ---------- */
 
 static void put(int x, int y, unsigned rgb)
 {
-	if (x < 0 || y < 0 || x >= SW || y >= SH) return;
+	if (x < 0 || y < 0 || x >= g_sw || y >= g_sh) return;
 	scene[y][x][0] = (unsigned char)(rgb >> 16);
 	scene[y][x][1] = (unsigned char)(rgb >> 8);
 	scene[y][x][2] = (unsigned char)rgb;
@@ -118,6 +131,8 @@ static void zyper(int x, int y)
 
 static void draw_scene(void)
 {
+	g_sw = SW;
+	g_sh = SH;
 	/* The sky in bands, deep blue to pale, as a console's palette steps */
 	static const unsigned SKY[8] = { 0x16205a, 0x1d2c74, 0x25398c, 0x2e49a3, 0x3a5cb8,
 	                                 0x4f75cb, 0x6a92db, 0x8cb2ea };
@@ -177,6 +192,57 @@ static void draw_scene(void)
 		for (int x = 0; x < 64; x++) put(x, y, ((x / 8 + y / 8) & 1) ? 0x7a3a18 : 0x8c4620);
 }
 
+/* A Game Boy Color's 160x144: the same things on the white most of its
+ * games stood on, in a handheld's light palette, so the close-up has white,
+ * light colours and dark ones side by side. ZyperOS's own drawing. */
+#define HW 160
+#define HH 144
+
+static void draw_handheld(void)
+{
+	g_sw = HW;
+	g_sh = HH;
+	for (int y = 0; y < HH; y++)
+		for (int x = 0; x < HW; x++) put(x, y, 0xffffff);
+	/* A pale cloud past the score */
+	for (int y = 0; y < 12; y++)
+		for (int x = 0; x < 30; x++) {
+			int dx = x - 15, dy = y - 7;
+
+			if (dx * dx / 4 + dy * dy * 2 < 60)
+				put(44 + x, 6 + y, y > 8 ? 0xb8d8f0 : 0xdcecfc);
+		}
+	/* Far hills, light green, under the ledge's level */
+	for (int x = 0; x < HW; x++) {
+		int top = 34 + (int)lroundf(3.0f * sinf((float)x * 0.11f));
+
+		for (int y = top; y < HH; y++) put(x, y, y == top ? 0x88c070 : 0xb8e0a0);
+	}
+	text(3, 3, "SCORE", 0x203028, 0xc8d0c8);
+	text(26, 3, "4200", 0x203028, 0xc8d0c8);
+	/* A ledge: a grass edge, then bricks with dark joints */
+	for (int y = 30; y < HH; y++)
+		for (int x = 0; x < 44; x++) {
+			unsigned c;
+
+			if (y < 32) c = (y == 30 && x % 5 == 2) ? 0xc8f080 : 0x58b048;
+			else if (y == 32) c = 0x285828;
+			else {
+				bool joint = (y - 33) % 6 == 5 || ((x + ((y - 33) / 6 % 2) * 5) % 10 == 9);
+
+				c = joint ? 0x402818 : 0xc07840;
+			}
+			put(x, y, c);
+		}
+	zyper(10, 14);
+	for (int y = 0; y < 6; y++)
+		for (int x = 0; x < 12; x++) {
+			bool knob = (x < 3 || x > 8) && (y < 2 || y > 3), bar = x >= 2 && x <= 9 && y >= 2 && y <= 3;
+
+			if (knob || bar) put(32 + x, 18 + y, (y == 0 || y == 5 || (bar && y == 3)) ? 0x908870 : 0xfffbea);
+		}
+}
+
 /* ---- GLSL in C ---------------------------------------------------------------- */
 
 typedef struct { float x, y; } v2;
@@ -190,15 +256,15 @@ static float clampf(float x, float a, float b) { return x < a ? a : x > b ? b : 
 /* texture(): LINEAR, clamped to the edge, at uv in texels / size */
 static v3 texture(float u, float v)
 {
-	float x = u * SW - 0.5f, y = v * SH - 0.5f;
+	float x = u * (float)g_sw - 0.5f, y = v * (float)g_sh - 0.5f;
 	int x0 = (int)floorf(x), y0 = (int)floorf(y);
 	float fx = x - (float)x0, fy = y - (float)y0;
 	v3 c = { 0, 0, 0 };
 
 	for (int j = 0; j < 2; j++)
 		for (int i = 0; i < 2; i++) {
-			int xi = x0 + i < 0 ? 0 : x0 + i >= SW ? SW - 1 : x0 + i;
-			int yi = y0 + j < 0 ? 0 : y0 + j >= SH ? SH - 1 : y0 + j;
+			int xi = x0 + i < 0 ? 0 : x0 + i >= g_sw ? g_sw - 1 : x0 + i;
+			int yi = y0 + j < 0 ? 0 : y0 + j >= g_sh ? g_sh - 1 : y0 + j;
 			float w = (i ? fx : 1.0f - fx) * (j ? fy : 1.0f - fy);
 
 			c.r += w * scene[yi][xi][0] / 255.0f;
@@ -208,10 +274,19 @@ static v3 texture(float u, float v)
 	return c;
 }
 
-typedef enum { F_NEAREST, F_SHIMMERLESS, F_CRT, F_CRT_CURVED, F_SCANLINES, F_LCD, F_COUNT } filt;
-static const char *NAME[F_COUNT] = { "nearest", "shimmerless", "crt", "crt-curved", "scanlines", "lcd" };
+typedef enum { F_NEAREST, F_SHIMMERLESS, F_CRT, F_CRT_CURVED, F_SCANLINES, F_LCD, F_LCD_UNLIT, F_COUNT } filt;
 
-/* One destination pixel (dx, dy) of a SWxSH picture drawn scale times */
+/* CRT Curved's curve, the game's at 1 and 0 (its corner at quad.y): larger
+ * only for the Shader list's picture of it (curved_small) */
+static float g_warp = 1.0f, g_corner = 0.0f;
+static const char *NAME[F_COUNT] = { "nearest", "shimmerless", "crt", "crt-curved", "scanlines", "lcd",
+                                     "lcd-unlit" };
+/* LCD No Backlight's backing, the colour white becomes, and its shadow
+ * (UNLIT_BACKING) */
+static const v3 BACKING = { 0.78f, 0.80f, 0.71f };
+static const float SHADOW = 0.4f, SHADE = 0.35f;
+
+/* One destination pixel (dx, dy) of the g_sw x g_sh picture drawn scale times */
 static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 {
 	const v2 inv = { 1.0f / scale.x, 1.0f / scale.y };
@@ -231,10 +306,11 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 
 			t[k] = t_br + 0.5f - (1.0f - stepf(t_br, t_tl)) * (s[k] * t_br - tl);
 		}
-		return texture(t[0] / SW, t[1] / SH);
+		return texture(t[0] / (float)g_sw, t[1] / (float)g_sh);
 	}
-	if (f == F_SCANLINES || f == F_LCD) {
-		const float ratio[2] = { f == F_LCD ? 0.3f : 0.0f, 0.3f }, opacity[2] = { f == F_LCD ? 0.3f : 0.0f, 0.3f };
+	if (f == F_SCANLINES || f == F_LCD || f == F_LCD_UNLIT) {
+		const bool grid = f != F_SCANLINES;
+		const float ratio[2] = { grid ? 0.3f : 0.0f, 0.3f }, opacity[2] = { grid ? 0.3f : 0.0f, 0.3f };
 		float t[2], fv[2], p[2] = { px.x, px.y }, s[2] = { scale.x, scale.y }, iv[2] = { inv.x, inv.y };
 		v3 c;
 
@@ -252,24 +328,44 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 			fv[k] = ALPHA + (1.0f - ALPHA) * ff;
 			t[k] = t_br - 0.5f + w;
 		}
-		c = texture(t[0] / SW, t[1] / SH);
+		c = texture(t[0] / (float)g_sw, t[1] / (float)g_sh);
+		if (f == F_LCD_UNLIT) {
+			/* UNLIT_LIGHT: toward the backing by the luma squared, the
+			 * backing in the shadow of the texels SHADOW up and left. v_src
+			 * - u_origin is px * inv here, the quad's own texels. */
+			const float l = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f, k = strength * l * l;
+			float q[2] = { px.x * inv.x - SHADOW - 0.5f, px.y * inv.y - SHADOW - 0.5f };
+
+			for (int j = 0; j < 2; j++) {
+				const float qp = floorf(q[j]);
+
+				q[j] = qp + 0.5f + clampf((q[j] - qp - 0.5f) * 4.0f + 0.5f, 0.0f, 1.0f);
+			}
+			const v3 sh = texture(q[0] / (float)g_sw, q[1] / (float)g_sh);
+			const float d = 1.0f - (sh.r * 0.299f + sh.g * 0.587f + sh.b * 0.114f);
+			const float b = 1.0f - strength * SHADE * d;
+
+			c = (v3){ mixf(c.r, BACKING.r * b, k), mixf(c.g, BACKING.g * b, k), mixf(c.b, BACKING.b * b, k) };
+		}
 		return (v3){ fv[0] * fv[1] * c.r, fv[0] * fv[1] * c.g, fv[0] * fv[1] * c.b };
 	}
 	{
 		/* The CRT, and the CRT curved (WARP) */
 		const float THIN = 0.75f, DARK = 0.5f, TX = 0.419207f, TY = 0.580793f;
-		const v2 quad = { (float)SW, (float)SH };
+		const v2 quad = { (float)g_sw, (float)g_sh };
 		v2 pos = { px.x * inv.x, px.y * inv.y };
 		float vin = 1.0f;
 
 		if (f == F_CRT_CURVED) {
 			v2 q = { px.x / (quad.x * scale.x) * 2.0f - 1.0f, px.y / (quad.y * scale.y) * 2.0f - 1.0f };
-			v2 m = { 1.0f + q.y * q.y * 0.02f, 1.0f + q.x * q.x * 0.015f };
+			v2 m = { 1.0f + q.y * q.y * 0.02f * g_warp, 1.0f + q.x * q.x * 0.015f * g_warp };
 
 			q.x *= m.x;
 			q.y *= m.y;
 			vin = (1.0f - (1.0f - clampf(q.x * q.x, 0, 1)) * (1.0f - clampf(q.y * q.y, 0, 1))) * 1.001f;
-			vin = clampf(quad.y - vin * quad.y, 0.0f, 1.0f);
+			const float corner = g_corner > 0.0f ? g_corner : quad.y;
+
+			vin = clampf(corner - vin * corner, 0.0f, 1.0f);
 			pos.x = (q.x + 1.0f) * 0.5f * quad.x;
 			pos.y = (q.y + 1.0f) * 0.5f * quad.y;
 		}
@@ -281,7 +377,7 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 		v3 a, b, c;
 		for (int k = 0; k < 2; k++) {
 			float u = clampf(p.x, 0.5f, quad.x - 0.5f), v = clampf(p.y + (float)k, 0.5f, quad.y - 0.5f);
-			v3 t = texture(u / SW, v / SH);
+			v3 t = texture(u / (float)g_sw, v / (float)g_sh);
 
 			t.r *= t.r; t.g *= t.g; t.b *= t.b;
 			if (k) b = t; else a = t;
@@ -365,18 +461,106 @@ static v3 shimmerless_cpu(const tap *cx, const tap *cy, int dx, int dy)
 static tap g_cx[2048], g_cy[2048];
 static bool g_cpu;   /* the device draws Sharp-Shimmerless on its CPU (the Brick) */
 
-static int save(const char *dir, const char *dev, filt f, int strength, v2 scale, int cw, int ch)
+/* The Shader list's picture of CRT Curved (Tarik, 1.0.6): its whole screen,
+ * as the small screen's inside holds it, with the curve made larger so it
+ * reads at that size. At the game's curve the bow is 2% of the width and the
+ * round corner smaller still: at a third of the panel, two or three pixels,
+ * under the small screen's own round corner. CURVE_WARP times the warp and
+ * a corner of CURVE_CORNER rows make the barrel, the round corners and the
+ * dark edge plain; the lines and the grille are the game's, faded by
+ * Strength as the game fades them, and the curve stays at every step, as
+ * the game's does. The game's shader is not changed by this.
+ *
+ * The whole panel through the filter, then made iw x ih (the small screen's
+ * inside at the panel's pixels) by a tent filter one picture pixel wide each
+ * way, in the filter's linear light (its gamma 2), so the lines average out
+ * rather than beat into bands. *out is cw x ch, black past iw x ih. */
+#define CURVE_WARP   5.0f
+#define CURVE_CORNER 40.0f
+
+static int curved_small(v3 *out, float strength, v2 scale, int cw, int ch, int iw, int ih)
+{
+	const int pw = (int)lroundf(scale.x * SW), ph = (int)lroundf(scale.y * SH);
+	const float sx = (float)pw / (float)iw, sy = (float)ph / (float)ih;
+	v3 *full = malloc(sizeof *full * (size_t)pw * (size_t)ph);
+	v3 *across = malloc(sizeof *across * (size_t)iw * (size_t)ph);
+
+	if (!full || !across) { free(full); free(across); return 1; }
+	g_warp = CURVE_WARP;
+	g_corner = CURVE_CORNER;
+	for (int y = 0; y < ph; y++)
+		for (int x = 0; x < pw; x++) {
+			v3 c = shade(F_CRT_CURVED, x, y, scale, strength);
+
+			full[(size_t)y * pw + x] = (v3){ c.r * c.r, c.g * c.g, c.b * c.b };
+		}
+	g_warp = 1.0f;
+	g_corner = 0.0f;
+	for (int y = 0; y < ph; y++)
+		for (int x = 0; x < iw; x++) {
+			const float cx = ((float)x + 0.5f) * sx;
+			v3 a = { 0, 0, 0 };
+			float wsum = 0;
+
+			for (int i = (int)floorf(cx - sx); i <= (int)ceilf(cx + sx); i++) {
+				float w = 1.0f - fabsf((float)i + 0.5f - cx) / sx;
+
+				if (i < 0 || i >= pw || w <= 0) continue;
+				a.r += w * full[(size_t)y * pw + i].r;
+				a.g += w * full[(size_t)y * pw + i].g;
+				a.b += w * full[(size_t)y * pw + i].b;
+				wsum += w;
+			}
+			across[(size_t)y * iw + x] = (v3){ a.r / wsum, a.g / wsum, a.b / wsum };
+		}
+	for (int y = 0; y < ch; y++)
+		for (int x = 0; x < cw; x++) {
+			const float cy = ((float)y + 0.5f) * sy;
+			v3 a = { 0, 0, 0 };
+			float wsum = 0;
+
+			if (x >= iw || y >= ih) { out[(size_t)y * cw + x] = a; continue; }
+			for (int j = (int)floorf(cy - sy); j <= (int)ceilf(cy + sy); j++) {
+				float w = 1.0f - fabsf((float)j + 0.5f - cy) / sy;
+
+				if (j < 0 || j >= ph || w <= 0) continue;
+				a.r += w * across[(size_t)j * iw + x].r;
+				a.g += w * across[(size_t)j * iw + x].g;
+				a.b += w * across[(size_t)j * iw + x].b;
+				wsum += w;
+			}
+			out[(size_t)y * cw + x] = (v3){ sqrtf(a.r / wsum), sqrtf(a.g / wsum), sqrtf(a.b / wsum) };
+		}
+	free(full);
+	free(across);
+	return 0;
+}
+
+/* `inner`: the small screen's inside at the panel's pixels, which a CRT
+ * Curved picture is made to (curved_small); 0 x 0 for the device set */
+static int save(const char *dir, const char *dev, filt f, int strength, v2 scale, int cw, int ch,
+                int iw, int ih)
 {
 	char path[512];
 	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, cw, ch, 24, SDL_PIXELFORMAT_RGB24);
+	v3 *small = NULL;
 
 	if (!s) return 1;
+	if (f == F_CRT_CURVED && iw > 0) {
+		small = malloc(sizeof *small * (size_t)cw * (size_t)ch);
+		if (!small || curved_small(small, (float)strength / 100.0f, scale, cw, ch, iw, ih)) {
+			free(small);
+			SDL_FreeSurface(s);
+			return 1;
+		}
+	}
 	for (int y = 0; y < ch; y++) {
 		unsigned char *row = (unsigned char *)s->pixels + (size_t)y * s->pitch;
 
 		for (int x = 0; x < cw; x++) {
-			v3 c = f == F_SHIMMERLESS && g_cpu ? shimmerless_cpu(g_cx, g_cy, x, y)
-			                                    : shade(f, x, y, scale, (float)strength / 100.0f);
+			v3 c = small ? small[(size_t)y * cw + x]
+			     : f == F_SHIMMERLESS && g_cpu ? shimmerless_cpu(g_cx, g_cy, x, y)
+			                                   : shade(f, x, y, scale, (float)strength / 100.0f);
 
 			row[3 * x + 0] = (unsigned char)lroundf(clampf(c.r, 0, 1) * 255.0f);
 			row[3 * x + 1] = (unsigned char)lroundf(clampf(c.g, 0, 1) * 255.0f);
@@ -387,6 +571,7 @@ static int save(const char *dir, const char *dev, filt f, int strength, v2 scale
 	else snprintf(path, sizeof path, "%s/%s/%s-%d.png", dir, dev, NAME[f], strength);
 	int bad = IMG_SavePNG(s, path) != 0;
 	SDL_FreeSurface(s);
+	free(small);
 	if (bad) fprintf(stderr, "shaderdemo: %s: %s\n", path, IMG_GetError());
 	return bad;
 }
@@ -419,11 +604,55 @@ static int device_set(const char *dir)
 	if (f) fclose(f);
 	g_cpu = false;
 	for (int i = 0; i < F_COUNT; i++) {   /* save() writes DIR/DEV/NAME.png: DEV is "." */
-		bad |= save(dir, ".", (filt)i, 100, scale, 640, 480);
-		if (i >= F_CRT) bad |= save(dir, ".", (filt)i, 50, scale, 640, 480);
+		bad |= save(dir, ".", (filt)i, 100, scale, 640, 480, 0, 0);
+		if (i >= F_CRT) bad |= save(dir, ".", (filt)i, 50, scale, 640, 480, 0, 0);
 	}
 	if (bad) fprintf(stderr, "shaderdemo: %s: could not write the device set\n", dir);
 	return bad;
+}
+
+/* --image: a picture of the caller's through one filter (above) */
+static int image_mode(char **argv)
+{
+	const char *in = argv[2], *name = argv[3], *out = argv[7];
+	const int strength = atoi(argv[4]), dw = atoi(argv[5]), dh = atoi(argv[6]);
+	char magic[3] = "";
+	int w = 0, h = 0, max = 0, f;
+	FILE *fp = fopen(in, "rb");
+	bool ok;
+
+	for (f = 0; f < F_COUNT && strcmp(NAME[f], name); f++) ;
+	if (!fp || fscanf(fp, "%2s %d %d %d", magic, &w, &h, &max) != 4 || strcmp(magic, "P6") || max != 255 ||
+	    w < 1 || h < 1 || w > SW || h > SH || fgetc(fp) == EOF || f == F_COUNT || dw < 1 || dh < 1 ||
+	    strength < 10 || strength > 100) {
+		fprintf(stderr, "shaderdemo: --image %s %s: not a picture and a filter it can draw\n", in, name);
+		if (fp) fclose(fp);
+		return 1;
+	}
+	g_sw = w;
+	g_sh = h;
+	for (int y = 0; y < h; y++)
+		if (fread(scene[y], 3, (size_t)w, fp) != (size_t)w) {
+			fclose(fp);
+			return 1;
+		}
+	fclose(fp);
+	fp = fopen(out, "wb");
+	ok = fp && fprintf(fp, "P6\n%d %d\n255\n", dw, dh) > 0;
+	for (int y = 0; ok && y < dh; y++)
+		for (int x = 0; ok && x < dw; x++) {
+			const v3 c = shade((filt)f, x, y, (v2){ (float)dw / w, (float)dh / h }, (float)strength / 100.0f);
+			const unsigned char px[3] = {
+				(unsigned char)lroundf(clampf(c.r, 0, 1) * 255.0f),
+				(unsigned char)lroundf(clampf(c.g, 0, 1) * 255.0f),
+				(unsigned char)lroundf(clampf(c.b, 0, 1) * 255.0f),
+			};
+
+			ok = fwrite(px, 3, 1, fp) == 1;
+		}
+	ok = fp && fclose(fp) == 0 && ok;
+	if (!ok) fprintf(stderr, "shaderdemo: %s: not written\n", out);
+	return !ok;
 }
 
 int main(int argc, char **argv)
@@ -440,8 +669,9 @@ int main(int argc, char **argv)
 	int bad = 0;
 
 	if (argc == 3 && !strcmp(argv[1], "--rgb565")) return device_set(argv[2]);
+	if (argc == 8 && !strcmp(argv[1], "--image")) return image_mode(argv);
 	if (argc != 2) {
-		fprintf(stderr, "usage: shaderdemo OUT_DIR | --rgb565 OUT_DIR\n");
+		fprintf(stderr, "usage: shaderdemo OUT_DIR | --rgb565 OUT_DIR | --image SCENE.ppm FILTER STRENGTH W H OUT.ppm\n");
 		return 2;
 	}
 	draw_scene();
@@ -458,9 +688,28 @@ int main(int argc, char **argv)
 		mkdir(dir, 0755);
 		for (int f = 0; f < F_COUNT; f++) {
 			if (f >= F_CRT && !DEV[d].gpu) continue;
-			bad |= save(argv[1], DEV[d].id, (filt)f, 100, scale, DEV[d].cw, DEV[d].ch);
+			if (f == F_LCD_UNLIT) continue;
+			/* The small screen's inside (src/ds/preview.c: the 304 x 228
+			 * units of the screen less DS_FRAME, 3, each side), at the
+			 * panel's pixels: what a CRT Curved picture is made to */
+			const int iw = (int)lroundf(298.0f * DEV[d].ph / 768.0f);
+			const int ih = (int)lroundf(222.0f * DEV[d].ph / 768.0f);
+
+			bad |= save(argv[1], DEV[d].id, (filt)f, 100, scale, DEV[d].cw, DEV[d].ch, iw, ih);
 			if (f >= F_CRT)
-				for (int s = 10; s < 100; s += 10) bad |= save(argv[1], DEV[d].id, (filt)f, s, scale, DEV[d].cw, DEV[d].ch);
+				for (int s = 10; s < 100; s += 10)
+					bad |= save(argv[1], DEV[d].id, (filt)f, s, scale, DEV[d].cw, DEV[d].ch, iw, ih);
+		}
+		/* LCD No Backlight on the handheld's scene, its pixels square, as
+		 * Original Shape draws a Game Boy Color on the panel */
+		if (DEV[d].gpu) {
+			const v2 hs = { (float)DEV[d].ph / HH, (float)DEV[d].ph / HH };
+
+			draw_handheld();
+			bad |= save(argv[1], DEV[d].id, F_LCD_UNLIT, 100, hs, DEV[d].cw, DEV[d].ch, 0, 0);
+			for (int s = 10; s < 100; s += 10)
+				bad |= save(argv[1], DEV[d].id, F_LCD_UNLIT, s, hs, DEV[d].cw, DEV[d].ch, 0, 0);
+			draw_scene();
 		}
 	}
 	return bad;

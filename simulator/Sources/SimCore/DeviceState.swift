@@ -7,7 +7,7 @@ public struct DeviceState: Equatable, Codable {
     /// The side lights, bit 0 battery0 (the bottom light's red) to bit 4
     /// battery4 (the top green)
     public var leds = 0
-    /// 0-255, and bl_power: 0 on, 4 off (Muse's pocket lock)
+    /// 0-255, and bl_power: 0 on, 4 off (MP4's pocket lock)
     public var backlight = 128
     public var backlightPower = 0
     public var battery = 100
@@ -73,8 +73,10 @@ public struct Rumble: Equatable {
     }
 }
 
-/// The Pixel 2's buttons, by px2-input's and px2sim's names
+/// A handheld's buttons, by px2-input's and px2sim's names; brightdown and
+/// brightup are the keys of a handheld that has them (the Brick's F1 and
+/// F2), none on the Pixel 2
 public enum PadButton: String, CaseIterable, Codable {
     case up, down, left, right, a, b, x, y, l1, r1, l2, r2, select, start, menu
-    case volup, voldown, power
+    case volup, voldown, power, brightdown, brightup
 }

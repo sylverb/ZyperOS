@@ -2,6 +2,7 @@
 #ifndef ZYPEROS_GAMES_H
 #define ZYPEROS_GAMES_H
 #include "coverflow.h"
+#include "keyhints.h"
 #include "rowmotion.h"
 #include <stdint.h>
 #define GAMES_WINDOW ROW_SLOTS
@@ -28,10 +29,19 @@ typedef struct {
     bool favorite;
     int count,cursor,earned,total;
     bool has_achievements,resumable;
+    const char *cheats;  /* "2 cheats on" (src/cheats_screen.h), NULL or "" for none */
     /* The focused entry is PortMaster while it is not on the card
      * (src/pminstall.h): A says Install, and the line under its name
      * that it is not installed */
     bool install;
+    /* The firmware the focused game needs and the card lacks, in
+     * **warning** first on the line under its name ("Needs disksys.rom in
+     * Bios"); NULL or "" for none */
+    const char *needs;
+    /* Splore's entry on the PICO-8 shelf (src/pico8.h): while your PICO-8 is
+     * not on the card, A says How to Add and the line Not installed
+     * (`howto`); once it is, A says Open (`opens`). Neither resumes. */
+    bool howto, opens;
     /* The focused game's video snap (src/snapshelf.h), or NULL: its picture,
      * its shape, and how far the cover has turned into it, 0 to 1. */
     SDL_Texture *snap;
@@ -63,6 +73,12 @@ typedef struct {
     int folder;
     /* The shelf shows a folder of its games, not its top: B says Back */
     bool inside;
+    /* A shelf of another kind's own words (MP4's albums, DESIGN.md 11.67):
+     * A's word for the focused entry, and the foot's hints whole; NULL and
+     * 0 for a games shelf's */
+    const char *a_word;
+    const key_hint *foot;
+    int nfoot;
 } games_info;
 void games_reset(games_row *row,int cursor,int count,uint32_t now);
 void games_select(games_row *row,int cursor,int count,int direction,uint32_t now);
@@ -70,6 +86,9 @@ float games_position(const games_row *row,uint32_t now);
 bool games_moving(const games_row *row,uint32_t now);
 int games_slots(const games_row *row,uint32_t now,games_slot slots[GAMES_WINDOW]);
 SDL_FRect games_cover_rect(int width,int height,float offset);
+/* A cover's four corners on screen at `offset`, turned as the row turns it
+ * (top left, top right, bottom right, bottom left), and how much of it shows */
+void games_cover_corners(int width,int height,float offset,SDL_FPoint q[4],float *alpha);
 /* The shelf's page, laid out by rules (src/ds/flex.h): the system's line,
  * the covers' band, the name's block and the keys on every screen's foot,
  * between the page's margins. The list and the grid share its line and its

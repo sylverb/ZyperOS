@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* What an option list's cursor shows (DESIGN.md 11.3, 1.0.7): the choice
+/* What an option list's cursor shows (DESIGN.md 11.3): the choice
  * under it, before A takes it. One piece for every list that shows one:
  *
  * - show(k): choice k on the screen, in the speaker or both, as it would be
@@ -34,6 +34,11 @@
  * `end`: the list has closed, whichever way, shown or not, after any undo:
  * what draw made for it let go (Quick Slot's pictures, loaded once a list).
  *
+ * `at`: told the cursor's choice on every pass, whatever is kept or shown,
+ * and -1 once the list has closed, after any undo and before end (Rumble's
+ * list: each level felt as the cursor reaches it, the kept one too; a
+ * show would not be made back on the kept one).
+ *
  * `keep_header`: the list keeps its page's header, the picture under the
  * page's heading, drawn as the show leaves it (On-Screen Stats' band: the
  * stats over the paused game where the choice puts them).
@@ -51,6 +56,7 @@ typedef struct ds_hover {
 	void (*draw)(void *ctx, int k, int x, int y, int w, int h);
 	void (*tick)(void *ctx);
 	void (*end)(void *ctx);
+	void (*at)(void *ctx, int k);
 	unsigned rest_ms;
 	bool own_sound;
 	bool keep_header;

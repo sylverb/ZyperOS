@@ -62,6 +62,7 @@ const device_profile device_profile_desktop = {
 	.gpu_frames = true,
 	.coreopts = dev_coreopts_pixel2,
 	.speaker_mono = false,
+	.rumble = true,   /* none, but the host shows the rows the Pixel 2 has */
 	.player2 = false,
 	.usb_shared_port = false,
 	.screen_colors = false,
@@ -69,4 +70,7 @@ const device_profile device_profile_desktop = {
 	/* None: the computer's chip is not the launcher's to warn of, and the
 	 * host's plat_chip_temp reads only the test file */
 	.thermal_zones = NULL,
+	/* None: the computer has no battery of the launcher's (a test file's
+	 * level alone, plat_battery) */
+	.batt_empty_mv = 0,
 };

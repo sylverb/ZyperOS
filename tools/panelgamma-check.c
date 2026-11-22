@@ -346,12 +346,12 @@ int main(void)
 	CHECK(n == -1 && crtcs[0].values[5] == 0 && destroys == creates,
 	      "without DRM master: -1, no table, no blob kept");
 
-	/* Screen Colors: { temp, tint, contrast, gamma, night }, each -10..+10 */
+	/* Screen Colors: { temp, tint, contrast, gamma, night, lift }, each -10..+10 */
 	{
-		const panelgamma_color std = { 0, 0, 0, 0, 0 }, warm6 = { 6, 0, 0, 0, 0 }, warm10 = { 10, 0, 0, 0, 0 },
-		                       cool10 = { -10, 0, 0, 0, 0 }, mag10 = { 0, 10, 0, 0, 0 }, green10 = { 0, -10, 0, 0, 0 },
-		                       con5 = { 0, 0, 5, 0, 0 }, flat10 = { 0, 0, -10, 0, 0 }, con3 = { 0, 0, 3, 0, 0 },
-		                       vivid = { 0, 0, 3, -2, 0 }, light10 = { 0, 0, 0, 10, 0 }, dark10 = { 0, 0, 0, -10, 0 };
+		const panelgamma_color std = { 0, 0, 0, 0, 0, 0 }, warm6 = { 6, 0, 0, 0, 0, 0 }, warm10 = { 10, 0, 0, 0, 0, 0 },
+		                       cool10 = { -10, 0, 0, 0, 0, 0 }, mag10 = { 0, 10, 0, 0, 0, 0 }, green10 = { 0, -10, 0, 0, 0, 0 },
+		                       con5 = { 0, 0, 5, 0, 0, 0 }, flat10 = { 0, 0, -10, 0, 0, 0 }, con3 = { 0, 0, 3, 0, 0, 0 },
+		                       vivid = { 0, 0, 3, -2, 0, 0 }, light10 = { 0, 0, 0, 10, 0, 0 }, dark10 = { 0, 0, 0, -10, 0, 0 };
 		int same = 1, mono = 1, ends = 1, warm = 1, cool = 1;
 
 		for (int raw = 0; raw <= 255; raw++)
@@ -410,6 +410,24 @@ int main(void)
 		CHECK(panelgamma_color_out(122, &light10, 0, 128) == 169 && panelgamma_color_out(122, &dark10, 0, 128) == 97 &&
 		      panelgamma_color_out(122, &light10, 0, 255) == 255 && panelgamma_color_out(122, &dark10, 0, 255) == 255,
 		      "Gamma +10: mid grey 128 -> 169; -10: 97; white kept");
+		{
+			/* The brightness boost's lift past the top rung (src/boost.h):
+			 * three of Gamma's steps a cell, after the player's own */
+			panelgamma_color l1 = std, l2 = std, l3 = std, both = light10;
+
+			l1.lift = 1;
+			l2.lift = 2;
+			l3.lift = 3;
+			both.lift = 1;
+			CHECK(!panelgamma_color_standard(&l1), "a lift is a table, not Standard");
+			CHECK(panelgamma_color_out(255, &l1, 0, 128) == 139 && panelgamma_color_out(255, &l2, 0, 128) == 151 &&
+			      panelgamma_color_out(255, &l3, 0, 128) == 164,
+			      "the boost's lift: mid grey 128 -> 139, 151, 164 at the top rung");
+			CHECK(panelgamma_color_out(255, &l3, 1, 0) == 0 && panelgamma_color_out(255, &l3, 2, 255) == 255,
+			      "and black and white kept");
+			CHECK(panelgamma_color_out(255, &both, 0, 128) > panelgamma_color_out(255, &light10, 0, 128),
+			      "over the player's own Gamma, lighter still");
+		}
 		CHECK(panelgamma_color_out(122, &vivid, 0, 255) == 255 &&
 		      panelgamma_color_out(122, &vivid, 0, 48) < panelgamma_color_out(122, &con3, 0, 48),
 		      "Vivid (Contrast +3, Gamma -2): deeper shadows than its Contrast +3 alone, white kept");
@@ -438,7 +456,7 @@ int main(void)
 	/* The file the launcher leaves for Diatom and portkeys */
 	{
 		char dir[] = "/tmp/zyperos-pg-XXXXXX", path[64];
-		panelgamma_color c = { 9, 9, 9, 9, 0 }, w = { 4, -3, 2, -1, 0 };
+		panelgamma_color c = { 9, 9, 9, 9, 0, 0 }, w = { 4, -3, 2, -1, 0, 0 };
 
 		if (!mkdtemp(dir)) { perror("mkdtemp"); return 1; }
 		snprintf(path, sizeof path, "%s/screen", dir);

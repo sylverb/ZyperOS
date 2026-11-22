@@ -62,13 +62,13 @@ size=$(rsh 'cat /sys/block/mmcblk0/size' < /dev/null) || die "cannot reach $HOST
 rsh 'cat /mnt/SDCARD/ZyperOS/VERSION' < /dev/null | sed 's/^/shaderdemo-device: ZyperOS /'
 
 # What the device's Diatom draws with: its GLSL, as text in the binary, is
-# this tree's (diatom/port/pixel2.c, its shaders' whole lines), or the shots
-# say nothing about it
-python3 - "$REPO/diatom/port/pixel2.c" > "$OUT/glsl.txt" <<'EOF' || die "could not read the GLSL"
+# this tree's (diatom/port/gles_shaders.h, its shaders' whole lines), or the
+# shots say nothing about it
+python3 - "$REPO/diatom/port/gles_shaders.h" > "$OUT/glsl.txt" <<'EOF' || die "could not read the GLSL"
 import re, sys
 lines = open(sys.argv[1], encoding="utf-8").read().splitlines()
 a = next(i for i, l in enumerate(lines) if l.startswith("static const char *VERTEX_SHADER"))
-b = next(i for i, l in enumerate(lines) if l.startswith("static const char *SOLID_SHADER"))
+b = next(i for i, l in enumerate(lines) if l.startswith("/* Each filter's shader, in diatom_filter's order"))
 fresh = True
 for l in lines[a:b]:
     lits = re.findall(r'"((?:[^"\\]|\\.)*)"', l)
@@ -94,7 +94,7 @@ cat > "$OUT/run.sh" <<EOF
 #!/bin/sh
 D=$D
 rm -rf \$D/out; mkdir -p \$D/out \$D/save \$D/sys
-for spec in nearest:100 shimmerless:100 crt:100 crt-curved:100 scanlines:100 lcd:100 crt:50 crt-curved:50 scanlines:50 lcd:50; do
+for spec in nearest:100 shimmerless:100 crt:100 crt-curved:100 scanlines:100 lcd:100 lcd-unlit:100 crt:50 crt-curved:50 scanlines:50 lcd:50 lcd-unlit:50; do
 	f=\${spec%:*}; s=\${spec#*:}; n=\$f; [ "\$s" = 100 ] || n=\$f-\$s
 	STUBCORE_IMAGE=\$D/scene.rgb565 /mnt/SDCARD/ZyperOS/diatom --core \$D/stubcore.so --display aspect \\
 		--filter \$f --strength \$s --frames 240 --save \$D/save --system \$D/sys > \$D/out/\$n.log 2>&1 &

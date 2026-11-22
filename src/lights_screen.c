@@ -158,6 +158,21 @@ void language_screen(app *a)
 	ds_hover_end(&pg.run);
 }
 
+/* --lights-page ROW: the page over the shelf, as menu_run draws it, the
+ * cursor on ROW and the lights left alone (a host shot). Nothing where the
+ * handheld has no lights, as MENU has no row there. */
+void lights_shot_draw(app *a, int row)
+{
+	menu_row rows[LP_COUNT];
+	side_light_part ids[LP_COUNT];
+	int n;
+
+	if (!plat_battery_lights()) return;
+	n = sys_menu_lights_rows(plat_side_lights(), rows, ids);
+	ui_scrim(a->r, 0);
+	menu_draw(a, T(S_PANEL_SIDE_LIGHTS), rows, n, row >= 0 && row < n ? row : 0, menu_std_width(a), MENU_ZYPEROS);
+}
+
 void lights_screen(app *a)
 {
 	lights_page pg = { .sel = 0 };

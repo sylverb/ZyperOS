@@ -106,6 +106,11 @@ void diatom_cheevos_unload(void);
  * safe to call when nothing is loaded. */
 void diatom_cheevos_frame(void);
 
+/* Achievements stop, or start again: a cheat has been on in this game
+ * (cheats.c), and nothing is evaluated until the next game begins with none.
+ * CHEEVOS says paused=cheats while it holds. The set stays loaded. */
+void diatom_cheevos_pause(bool on);
+
 /* Forget hit counts and deltas without forgetting the set: a Reset, and a
  * state that carries no progress of its own (one written before progress was
  * kept, or with no set running). */

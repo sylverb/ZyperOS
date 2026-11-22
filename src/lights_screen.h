@@ -26,5 +26,6 @@ extern const ds_hover LANGUAGE_HOVER;
 /* What main.c uses of it; each is described where it is defined. `ctx` is
  * a language_page. */
 int language_build(void *ctx, menu_row *rows, int max, const char **heading);
+void lights_shot_draw(app *a, int row);
 
 #endif

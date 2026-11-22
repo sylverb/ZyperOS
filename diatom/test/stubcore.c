@@ -72,6 +72,16 @@
  * the frontend had drawn, a 1 or a 0 each, and when each started
  * (test/lateskip.py).
  *
+ * And a core that draws less often than it runs, the two ways real cores do
+ * (test/hudspeed.py): STUBCORE_DUPE=N hands over a new picture on every Nth
+ * retro_run and a repeat (a NULL frame) on the rest, as a core that runs 60
+ * frames a second and draws 30 does; STUBCORE_SPAN=N makes each retro_run N
+ * frames long - N frames of sound and one picture - as PPSSPP's, Flycast's
+ * and ParallelN64's do when a game shows a new picture every Nth vblank. The
+ * time such a call takes is STUBCORE_FRAME_US's, so a span of 2 at 33500 is a
+ * 30 fps game at full speed; with STUBCORE_PRECISE=1 it is that to the
+ * microsecond, slept and then spun, where a sleep alone overshoots.
+ *
  * And a picture of its own in place of the pattern: STUBCORE_IMAGE=path, a
  * BASE_W x BASE_H RGB565 frame in the host's byte order (what
  * tools/shaderdemo.c --rgb565 writes), drawn on every frame with the
@@ -96,8 +106,9 @@
 #define MAX_H  448
 #define FPS    59.7275
 #define RATE   32040.0
-/* 32040/59.7275 = 536.44, so 1024 is ample headroom. */
-#define AUDIO_MAX_FRAMES 1024
+/* 32040/59.7275 = 536.44, so 1024 is ample headroom, and for a run of up to
+ * four frames (STUBCORE_SPAN) four times that. */
+#define AUDIO_MAX_FRAMES 4096
 
 static retro_environment_t   env;
 static retro_video_refresh_t video_cb;
@@ -124,6 +135,28 @@ static struct retro_core_option_v2_definition probe_defs[] = {
 	{ NULL, NULL, NULL, NULL, NULL, NULL, { { NULL, NULL } }, NULL },
 };
 static struct retro_core_options_v2 probe_opts = { NULL, probe_defs };
+/* STUBCORE_MGBA: the probe and mGBA's two Super Game Boy options too, as
+ * libretro/mgba e31759b declares them (values and defaults), for
+ * test/sgb.py, which reads what each game loaded with */
+static struct retro_core_option_v2_definition mgba_defs[] = {
+	{ "stubcore_probe", "Probe", NULL, "Read back as each game loads", NULL, NULL,
+	  { { "probe-default", NULL }, { "probe-other", NULL }, { NULL, NULL } },
+	  "probe-default" },
+	{ "mgba_gb_model", "Game Boy Model (Restart)", NULL, NULL, NULL, NULL,
+	  { { "Autodetect", NULL }, { "Game Boy", NULL }, { "Super Game Boy", NULL },
+	    { "Game Boy Color", NULL }, { "Super Game Boy Color", NULL }, { "Game Boy Advance", NULL },
+	    { NULL, NULL } },
+	  "Autodetect" },
+	{ "mgba_sgb_borders", "Use Super Game Boy Borders (Restart)", NULL, NULL, NULL, NULL,
+	  { { "ON", "enabled" }, { "OFF", "disabled" }, { NULL, NULL } },
+	  "ON" },
+	{ NULL, NULL, NULL, NULL, NULL, NULL, { { NULL, NULL } }, NULL },
+};
+static struct retro_core_options_v2 mgba_opts = { NULL, mgba_defs };
+/* STUBCORE_MESSAGE "F:text": the core says `text` on frame F with
+ * RETRO_ENVIRONMENT_SET_MESSAGE, as FCEUmm says what an FDS disk did */
+static long message_at = -1;
+static char message_text[128];
 
 void retro_set_environment(retro_environment_t cb)
 {
@@ -135,7 +168,7 @@ void retro_set_environment(retro_environment_t cb)
 	env = cb;
 	cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);
 	/* As real cores declare theirs, from inside this call */
-	cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, &probe_opts);
+	cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, getenv("STUBCORE_MGBA") ? &mgba_opts : &probe_opts);
 	if (np && *np) {
 		int n = atoi(np);
 
@@ -321,6 +354,14 @@ static void report_load(const struct retro_game_info *game)
 
 	if (!env || !env(RETRO_ENVIRONMENT_GET_VARIABLE, &v)) v.value = NULL;
 	fprintf(stderr, "stubcore: probe=%s\n", v.value ? v.value : "(none)");
+	if (getenv("STUBCORE_MGBA")) {
+		struct retro_variable m = { "mgba_gb_model", NULL }, b = { "mgba_sgb_borders", NULL };
+
+		if (!env || !env(RETRO_ENVIRONMENT_GET_VARIABLE, &m)) m.value = NULL;
+		if (!env || !env(RETRO_ENVIRONMENT_GET_VARIABLE, &b)) b.value = NULL;
+		fprintf(stderr, "stubcore: model=%s borders=%s\n", m.value ? m.value : "(none)",
+		        b.value ? b.value : "(none)");
+	}
 	if (game)
 		fprintf(stderr, "stubcore: path=%s size=%zu head=%.4s\n",
 		        game->path ? game->path : "(none)", game->size,
@@ -357,6 +398,11 @@ static void report_load(const struct retro_game_info *game)
  * on time (test/lateskip.py) */
 static long frame_cost_us;
 static bool frame_unshown;
+static long overshoot_us;         /* STUBCORE_OVERSHOOT_US: up to this much late, at random */
+static bool precise_cost;         /* STUBCORE_PRECISE: the cost to the microsecond */
+#define PRECISE_SPIN_US 6000      /* spun, not slept, for the last of it */
+static unsigned dupe_every = 1;   /* STUBCORE_DUPE: a new picture on every Nth run */
+static unsigned span = 1;         /* STUBCORE_SPAN: frames in one retro_run */
 static FILE *shown_log;
 static void frame_status(bool active, unsigned occupancy, bool underrun_likely)
 {
@@ -375,19 +421,68 @@ static int cost_at_n;
 static long burst_frame[8], burst_times[8];
 static int burst_n;
 
+/* STUBCORE_OVERSHOOT_US=N: each frame runs 0 to N us late, at random (a
+ * fixed sequence), as a sleep does on a runner busy with other work: GitHub's
+ * macOS runner kept a 9 ms core for 45 to 50 ms a frame, and not evenly. The checks of a speed
+ * (test/fastforward.py, test/hudspeed.py) are tried with it on, to see they
+ * judge only what a slow machine can show. */
+static void frame_late(void)
+{
+	static unsigned long long rng = 88172645463325252ull;
+	struct timespec d;
+	long us;
+
+	static unsigned calls;
+	unsigned level;
+
+	if (overshoot_us <= 0) return;
+	/* Busy in stretches, as a runner is: every 40 frames the machine is
+	 * 0, a third, two thirds or all of N late, by a fixed sequence, and
+	 * all of it for the first 80, as a game's start is */
+	level = calls < 80 ? 3u : (unsigned)(((calls / 40u) * 2654435761u) >> 16) % 4u;
+	calls++;
+	rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17;
+	us = (long)(rng % (unsigned long long)(overshoot_us + 1)) * (long)level / 3;
+	d.tv_sec = us / 1000000L;
+	d.tv_nsec = (us % 1000000L) * 1000L;
+	nanosleep(&d, NULL);
+}
+
 static void frame_cost(void)
 {
 	struct timespec d;
 
 	for (int i = 0; i < cost_at_n; i++)
 		if ((long)frame >= cost_at_frame[i]) frame_cost_us = cost_at_us[i];
-	if (frame_cost_us <= 0) return;
+	if (frame_cost_us <= 0) { frame_late(); return; }
 	/* Slept, not spent: the frontend's pacing sees only the time a frame
 	 * takes, and a sleep takes it however busy the machine is (make check
 	 * runs many at once), where a busy wait took longer on a busy one */
+	if (precise_cost) {
+		/* STUBCORE_PRECISE=1: to the microsecond, for a check of a speed
+		 * (test/hudspeed.py). A sleep alone overshoots by 4 ms on a Mac, which
+		 * made a core of 2 frames at 33.5 ms run at 88% of its speed. Slept
+		 * to just short of the end, spun for the rest. */
+		struct timespec t0, t;
+		long us;
+
+		clock_gettime(CLOCK_MONOTONIC, &t0);
+		if (frame_cost_us > PRECISE_SPIN_US) {
+			d.tv_sec = (frame_cost_us - PRECISE_SPIN_US) / 1000000L;
+			d.tv_nsec = ((frame_cost_us - PRECISE_SPIN_US) % 1000000L) * 1000L;
+			nanosleep(&d, NULL);
+		}
+		do {
+			clock_gettime(CLOCK_MONOTONIC, &t);
+			us = (t.tv_sec - t0.tv_sec) * 1000000L + (t.tv_nsec - t0.tv_nsec) / 1000L;
+		} while (us < frame_cost_us);
+		frame_late();
+		return;
+	}
 	d.tv_sec = frame_cost_us / 1000000L;
 	d.tv_nsec = (frame_cost_us % 1000000L) * 1000L;
 	nanosleep(&d, NULL);
+	frame_late();
 }
 
 bool retro_load_game(const struct retro_game_info *game)
@@ -418,6 +513,12 @@ bool retro_load_game(const struct retro_game_info *game)
 	}
 	rumble_configure();
 	{
+		const char *e = getenv("STUBCORE_MESSAGE"), *colon = e ? strchr(e, ':') : NULL;
+
+		message_at = colon ? strtol(e, NULL, 10) : -1;
+		snprintf(message_text, sizeof message_text, "%s", colon ? colon + 1 : "");
+	}
+	{
 		const char *e = getenv("STUBCORE_IMAGE");
 		FILE *f = e && *e ? fopen(e, "rb") : NULL;
 
@@ -436,6 +537,16 @@ bool retro_load_game(const struct retro_game_info *game)
 	{
 		const char *e = getenv("STUBCORE_FRAME_US");
 		frame_cost_us = e && *e ? strtol(e, NULL, 10) : 0;
+		precise_cost = getenv("STUBCORE_PRECISE") != NULL;
+		e = getenv("STUBCORE_OVERSHOOT_US");
+		overshoot_us = e && *e ? strtol(e, NULL, 10) : 0;
+		e = getenv("STUBCORE_DUPE");
+		dupe_every = e && *e ? (unsigned)strtoul(e, NULL, 10) : 1;
+		if (dupe_every < 1) dupe_every = 1;
+		e = getenv("STUBCORE_SPAN");
+		span = e && *e ? (unsigned)strtoul(e, NULL, 10) : 1;
+		if (span < 1) span = 1;
+		if (span > 4) span = 4;
 		e = getenv("STUBCORE_SOUND_BURST");
 		burst_n = 0;
 		while (e && *e && burst_n < 8) {
@@ -624,21 +735,53 @@ static void late_tick(void)
 	for (i = 0; i < sizeof late_sram; i++) late_sram[i] = (uint8_t)(0x5a ^ i);
 }
 
+/* STUBCORE_RTC: a cartridge's clock kept apart from the battery RAM, as
+ * Gambatte keeps an MBC3's (RETRO_MEMORY_RTC): a count of the frames run,
+ * little-endian, so a frontend that reads it back in at the start and writes
+ * it out on the way out carries the count across runs (test/rtc.py) */
+static uint8_t rtc_mem[16];
+
+static bool rtc_here(void)
+{
+	return getenv("STUBCORE_RTC") != NULL;
+}
+
 void *retro_get_memory_data(unsigned id)
 {
+	if (id == RETRO_MEMORY_RTC) return rtc_here() ? rtc_mem : NULL;
 	if (id == RETRO_MEMORY_SAVE_RAM) return late_here() ? late_sram : NULL;
 	return id == RETRO_MEMORY_SYSTEM_RAM ? sysram : NULL;
 }
 
 size_t retro_get_memory_size(unsigned id)
 {
+	if (id == RETRO_MEMORY_RTC) return rtc_here() ? sizeof rtc_mem : 0;
 	if (id == RETRO_MEMORY_SAVE_RAM) return late_here() ? sizeof late_sram : 0;
 	return id == RETRO_MEMORY_SYSTEM_RAM ? sizeof sysram : 0;
 }
 void retro_reset(void) { frame = 0; }
-void retro_cheat_reset(void) { }
+/* Cheats, written down: STUBCORE_CHEAT_LOG=<file> gets "reset" for each
+ * retro_cheat_reset and "set <index> <enabled> <code>" for each
+ * retro_cheat_set, a line each, with the frame it came on, so
+ * test/cheats.py can see when Diatom sends them and that it sends none
+ * while frames merely run. Nothing else happens to a code: the stub has no
+ * memory to poke. */
+static void cheat_log(const char *what, unsigned i, bool e, const char *c)
+{
+	const char *path = getenv("STUBCORE_CHEAT_LOG");
+	FILE *f = path && *path ? fopen(path, "a") : NULL;
+
+	if (!f) return;
+	if (c) fprintf(f, "%u %s %u %d %s\n", frame, what, i, e ? 1 : 0, c);
+	else   fprintf(f, "%u %s\n", frame, what);
+	fclose(f);
+}
+
+void retro_cheat_reset(void) { cheat_log("reset", 0, false, NULL); }
 void retro_cheat_set(unsigned i, bool e, const char *c)
-{ (void)i; (void)e; (void)c; }
+{
+	cheat_log("set", i, e, c ? c : "(null)");
+}
 
 static uint16_t rgb565(int r, int g, int b)
 {
@@ -656,6 +799,19 @@ void retro_run(void)
 	 * gone out and the frontend is in its steady loop. Doing it on frame 0
 	 * would land during the warmup and prove less. */
 	if (crash_mode[0] && frame == crash_at) die(crash_mode);
+	if (message_at >= 0 && (long)frame == message_at && env) {
+		struct retro_message m = { message_text, 120 };
+
+		env(RETRO_ENVIRONMENT_SET_MESSAGE, &m);
+	}
+	if (rtc_here()) {
+		uint32_t t = (uint32_t)rtc_mem[0] | (uint32_t)rtc_mem[1] << 8 |
+		             (uint32_t)rtc_mem[2] << 16 | (uint32_t)rtc_mem[3] << 24;
+
+		t++;
+		rtc_mem[0] = (uint8_t)t; rtc_mem[1] = (uint8_t)(t >> 8);
+		rtc_mem[2] = (uint8_t)(t >> 16); rtc_mem[3] = (uint8_t)(t >> 24);
+	}
 	if (shown_log) {
 		struct timespec now;
 
@@ -674,7 +830,7 @@ void retro_run(void)
 	 * queue. The frontend was behaving correctly on a starved input; the fixture
 	 * was lying. A test core that produces the wrong amount of audio tests
 	 * nothing useful. */
-	audio_accum += RATE / FPS;
+	audio_accum += RATE / FPS * span;
 	n = (size_t)audio_accum;
 	audio_accum -= (double)n;
 	if (n > AUDIO_MAX_FRAMES) n = AUDIO_MAX_FRAMES;   /* cannot happen; guard anyway */
@@ -763,7 +919,11 @@ void retro_run(void)
 			fb[y * cur_w + x] = rgb565(220, 90, 40);
 
 	if (image_on) memcpy(fb, image, sizeof image);
-	video_cb(fb, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
+	/* A repeat is a NULL frame, as libretro has a core say it drew nothing new */
+	if (frame % dupe_every)
+		video_cb(NULL, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
+	else
+		video_cb(fb, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
 
 	for (i = 0; i < n; i++) {
 		int16_t s = (int16_t)(sin(phase) * 2200.0);

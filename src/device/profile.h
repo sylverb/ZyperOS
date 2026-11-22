@@ -2,8 +2,8 @@
 #ifndef ZYPEROS_DEVICE_PROFILE_H
 #define ZYPEROS_DEVICE_PROFILE_H
 
-/* What a handheld is, stated once (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 1): its name and folders, its
+/* What a handheld is, stated once (docs/building.md,
+ * Devices): its name and folders, its
  * screen as glass and pixels, its controls as they are printed, the chords it
  * needs because a button is missing or doubles as another, and what it has -
  * Bluetooth, a speaker or two, a GPU that draws the old screens. Facts, never
@@ -102,6 +102,10 @@ typedef struct device_profile {
 	 * (SET_HW_RENDER): the Dreamcast's, the N64's, the PSP's, Saturn's */
 	bool gpu_frames;
 	bool speaker_mono;       /* one built-in speaker */
+	/* A rumble motor the launcher and Diatom run (Diatom's caps.rumble):
+	 * MENU > Sound > Rumble and the in-game Controls tab's row are here
+	 * alone, and the step's buzz (plat_rumble_buzz) */
+	bool rumble;
 	bool player2;            /* NES Player 2 was built and tried on it */
 	bool usb_shared_port;    /* one port for the computer and accessories */
 	/* A gamma table between the frame and the panel, per channel, that
@@ -112,6 +116,11 @@ typedef struct device_profile {
 	 * them, the hottest of them its temperature (src/thermal.h);
 	 * NULL-ended, or NULL where none is read */
 	const char *const *thermal_zones;
+	/* The battery's voltage, in mV and under load, under which the launcher
+	 * saves the game and powers off whatever the level says, a little over
+	 * where the battery cuts out (src/battempty.h); 0 for none, the level's
+	 * rule alone */
+	int batt_empty_mv;
 	/* The core options measured on this handheld, its GPU or its motor,
 	 * given at run time under the player's own (src/coreopts.h); ends in
 	 * { NULL, NULL }, or NULL for none */
@@ -203,6 +212,11 @@ bool plat_gpu_frames(void);
  * the Brick has two: Audio Channels' Auto is mono there and stereo on
  * everything else (src/audioout.h). */
 bool plat_speaker_mono(void);
+/* Whether the handheld has a rumble motor ZyperOS runs (the profile's
+ * rumble): the Pixel 2's, on PWM0 through the joypad's force feedback. Not
+ * the Brick's yet: its motor (GPIO 227 on the bldo3 rail) waits for the
+ * tester's buzz (the Brick parity plan's item 14). */
+bool plat_has_rumble(void);
 /* Whether brightness is FUNCTION with the volume keys, the device having no
  * brightness keys of its own. What MENU > Controls calls them (controls.h). */
 bool plat_brightness_on_volume(void);

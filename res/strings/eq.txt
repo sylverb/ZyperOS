@@ -1,0 +1,126 @@
+# The equalizer (src/eq.c): MENU > Sound > Equalizer and MP4's MENU row of
+# the same name, its page, its five presets and what each does. Off is
+# menu.off_title; Speaker is audio.speaker. Each value begins with a capital,
+# as a row's value does (GLOSSARY.md).
+
+[sysmenu.equalizer]
+note = A MENU row on the Sound tab, under Audio Channels, and a row in MP4's MENU: the equalizer, which shapes the sound by its low, middle and high notes. Its value is the preset in use (Off, Bass, Voice, Treble, Custom); A opens its page. The word a phone's or a music player's settings use.
+en = Equalizer
+zh-Hans = 均衡器
+es = Ecualizador
+pt-BR = Equalizador
+fr = Égaliseur
+de = Equalizer
+ja = イコライザー
+it = Equalizzatore
+
+[eq.headphones]
+note = The Equalizer page's first row while the sound goes to headphones (on the jack, a USB-C adapter or a Bluetooth headset): their preset. The speaker's row says audio.speaker.
+en = Headphones
+zh-Hans = 耳机
+es = Auriculares
+pt-BR = Fones de ouvido
+fr = Casque
+de = Kopfhörer
+ja = ヘッドホン
+it = Cuffie
+
+[eq.bass]
+note = An equalizer preset: more of the low notes. As a phone's equalizer names its bass preset.
+en = Bass
+zh-Hans = 低音
+es = Graves
+pt-BR = Graves
+fr = Basses
+de = Bass
+ja = 低音
+it = Bassi
+
+[eq.voice]
+note = An equalizer preset: words and singing brought forward (the middle notes). As a phone's equalizer names it.
+en = Voice
+zh-Hans = 人声
+es = Voz
+pt-BR = Voz
+fr = Voix
+de = Stimme
+ja = ボーカル
+it = Voce
+
+[eq.treble]
+note = An equalizer preset: more of the high notes. As a phone's equalizer names its treble preset.
+en = Treble
+zh-Hans = 高音
+es = Agudos
+pt-BR = Agudos
+fr = Aigus
+de = Höhen
+ja = 高音
+it = Alti
+
+[eq.custom]
+note = An equalizer preset: the player's own five bands, set on the page's band rows.
+en = Custom
+zh-Hans = 自定义
+es = Personalizado
+pt-BR = Personalizado
+fr = Personnalisé
+de = Eigene
+ja = カスタム
+it = Personalizzato
+
+[eq.note_off]
+note = Under the equalizer's list of presets, for Off: the sound goes out as it is. A sentence.
+en = No filter at all.
+zh-Hans = 完全不加滤波。
+es = Sin ningún filtro.
+pt-BR = Nenhum filtro.
+fr = Aucun filtre.
+de = Gar kein Filter.
+ja = フィルターなし。
+it = Nessun filtro.
+
+[eq.note_bass]
+note = Under the equalizer's list of presets, for Bass: more low notes; the handheld's small speaker cannot play the lowest of them, so this preset is for headphones most of all. Two short sentences.
+en = More low notes. The small speaker cannot play them all.
+zh-Hans = 更多低音。小扬声器放不出全部低音。
+es = Más graves. El altavoz pequeño no los reproduce todos.
+pt-BR = Mais graves. O alto-falante pequeno não toca todos.
+fr = Plus de basses. Le petit haut-parleur ne les rend pas toutes.
+de = Mehr Bass. Der kleine Lautsprecher kann nicht alles davon spielen.
+ja = 低音を強めます。小さなスピーカーではすべては鳴りません。
+it = Più bassi. L'altoparlante piccolo non li riproduce tutti.
+
+[eq.note_voice]
+note = Under the equalizer's list of presets, for Voice: words and singing come forward. A sentence.
+en = Words and singing come forward.
+zh-Hans = 人声和歌声更突出。
+es = Las palabras y el canto se oyen más.
+pt-BR = Falas e canto ficam em destaque.
+fr = Les paroles et le chant ressortent.
+de = Sprache und Gesang treten hervor.
+ja = 話し声や歌声が前に出ます。
+it = Parole e canto risaltano.
+
+[eq.note_treble]
+note = Under the equalizer's list of presets, for Treble: more of the high notes. A sentence.
+en = More of the high notes.
+zh-Hans = 更多高音。
+es = Más agudos.
+pt-BR = Mais agudos.
+fr = Plus d'aigus.
+de = Mehr Höhen.
+ja = 高音を強めます。
+it = Più alti.
+
+[eq.note_custom]
+note = Under the equalizer's list of presets, for Custom: the player's own five bands, set on the rows under it. A sentence.
+en = Your own five bands.
+zh-Hans = 你自己的五个频段。
+es = Tus propias cinco bandas.
+pt-BR = Suas próprias cinco faixas.
+fr = Vos cinq bandes à vous.
+de = Deine eigenen fünf Bänder.
+ja = 自分で決めた5つの帯域です。
+it = Le tue cinque bande.
+

@@ -100,7 +100,7 @@ int panelgamma_out(int raw, int in)
 
 int panelgamma_color_standard(const panelgamma_color *c)
 {
-	return !c || (!c->temp && !c->tint && !c->contrast && !c->gamma && c->night <= 0);
+	return !c || (!c->temp && !c->tint && !c->contrast && !c->gamma && c->night <= 0 && c->lift <= 0);
 }
 
 static int pg_clamp(int v)
@@ -115,6 +115,7 @@ void panelgamma_color_clamp(panelgamma_color *c)
 	c->contrast = pg_clamp(c->contrast);
 	c->gamma = pg_clamp(c->gamma);
 	c->night = c->night < 0 ? 0 : c->night > PANELGAMMA_NIGHT_MAX ? PANELGAMMA_NIGHT_MAX : c->night;
+	c->lift = c->lift < 0 ? 0 : c->lift > PANELGAMMA_LIFT_MAX ? PANELGAMMA_LIFT_MAX : c->lift;
 }
 
 int panelgamma_night_at(const panelgamma_night *n, long long now)
@@ -288,6 +289,9 @@ int panelgamma_color_out(int raw, const panelgamma_color *c, int ch, int in)
 	/* Gamma: the mid-tones lighter or darker, black and white kept
 	 * (x^0.6 at +10, x^1.4 at -10) */
 	if (v.gamma) x = pow(x, 1 - 0.04 * v.gamma);
+	/* The brightness boost: the same lift again, three of Gamma's steps a
+	 * cell, after the player's own */
+	if (v.lift) x = pow(x, 1 - 0.12 * v.lift);
 	/* Contrast: an S about the middle, steeper there and flatter at the ends
 	 * (an inverse S below 0), 0, 128 and 255 kept; 5% of the slope a step,
 	 * so the curve always rises */

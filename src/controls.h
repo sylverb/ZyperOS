@@ -2,17 +2,21 @@
 #ifndef ZYPEROS_CONTROLS_H
 #define ZYPEROS_CONTROLS_H
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "menu.h"
 #include "portdoc.h"
 #include "remap.h"
+#include "hotkeys.h"
 #include "device/profile.h"   /* dev_chords */
 
 /* Every button, and what it does where: the one place ON THE DEVICE that says
  * so. Eric's, 2026-09-18.
  *
  * The controls that need it most are the ones no screen announces. SELECT
- * opens Muse from anywhere, the volume keys and F1/F2 work everywhere, and Y
- * sets the play mode on one Muse screen of four. Each of those is learned, or
+ * opens MP4 from anywhere, the volume keys and F1/F2 work everywhere, and Y
+ * sets the play mode on one MP4 screen of four. Each of those is learned, or
  * read in a README that is not on the Brick. This page is where a player who
  * has only the handheld can look them up.
  *
@@ -32,7 +36,7 @@
  * page of the six is said at the heading's right, "2 / 6", as every panel of
  * pages says it (DESIGN.md 11.3); there is no footer. */
 typedef enum {
-	CTL_MOVING, CTL_SHELF, CTL_GAME, CTL_HOTKEYS, CTL_MUSE, CTL_ANYWHERE, CTL_PAGES
+	CTL_MOVING, CTL_SHELF, CTL_GAME, CTL_HOTKEYS, CTL_MP4, CTL_ANYWHERE, CTL_PAGES
 } ctl_page;
 
 /* Room for the longest page and its footer, with a little spare. */
@@ -46,12 +50,12 @@ const char *ctl_page_name(ctl_page p);
  * Every button the Brick has is named on some page, and no page names one
  * twice - what tools/controls-check.c holds this to. A button can appear on
  * two pages when it does two things: A opens a game on the shelf and pauses a
- * track in Muse. */
+ * track in MP4. */
 int ctl_rows(ctl_page p, menu_row *out);
 
 /* The device's chords (its profile's, src/device/profile.h): brightness as
  * FUNCTION with the volume keys on a device with no brightness keys of its
- * own (the Pixel 2), where the Brick's pages say F1/F2 and Muse's lock is
+ * own (the Pixel 2), where the Brick's pages say F1/F2 and MP4's lock is
  * FUNCTION with both; MENU+START for Home where zyhome runs; and L2+R2
  * flashing the battery on lights of the device's own, which the shelf's
  * page then says. The Brick's until it is set. */
@@ -127,6 +131,36 @@ typedef struct {
 	char val[CTL_MAX_ROWS][64];
 	char note[96];
 } ctl_buf;
+
+/* The hotkeys the Hotkeys pages say, the player's (src/hotkeys.h): Every
+ * Game's on the home's page, the game's in force on a game's. NULL is
+ * ZyperOS's own, as before it is set. */
+void ctl_set_hotkeys(const hk_table *t);
+
+/* ---------- the pages in glyphs (DESIGN.md 11.9) ----------------------------
+ *
+ * A page's button column is drawn as the handheld's own glyphs, each
+ * handheld's (src/ds/button.h: the Pixel 2's SE and ST faces and MENU's
+ * dots, the Brick's square and play keys and its MENU word), "+" for held
+ * together and "," for one press after the other. The rows above stay words
+ * ("SELECT+R1", "MENU, X", "Left/Right"), what the checks read; the screens
+ * that draw a page turn each row whose label is buttons into a key label
+ * (menu.h's MENU_KEYS_MARK) as they draw it. */
+
+/* Room for one row's key label: the mark and the longest chord */
+#define CTL_KEYS_MAX 32
+
+/* `label` as buttons, MENU_KEYS_MARK and their names, into out (n bytes):
+ * the d-pad's words its glyphs ("Left/Right" the d-pad's left and right
+ * arms, "Up/Down" its up and down, "D-pad" the whole cross, "SELECT+D-pad"
+ * SELECT with it), the volume rocker's word the rocker, and a chord of the
+ * handheld's buttons by name as it is. False, out untouched, for words that
+ * are no button (a port README's "Start", a note). Pure. */
+bool ctl_keys_of(const char *label, char *out, size_t n);
+
+/* ctl_keys_of on every row of a page that is buttons, in place: its label
+ * points into keys[i] then. Notes, rules and words stay as they are. */
+void ctl_glyph_rows(menu_row *rows, int n, char keys[][CTL_KEYS_MAX]);
 
 /* How many pages this game has: always In a game, after the system's.
  *

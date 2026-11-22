@@ -73,6 +73,7 @@
 	--radius-row: 9px;
 	--radius-key: 8px;
 	--radius-chip: 5px;
+	--radius-bar: 2px;
 	--fs-title: 20px;
 	--fs-label: 18px;
 	--fs-menu: 16px;
@@ -107,9 +108,22 @@
 	--t-tour-reward: 1100ms;
 	--t-tour-pulse: 440ms;
 	--t-hold-unlock: 2000ms;
+	--t-hold-power: 1000ms;
+	--t-hold-boost: 1000ms;
+	--t-tap-gap: 1000ms;
+	--t-boost-open: 240ms;
+	--t-boost-flash: 360ms;
 	--t-hold-lock-lit: 4000ms;
 	--t-hold-controls: 3000ms;
+	--t-peak-hold: 400ms;
+	--t-bar-fall: 140ms;
+	--t-spin-up: 360ms;
+	--t-spin-down: 520ms;
+	--t-rewind: 700ms;
+	--t-wind: 180ms;
+	--t-arm-glide: 180ms;
 	--t-hold-snap: 1000ms;
+	--t-hold-band: 2000ms;
 	--t-sheen: 480ms;
 	--t-sharpen: 200ms;
 	--t-hold-low-battery: 6000ms;
@@ -292,9 +306,10 @@ picture { display: contents; }
 	color: var(--text-dim);
 }
 
-/* Two options side by side, and a list of rows: one is on, as an accent
- * fill, the way a focused row is on the handheld */
+/* Two options side by side (three with Add PICO-8), and a list of rows: one
+ * is on, as an accent fill, the way a focused row is on the handheld */
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.seg.three { grid-template-columns: 1fr 1fr 1fr; }
 .list {
 	background: var(--surface);
 	border: var(--frame) solid var(--edge);
@@ -354,6 +369,30 @@ picture { display: contents; }
 
 .row .warn, .note.warn, .warn-text { color: var(--warning); }
 .row.on .warn { color: var(--on-accent); }
+
+/* The PICO-8 row's remove button: a round x at its right end, over the row
+ * (a button can't hold one), in the row's own ink */
+.list.pico8 { position: relative; }
+.list.pico8 .row.with-x { padding-right: 46px; }
+.x {
+	position: absolute;
+	right: 16px;
+	top: calc(50% - 13px);
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	display: grid;
+	place-items: center;
+	border-radius: 50%;
+	border-color: transparent;
+	background: transparent;
+	color: var(--text-dim);
+	font-size: 18px;
+	line-height: 1;
+}
+.x:hover { background: var(--raised); color: var(--text); }
+.row.on + .x { color: var(--on-accent); }
+.row.on + .x:hover { background: rgba(var(--on-accent-rgb), 0.12); color: var(--on-accent); }
 
 .empty {
 	display: flex;

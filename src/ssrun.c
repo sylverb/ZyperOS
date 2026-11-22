@@ -248,7 +248,7 @@ static bool start_video(int answer)
 }
 
 /* An MP4 says "ftyp" at its fifth byte */
-static bool is_mp4(const char *path)
+static bool is_mp4_file(const char *path)
 {
 	unsigned char h[8];
 	FILE *f = fopen(path, "rb");
@@ -409,7 +409,7 @@ static int run_step(void)
 		snprintf(want, sizeof want, "%s", g_run.snap);
 		k = strlen(want);
 		if (k > 5) want[k - 5] = '\0';              /* the ".snap" off */
-		if (poll > 0 && is_mp4(g_run.snap) && rename(g_run.snap, want) == 0) {
+		if (poll > 0 && is_mp4_file(g_run.snap) && rename(g_run.snap, want) == 0) {
 			g_got_video = true;
 			fprintf(stderr, "ss: %s snap: HTTP %d, %ld bytes, %d ms\n", g_run.file,
 			        net_async_http(), stat(want, &st) == 0 ? (long)st.st_size : 0L,

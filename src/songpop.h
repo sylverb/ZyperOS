@@ -36,7 +36,7 @@ typedef struct {
 /* The words, now: up from nothing, or changed in place on one already up */
 void songpop_show(songpop *p, const char *head, const char *body,
                   unsigned hold_ms, unsigned now);
-/* Gone at once: a menu, a game, Muse, the music off */
+/* Gone at once: a menu, a game, MP4, the music off */
 void songpop_hide(songpop *p);
 /* Where it is at `now`: its opacity, 0 to 1, and how far above its place it
  * still is, in units. False when it is not up, and from then it is off. */
@@ -48,7 +48,7 @@ unsigned songpop_wait(const songpop *p, unsigned now);
 /* MP4's words, for the same pop-up when L2 or R2 on the shelf moves MP4
  * rather than the menu music (MP4 playing behind the shelf holds the menu
  * music; DESIGN.md 11.22). `title`, `artist` and `album` are what MP4 says
- * of the file playing (src/musec.h's mu_now); `chapter` is the chapter
+ * of the file playing (src/mp4c.h's mu_now); `chapter` is the chapter
  * playing as Now Playing names it, or NULL or "" in a file without them.
  *
  *   a chaptered book: the book (its title, else album, else artist) over

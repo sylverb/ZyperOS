@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Menu music: tracks from the card played behind the shelf and the menus, and
- * never over a game, a port or Muse.
+ * never over a game, a port or MP4.
  *
  * The card's own come from Menu Music, a folder of their own at the top of
  * the card beside Music and Videos, filled as they are: on the card in a
@@ -217,7 +217,7 @@ enum {
 	BGM_HOLD_START = 1 << 0,  /* until the shelf's first pass: a game resumed
 	                           * at boot goes on without a bar of music */
 	BGM_HOLD_GAME  = 1 << 1,  /* a game, from the launch until the shelf */
-	BGM_HOLD_MUSE  = 1 << 2,  /* Muse playing, or asked to */
+	BGM_HOLD_MP4  = 1 << 2,  /* MP4 playing, or asked to */
 	BGM_HOLD_VIDEO = 1 << 3,  /* the video player */
 	BGM_HOLD_SNAP  = 1 << 4,  /* a video snap on the shelf, with its sound on */
 };
@@ -257,6 +257,9 @@ void bgm_hold(unsigned why, bool held);
  * onto it, for Audio Channels' mono on one side. `mono` with both sides is
  * the two mixed onto both: Audio Channels' mono, and Auto's on one speaker. */
 void bgm_route(const char *device, bool left, bool right, bool mono);
+/* The equalizer's bands for where the menu music plays (src/eq.h), dB each;
+ * sent on a change only (src/aout_route.c). All 0 is flat, no filter. */
+void bgm_eq(const int8_t db[5]);
 
 /* The next track now: in shuffle, the next of the deck; on one track, from
  * its start. */
@@ -279,7 +282,7 @@ bool bgm_audible(void);
 /* A track begun, for Zyper's pop-up (DESIGN.md 11.22): `seq` moves each time
  * the player opens one that is news - the first, the next, one chosen, one
  * skipped to - and not when one track starts again by itself at its end, nor
- * when a game or Muse let go of one that was paused. `at` is when it opened
+ * when a game or MP4 let go of one that was paused. `at` is when it opened
  * (SDL_GetTicks), so a change the shelf did not see happen, under a menu, is
  * not said late. */
 typedef struct {

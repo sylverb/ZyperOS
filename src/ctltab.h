@@ -14,7 +14,7 @@
  * are (a model the launcher gathers, src/ctltab_screen.c), which keys of the
  * handheld each row is about, and the steps a row's value takes. No SDL and
  * no database, so tools/menu-check.c holds it. Design:
- * docs/superpowers/specs/2026-11-13-button-remap-design.md, sections 2 to 7.
+ * DESIGN.md 11.45.
  *
  * The rows, in this order, those in brackets only where they apply:
  *
@@ -25,6 +25,10 @@
  *                     while it says the system and the game has its own
  *   [D-pad as Stick]  On or Off, always this game's
  *   [Pak]             an N64 game's, as before
+ *   [Rumble]          Off, Low, Medium or Full, for the scope Applies To
+ *                     shows, where the core asked for the motor and the
+ *                     handheld has one; in accent-ink when the scope has
+ *                     its own level (src/rumble.h)
  *   [Face Buttons]    By Letter, By Place, or Mixed
  *   A ... SELECT      the handheld's button, and what it gives the game;
  *                     a changed one in accent-ink. SELECT is a dead row on
@@ -41,7 +45,7 @@
 /* A row's identity, whatever its place: a warning is CT_WARN plus the
  * target (RT_*) it is about */
 typedef enum {
-	CT_SCOPE, CT_OWN_NOTE, CT_STICK, CT_PAK, CT_FACE, CT_BUTTON,
+	CT_SCOPE, CT_OWN_NOTE, CT_STICK, CT_PAK, CT_RUMBLE, CT_FACE, CT_BUTTON,
 	CT_WARN = CT_BUTTON + RM_BUTTONS, CT_RESET = CT_WARN + 16, CT_HOTKEYS, CT_MAX
 } ct_row;
 
@@ -66,6 +70,10 @@ typedef struct {
 	bool        stick_offered, stick_on;
 	/* The Pak row's value, as gm_pak_name says it; NULL for no row */
 	const char *pak;
+	/* The Rumble row's value, the scope's level by name (rumble_scope);
+	 * NULL for no row. And whether the scope has a level of its own. */
+	const char *rumble;
+	bool        rumble_own;
 	/* Face Buttons is offered (ctl_letter_layout), and its By Letter */
 	bool        face_offered;
 	rm_table    letters;
@@ -90,11 +98,11 @@ typedef struct {
 } ct_model;
 
 /* The buttons Diatom keeps for itself, which no map reaches, since it hides
- * them from the core before the map (diatom/src/env.c, g_suppress): the
- * PSP's R2 under stick=toggle (stick mode "toggle"), which turns the d-pad
- * into the stick (diatom/src/main.c), and a DS game's L2 and R2, the other
- * screen and the stylus (diatom/src/screens.c). 1u << RM_*. */
-unsigned ct_held_of(const char *tag, const char *stick_mode);
+ * them from the core before the map (diatom/src/env.c, g_suppress): a DS
+ * game's L2 and R2, the other screen and the stylus (diatom/src/screens.c).
+ * 1u << RM_*. The PSP's R2, which turns the d-pad into the stick, was one
+ * until it became a button's choice, Stick On/Off, its default (RM_STICK_*). */
+unsigned ct_held_of(const char *tag);
 
 /* Whether button `button`'s row is dead: SELECT where the N64's C buttons
  * or the stick's rule hold it, or a button Diatom keeps (held). A dead row
@@ -104,7 +112,7 @@ bool ct_dead(const ct_model *m, int button);
 /* What the rows point into: the caller's, as menu_row holds pointers */
 typedef struct {
 	char scope[64];
-	char val[RM_BUTTONS][48];
+	char val[RM_BUTTONS][80];
 	char warn[16][96];
 } ct_bufs;
 
@@ -173,6 +181,12 @@ void ct_sent(const ct_model *m, rm_table *out);
  * nothing (an NES game's L1) */
 bool ct_says_nothing(const ct_model *m, rm_choice c);
 
+/* The choices of `button` (ctl_remap_choices), and last, on a system with a
+ * stick, Stick On/Off and Stick While Held (RM_STICK_*); not on SELECT,
+ * which holds the hotkeys (diatom/src/chord.h), so a press of it is never a
+ * turn of the stick and a hotkey at once. Into out, at most max; the count. */
+int ct_choices(const ct_model *m, int button, rm_choice *out, int max);
+
 /* Where `c` is among the system's choices `ch` (ctl_remap_choices), a button
  * that gives nothing being Nothing; -1 for none */
 int ct_choice_at(const ct_model *m, const rm_choice *ch, int n, rm_choice c);
@@ -199,6 +213,24 @@ bool ct_step(ct_model *m, ct_row id, int dir);
  * never a dead row (ct_dead): a held SELECT, or a button Diatom keeps,
  * keeps what it gives, and the two give the same. */
 void ct_pick(ct_model *m, int button, rm_choice c);
+
+/* Y on a choice in a button's list (issue #305): `cur` becomes `base` with
+ * `button` given `c` and no swap, so the button that gave `c` keeps it and
+ * both give it. A dead row is left as it was. */
+void ct_share(ct_model *m, int button, rm_choice c);
+
+/* The other buttons that give what `button` gives in `cur`, 1u << RM_*:
+ * live rows with the same choice, Nothing never shared */
+unsigned ct_partners(const ct_model *m, int button);
+
+/* Whether choice `c` in `button`'s list is one Y shares: another button
+ * gives it, plainly, and it is not what `button` gives now nor Nothing.
+ * Then A swaps and Y gives it to both; otherwise A takes it. */
+bool ct_can_share(const ct_model *m, int button, rm_choice c);
+
+/* What the foot of `button`'s list says for the choice under the cursor,
+ * into a and b (two lines, b "" for one) */
+void ct_pick_lines(const ct_model *m, int button, rm_choice c, char *a, size_t an, char *b, size_t bn);
 
 /* Face Buttons' value: 0 By Letter, 1 By Place, 2 Mixed, over the faces
  * By Letter moves (a Pocket's two, a Dreamcast's four), the rest left out */

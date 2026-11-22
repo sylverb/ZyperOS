@@ -90,6 +90,10 @@ window.ZYPER_TOKENS = {
     "card": {
       "px": 71,
       "weight": "Regular"
+    },
+    "clock": {
+      "px": 120,
+      "weight": "SemiBold"
     }
   },
   "space": {
@@ -99,7 +103,11 @@ window.ZYPER_TOKENS = {
     "bar": 8,
     "rail-inset": 23,
     "rail-ends": 90,
-    "rail-min": 18
+    "rail-min": 18,
+    "level-mark": 42,
+    "boost-gap": 12,
+    "boost-charge-w": 36,
+    "boost-charge-h": 30
   },
   "shape": {
     "radius-card": 22,
@@ -110,7 +118,8 @@ window.ZYPER_TOKENS = {
     "frame": 3,
     "rule": 2,
     "caret": 3,
-    "ring": 4
+    "ring": 4,
+    "radius-bar": 4
   },
   "layout": {
     "page-zyper-x": 123,
@@ -129,6 +138,15 @@ window.ZYPER_TOKENS = {
     "page-line-gap": 48,
     "page-line-gap-tight": 24,
     "foot-y": 720,
+    "video-band-top": 524,
+    "video-step": 108,
+    "video-cover-w": 90,
+    "video-cover-h": 120,
+    "video-focus-w": 108,
+    "video-focus-h": 144,
+    "video-card-y": 96,
+    "video-card-pad-x": 28,
+    "video-card-pad-y": 18,
     "page-foot-gap": 40,
     "page-foot-gap-tight": 20,
     "page-tile-w": 472,
@@ -192,13 +210,27 @@ window.ZYPER_TOKENS = {
     "line-chrome": 32,
     "grid-gap": 24,
     "grid-band-gap": 24,
-    "focus-ring": 4,
-    "focus-gap": 4,
+    "focus-ring": 3,
+    "focus-gap": 3,
+    "focus-bar-w": 40,
+    "focus-bar-h": 6,
+    "focus-bar-under": 8,
     "radius-cell": 14,
     "preview-col-w": 336,
     "preview-col-min": 200,
     "preview-gap": 32,
-    "preview-note-gap": 16
+    "preview-note-gap": 16,
+    "look-bar-w": 16,
+    "look-bar-gap": 8,
+    "look-cap": 4,
+    "look-classic-w": 488,
+    "look-panel-pad": 32,
+    "look-list-row": 56,
+    "look-list-num": 48,
+    "line-clock": 128,
+    "look-cover": 192,
+    "look-record": 448,
+    "look-cassette-w": 592
   },
   "motion": {
     "press": {
@@ -305,6 +337,26 @@ window.ZYPER_TOKENS = {
       "ms": 2000,
       "curve": "-"
     },
+    "hold-power": {
+      "ms": 1000,
+      "curve": "-"
+    },
+    "hold-boost": {
+      "ms": 1000,
+      "curve": "-"
+    },
+    "tap-gap": {
+      "ms": 1000,
+      "curve": "-"
+    },
+    "boost-open": {
+      "ms": 240,
+      "curve": "out"
+    },
+    "boost-flash": {
+      "ms": 360,
+      "curve": "fade"
+    },
     "hold-lock-lit": {
       "ms": 4000,
       "curve": "-"
@@ -313,8 +365,40 @@ window.ZYPER_TOKENS = {
       "ms": 3000,
       "curve": "-"
     },
+    "peak-hold": {
+      "ms": 400,
+      "curve": "-"
+    },
+    "bar-fall": {
+      "ms": 140,
+      "curve": "follow"
+    },
+    "spin-up": {
+      "ms": 360,
+      "curve": "out"
+    },
+    "spin-down": {
+      "ms": 520,
+      "curve": "out"
+    },
+    "rewind": {
+      "ms": 700,
+      "curve": "turn"
+    },
+    "wind": {
+      "ms": 180,
+      "curve": "follow"
+    },
+    "arm-glide": {
+      "ms": 180,
+      "curve": "follow"
+    },
     "hold-snap": {
       "ms": 1000,
+      "curve": "-"
+    },
+    "hold-band": {
+      "ms": 2000,
       "curve": "-"
     },
     "sheen": {
@@ -483,6 +567,62 @@ window.ZYPER_TOKENS = {
               "peak": 0.012,
               "at": 100
             }
+          ],
+          "shutter": [
+            {
+              "wave": "noise",
+              "hz": 5200,
+              "ms": 12,
+              "peak": 0.32,
+              "at": 0
+            },
+            {
+              "wave": "noise",
+              "hz": [
+                2600,
+                1800
+              ],
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": [
+                220,
+                160
+              ],
+              "ms": 45,
+              "peak": 0.08,
+              "at": 2
+            },
+            {
+              "wave": "noise",
+              "hz": 4400,
+              "ms": 12,
+              "peak": 0.22,
+              "at": 115
+            },
+            {
+              "wave": "noise",
+              "hz": [
+                2200,
+                1500
+              ],
+              "ms": 60,
+              "peak": 0.12,
+              "at": 115
+            },
+            {
+              "wave": "sine",
+              "hz": [
+                190,
+                140
+              ],
+              "ms": 55,
+              "peak": 0.06,
+              "at": 117
+            }
           ]
         }
       },
@@ -555,6 +695,62 @@ window.ZYPER_TOKENS = {
               "ms": 260,
               "peak": 0.07,
               "at": 90
+            }
+          ],
+          "shutter": [
+            {
+              "wave": "noise",
+              "hz": 5200,
+              "ms": 12,
+              "peak": 0.32,
+              "at": 0
+            },
+            {
+              "wave": "noise",
+              "hz": [
+                2600,
+                1800
+              ],
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": [
+                220,
+                160
+              ],
+              "ms": 45,
+              "peak": 0.08,
+              "at": 2
+            },
+            {
+              "wave": "noise",
+              "hz": 4400,
+              "ms": 12,
+              "peak": 0.22,
+              "at": 115
+            },
+            {
+              "wave": "noise",
+              "hz": [
+                2200,
+                1500
+              ],
+              "ms": 60,
+              "peak": 0.12,
+              "at": 115
+            },
+            {
+              "wave": "sine",
+              "hz": [
+                190,
+                140
+              ],
+              "ms": 55,
+              "peak": 0.06,
+              "at": 117
             }
           ]
         }
@@ -652,6 +848,62 @@ window.ZYPER_TOKENS = {
               "ms": 280,
               "peak": 0.065,
               "at": 90
+            }
+          ],
+          "shutter": [
+            {
+              "wave": "noise",
+              "hz": 5200,
+              "ms": 12,
+              "peak": 0.32,
+              "at": 0
+            },
+            {
+              "wave": "noise",
+              "hz": [
+                2600,
+                1800
+              ],
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": [
+                220,
+                160
+              ],
+              "ms": 45,
+              "peak": 0.08,
+              "at": 2
+            },
+            {
+              "wave": "noise",
+              "hz": 4400,
+              "ms": 12,
+              "peak": 0.22,
+              "at": 115
+            },
+            {
+              "wave": "noise",
+              "hz": [
+                2200,
+                1500
+              ],
+              "ms": 60,
+              "peak": 0.12,
+              "at": 115
+            },
+            {
+              "wave": "sine",
+              "hz": [
+                190,
+                140
+              ],
+              "ms": 55,
+              "peak": 0.06,
+              "at": 117
             }
           ]
         }

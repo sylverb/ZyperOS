@@ -20,6 +20,7 @@
 
 #include "diatom_port.h"
 #include "libretro.h"
+#include "corefail.h"
 
 /* How many cores one Diatom process keeps open (the resident registry in
  * core.c, whose comment says why 64), and so how many need a table of their
@@ -67,6 +68,14 @@ typedef struct {
 	 * wants a file (need_fullpath), so the game's stop can remove it; empty
 	 * when there is none. See unstage in core.c. */
 	char          staged[600];
+	/* Whether this core's file is one ZyperOS shipped, or one somebody added
+	 * or put another build in the place of (core.c, core_is_shipped). Said
+	 * once, when the core is opened. A core that is not shipped is closed
+	 * after each game. */
+	bool          shipped;
+	/* Whether this core was handed cheat codes it still holds (cheats.c),
+	 * so the next game on it is reset first */
+	bool          cheats_held;
 
 	void   (*set_environment)(retro_environment_t);
 	void   (*set_video_refresh)(retro_video_refresh_t);
@@ -88,6 +97,10 @@ typedef struct {
 	bool   (*unserialize)(const void *, size_t);
 	void  *(*get_memory_data)(unsigned);
 	size_t (*get_memory_size)(unsigned);
+	/* Optional, unlike the rest: a core without them has no cheats, and
+	 * still runs (cheats.c) */
+	void   (*cheat_reset)(void);
+	void   (*cheat_set)(unsigned, bool, const char *);
 } diatom_core;
 
 /* zip.c - launcher libraries arrive zipped, one ROM per archive */
@@ -104,6 +117,9 @@ void diatom_core_stop(diatom_core *c);
  * launch skips dlopen and retro_init. Never unloaded. Locked, so the premap's
  * thread and a RUN can both call it. */
 diatom_core *diatom_core_resident(const char *path);
+/* Why the last core that would not open, `path`, would not (corefail.h):
+ * false when it was another core that failed last, or none */
+bool diatom_core_failure(const char *path, corefail *out);
 /* Map every *_libretro.so in `dir`, returning how many are now resident. For
  * the boot path: it costs less than reading them to warm the cache did, and
  * leaves the dynamic linker's work done as well. */
@@ -139,16 +155,29 @@ bool diatom_env_new_geometry(int *w, int *h, double *aspect);   /* consumes the 
  * last reset, which main.c makes at each start */
 bool diatom_env_core_quit(void);
 /* The motor at `pct` percent of every level the core asks for, from the next
- * one; 100 (or anything outside 1 to 99) is as asked. Per game: RUN sets it. */
+ * one: the player's Rumble level times the system's share (the launcher's
+ * product, RUN rumble=). 0 is Off, the motor never run; 100 (or anything
+ * outside 0 to 99, absent included) is as asked. Per game: RUN sets it. */
 void diatom_env_rumble_scale(int pct);
+/* The same at once, from SETRUMBLE: the in-game menu's Rumble row */
+void diatom_env_rumble_level(int pct);
+/* Whether the core bound now asked for the motor and was given it: the
+ * in-game menu's Rumble row is for its games alone (PAUSED rumble=1) */
+bool diatom_rumble_asked(void);
 void diatom_env_core_quit_reset(void);
 void diatom_env_suppress(uint32_t mask);
-/* Called at every poll the core makes, with the pad just read, before the
- * core reads a button of it: returns what to hide from the core, and sets
- * what the core sees held although it is not (a SELECT given back as it is
- * let go). SELECT's chords (chord.h, main.c). NULL for none; set per game. */
-typedef uint32_t (*diatom_poll_hook)(uint32_t pad, uint32_t *give);
+/* Called at every poll the core makes, with the pad just read and what went
+ * down in it (diatom_port_input_pressed: a tap let go again before the poll
+ * too), before the core reads a button of it: returns what to hide from the
+ * core, and sets what the core sees held although it is not (a SELECT given
+ * back as it is let go). SELECT's chords (chord.h, main.c). NULL for none;
+ * set per game. */
+typedef uint32_t (*diatom_poll_hook)(uint32_t pad, uint32_t pressed, uint32_t *give);
 void diatom_env_poll_hook(diatom_poll_hook fn);
+/* What went down at the core's polls since the last call, a tap let go
+ * again too, gathered over all of a turn's frames (a fast turn runs several):
+ * the frame loop's own keys, read once a turn. Each call starts it again. */
+uint32_t diatom_env_pressed(void);
 
 /* The libretro pointer the core reads this frame: the stylus's, from
  * screens.h, in the whole frame's -0x7fff..0x7fff. See env.c. */
@@ -238,6 +267,7 @@ typedef enum {
 	DIATOM_MSG_DISPLAY,    /* report the display mode and filter */
 	DIATOM_MSG_SETDISPLAY, /* set them: `dmode`, `dfilter`, `dstrength` */
 	DIATOM_MSG_OVERLAY,    /* composite `path` over the game for `count` ms */
+	DIATOM_MSG_SETBORDER,  /* the picture around the game: `path`, `blur`, or black (src/border.h) */
 	DIATOM_MSG_CHEEVOS,    /* report the achievement set and what has fired */
 	DIATOM_MSG_SETCHEEVOS, /* load a set from `path`; empty unloads */
 	DIATOM_MSG_AUDIO,      /* report where sound is going */
@@ -260,6 +290,8 @@ typedef enum {
 	DIATOM_MSG_SETSCREENS, /* set it: `layout`, `swap` = 1 | 0 */
 	DIATOM_MSG_STYLUS,     /* report whether stylus mode is on */
 	DIATOM_MSG_SETSTYLUS,  /* turn it on or off: `on` = 1 | 0 */
+	DIATOM_MSG_SETHOTKEYS, /* SELECT's hotkeys: `hotkeys` (sent as `keys=`),
+	 * chord.h's chord_keys_parse form; answered HOTKEYS ok=1|0 */
 	DIATOM_MSG_SETSTICK,   /* the d-pad as the stick: `dmode` (sent as `mode=`)
 	 * = dpad | plain | toggle | toggle-stick | off; answered STICK on=1|0 */
 	/* Guest players, NES player 2 first (player2.h): the frames out and
@@ -277,6 +309,16 @@ typedef enum {
 	 * and its style's words in `hud`, for every game until said again. No
 	 * answer. */
 	DIATOM_MSG_SETHUD,
+	/* Rumble (env.c): the motor at `rumble` percent of what the core asks,
+	 * 0 Off, from now. No answer. */
+	DIATOM_MSG_SETRUMBLE,
+	/* The equalizer (eqdsp.h): `bands`, five whole dB from -6 to +6, "5,2,
+	 * 0,0,1", all 0 flat; the gains move to them over 20 ms. No answer. */
+	DIATOM_MSG_SETEQ,
+	/* The cheat codes that are on, from now: `path`, a file of one a line
+	 * (cheats.h), empty for none. Answered CHEATS count=N, or ERROR
+	 * code=bad_cheats with the codes as they were. */
+	DIATOM_MSG_SETCHEATS,
 	/* The launcher went away - or was displaced by a newer one, which means
 	 * the same thing. The game keeps running. */
 	DIATOM_MSG_HANGUP
@@ -300,6 +342,9 @@ typedef struct {
 	 * optional for them: an RA address is an offset into a per-console space,
 	 * so 0x06f3 means nothing until the launcher says which console. */
 	char cheevos[1024];    /* RUN: a set to watch from the first frame */
+	/* RUN: the cheat codes that are on, a file of one a line (cheats.h);
+	 * SETCHEATS takes its file as path= */
+	char cheats[1024];
 	/* RUN: 2 when the frame holds two screens, top over bottom - a DS game.
 	 * The launcher's to say, since it knows which shelf a game is on and
 	 * Diatom has no core list. Anything else is one screen. */
@@ -307,8 +352,12 @@ typedef struct {
 	/* RUN: "late" lets a core with a frameskip leave out the drawing of a
 	 * frame that is running late, at 1x as well as fast; "steady" does the
 	 * same with exactly every second frame drawn while frames run late (the
-	 * player's When Slow: Steady 30). Empty: only fast forward skips, as
-	 * before. */
+	 * DS shelf's When Slow sent it in a 1.0.6 test build; the launcher sends
+	 * late alone now, and steady stays a RUN word). Empty: only fast forward
+	 * skips, as before. The launcher sends late for a DS game (two screens)
+	 * and for a system with a frameskip|tag|late line (the PSP's). A core
+	 * paced by its sound (PPSSPP) is late by its turns' work against the
+	 * sound they brought, not by the schedule (main.c, sound_debt_us). */
 	char frameskip[16];
 	/* RUN: "medium" or "light" caps the clocks for a system that keeps its
 	 * speed under them; empty or anything else is full. See diatom_port_power. */
@@ -317,9 +366,18 @@ typedef struct {
 	 * close (src/pace.h, DISPLAY LOCK); empty or anything else ("exact"),
 	 * the core's own rate, as before */
 	char pace[8];
-	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
-	 * 99 (a system whose core shakes harder than the handheld wants:
-	 * PrBoom's every shot); 0, 100 or absent is as asked. See
+	/* RUN: "games", the Super Game Boy for this game when its header says
+	 * it is made for one (src/sgb.h); empty or anything else, none */
+	char sgb[8];
+	/* SETBORDER: "1", the game's own picture blurred around it (src/border.h) */
+	char blur[4];
+	/* SETBORDER: "WxH+X+Y", where the game goes in the picture's frame,
+	 * in the surface's pixels (a handheld's window, src/border.h) */
+	char brect[32];
+	/* RUN and SETRUMBLE: how hard the motor runs, in percent of what the
+	 * core asks: the player's Rumble level times the system's share (a
+	 * system whose core shakes harder than the handheld wants: PrBoom's
+	 * every shot). 0 is Off; 100 or absent (-1) is as asked. See
 	 * diatom_env_rumble_scale. */
 	int  rumble;
 	/* RUN: the libretro controller type for port 0 (pcsx_rearmed's DualShock
@@ -331,11 +389,20 @@ typedef struct {
 	 * as the stick (the PSP's, whose games play with one or the other);
 	 * empty or anything else, the joypad's d-pad as ever. */
 	char stick[16];
+	/* RUN hotkeys= and SETHOTKEYS keys=: which button SELECT is held with for
+	 * each hotkey, "save:r1,load:l1,shot:y" or "none" (chord.h); absent on
+	 * RUN, the shoulders' four as ever */
+	char hotkeys[160];
+	/* RUN shots=: where a screenshot goes, a path and the start of a file's
+	 * name ("/mnt/SDCARD/Screenshots/NES/Zelda"), the time and ".png" added;
+	 * absent, no screenshot */
+	char shots[1024];
 	char layout[16];       /* SETSCREENS: a name from scr_layout_names */
 	char swap[4];          /* SETSCREENS: "1" | "0"; empty leaves it */
 	int  console;          /* RUN / SETCHEEVOS */
 	char path[1024];       /* SAVE / LOAD / SETCHEEVOS */
 	char key[80];          /* SETOPT */
+	char bands[24];        /* SETEQ */
 	char value[128];       /* SETOPT */
 	char map[512];         /* SETMAP */
 	char lkind[32];        /* SETLEVEL: volume | brightness */
@@ -368,6 +435,9 @@ typedef struct {
 	                        * OVERLAY: `count` is the duration in ms, sent as
 	                        * `ms=`. One slot, two verbs, no second name.
 	                        * SETDISC: `index` is the disc, from 0. */
+	int  boost;            /* SETLEVEL: the boost's cells filled past the top
+	                        * (levels.h), 0 none, as a launcher from before
+	                        * the boost says by not sending it */
 } diatom_msg;
 
 /* Input mapping and labels live in env.c, the one layer a remap touches. */
@@ -382,9 +452,20 @@ void diatom_input_set_stick_toggle(bool as_stick);
 /* RUN stick=plain: the d-pad is the left stick and the joypad's d-pad both,
  * always: no SELECT rule, and nothing turns it (main.c gives R2 no turn) */
 void diatom_input_set_stick_plain(void);
-/* R2 under stick=toggle: the d-pad goes to the other side. True when it is
- * the stick now. Nothing turns outside stick=toggle. */
+/* The side the d-pad starts on: the d-pad (`pad`) or the stick. RUN's -pad
+ * modes (stick=dpad-pad, plain-pad) start on the d-pad, for a game whose
+ * D-pad as Stick is off and whose map gives a button the stick. */
+void diatom_input_stick_side(bool pad);
+/* A press of a button the map gives Stick On/Off (`r2:stick`, the PSP's R2):
+ * the d-pad goes to the other side. True when it is the stick now. Nothing
+ * turns while the stick is off. */
 bool diatom_input_stick_flip(void);
+/* A button the map gives Stick While Held (`l2:stickhold`) is held: the
+ * d-pad is on its other side until it is let go */
+void diatom_input_stick_hold(bool held);
+/* The buttons the map gives Stick On/Off, and in *hold those it gives Stick
+ * While Held (DIATOM_BIT); none while the stick is off */
+uint32_t diatom_input_stick_keys(uint32_t *hold);
 /* Before each retro_run: the pad is read once a frame, at the core's poll or
  * its first question, whichever comes first (env.c, cb_input_poll) */
 void diatom_env_frame_begin(void);
@@ -400,6 +481,11 @@ void diatom_input_emit_labels(void);
 void diatom_rumble_hold(bool held);
 void diatom_rumble_forget(void);
 void diatom_rumble_reset(void);
+/* The boost's buzz as it opens (levels.c): the motor full at the game's
+ * rumble level while on, over whatever the core asked, back to the core's
+ * when off. Nothing while the game is held or rumble is Off; a hold or a
+ * reset ends it. */
+void diatom_rumble_buzz(bool on);
 
 bool diatom_proto_listen(const char *path);
 void diatom_proto_close(void);
@@ -472,6 +558,7 @@ typedef enum {
 	DIATOM_SCALE_INTEGER_VERT,   /* whole factor down, shape-correct across   */
 	DIATOM_SCALE_INTEGER_OVER,   /* smallest whole factor that covers, cropped*/
 	DIATOM_SCALE_ASPECT_FIT,     /* fractional, shape kept, boxed             */
+	DIATOM_SCALE_SQUARE,         /* fractional, square pixels, full height    */
 	DIATOM_SCALE_ASPECT_FILL,    /* fractional, shape kept, cropped           */
 	DIATOM_SCALE_STRETCH         /* fills both axes, shape ignored            */
 } diatom_scale_mode;
@@ -569,5 +656,20 @@ typedef enum {
 extern const char *const diatom_channels_names[DIATOM_CHANNELS_COUNT];
 void            diatom_audio_channels(diatom_channels c);
 diatom_channels diatom_audio_channels_get(void);
+
+/* The equalizer (eqdsp.h, ZyperOS's src/eqdsp.h): five bands, dB each, as
+ * the launcher sends them for where Diatom plays (SETEQ), all 0 flat. Taken
+ * by the sound's next push, after the resampler at the device's rate, the
+ * gains moving over 20 ms, so a change never clicks; held across sessions,
+ * a session starting at them with no move. Flat costs nothing. False, and
+ * nothing changed, for anything but five whole numbers from -6 to 6. */
+bool diatom_audio_eq(const char *bands);
+
+/* The volume boost past the top (levels.h): `db` of gain, 0 to 12, with the
+ * equalizer's limiter keeping every peak under full scale (eqdsp.h's
+ * eq_gain). Taken by the sound's next push, on whatever thread pushes, and
+ * moved to over 20 ms, so a step never clicks; held across sessions like the
+ * bands, a session starting at it with no move. */
+void diatom_audio_boost(int db);
 
 #endif /* DIATOM_H */

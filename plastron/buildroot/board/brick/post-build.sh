@@ -5,6 +5,9 @@
 # can log in, as root has no password and dropbear turns down an empty one.
 set -eu
 KEYS=$BR2_EXTERNAL_PX2_PATH/../local/authorized_keys
+# A worktree has no local/ of its own: the main checkout's key, which
+# plastron's Makefile mounts here for it
+[ -f "$KEYS" ] || KEYS=/plastron-keys/authorized_keys
 if [ "${PLASTRON_RELEASE:-0}" = 1 ]; then
 	rm -rf "$TARGET_DIR/root/.ssh"
 	# And dropbear never starts, as nobody could log in to it: the program
@@ -51,7 +54,15 @@ mkdir -p "$TARGET_DIR/mnt/SDCARD"
 # pairings, the headsets' volumes, and the adapter's address (xr_bt.conf,
 # which hciattach makes at the first attach). Everything else that changes at
 # run time is already in the RAM filesystems (/var/run, /var/log, /var/lib/dbus)
-mkdir -p "${TARGET_DIR:?}/var/lib/state"
+#
+# The two folders the links name are made in the image too, empty: on the
+# device the partition is mounted over /var/lib/state and they are never
+# seen, but in the build's target a link to nothing broke the next build of
+# the same output, as bluez5_utils' install makes /var/lib/bluetooth through
+# it ("install -dm700 ...: No such file or directory", a development build
+# that installed bluez again, 2026-11-19). Without the partition Bluetooth
+# keeps nothing either way.
+mkdir -p "${TARGET_DIR:?}/var/lib/state/bluetooth" "${TARGET_DIR:?}/var/lib/state/bluealsa"
 rm -rf "${TARGET_DIR:?}/var/lib/bluetooth" "${TARGET_DIR:?}/var/lib/bluealsa"
 ln -s state/bluetooth "$TARGET_DIR/var/lib/bluetooth"
 ln -s state/bluealsa "$TARGET_DIR/var/lib/bluealsa"

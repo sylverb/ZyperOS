@@ -1,0 +1,96 @@
+title: Try ZyperOS on Your Mac, No Handheld Needed
+description: Run ZyperOS on a Mac without a GKD Pixel 2 or TrimUI Brick: desk mode shows the menus and a game, and the ZyperOS Simulator runs the whole system.
+summary: Two ways to run ZyperOS on a Mac: desk mode for the launcher, its menus and a game, and the ZyperOS Simulator for the whole system in QEMU.
+crumb: Try it on a Mac
+topic: guide
+published: 2026-11-19
+updated: 2026-11-21
+image: desk-card
+image_alt: The ZyperOS home in desk mode, in a window drawn as a green GKD Pixel 2
+related: install-custom-firmware-gkd-pixel-2, zyperos-guide, about-zyperos
+weight: 50
+---
+<p>You don't need a GKD Pixel 2 or a TrimUI Brick to see ZyperOS. It runs on a Mac too, in a window drawn as the handheld itself, and you press its buttons with the keyboard or the mouse. There are two ways: desk mode, which puts the launcher and a game on your screen in a few minutes, and the ZyperOS Simulator, which runs the whole system. This guide walks through both, for anyone curious and for anyone who wants to help build it.</p>
+<p class="note">These steps follow ZyperOS's source on GitHub after 1.0.6. You need a Mac, Terminal and a few commands.</p>
+
+<figure class="shot small"><img src="/img/desk-pixel2.png" alt="Desk mode: the ZyperOS home, the NES on its Spotlight, in a window drawn as a green GKD Pixel 2 with its d-pad, buttons, shoulder keys and side lights"><figcaption>Desk mode as the GKD Pixel 2, on the Mac.</figcaption></figure>
+
+<h2>Which way to pick</h2>
+<ul>
+  <li><strong>Desk mode</strong> is ZyperOS's launcher, the same code the handheld runs, built for your Mac. The menus, the settings, the themes, the languages and a NES game with its in-game menu work as on the handheld. It is ready in a few minutes, as the GKD Pixel 2 or the TrimUI Brick.</li>
+  <li><strong>The ZyperOS Simulator</strong> is the whole system: ZyperOS's Linux, built for the GKD Pixel 2, running in QEMU in a window drawn as the Pixel 2. It boots, runs the first-start setup, and shows the battery, the charger and the side lights. Its image comes with each release, one command away.</li>
+</ul>
+<p>To look around, start with desk mode.</p>
+
+<h2>Desk mode, step by step</h2>
+<ol>
+  <li>Open Terminal and install Xcode's command-line tools, if you don't have them yet: <code>xcode-select --install</code>.</li>
+  <li>Install <a href="https://brew.sh">Homebrew</a>, then the libraries desk mode uses:
+<pre><code>brew install sdl2 sdl2_image sdl2_ttf xz</code></pre></li>
+  <li>Get ZyperOS's source:
+<pre><code>git clone https://github.com/tarikbc/ZyperOS
+cd ZyperOS</code></pre></li>
+  <li>Start it as the GKD Pixel 2 with <code>make desk</code>, or as the TrimUI Brick with <code>make desk-brick</code>.</li>
+</ol>
+<p>The first run takes a few minutes. It builds the launcher, Diatom (ZyperOS's emulator) and a NES core, and makes a sample card with a game on each system. The games are empty files named after well-known games, so the shelves look like a real library. The one that plays is <code>ZyperOS Test.nes</code>, ZyperOS's own NES test cartridge. What you change in the menus stays on that card for the next run.</p>
+<p>The window draws the handheld to its measurements, one pixel of its screen to one of your display's, which on a Retina display is about its real size. It runs at the handheld's 60 frames a second, and a press shows on the next frame. Linux works too, with the same libraries from its own packages.</p>
+
+<figure class="shot small"><img src="/img/desk-brick.png" alt="Desk mode as the TrimUI Brick: the ZyperOS home on its 1024x768 screen, with the Brick's d-pad, A B X Y, F1, F2, MENU, SELECT and START keys drawn below"><figcaption><code>make desk-brick</code>: the same launcher on the TrimUI Brick's 1024x768 screen.</figcaption></figure>
+
+<h2>Play a game in the window</h2>
+<p>Open the NES shelf and press <kbd>A</kbd> on <code>ZyperOS Test.nes</code>. The game runs in the same window, and each button you hold lights a box on its screen. <kbd>MENU</kbd> opens the in-game menu over it, with Save, Load, the Display tab and Core Settings, right where a player finds them on the handheld.</p>
+<div class="pair">
+<figure class="shot"><img src="/img/desk-nes.png" alt="ZyperOS Test.nes in desk mode: a row of boxes on a blue screen, the first one lit while A is held, and the drawn A button pressed"><figcaption>A held: its box lights, and the drawn A goes down.</figcaption></figure>
+<figure class="shot"><img src="/img/desk-game.png" alt="The in-game menu's Game tab over the NES game: Continue, Save, Load, Quick Slot, Player 2 and Achievements"><figcaption><kbd>MENU</kbd> in a game opens the in-game menu.</figcaption></figure>
+</div>
+<p>Only the NES plays in desk mode for now: each system needs its emulator built for the Mac, and the NES's is the first one.</p>
+
+<h2>The keys</h2>
+<p>The keyboard is the handheld's buttons, the same map in desk mode and in the Simulator. The keys go by their place on a US keyboard, so on an AZERTY keyboard Z is the key marked W, and A the one marked Q.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">Key</th><th scope="col">Button</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Arrows</th><td>The d-pad</td></tr>
+    <tr><th scope="row">X, Z</th><td>A, B</td></tr>
+    <tr><th scope="row">S, A</th><td>X, Y</td></tr>
+    <tr><th scope="row">Q, W</th><td>L1, R1</td></tr>
+    <tr><th scope="row">E, R</th><td>L2, R2</td></tr>
+    <tr><th scope="row">Return</th><td>START</td></tr>
+    <tr><th scope="row">Right Shift or Delete</th><td>SELECT</td></tr>
+    <tr><th scope="row">Esc or M</th><td>MENU</td></tr>
+    <tr><th scope="row">- and =</th><td>Volume down, up</td></tr>
+    <tr><th scope="row">[ and ]</th><td>Brightness down, up (the Brick's own keys)</td></tr>
+    <tr><th scope="row">P</th><td>POWER</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The mouse works too: click and hold any drawn key, and the wheel moves up and down. Hold <kbd>Option</kbd> to see each key's letter on its button. A game controller works as well, by the buttons' places. <kbd>F1</kbd> in the window lists the rest: <kbd>Cmd</kbd> 1, 2 and 3 zoom, <kbd>Cmd</kbd> 0 the screen's real size on your display, <kbd>Cmd</kbd> B the screen alone, and <kbd>Cmd</kbd> S saves a screenshot to the Desktop.</p>
+<figure class="shot small"><img src="/img/desk-keys.png" alt="Desk mode with Option held: each drawn button labelled with its keyboard key, the arrows on the d-pad, X on A, Z on B, S on X, A on Y, Q W E R on the shoulders, Return on START, R-Shift on SELECT, Esc on MENU and P on POWER"><figcaption>Hold <kbd>Option</kbd>, and every button shows its key.</figcaption></figure>
+
+<h2>The ZyperOS Simulator, step by step</h2>
+<p>Desk mode is the launcher alone. The ZyperOS Simulator runs everything: the Pixel 2's system, Linux and all, in QEMU on Apple's hypervisor, in a window drawn as the Pixel 2. It boots as the handheld does and runs the first-start setup. A panel beside the handheld sets what a player can't press, the battery level, the charging cable and the headphones, and the window shows what the handheld does with them: the side lights, the backlight and rumble. ZyperOS's first frame comes less than a second after QEMU starts, and a NES game runs at its full 60 frames a second.</p>
+<div class="pair">
+<figure class="shot"><img src="/img/simulator.png" alt="The ZyperOS Simulator at the first start: a drawn GKD Pixel 2, Zyper saying Hello! beside the language list, its four side lights lit green on the cable"><figcaption>The first start, as on a new card.</figcaption></figure>
+<figure class="shot"><img src="/img/simulator-charging.png" alt="The ZyperOS Simulator charging at 55%: the home with the charging mark in the top bar, and the side lights filling from the bottom"><figcaption>On the cable at 55%: the side lights fill as they charge.</figcaption></figure>
+</div>
+<p>It needs a Mac with Apple silicon and macOS 14 or later, Xcode's command-line tools, QEMU, and a QEMU image of ZyperOS. Every release from 1.1.0 on carries its QEMU image, and <code>tools/qemu-run.sh fetch</code> downloads the latest one and checks it against the release's <code>SHA256SUMS</code>, so there is no long build and no Docker. There is no SSH key to set up either: <code>tools/qemu-run.sh</code> hands the virtual machine yours, or makes one for it.</p>
+<ol>
+  <li>Install QEMU: <code>brew install qemu</code>.</li>
+  <li>Download the image, from the <code>ZyperOS</code> folder: <code>tools/qemu-run.sh fetch</code>.</li>
+  <li>Build the app and open it:
+<pre><code>simulator/scripts/build-app.sh
+open "simulator/build/ZyperOS Simulator.app"</code></pre></li>
+</ol>
+<p>The window starts its own virtual machine, and shuts it down when it closes. Click the drawn buttons, or use the keys above, plus <kbd>H</kbd> for the headphones. <strong>View &gt; Hardware Panel</strong> (<kbd>Cmd</kbd> I) opens the panel, and the <strong>Device</strong> menu has the charging cable, the battery levels and <strong>Save Screenshot</strong>.</p>
+<p>To try a change of your own to the system, build the image yourself with plastron, ZyperOS's Linux, in <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a>: <code>make -C plastron qemu</code> from the <code>ZyperOS</code> folder. The first build takes a few hours, as it builds a whole toolchain and then LLVM for the graphics. After that, a build takes minutes.</p>
+
+<h2>What a Mac can't show</h2>
+<ul>
+  <li><strong>Speed.</strong> Your Mac's processor and graphics draw it, so how smooth a menu or a game looks on your Mac says nothing about the handheld. I measure that on the handheld itself.</li>
+  <li><strong>The screen.</strong> Your display's pixels are not the Pixel 2's 2.4-inch panel: a word that is easy to read at your desk may not be in your hand.</li>
+  <li><strong>The hardware.</strong> Wi-Fi, Bluetooth, USB, sleep and a real battery need a handheld. The Simulator stands in for the battery, the charger and the lights.</li>
+</ul>
+
+<h2>Help build it</h2>
+<p>If you want to help, with code, translations, or by telling me what feels wrong in a menu, come say hi on <a href="https://discord.gg/Ust8sE22Tm">the ZyperOS Discord</a>. The source is on <a href="https://github.com/tarikbc/ZyperOS">GitHub</a>, under GPL-3.0, with its developer docs beside it. And when you want ZyperOS in your hands, <a href="/blog/install-custom-firmware-gkd-pixel-2/">installing it</a> takes three steps.</p>

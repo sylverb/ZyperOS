@@ -62,13 +62,14 @@ static void pace_lines_check(void)
 }
 
 /* The shipped es lines: each name once in the file, none that the card's
- * file system would take as a shelf's own folder (exFAT ignores case), and
- * every line's tag a system's */
+ * file system would take as a shelf's own folder (exFAT ignores case),
+ * every line's tag a system's, and every line whole: the field holds 159
+ * characters, and a longer line would lose its last names */
 static void es_names_check(void)
 {
 	static systems_cfg c;
 	char names[512][CFG_STR], one[CFG_STR];
-	int n = 0, i, k, j, lines = 0, tags = 0, dup = 0, own = 0;
+	int n = 0, i, k, j, lines = 0, tags = 0, dup = 0, own = 0, cut = 0;
 	FILE *f;
 	char line[1024];
 
@@ -90,10 +91,93 @@ static void es_names_check(void)
 	ck(!dup, "an ES name belongs to one shelf");
 	ck(!own, "no ES name is a shelf's own folder in other capitals");
 	if (!(f = fopen("config/systems.cfg", "r"))) { ck(0, "systems.cfg opens"); return; }
-	while (fgets(line, sizeof line, f))
-		if (!strncmp(line, "es|", 3)) lines++;
+	while (fgets(line, sizeof line, f)) {
+		char *tag = line + 3, *list;
+
+		if (strncmp(line, "es|", 3)) continue;
+		lines++;
+		if (!(list = strchr(tag, '|'))) continue;
+		*list++ = '\0';
+		list[strcspn(list, "\r\n")] = '\0';
+		for (i = 0; i < c.count; i++)
+			if (!strcmp(c.systems[i].tag, tag) && strcmp(c.systems[i].es, list)) {
+				printf("    es|%s is cut to %s\n", tag, c.systems[i].es);
+				cut++;
+			}
+	}
 	fclose(f);
 	ck(lines == tags, "every es line's tag is a system's");
+	ck(!cut, "and every es line read whole");
+}
+
+/* The folders other systems keep a console's games in, each read on its
+ * shelf alone: ZyperOS's own folder in other capitals, or one of that
+ * shelf's es names. "playstation" first, which a player coming from
+ * ROCKNIX asked about (2026-11-20): it is Roms/PlayStation on the card,
+ * exFAT ignoring case. Then every folder under ROCKNIX's roms/ for a
+ * system ZyperOS has (its config/emulators, SYSTEM_PATH, read that day),
+ * and the folders Knulli and Batocera, ArkOS, RetroPie and Recalbox use
+ * for those systems where ROCKNIX's differ. AmberELEC's and JELOS's are
+ * all ROCKNIX's. */
+static void es_folders_check(void)
+{
+	static const struct { const char *folder, *tag; } TO[] = {
+		{ "playstation", "PS1" },
+		/* ROCKNIX */
+		{ "3do", "3DO" }, { "arcade", "ARCADE" }, { "atari2600", "A2600" },
+		{ "atari5200", "A5200" }, { "atari7800", "A7800" }, { "atarilynx", "LYNX" },
+		{ "atomiswave", "AW" }, { "coleco", "COLECO" }, { "cps1", "ARCADE" },
+		{ "cps2", "ARCADE" }, { "cps3", "ARCADE" }, { "doom", "DOOM" },
+		{ "dreamcast", "DC" }, { "famicom", "NES" }, { "fbneo", "ARCADE" },
+		{ "fds", "NES" }, { "gameandwatch", "GW" }, { "gamegear", "GG" },
+		{ "gamegearh", "GG" }, { "gb", "GB" }, { "gba", "GBA" }, { "gbah", "GBA" },
+		{ "gbav", "GBA" }, { "gbc", "GBC" }, { "gbch", "GBC" }, { "gbh", "GB" },
+		{ "genesis", "MD" }, { "genh", "MD" }, { "j2me", "J2ME" }, { "mame", "MAME" },
+		{ "mastersystem", "SMS" }, { "megacd", "SEGACD" }, { "megadrive", "MD" },
+		{ "megadrive-japan", "MD" }, { "megadriveh", "MD" }, { "msx", "MSX2" },
+		{ "msx2", "MSX2" }, { "n64", "N64" }, { "naomi", "NAOMI" }, { "nds", "NDS" },
+		{ "neocd", "NEOCD" }, { "neogeo", "NEOGEO" }, { "nes", "NES" },
+		{ "nesh", "NES" }, { "ngp", "NGP" }, { "ngpc", "NGPC" },
+		{ "openbor", "OPENBOR" }, { "pcengine", "PCE" }, { "pcenginecd", "PCE" },
+		{ "pico-8", "PICO8" }, { "pokemini", "PKMINI" }, { "ports", "PRT" },
+		{ "psp", "PSP" }, { "pspminis", "PSP" }, { "psx", "PS1" },
+		{ "saturn", "SATURN" }, { "sega32x", "32X" }, { "segacd", "SEGACD" },
+		{ "sfc", "SFC" }, { "sg-1000", "SG1000" }, { "sgfx", "PCE" },
+		{ "snes", "SFC" }, { "snesh", "SFC" }, { "tg16", "PCE" },
+		{ "tg16cd", "PCE" }, { "tic-80", "TIC80" }, { "vectrex", "VECTREX" },
+		{ "virtualboy", "VB" }, { "wonderswan", "WS" },
+		{ "wonderswancolor", "WSC" },
+		/* Knulli and Batocera, ArkOS, RetroPie, Recalbox */
+		{ "colecovision", "COLECO" }, { "fba", "ARCADE" }, { "gw", "GW" },
+		{ "lynx", "LYNX" }, { "mame-libretro", "MAME" }, { "mame2003", "MAME" },
+		{ "msx1", "MSX2" }, { "msx2+", "MSX2" }, { "neogeocd", "NEOCD" },
+		{ "pico8", "PICO8" }, { "prboom", "DOOM" }, { "scummvm", "SCUMMVM" },
+		{ "sg1000", "SG1000" }, { "sgb", "GB" }, { "snes-hacks", "SFC" },
+		{ "supergrafx", "PCE" }, { "tic80", "TIC80" }, { "turbografx", "PCE" },
+		{ "turbografxcd", "PCE" }, { "wswan", "WS" }, { "wswanc", "WSC" },
+	};
+	static systems_cfg c;
+	char one[CFG_STR];
+	int t, i, k, bad = 0;
+
+	ck(cfg_load_systems("config/systems.cfg", &c), "config/systems.cfg loads");
+	for (t = 0; t < (int)(sizeof TO / sizeof TO[0]); t++) {
+		const char *on = NULL;
+		int shelves = 0;
+
+		for (i = 0; i < c.count; i++) {
+			bool reads = !strcasecmp(c.systems[i].folder, TO[t].folder);
+
+			for (k = 0; !reads && cfg_es_at(&c.systems[i], k, one, sizeof one); k++)
+				if (!strcasecmp(one, TO[t].folder)) reads = true;
+			if (reads) { on = c.systems[i].tag; shelves++; }
+		}
+		if (shelves == 1 && !strcmp(on, TO[t].tag)) continue;
+		if (shelves > 1) printf("    %s reads on %d shelves, wanted %s alone\n", TO[t].folder, shelves, TO[t].tag);
+		else printf("    %s reads on %s, wanted %s\n", TO[t].folder, on ? on : "no shelf", TO[t].tag);
+		bad++;
+	}
+	ck(!bad, "playstation, ROCKNIX's every folder and the other systems' read on their shelves");
 }
 
 /* tools/from-rogue.sh's table, which copies ROGUE OS's folders into
@@ -173,12 +257,17 @@ int main(void)
 	      "needs|NAM|gpu-frames\n"
 	      "needs|LOW|teleporter\n"
 	      "needs|NOPE|gpu-frames\n"
-	      "es|NAM|famicom, fds\n", f);
+	      "frameskip|WRD|late\n"
+	      "frameskip|BLK|always\n"
+	      "es|NAM|famicom, fds\n"
+	      "sys|Two|two|run:Emulators/Two/Two.sh,core|TWO|T.png|C4443A|gb\n"
+	      "brings|TWO|run:Emulators/Two/Two.sh|Bios/Two/a,Bios/Two/b\n"
+	      "brings|NAM|run:Emulators/None/None.sh|Bios/x\n", f);
 	fclose(f);
 
 	printf("reading:\n");
 	ck(cfg_load_systems(path, &c), "the file loads");
-	ck(c.count == 11, "every sys line is a system, colored or not");
+	ck(c.count == 12, "every sys line is a system, colored or not");
 
 	printf("a color:\n");
 	s = find(&c, "Named");
@@ -231,40 +320,61 @@ int main(void)
 		   "a need the launcher does not know is none, and changes nothing else");
 		s = find(&c, "Late");
 		ck(s && !s->needs_gpu_frames, "a system with no needs line needs nothing");
-		cfg_run_keys(find(&c, "Named"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Named"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=medium"), "a need is no RUN key");
 
-		cfg_run_keys(find(&c, "Black"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
 		s = find(&c, "Lower");
 		ck(s && !strcmp(s->pace, "smooth"), "pace|tag|smooth gives the system Timing, Smooth its own");
+		s = find(&c, "Two");
+		ck(s && !strcmp(s->brings_core, "run:Emulators/Two/Two.sh") && !strcmp(s->brings, "Bios/Two/a,Bios/Two/b"),
+		   "brings| gives the shelf's core the files the player brings");
+		ck(s && !strcmp(s->core, "run:Emulators/Two/Two.sh") && cfg_core_count(s) == 2,
+		   "and the core field keeps its two cores");
+		s = find(&c, "Named");
+		ck(s && !s->brings_core[0] && !s->brings[0], "a brings line for a core the shelf lacks is none");
 		s = find(&c, "Black");
 		ck(s && !s->pace[0], "and a word that is neither smooth nor exact is no line: no Timing row");
 		s = find(&c, "Named");
 		ck(s && !s->pace[0], "nor has a system with no pace line one");
-		cfg_run_keys(find(&c, "Lower"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Lower"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517\tpace=smooth"), "controller=, then the system's own pace=");
-		cfg_run_keys(find(&c, "Lower"), false, NULL, "exact", keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Lower"), false, "exact", keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517\tpace=exact"), "the player's choice over the system's");
-		cfg_run_keys(find(&c, "Lower"), false, NULL, "fast", keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Lower"), false, "fast", keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517\tpace=smooth"), "a choice that is none: the system's own");
-		cfg_run_keys(find(&c, "Named"), false, NULL, "smooth", keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Named"), false, "smooth", keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=medium"), "and no pace= at all where the system has no Timing row");
 		s = find(&c, "Late");
 		ck(s && s->rumble == 35, "rumble| gives the motor's share, in percent");
 		s = find(&c, "Lower");
 		ck(s && s->rumble == 0, "and none is 0, the core's own");
-		cfg_run_keys(find(&c, "Late"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Late"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=light\tcontroller=517\trumble=35\tpace=exact"), "power=, controller=, rumble=, pace=");
-		cfg_run_keys(find(&c, "Late"), true, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Late"), true, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "screens=2\tframeskip=late\tpower=light\tcontroller=517\trumble=35\tpace=exact"),
 		   "two screens first, all tab separated");
-		cfg_run_keys(find(&c, "Black"), true, NULL, NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone");
-		cfg_run_keys(find(&c, "Black"), true, "steady", NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=steady"), "When Slow's Steady 30 is frameskip=steady");
-		cfg_run_keys(find(&c, "Black"), false, "steady", NULL, keys, (int)sizeof keys);
+		/* frameskip=late always: the DS shelf's When Slow is gone (1.0.6), so
+		 * a Steady 30 a card kept from before has nothing that sends it */
+		cfg_run_keys(find(&c, "Black"), true, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone, frameskip=late");
+		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "and one screen sends no frameskip at all");
+
+		/* frameskip|tag|late: the late skip without two screens (the PSP's) */
+		s = find(&c, "Word");
+		ck(s && s->late_skip, "frameskip|tag|late gives the system the late skip");
+		s = find(&c, "Black");
+		ck(s && !s->late_skip, "a word that is not late is no line");
+		s = find(&c, "Named");
+		ck(s && !s->late_skip, "nor has a system with no frameskip line it");
+		cfg_run_keys(find(&c, "Word"), false, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "frameskip=late"), "frameskip=late, with one screen");
+		cfg_run_keys(find(&c, "Word"), true, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "screens=2\tframeskip=late"), "and two screens send it once, after screens=2");
+		cfg_run_keys(find(&c, "Lower"), false, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "controller=517\tpace=smooth"), "a system without the line sends none");
 	}
 
 	printf("EmulationStation's folder names:\n");
@@ -333,12 +443,43 @@ int main(void)
 			ck(!strcmp(gpu, "AW DC NAOMI N64 PSP SATURN "),
 			   "GPU frames for the Atomiswave, Dreamcast, NAOMI, N64, PSP and Saturn, no other");
 		}
+		{
+			char late[128] = "", keys[96];
+
+			/* The late skip by a line: the PSP's (its core leaves a late
+			 * frame's drawing out, mk/patches/ppsspp-frontend-frameskip.patch);
+			 * the DS has it with its two screens, without one */
+			for (i = 0; i < c.count; i++)
+				if (c.systems[i].late_skip) {
+					strcat(late, c.systems[i].tag);
+					strcat(late, " ");
+				}
+			ck(!strcmp(late, "PSP "), "frameskip=late by a line for the PSP, no other");
+			for (i = 0; i < c.count && strcmp(c.systems[i].tag, "PSP"); i++) {}
+			if (i < c.count) cfg_run_keys(&c.systems[i], false, NULL, keys, (int)sizeof keys);
+			ck(i < c.count && !strncmp(keys, "frameskip=late", 14), "and a PSP game's RUN sends frameskip=late");
+		}
+		/* Your PICO-8: the player's files, never shipped, for the core
+		 * listed first, with fake08 after it for every other card */
+		for (i = 0; i < c.count && strcmp(c.systems[i].tag, "PICO8"); i++) {}
+		ck(i < c.count && !strcmp(c.systems[i].cores, "run:ZyperOS/pico8/PICO-8.sh,fake08"),
+		   "PICO-8: your PICO-8 first, fake08 after it");
+		ck(i < c.count && !strcmp(c.systems[i].brings_core, "run:ZyperOS/pico8/PICO-8.sh") &&
+		   !strcmp(c.systems[i].brings, "Bios/PICO-8/pico8_64,Bios/PICO-8/pico8.dat"),
+		   "and your PICO-8 needs the zip's two files in Bios/PICO-8");
+		{
+			int k, nb = 0;
+
+			for (k = 0; k < c.count; k++) if (c.systems[k].brings_core[0]) nb++;
+			ck(nb == 1, "no other shelf has files the player brings");
+		}
 		/* and the tags, which settings hang off, went with their names */
 		ck(!strcmp(c.systems[0].tag, "3DO") && !strcmp(c.systems[n - 1].tag, "PRT"),
 		   "each line moves whole");
 	}
 
 	es_names_check();
+	es_folders_check();
 	pace_lines_check();
 	from_rogue_check();
 

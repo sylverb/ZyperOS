@@ -10,8 +10,7 @@
 
 /* What is kept on the card for button remapping, and what the game is sent.
  * It reads and writes the library database (db_lib) and nothing else: no
- * SDL. Design: docs/superpowers/specs/2026-11-13-button-remap-design.md,
- * sections 4, 5 and 9.
+ * SDL. Design: DESIGN.md 11.45.
  *
  *     map.<TAG>          the system's pairs that differ from ZyperOS's default
  *     map.<TAG>.<file>   a game's pairs that differ from ZyperOS's default, the whole
@@ -57,8 +56,12 @@ bool rms_stick_get(const system_cfg *s, const char *file);
 void rms_stick_put(const system_cfg *s, const char *file, bool on);
 
 /* The RUN key for the stick: stick=dpad, stick=plain, stick=toggle (the
- * PSP's, R2 turns it) or stick=toggle-stick; "" for none */
-void rms_run_stick(const system_cfg *s, bool on, char *key, size_t n);
+ * PSP's, on the d-pad's side until its Stick On/Off button turns it) or
+ * stick=toggle-stick; "" for none. `keys`: the table sent gives a button the
+ * stick (rm_has_stick), so a stick that is off is sent on the d-pad's side,
+ * stick=dpad-pad or plain-pad, for that button to turn; with none it is ""
+ * as ever. */
+void rms_run_stick(const system_cfg *s, bool on, bool keys, char *key, size_t n);
 
 /* The table a game is sent: rms_game, with one rule. Where the stick's own
  * rule takes SELECT (mode dpad: the N64 and the Dreamcast), a SELECT pair

@@ -46,15 +46,17 @@
 enum { OSDBAR_BRIGHT = 1, OSDBAR_VOLUME = 2, OSDBAR_POWER = 3 };   /* plat_osd_show's kinds */
 
 /* POWER held to turn the handheld off (src/powerhold.h, MENU > Power Button
- * on Hold): the power mark, and a segment lit for each tenth of the hold,
+ * on Hold): the power mark, and a segment lit for each twentieth of the hold,
  * in accent-ink as the lock screen's bar and the charging screen's hold
  * fill. Its level is how many are lit, of this many. */
 #define OSDBAR_POWER_STEPS 20
 
-/* The buffer: the pill (452 x 64) and a margin around it its shadow falls
- * into, in units. OSDBAR_X/Y are where the buffer's top left goes on the
- * screen, which puts the pill 22 units under the top edge, centered. */
-#define OSDBAR_W 476
+/* The buffer: the pill (452 x 64), room for it to grow by its boost cells
+ * (src/boost.h: up to 117 units wider, the six volume cells and the push at
+ * the end), and a margin around it its shadow falls into, in units.
+ * OSDBAR_X/Y are where the buffer's top left goes on the screen, which puts
+ * the pill 22 units under the top edge, centered, at every width. */
+#define OSDBAR_W 596
 #define OSDBAR_H 92
 #define OSDBAR_X ((1024 - OSDBAR_W) / 2)
 #define OSDBAR_Y 10
@@ -73,6 +75,47 @@ enum { OSDBAR_BRIGHT = 1, OSDBAR_VOLUME = 2, OSDBAR_POWER = 3 };   /* plat_osd_s
 
 /* The buffer's size in pixels at `scale`. */
 void osdbar_size(float scale, int *w, int *h);
+
+/* Everything the bar shows at one moment, for a host that animates it
+ * (src/boost.h works it out from the level, the boost and the clock):
+ *
+ * - the mark follows the level as it moves: the speaker's waves grow arc by
+ *   arc, each over its third of the scale, and the sun's rays and disc grow;
+ *   `mark` is that level as a share of the top, moving in quick, and `cut`
+ *   the speaker's cross at silence, fading in and out;
+ * - past the top, `ncells` boost cells in the theme's warning color, each a
+ *   little taller than the one before, the bar grown both ways to hold them
+ *   (`grow`), a thin mark at the top between them and the steps (`tick`);
+ *   each cell's `fill` wipes it in from the left;
+ * - before the boost opens, the end pushing out by one big charging cell
+ *   that fills with `charge`; `morph` settles it to a cell's size as the
+ *   other cells spawn; the boost's parts of the mark (a fourth wave, eight
+ *   short rays) grow with the cells filled;
+ * - `flash`, the rim in the warning color as it opens, and `push`, a small
+ *   push of the end when a press finds the boost full.
+ *
+ * All of it 0 (and ncells 0) is the bar as it was before the boost: the
+ * pill 452 wide, the level's cells, the mark. */
+#define OSDBAR_BOOST_MAX 6
+typedef struct {
+	int kind;                         /* OSDBAR_BRIGHT, OSDBAR_VOLUME, OSDBAR_POWER */
+	int level, max;                   /* the cells lit, of max */
+	float mark;                       /* 0..1, the mark's level */
+	float cut;                        /* 0..1, the speaker's cross */
+	int ncells;                       /* boost cells, 0..OSDBAR_BOOST_MAX */
+	float fill[OSDBAR_BOOST_MAX];     /* 0..1 each */
+	float charge;                     /* 0..1, the charging cell's fill */
+	float grow, morph, tick, flash, push;   /* 0..1 each */
+} osdbar_look;
+
+/* A look of the plain bar: the level, its mark at rest, no boost */
+void osdbar_look_plain(osdbar_look *l, int kind, int level, int max);
+
+/* osdbar_render for a look: the same buffer, the same caching (a call with
+ * the same look, theme and size at another opacity converts what was
+ * painted), painted again whenever any of it changes. */
+void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
+                        int theme, const osdbar_look *look, float alpha, bool premul);
 
 /* Theme `theme`'s colors for the bar from now on: the six roles it draws with
  * (surface, edge, track, accent-ink, light, ink) taken from `t`, the player's

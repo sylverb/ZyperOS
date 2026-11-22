@@ -22,10 +22,12 @@
 #include "displayback.h"
 #include "fileio.h"
 #include "nightkeep.h"
+#include "levels.h"
 #include "panelgamma.h"
 #include "phonelink.h"
 #include "platform.h"
 #include "portmenu.h"
+#include "screenfx_draw.h"
 #include "spawn.h"
 #include "thermal.h"
 
@@ -234,16 +236,18 @@ static bool take_back(unsigned max_ms, int *err)
 static struct {
 	bool         on;
 	SDL_Texture *tex;
+	SDL_Rect     src;                  /* the part of tex to draw; w 0 for all of it */
 	SDL_Rect     dst;                  /* in screen coordinates */
 	SDL_Color    bg;
 } under;
 
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg)
 {
 	SDL_BlendMode mode;
 
 	under.on = true;
 	under.tex = tex;
+	under.src = src ? *src : (SDL_Rect){ 0, 0, 0, 0 };
 	under.dst = dst ? *dst : (SDL_Rect){ 0, 0, 0, 0 };
 	under.bg = bg;
 	/* The screen clear, so the picture shows through wherever this frame
@@ -274,8 +278,27 @@ static void show_under(void)
 
 	SDL_SetRenderDrawColor(ren, under.bg.r, under.bg.g, under.bg.b, 255);
 	SDL_RenderClear(ren);
-	if (under.tex) SDL_RenderCopyExF(ren, under.tex, NULL, &r, panel_turn, NULL, SDL_FLIP_NONE);
+	if (under.tex)
+		SDL_RenderCopyExF(ren, under.tex, under.src.w > 0 ? &under.src : NULL, &r, panel_turn,
+		                  NULL, SDL_FLIP_NONE);
 }
+
+/* screen_tex at dest, 1024x768 down to 640x480 and turned onto the panel,
+ * through the screens' shader when one is on (src/screenfx.h): CRT Curved's
+ * bend in place of the plain copy, then the mask over it at the panel's own
+ * pixels, one more pass. Off is the plain copy alone, as it always was. */
+static void draw_picture(const SDL_Rect *dest, bool fx)
+{
+	fx = fx && sfx_on();
+	if (fx && sfx_curved()) sfx_draw_curved(ren, screen_tex, dest, panel_turn);
+	else SDL_RenderCopyEx(ren, screen_tex, NULL, dest, panel_turn, NULL, SDL_FLIP_NONE);
+	if (fx) sfx_draw_mask(ren, dest->w, dest->h, dest, panel_turn);
+}
+
+/* The shader goes on at the panel, in show_screen: a frame read back before
+ * it (a shot) is read from screen_tex, which has none */
+void plat_screen_finish(void) { }
+bool plat_screen_shader_in_frame(void) { return false; }
 
 /* Black around the picture, then the picture: 1024x768 down to 640x480 and a
  * quarter turn counter-clockwise, which on this panel ("Left Side Up") is the
@@ -299,13 +322,22 @@ static void show_screen(void)
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
 		show_under();
 		SDL_SetTextureBlendMode(screen_tex, premul);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
-		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_BLEND);
+		/* A video plays as it is, at the panel's pixels: no shader */
+		draw_picture(&dest, false);
+		/* ...and back to opaque, as it was made (below), for every frame
+		 * without a video. It was left blending: after the first MP4 video
+		 * every frame went over the black with its alpha, and whatever the
+		 * screen held at alpha 0 - an RGB texture's pixels, which this SDL
+		 * writes so, the Shader list's picture and the paused game's - came
+		 * out black until the launcher started again (2026-11-19, on the
+		 * 1.1.0 test build: "Shaders preview box is not working. It's
+		 * rendering black", after MP4's videos) */
+		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 		under.on = false;
 	} else {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderClear(ren);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+		draw_picture(&dest, true);
 	}
 	SDL_RenderPresent(ren);
 	SDL_SetRenderTarget(ren, screen_tex);
@@ -375,7 +407,7 @@ bool plat_save_screen_hidden(const char *path)
 	if (t && px && SDL_SetRenderTarget(ren, t) == 0) {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderClear(ren);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+		draw_picture(&dest, true);
 		if (SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, px, panel_w * 4) == 0 &&
 		    (f = fopen(path, "wb"))) {
 			ok = fwrite(px, 1, n, f) == n;
@@ -402,7 +434,7 @@ bool plat_save_screen(const char *path)
 	SDL_SetRenderTarget(ren, NULL);
 	SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 	SDL_RenderClear(ren);
-	SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+	draw_picture(&dest, true);
 	if (px && SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, px, panel_w * 4) == 0 &&
 	    (f = fopen(path, "wb"))) {
 		ok = fwrite(px, 1, n, f) == n;
@@ -507,6 +539,9 @@ bool plat_video_init(void)
 		fprintf(stderr, "screen texture: %s\n", SDL_GetError());
 		return false;
 	}
+	/* Onto the panel opaque, whatever its alpha says (show_screen); a
+	 * video's frame alone goes over its picture blended */
+	SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 	SDL_SetRenderTarget(ren, screen_tex);
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 
@@ -543,6 +578,7 @@ void plat_video_quit(void)
 {
 	if (screen_tex) { SDL_DestroyTexture(screen_tex); screen_tex = NULL; }
 	plat_osd_forget();
+	sfx_forget();
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	drm_fd = -1;
@@ -555,6 +591,9 @@ void plat_video_quit(void)
 }
 
 /* Diatom is about to present: it cannot while this process holds master. */
+/* Diatom draws on the panel itself: the launcher waits as long as it likes */
+unsigned device_game_wait(unsigned ms) { return ms; }
+
 void device_display_release(void)
 {
 	if (drm_fd >= 0) ioctl(drm_fd, PX_DRM_IOCTL_DROP_MASTER, 0);
@@ -594,6 +633,7 @@ void device_display_take(void)
 #define BIT_IS_SET(a,b) (((a)[(b) / BITS_PER_LONG] >> ((b) % BITS_PER_LONG)) & 1UL)
 
 static int fd_pad = -1;     /* "gkd_pixel2_joypad": the face, d-pad, shoulders, FUNCTION */
+static int pad_node = -1;   /* its N in /dev/input/eventN, for the motor (plat_rumble_buzz) */
 static int fd_keys = -1;    /* "gpio-keys": volume */
 static int fd_power = -1;   /* "rk805 pwrkey" */
 static int jack_fd = -1;    /* "rk817_int Headphones": the jack switch, for the settings */
@@ -643,7 +683,17 @@ static void input_scan(void)
 		memset(sw, 0, sizeof sw);
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
-		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           fd_pad = fd;
+		/* Not the pad portkeys gives your PICO-8 while it holds the
+		 * joypad (tools/pkvpad.h, "ZyperOS pad for PICO-8"), which is
+		 * there while the in-game menu over PICO-8 runs: its devices are
+		 * named so, and the joypad is the menu's then */
+		if (BIT_IS_SET(keys, BTN_SOUTH)) {
+			char name[64] = "";
+
+			ioctl(fd, EVIOCGNAME(sizeof name), name);
+			if (!strncmp(name, "ZyperOS ", 8)) keys[BTN_SOUTH / BITS_PER_LONG] &= ~(1UL << (BTN_SOUTH % BITS_PER_LONG));
+		}
+		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           { fd_pad = fd; pad_node = i; }
 		else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
 		else if (fd_power < 0 && BIT_IS_SET(keys, KEY_POWER))           fd_power = fd;
 		else if (jack_fd < 0  && BIT_IS_SET(sw, SW_HEADPHONE_INSERT))   jack_fd = fd;
@@ -699,6 +749,56 @@ void plat_input_settle(in_state *st)
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
 
+/* ---------- the motor: a step's buzz -------------------------------------- */
+
+/* The joypad again, opened to write: the motor is its force feedback (PWM0,
+ * the joypad driver's; diatom/port/rumble_evdev.c says how). Opened at the
+ * first buzz and kept, so a step costs one upload and one write, never an
+ * open or a close (a close waits out an RCU grace period, input_scan). Our
+ * effect is ours alone: Diatom's, on its own descriptor, plays beside it,
+ * held still while its game is paused. */
+static int rumble_fd = -1;
+static int rumble_id = -1;
+
+bool plat_rumble_buzz(float scale, int ms)
+{
+	struct ff_effect e;
+	struct input_event ev;
+	uint16_t v;
+	char path[32];
+
+	if (scale <= 0.0f || ms <= 0) return true;      /* Off: nothing to feel */
+	if (rumble_fd < 0) {
+		if (pad_node < 0) return false;
+		snprintf(path, sizeof path, "/dev/input/event%d", pad_node);
+		if ((rumble_fd = open(path, O_RDWR | O_NONBLOCK | O_CLOEXEC)) < 0) {
+			fprintf(stderr, "rumble: %s: %s\n", path, strerror(errno));
+			return false;
+		}
+	}
+	v = scale >= 1.0f ? 0xFFFF : (uint16_t)((float)0xFFFF * scale + 0.5f);
+	memset(&e, 0, sizeof e);
+	e.type = FF_RUMBLE;
+	e.id = (int16_t)rumble_id;
+	/* The driver runs the motor from the strong one; both, as SDL sends */
+	e.u.rumble.strong_magnitude = v;
+	e.u.rumble.weak_magnitude = v;
+	/* ff-memless ends it after this long and tells the driver 0: a buzz
+	 * stops itself, whatever the launcher does next */
+	e.replay.length = (uint16_t)(ms > 2000 ? 2000 : ms);
+	if (ioctl(rumble_fd, EVIOCSFF, &e) < 0) {
+		fprintf(stderr, "rumble: upload: %s\n", strerror(errno));
+		rumble_id = -1;
+		return false;
+	}
+	rumble_id = e.id;
+	memset(&ev, 0, sizeof ev);
+	ev.type = EV_FF;
+	ev.code = (uint16_t)rumble_id;
+	ev.value = 1;
+	return write(rumble_fd, &ev, sizeof ev) == (ssize_t)sizeof ev;
+}
+
 /* FUNCTION is MENU, and also the modifier that makes the volume keys
  * brightness: this device has no brightness keys, and MENU plus volume is
  * brightness in games too, so the same chord does the same thing on both
@@ -709,7 +809,7 @@ void plat_input_quit(void) { }
  * comes UP, unless a volume key came in between. That costs a tap's length
  * before a menu opens, accepted on 2026-10-01; in games MENU has always worked
  * this way. Holding both volume keys with FUNCTION is holding both brightness
- * keys, which is the Brick's pocket lock, so Muse's lock works unchanged. */
+ * keys, which is the Brick's pocket lock, so MP4's lock works unchanged. */
 static bool fn_down;            /* FUNCTION is held */
 static bool fn_chorded;         /* and a volume key was used under it */
 static bool menu_release_next;  /* a MENU tap reported last poll ends this one */
@@ -838,8 +938,9 @@ void plat_input_wait(unsigned ms)
 	if (fd_keys >= 0)  p[n++] = (struct pollfd){ .fd = fd_keys,  .events = POLLIN };
 	if (fd_power >= 0) p[n++] = (struct pollfd){ .fd = fd_power, .events = POLLIN };
 	/* POWER held in Hold mode: woken for the pill's next segment and the
-	 * hold's end, which no event marks */
-	ms = plat_power_wait(ms);
+	 * hold's end, which no event marks; and the work behind every screen
+	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
@@ -1009,7 +1110,7 @@ static void apply_volume(int v)
 }
 
 /* alsa-lib makes the USB control itself the first time something plays
- * through a DAC, at 0 dB, the loudest there is. Made here first, before Muse
+ * through a DAC, at 0 dB, the loudest there is. Made here first, before MP4
  * or a game can play, it is kept as it is, at the player's level. It has to
  * be the shape alsa-lib checks for, or it is replaced: two channels, 0-255,
  * and a dB scale. A control added by hand stays until the next boot, so a
@@ -1162,7 +1263,7 @@ void plat_screen_colors_tick(bool now)
 
 void plat_screen_colors(const screen_colors *c, bool keep)
 {
-	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0, 0 };
 
 	panelgamma_color_clamp(&want);
 	if (keep) {
@@ -1171,9 +1272,23 @@ void plat_screen_colors(const screen_colors *c, bool keep)
 	}
 	screen_saturation_apply(c->saturation);
 	want.night = night_now(time(NULL));
+	want.lift = screen_want.lift;   /* the brightness boost's, kept across */
 	screen_want = want;
 	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
 	plat_screen_colors_tick(false);
+}
+
+/* The brightness boost's lift (src/levels.c, DESIGN.md 11.6): on the
+ * display's table with the player's colors, at once - the step's one-frame
+ * blink on the Pixel 2, none on the Brick, whose table loads at vblank */
+void plat_brightness_lift(int lift)
+{
+	if (lift < 0) lift = 0;
+	if (lift > PANELGAMMA_LIFT_MAX) lift = PANELGAMMA_LIFT_MAX;
+	if (screen_want.lift == lift) return;
+	screen_want.lift = lift;
+	screen_held = memcmp(&screen_want, &screen_color, sizeof screen_want) != 0;
+	plat_screen_colors_tick(true);
 }
 
 /* The warmth wanted now on the display, loaded at once (`at_once`: a kept
@@ -1298,13 +1413,13 @@ void plat_settings_init(void)
 	if (cur_vol >= 0) apply_volume(cur_vol);
 	apply_brightness(cur_bright);
 	/* Lit, whatever the launcher before this one left: it turns the light off
-	 * for Muse's lock and for the shelf on the charger (src/chargedark.h),
+	 * for MP4's lock and for the shelf on the charger (src/chargedark.h),
 	 * and one killed in either kept the panel dark until the next boot. */
 	plat_backlight(true);
 }
 
 /* Off and back on at the same level: bl_power, the backlight's own switch, so
- * the brightness is not touched. Muse's pocket lock. */
+ * the brightness is not touched. MP4's pocket lock. */
 void plat_backlight(bool on)
 {
 	write_file(BACKLIGHT_POWER, on ? "0\n" : "4\n");
@@ -1342,6 +1457,9 @@ void plat_display_plain(void)
 void plat_audio_jack_poll(void)
 {
 	if (!aout_should_reapply(jack_was, jack_present() != 0, cur_vol >= 0)) return;
+	/* A plug in or out closes the volume boost: the new output starts at
+	 * the top without it (src/levels.c), the first poll aside */
+	if (jack_was >= 0) levels_output_changed();
 	apply_volume(cur_vol);
 }
 
@@ -1894,7 +2012,7 @@ side_lights plat_side_lights(void)
 	int fd = open(SIDE_LIGHTS_FILE, O_RDONLY | O_CLOEXEC);
 	ssize_t n;
 
-	if (fd < 0) return LIGHTS_ALL;
+	if (fd < 0) return LIGHTS_DEFAULT;
 	n = read(fd, text, sizeof text - 1);
 	close(fd);
 	text[n > 0 ? n : 0] = '\0';
@@ -2138,7 +2256,11 @@ void plat_charge_limit_set(int pct)
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
-	return "/sys/class/power_supply/battery";
+	/* ZYPEROS_BATTERY_DIR stands in for the gauge's folder: a host shot's
+	 * About with a battery in it (tools/i18n-shots.py's BATTERY_DIRS) */
+	const char *dir = getenv("ZYPEROS_BATTERY_DIR");
+
+	return dir && *dir ? dir : "/sys/class/power_supply/battery";
 }
 
 bool plat_battery(int *pct, bool *charging)

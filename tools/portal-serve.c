@@ -5,6 +5,8 @@
  *
  *     make build-native/portal-serve
  *     build-native/portal-serve CARD WEB [usb] [update=off|on|ready] [space=FREE/TOTAL] [lang=CODE]
+ *                                         [folders=WORD]
+ *     build-native/portal-serve CARD WEB games
  *
  * CARD holds Roms/, Music/, Bios/, Saves/ and the rest as a card does,
  * ZyperOS/systems.cfg for the consoles' colors and icons, and
@@ -20,7 +22,9 @@
  * installed. "space=88.4/119" answers the card's room, in GB, as a card of
  * that size would rather than the computer's disk. "lang=fr" is MENU >
  * Language: the page and the server's words in that language (src/i18n.h),
- * English without it. It prints the PIN and the port on one line, then
+ * English without it. "folders=teal" is MENU > Display > Theme's Folder
+ * Color (look.folders' word, src/look.h): every console's folder in that
+ * color, each its own without it. It prints the PIN and the port on one line, then
  * serves until stdin closes, or a line on it says to stop as the handheld's
  * question does:
  * "after" (once the files on their way are in) or "now"; "usb" and "wifi"
@@ -31,22 +35,40 @@
  * does (the browser hears an error, the server a hang-up), and "back"
  * answers again. Like the
  * device it listens on every address (port 8080 or 8081 here, 80 needing
- * root), so use a scratch card. No SDL, no device. */
+ * root), so use a scratch card. No SDL, no device.
+ *
+ * "games" serves nothing: it prints what the handheld would show for each
+ * game on the card, for tools/portal-check.py to hold the page's rows to.
+ * Each folder at the top of CARD/Roms that is a system's (its own folder or
+ * one of its EmulationStation names, systems.cfg's sys and es lines) is
+ * read by the shelf's scan (src/library.c's lib_scan_listing, with the
+ * system's extensions), and each game's picture and video are found by the
+ * launcher's lookup (src/esmedia.h's game_media), a line a game:
+ *
+ *     folder TAB launch path TAB its folders' length TAB picture TAB video
+ *
+ * the picture and the video full paths, or empty for none. */
+#include <dirent.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
+#include "../src/esmedia.h"
 #include "../src/hare.h"
 #include "../src/i18n.h"
+#include "../src/library.h"
+#include "../src/look.h"
+#include "../src/xfer.h"
 
 #define MAX_SYS 64
 
-static struct { char folder[64], key[32]; unsigned rgb; } g_sys[MAX_SYS];
+static struct { char folder[64], key[32], tag[16], exts[256], es[256]; unsigned rgb; } g_sys[MAX_SYS];
 static int g_nsys;
 
 /* The shelf's art for a tag (src/home.c's asset_for) */
@@ -58,7 +80,8 @@ static const char *art_key(const char *tag)
 	return tag;
 }
 
-/* sys|name|folder|core|tag|art|accent|... from the card's systems.cfg */
+/* sys|name|folder|core|tag|art|accent|extensions|... from the card's
+ * systems.cfg, and es|tag|names for the EmulationStation folders */
 static void read_systems(const char *card)
 {
 	char path[1024], line[512];
@@ -66,25 +89,86 @@ static void read_systems(const char *card)
 
 	snprintf(path, sizeof path, "%s/ZyperOS/systems.cfg", card);
 	f = fopen(path, "r");
-	while (f && g_nsys < MAX_SYS && fgets(line, sizeof line, f)) {
-		char *field[8] = { 0 }, *p = line;
+	while (f && fgets(line, sizeof line, f)) {
+		char *field[9] = { 0 }, *p = line;
 		int n = 0;
 
-		if (strncmp(line, "sys|", 4)) continue;
-		while (n < 8 && (field[n] = strsep(&p, "|"))) n++;
+		line[strcspn(line, "\r\n")] = '\0';
+		if (!strncmp(line, "es|", 3)) {
+			while (n < 3 && (field[n] = strsep(&p, "|"))) n++;
+			for (int i = 0; n == 3 && i < g_nsys; i++)
+				if (!strcmp(g_sys[i].tag, field[1]))
+					snprintf(g_sys[i].es, sizeof g_sys[i].es, "%s", field[2]);
+			continue;
+		}
+		if (strncmp(line, "sys|", 4) || g_nsys == MAX_SYS) continue;
+		while (n < 9 && (field[n] = strsep(&p, "|"))) n++;
 		if (n < 7) continue;
 		snprintf(g_sys[g_nsys].folder, sizeof g_sys[g_nsys].folder, "%s", field[2]);
 		snprintf(g_sys[g_nsys].key, sizeof g_sys[g_nsys].key, "%s", art_key(field[4]));
+		snprintf(g_sys[g_nsys].tag, sizeof g_sys[g_nsys].tag, "%s", field[4]);
+		snprintf(g_sys[g_nsys].exts, sizeof g_sys[g_nsys].exts, "%s", n > 7 ? field[7] : "");
 		g_sys[g_nsys++].rgb = (unsigned)strtoul(field[6], NULL, 16);
 	}
 	if (f) fclose(f);
 }
 
+/* The system whose shelf reads `folder`: its own folder, or one of its
+ * EmulationStation names, in any case as the card's file system takes them */
+static int system_of(const char *folder)
+{
+	for (int i = 0; i < g_nsys; i++) {
+		char names[256], *p = names, *name;
+
+		if (!strcasecmp(g_sys[i].folder, folder)) return i;
+		snprintf(names, sizeof names, "%s", g_sys[i].es);
+		while ((name = strsep(&p, ",")))
+			if (*name && !strcasecmp(name, folder)) return i;
+	}
+	return -1;
+}
+
+/* "games": what the handheld shows for each game on the card (see the top) */
+static int print_games(const char *roms)
+{
+	DIR *d = opendir(roms);
+	struct dirent *e;
+
+	if (!d) { perror(roms); return 1; }
+	while ((e = readdir(d))) {
+		game_list l = { 0 };
+		int s;
+
+		if (e->d_name[0] == '.' || (s = system_of(e->d_name)) < 0) continue;
+		if (!lib_scan_listing(roms, e->d_name, g_sys[s].exts, &l)) { lib_free(&l); continue; }
+		for (int i = 0; i < l.count; i++) {
+			const game_entry *g = &l.items[i];
+			char cover[ES_PATH], video[ES_PATH];
+
+			game_media(roms, e->d_name, g->file, g->name, ES_COVER, true, cover, sizeof cover);
+			game_media(roms, e->d_name, g->file, g->name, ES_VIDEO, true, video, sizeof video);
+			printf("%s\t%s\t%u\t%s\t%s\n", e->d_name, g->file, (unsigned)g->dir, cover, video);
+		}
+		lib_free(&l);
+	}
+	closedir(d);
+	return 0;
+}
+
+/* A console's color, as Folder Color gives it (src/xfer_screen.c's) */
 static unsigned folder_color(const char *folder)
 {
 	for (int i = 0; i < g_nsys; i++)
-		if (!strcmp(g_sys[i].folder, folder)) return g_sys[i].rgb;
+		if (!strcmp(g_sys[i].folder, folder)) return look_folder_rgb(g_sys[i].rgb);
 	return 0xFF000000u;
+}
+
+/* A system's folder, as xfer_set_systems asks (src/xfer_screen.c's) */
+static bool folder_known(const char *folder)
+{
+	for (int i = 0; i < g_nsys; i++)
+		if (!strcasecmp(g_sys[i].folder, folder)) return true;
+	return false;
 }
 
 static const char *folder_icon(const char *folder)
@@ -192,15 +276,18 @@ int main(int argc, char **argv)
 	struct pollfd in = { .fd = 0, .events = POLLIN };
 
 	if (argc < 3) {
-		fprintf(stderr, "usage: %s CARD WEB [usb] [update=off|on|ready] [space=FREE/TOTAL] [lang=CODE]\n", argv[0]);
+		fprintf(stderr, "usage: %s CARD WEB [usb] [update=off|on|ready] [space=FREE/TOTAL] [lang=CODE] "
+		        "[folders=WORD]\n       %s CARD WEB games\n", argv[0], argv[0]);
 		return 2;
 	}
 	snprintf(roms, sizeof roms, "%s/Roms", argv[1]);
 	snprintf(shared, sizeof shared, "%s/.userdata/shared", argv[1]);
 	snprintf(icons, sizeof icons, "%s/ZyperOS/system-icons", argv[1]);
 	read_systems(argv[1]);
+	if (argc > 3 && !strcmp(argv[3], "games")) return print_games(roms);
 	hare_set_folder_color(folder_color);
 	hare_set_folder_icon(folder_icon);
+	xfer_set_systems(g_nsys ? folder_known : NULL);
 	hare_set_icons(icons);
 	for (int i = 3; i < argc; i++) {
 		if (!strcmp(argv[i], "usb")) {
@@ -216,6 +303,11 @@ int main(int argc, char **argv)
 			}
 		} else if (!strncmp(argv[i], "lang=", 5)) {
 			i18n_set(lang_parse(argv[i] + 5));
+		} else if (!strncmp(argv[i], "folders=", 8)) {
+			look l = LOOK_DEFAULT;
+
+			l.folder = look_folder_parse(argv[i] + 8);
+			look_set(&l);
 		} else if (!strncmp(argv[i], "update=", 7)) {
 			g_update = argv[i] + 7;
 			if (!strcmp(g_update, "ready")) g_state = "ready";

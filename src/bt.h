@@ -122,7 +122,7 @@ bool bt_forget(const char *mac);
  * bt-alsa.sh says why there is one now. Waits for the shell to finish, and its
  * errors go to the log.
  *
- * A running emulator or Muse picks it up at its next open, because launch.sh
+ * A running emulator or MP4 picks it up at its next open, because launch.sh
  * names .asoundrc in ALSA_CONFIG_PATH. Without that it arrived too late:
  * alsa-lib 1.1.8 re-reads only the top-level files on that list and never
  * one loaded through alsa.conf's @hooks, which is how .asoundrc was reached,

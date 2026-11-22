@@ -47,6 +47,7 @@ void ds_hover_at(ds_hover_run *r, int k, unsigned now)
 {
 	if (!r->h) return;
 	if (r->h->show) hover_at(r, k, now);
+	if (r->h->at) r->h->at(r->ctx, k);
 	if (r->h->tick) r->h->tick(r->ctx);
 }
 
@@ -57,6 +58,7 @@ void ds_hover_end(ds_hover_run *r)
 		g_showing--;
 	}
 	r->shown = -1;
+	if (r->h && r->h->at) r->h->at(r->ctx, -1);
 	if (r->h && r->h->end) r->h->end(r->ctx);
 	r->h = NULL;
 }

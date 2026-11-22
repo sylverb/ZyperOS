@@ -1,0 +1,339 @@
+# Cheats (src/cheats.c, src/cheats_screen.c, DESIGN.md 11.66): the in-game
+# Game tab's Cheats row, the list it opens over the paused game (the
+# player's own file first, then libretro's files in groups under a seam
+# with the code type), the question the first cheat asks while signed in to
+# RetroAchievements, the pop-up as a game starts with cheats on, the
+# question after a game that stopped with cheats on, and the Achievements
+# row's and tab's words while a cheat has paused them. libretro is a name
+# and stays as it is. The keys' words are keyhint.txt's.
+
+[cheats.row]
+note = The in-game menu's row on the Game tab, and the heading of the list it opens: the game's cheats, each on or off. As RetroArch's "Cheats" in each language.
+en = Cheats
+zh-Hans = 作弊码
+es = Trucos
+pt-BR = Trapaças
+fr = Triches
+de = Cheats
+ja = チート
+it = Trucchi
+
+[cheats.row_on]
+note = The Cheats row's value, and the list's heading after cheats.row and " · ": how many cheats are on now (1 or more). Begun as a value is.
+en.one = %d On
+en.other = %d On
+zh-Hans = %d 个已开启
+es.one = %d activado
+es.other = %d activados
+pt-BR.one = %d ativada
+pt-BR.other = %d ativadas
+fr.one = %d activée
+fr.other = %d activées
+de.one = %d an
+de.other = %d an
+ja = %d 個オン
+it.one = %d attivo
+it.other = %d attivi
+
+[cheats.none]
+note = The Cheats row's value when no cheat is on, or the game has none. Begun with a capital. As gamemenu.cheevos_none, in the gender of cheats.row.
+en = None
+zh-Hans = 无
+es = Ninguno
+pt-BR = Nenhuma
+fr = Aucune
+de = Keine
+ja = なし
+it = Nessuno
+
+[cheats.ach_note]
+note = A quiet line under the heading of the cheat list, in the small face, on one line (keep it short: about 40 characters) while signed in to RetroAchievements and the game has achievements: a cheat that is on stops them.
+en = Achievements wait while a cheat is on.
+zh-Hans = 作弊码开启时，成就会暂停。
+es = Los logros esperan con un truco activado.
+pt-BR = As conquistas param com uma trapaça ativa.
+fr = Les succès attendent avec une triche activée.
+de = Erfolge pausieren, solange ein Cheat an ist.
+ja = チートがオンの間、実績は止まります。
+it = Gli obiettivi aspettano finché un trucco è attivo.
+
+[cheats.libretro]
+note = The seam over the cheats from libretro's own file for the game, when its name gives no code type. libretro is a name: unchanged in every language.
+en = libretro
+zh-Hans = libretro
+es = libretro
+pt-BR = libretro
+fr = libretro
+de = libretro
+ja = libretro
+it = libretro
+
+[cheats.untitled]
+note = A cheat its file gives no name: named by its place in the list, %d from 1.
+en = Cheat %d
+zh-Hans = 作弊码 %d
+es = Truco %d
+pt-BR = Trapaça %d
+fr = Triche %d
+de = Cheat %d
+ja = チート %d
+it = Trucco %d
+
+[cheats.all_off]
+note = The list's last row: turns every cheat of the game off at once.
+en = Turn All Off
+zh-Hans = 全部关闭
+es = Desactivar todos
+pt-BR = Desativar todas
+fr = Tout désactiver
+de = Alle ausschalten
+ja = すべてオフ
+it = Disattiva tutti
+
+[cheats.on_first]
+note = A key's word under the list (X): the cheats that are on move to the top. Short.
+en = On First
+zh-Hans = 已开启在前
+es = Activados primero
+pt-BR = Ativadas primeiro
+fr = Activées d'abord
+de = Aktive zuerst
+ja = オンを先に
+it = Attivi prima
+
+[cheats.search]
+note = A key's word under the list (Y), and the keyboard's heading it opens: find cheats by a word of their names. Title case, as keyhint.txt's words.
+en = Search
+zh-Hans = 搜索
+es = Buscar
+pt-BR = Buscar
+fr = Rechercher
+de = Suchen
+ja = 検索
+it = Cerca
+
+[cheats.in_order]
+note = The same key's word while the ones that are on are first: the list goes back to its own order. Short.
+en = In Order
+zh-Hans = 原顺序
+es = En orden
+pt-BR = Em ordem
+fr = Dans l'ordre
+de = Reihenfolge
+ja = 元の順
+it = In ordine
+
+[cheats.found]
+note = The list's heading part while it shows a search's matches: %s is what was typed, after cheats.row and " · ". In quotes as the language writes a quotation.
+en = “%s”
+zh-Hans = “%s”
+es = «%s»
+pt-BR = “%s”
+fr = « %s »
+de = „%s“
+ja = 「%s」
+it = «%s»
+
+[cheats.no_match]
+note = The only line of the list when nothing matches the search.
+en = No cheat matches.
+zh-Hans = 没有匹配的作弊码。
+es = Ningún truco coincide.
+pt-BR = Nenhuma trapaça corresponde.
+fr = Aucune triche ne correspond.
+de = Kein Cheat passt.
+ja = 一致するチートはありません。
+it = Nessun trucco corrisponde.
+
+[cheats.none_libretro]
+note = The list's first line for a game the Downloads page checked: libretro's cheat list has nothing for it. libretro is a name.
+en = libretro has no cheats for this game.
+zh-Hans = libretro 没有这个游戏的作弊码。
+es = libretro no tiene trucos para este juego.
+pt-BR = A libretro não tem trapaças para este jogo.
+fr = libretro n'a pas de triches pour ce jeu.
+de = libretro hat keine Cheats für dieses Spiel.
+ja = libretro にはこのゲームのチートがありません。
+it = libretro non ha trucchi per questo gioco.
+
+[cheats.not_checked]
+note = The list's first line for a game with no cheat file on the card, which the Downloads page has not checked yet.
+en = No cheats on the card for this game.
+zh-Hans = 存储卡上没有这个游戏的作弊码。
+es = No hay trucos en la tarjeta para este juego.
+pt-BR = Não há trapaças no cartão para este jogo.
+fr = Aucune triche sur la carte pour ce jeu.
+de = Keine Cheats für dieses Spiel auf der Karte.
+ja = カードにこのゲームのチートがありません。
+it = Nessun trucco sulla scheda per questo gioco.
+
+[cheats.get_downloads]
+note = Under cheats.not_checked: where libretro's cheats come from. %s is MENU's Downloads row (downloads.heading).
+en = %s in MENU gets them from libretro.
+zh-Hans = MENU 里的“%s”会从 libretro 获取。
+es = %s en MENU los trae de libretro.
+pt-BR = %s no MENU as baixa da libretro.
+fr = %s dans MENU les récupère chez libretro.
+de = %s im MENU holt sie von libretro.
+ja = MENU の「%s」で libretro から入手できます。
+it = %s nel MENU li prende da libretro.
+
+[cheats.by_hand]
+note = A line of the list with no cheats: how to add a file by hand. %s is the system's folder ("SNES").
+en = Put a .cht file in Cheats/%s on the card,
+zh-Hans = 把 .cht 文件放到存储卡的 Cheats/%s 里，
+es = Pon un archivo .cht en Cheats/%s en la tarjeta,
+pt-BR = Coloque um arquivo .cht em Cheats/%s no cartão,
+fr = Mettez un fichier .cht dans Cheats/%s sur la carte,
+de = Lege eine .cht-Datei in Cheats/%s auf der Karte ab,
+ja = カードの Cheats/%s に .cht ファイルを置き、
+it = Metti un file .cht in Cheats/%s sulla scheda,
+
+[cheats.by_hand_name]
+note = The line under cheats.by_hand: the name the file needs. %s is the game's file name without its extension.
+en = named as the game: %s.cht.
+zh-Hans = 文件名与游戏相同：%s.cht。
+es = con el nombre del juego: %s.cht.
+pt-BR = com o nome do jogo: %s.cht.
+fr = au nom du jeu : %s.cht.
+de = benannt wie das Spiel: %s.cht.
+ja = ゲームと同じ名前にします：%s.cht。
+it = con il nome del gioco: %s.cht.
+
+[cheats.ask_title]
+note = The heading of the question the first cheat of a game asks while signed in to RetroAchievements; the cursor starts on Cancel.
+en = Turn on a cheat?
+zh-Hans = 要开启作弊码吗？
+es = ¿Activar un truco?
+pt-BR = Ativar uma trapaça?
+fr = Activer une triche ?
+de = Einen Cheat einschalten?
+ja = チートをオンにしますか？
+it = Attivare un trucco?
+
+[cheats.ask_body]
+note = The question's text under cheats.ask_title: what a cheat does to the game's achievements.
+en = Achievements stop for this game until it starts again with every cheat off.
+zh-Hans = 这个游戏的成就会停止，直到关闭所有作弊码后重新开始游戏。
+es = Los logros se detienen en este juego hasta que vuelva a empezar con todos los trucos desactivados.
+pt-BR = As conquistas param neste jogo até ele começar de novo com todas as trapaças desativadas.
+fr = Les succès s'arrêtent pour ce jeu jusqu'à ce qu'il redémarre avec toutes les triches désactivées.
+de = Erfolge stoppen für dieses Spiel, bis es mit allen Cheats aus neu startet.
+ja = すべてのチートをオフにしてゲームを始め直すまで、このゲームの実績は止まります。
+it = Gli obiettivi si fermano per questo gioco finché non riparte con tutti i trucchi disattivati.
+
+[cheats.ask_yes]
+note = The question's yes: the cheat turns on.
+en = Turn On
+zh-Hans = 开启
+es = Activar
+pt-BR = Ativar
+fr = Activer
+de = Einschalten
+ja = オンにする
+it = Attiva
+
+[cheats.popup]
+note = The pop-up at the top as a game starts with cheats on, so nobody forgets one: %d of them.
+en.one = %d cheat on
+en.other = %d cheats on
+zh-Hans = 已开启 %d 个作弊码
+es.one = %d truco activado
+es.other = %d trucos activados
+pt-BR.one = %d trapaça ativada
+pt-BR.other = %d trapaças ativadas
+fr.one = %d triche activée
+fr.other = %d triches activées
+de.one = %d Cheat an
+de.other = %d Cheats an
+ja = チート %d 個オン
+it.one = %d trucco attivo
+it.other = %d trucchi attivi
+
+[cheats.shelf_crashed]
+note = On the shelf, after "2 cheats on" (cheats.popup) and " · " in the line under the game's name: the game stopped by itself last time while cheats were on. Lowercase, a part of the line.
+en = the last session ended in a crash
+zh-Hans = 上次游戏崩溃退出
+es = la última sesión terminó en un fallo
+pt-BR = a última sessão terminou em um travamento
+fr = la dernière session s'est terminée par un plantage
+de = die letzte Sitzung endete mit einem Absturz
+ja = 前回のセッションはクラッシュで終了
+it = l'ultima sessione è finita con un crash
+
+[cheats.shelf_crashed_line]
+note = The same as cheats.shelf_crashed as a line of its own under "2 cheats on" in the shelf's List view, whose panel is narrow: the game stopped by itself last time while cheats were on. Begun with a capital; as short as it can be.
+en = Crashed last time
+zh-Hans = 上次已崩溃
+es = Falló la última vez
+pt-BR = Travou da última vez
+fr = Planté la dernière fois
+de = Zuletzt abgestürzt
+ja = 前回クラッシュ
+it = Crash l'ultima volta
+
+[cheats.ach_paused]
+note = The in-game Achievements row's value while a cheat has been on in this game: they stop until the next start with every cheat off. Begun with a capital.
+en = Paused
+zh-Hans = 已暂停
+es = En pausa
+pt-BR = Pausadas
+fr = En pause
+de = Pausiert
+ja = 一時停止中
+it = In pausa
+
+[cheats.ach_why]
+note = The Achievements tab's sentence while a cheat has been on in this game.
+en = A cheat was on in this game, so its achievements wait until it starts again with every cheat off.
+zh-Hans = 这个游戏开启过作弊码，成就会等到关闭所有作弊码后重新开始游戏。
+es = Hubo un truco activado en este juego: sus logros esperan hasta que vuelva a empezar con todos los trucos desactivados.
+pt-BR = Uma trapaça foi ativada neste jogo: as conquistas esperam até ele começar de novo com todas as trapaças desativadas.
+fr = Une triche a été activée dans ce jeu : ses succès attendent qu'il redémarre avec toutes les triches désactivées.
+de = In diesem Spiel war ein Cheat an: Seine Erfolge warten, bis es mit allen Cheats aus neu startet.
+ja = このゲームでチートがオンになりました。すべてのチートをオフにして始め直すまで、実績は止まります。
+it = In questo gioco è stato attivo un trucco: i suoi obiettivi aspettano finché non riparte con tutti i trucchi disattivati.
+
+[cheats.crash_title]
+note = The heading of the question as a game starts that stopped by itself last time while cheats were on. Two lines in English.
+en = This game stopped last time with cheats on.
+zh-Hans = 这个游戏上次在开启作弊码时停止了。
+es = Este juego se detuvo la última vez con trucos activados.
+pt-BR = Este jogo parou da última vez com trapaças ativadas.
+fr = Ce jeu s'est arrêté la dernière fois avec des triches activées.
+de = Dieses Spiel stoppte zuletzt mit Cheats an.
+ja = このゲームは前回、チートがオンのまま止まりました。
+it = Questo gioco si è fermato l'ultima volta con trucchi attivi.
+
+[cheats.crash_body]
+note = The same question's text under cheats.crash_title.
+en = Start it without them?
+zh-Hans = 不使用作弊码开始吗？
+es = ¿Empezarlo sin ellos?
+pt-BR = Começar sem elas?
+fr = Le lancer sans elles ?
+de = Ohne sie starten?
+ja = チートなしで始めますか？
+it = Avviarlo senza?
+
+[cheats.crash_without]
+note = The question's first answer, where the cursor starts: the game starts with no cheat on this time; they stay set for later.
+en = Without Cheats
+zh-Hans = 不使用作弊码
+es = Sin trucos
+pt-BR = Sem trapaças
+fr = Sans triches
+de = Ohne Cheats
+ja = チートなし
+it = Senza trucchi
+
+[cheats.crash_with]
+note = The question's second answer: the game starts with its cheats on, as they were set.
+en = With Cheats
+zh-Hans = 使用作弊码
+es = Con trucos
+pt-BR = Com trapaças
+fr = Avec triches
+de = Mit Cheats
+ja = チートあり
+it = Con trucchi

@@ -1,19 +1,12 @@
 # ZyperOS. The device builds, for the TrimUI Brick and the GKD Pixel 2, are
 # plastron's (plastron/ in this repository): its Buildroot builds the
-# launcher and Muse with mk/cross.mk and lays out the card with mk/payload.sh,
+# launcher and MP4 with mk/cross.mk and lays out the card with mk/payload.sh,
 # and the version below is read from here. What this Makefile does is the rest:
 # the offline checks, a host build of the launcher, the cores, and the assets.
 # docs/building.md says how to work on a device.
 
-.PHONY: all clean native px2-payload vendor boot system-art checkmark \
-        check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
-        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
-        check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
-        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
-        check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-        check-release-devices check-installer release
+.PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art check yuvtarget \
+        landbench design sounds strings cjk-font tour-previews check-prep release check-site-devices check-linux building-doc
 
 all: check
 
@@ -24,36 +17,71 @@ all: check
 NPROC := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
 NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(firstword $(MAKEFLAGS)))),,-j$(NPROC))
 
+# What a check that links a part of src/ which says T() links beside it: the
+# strings and their tables (src/i18n.h). English, as the launcher is before
+# the setting is read, unless the check sets another. Up here, before the
+# first rule that lists it, since make reads a rule's prerequisites as it
+# meets them.
+#
+# The tables are the build's, not the repository's (.gitignore): written by
+# tools/i18n.py from res/strings whenever one of those, or the script, is
+# newer. mk/native.mk and mk/cross.mk have the same rule, and
+# tools/px2-payload.sh runs it before its read-only build. Committed, their
+# offsets moved with every string anyone added, and every open pull request
+# that touched a string conflicted with every other after each merge.
+I18N_SRC := src/i18n.c src/i18n_tables.c
+src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
+	@python3 tools/i18n.py
+
 # Everything offline, in one command. There was no umbrella target: every check
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-signin check-noticeq check-badges check-badge-shots \
-         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-         check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsslow check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-randgame check-shelfdir check-look \
-         check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
-         check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
-         check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
+# Each check registers itself in a file of its own, mk/checks/NAME.mk: its
+# name added to CHECKS, and to CHECKS_LINUX_SKIP while it does not pass on
+# Linux yet, and its row of docs/building.md's table as #| lines, which make
+# building-doc writes the table from (tools/building-doc.py). Its rule is
+# here beside the ones like it, or in the file. Two pull requests that each
+# add a check add a file each, and meet nowhere; the two lists here and the
+# table, which each such PR added a line to the end of, conflicted every
+# time (2026-11-20: #421 twice, #422 and #428 once).
+CHECKS :=
+CHECKS_LINUX_SKIP :=
+include $(sort $(wildcard mk/checks/*.mk))
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
 # prints a line as each ends and the whole log of any that failed. One after
 # another the suite took 167 s on an M3 (2026-11-06), with fifteen cores idle.
+# The heaviest (its HEAVY) wait for one of two slots this computer's runs
+# share (CHECK_HEAVY_SLOTS).
 .PHONY: $(CHECKS)
+# CHECKS_SKIP="check-a check-b" leaves those out: CI's Linux job names the
+# checks that do not pass on Linux yet, which its macOS job still runs.
+# CHECK_SHARD=I/N runs the I-th of N parts of the rest, as CI's macOS job
+# does, one part a runner (tools/check-run.py --shard).
+CHECKS_SKIP ?=
+CHECK_SHARD ?=
 check: check-prep
-	@python3 tools/check-run.py $(CHECKS)
+	@$(if $(strip $(CHECKS_SKIP)),echo "check: left out (CHECKS_SKIP): $(strip $(CHECKS_SKIP))")
+	@python3 tools/check-run.py $(if $(CHECK_SHARD),--shard $(CHECK_SHARD)) $(filter-out $(CHECKS_SKIP),$(CHECKS))
+
+# CI's Linux job (.github/workflows/check.yml, check-linux): make check but
+# for the checks that do not pass on Linux yet, which macOS still runs; each
+# says so in its mk/checks file (CHECKS_LINUX_SKIP)
+check-linux:
+	@$(MAKE) --no-print-directory check CHECKS_SKIP="$(strip $(CHECKS_LINUX_SKIP) $(CHECKS_SKIP))"
+
+# make check's runner itself: the parts CI deals, and the heavy checks' slots
+check-checkrun:
+	@python3 tools/check-run-check.py
 
 # What more than one check builds, built once before any of them starts: the
 # host launcher, which nine checks draw with, and the ScreenScraper header it
 # shares with check-ss (without SDL2, the header alone); and player 2's p2d,
 # its feed, the codec check and the theme writer's check, which check-p2d,
 # check-p2codec, check-webtheme and check-play run.
-check-prep:
+check-prep: src/i18n_tables.c
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native; \
 	else \
@@ -75,6 +103,19 @@ check-diatom:
 		echo "check-diatom: skipped, no SDL2"; \
 	fi
 
+# Diatom's own keys pressed quickly in a slow game (diatom/test/menutap.py):
+# the stub core at 10 fps, a Saturn game's rate on the Pixel 2, where an 80 ms
+# MENU never opened the menu (2026-11-20). Diatom's desktop port and the stub
+# are built into a folder of their own, so this never shares objects with
+# check-diatom's build running beside it. Skipped without SDL2.
+check-menu-tap:
+	@if pkg-config --exists sdl2 2>/dev/null || command -v sdl2-config > /dev/null; then \
+		$(MAKE) --no-print-directory -C diatom $(NATIVE_J) BUILD=build/menutap all stub && \
+		python3 diatom/test/menutap.py diatom/build/menutap; \
+	else \
+		echo "check-menu-tap: skipped, no SDL2"; \
+	fi
+
 # zyperos.com's blog (mk/blog.py): the whole site built in a scratch folder as
 # Cloudflare Pages builds it, then each post's title and description lengths,
 # its structured data, every link and picture on the blog and the landing page
@@ -82,6 +123,13 @@ check-diatom:
 # colors still the landing page's.
 check-blog:
 	@python3 mk/blog.py --check
+
+# zyperos.com with any number of handhelds (site/devices.json): the site built
+# with made-up ones added (three, then five in all), each at a computer's and
+# a phone's width in headless Chrome, with no error, no sideways scroll and
+# every pick followed. Needs Google Chrome; --shots DIR keeps the heroes.
+check-site-devices:
+	@python3 tools/check-site-devices.py
 
 # The release notes as tools/release.sh posts them in the Discord's #releases:
 # within Discord's limits, with What's new and the release's link
@@ -95,20 +143,98 @@ check-discord-release:
 check-release-devices:
 	@sh tools/release-devices.sh check
 
-# docs/building.md's table names every check in CHECKS and nothing else:
-# the table had 32 of 91 rows (2026-11-06) and said nothing of the rest.
-check-building-doc:
-	@python3 tools/building-doc-check.py
+# tools/merge-train.py's merges, in a scratch repository: the check lists
+# two PRs add to joined, anything else refused, and --merge's step on main
+check-mergetrain:
+	@python3 tools/merge-train-check.py
 
-# The simulator's tests (simulator/Tests: its VNC client, the px2sim link, the
+# docs/building.md's table of checks is what mk/checks/*.mk say: a row for
+# every check, in the names' order, and every check a rule. It had 32 of 91
+# rows when a hand kept it (2026-11-06) and said nothing of the rest.
+check-building-doc:
+	@python3 tools/building-doc.py --check
+
+# The table written again from mk/checks/*.mk
+building-doc:
+	@python3 tools/building-doc.py --write
+
+# Desk mode (docs/building.md, "Work on the UI without a device"): the
+# launcher in a window as the Pixel 2, or as the Brick, on a sample card, a
+# game in it on Diatom's desktop build. tools/desk takes more (--zoom, --roms,
+# --lang, --fresh) and drives a running window.
+desk:
+	@tools/desk run --device pixel2
+
+desk-brick:
+	@tools/desk run --device brick
+
+# Desk mode in SDL's dummy window, both handhelds, over its control socket
+check-desk: native
+	@python3 tools/desk-check.py
+
+# The home's d-pad held, in desk mode: the Grid's rows to each end, Spotlight's
+# groups forward
+check-homekeys: native
+	@python3 tools/homekeys-check.py
+
+# The Video view in desk mode: its snap playing holds the screensaver
+check-videoview: native
+	@'$(PYIMG)' tools/videoview-check.py
+
+# No button read twice by in_repeat in one step (a held one turned round)
+check-inrepeat:
+	@python3 tools/inrepeat-check.py
+
+# One key map: src/device/keymap.h, the Simulator's and Diatom's window's
+check-keymap:
+	@python3 tools/keymap-check.py
+
+# The Simulator's handhelds (simulator/Sources/SimCore/Handhelds.swift), written
+# from the device files themselves (each src/device/<id>_model.c's flat
+# drawing, src/device/td_model.h) by tools/handhelds-swift.c, so the Simulator
+# draws every handheld as desk mode does, from the same numbers. `make
+# handhelds` writes it; check-handhelds fails while it is behind them.
+HANDHELDS_SRC := src/profile.c $(wildcard src/device/*_profile.c) src/device/td_model.c \
+                 $(filter-out src/device/td_model.c,$(wildcard src/device/*_model.c)) \
+                 $(wildcard src/device/*_coreopts.c)
+build-native/handhelds-swift: tools/handhelds-swift.c $(HANDHELDS_SRC) src/device/td_model.h \
+                              src/device/profile.h FORCE
+	@mkdir -p build-native
+	@$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -Isrc \
+	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
+	      -o $@ tools/handhelds-swift.c $(HANDHELDS_SRC)
+
+handhelds: build-native/handhelds-swift
+	@./build-native/handhelds-swift > build-native/Handhelds.swift
+	@mv build-native/Handhelds.swift simulator/Sources/SimCore/Handhelds.swift
+	@echo "handhelds: wrote simulator/Sources/SimCore/Handhelds.swift"
+
+check-handhelds: build-native/handhelds-swift
+	@./build-native/handhelds-swift > build-native/Handhelds.swift
+	@if cmp -s build-native/Handhelds.swift simulator/Sources/SimCore/Handhelds.swift; then \
+		echo "handhelds: simulator/Sources/SimCore/Handhelds.swift is the device files' own"; \
+	else \
+		diff -u simulator/Sources/SimCore/Handhelds.swift build-native/Handhelds.swift | head -30; \
+		echo "check-handhelds: simulator/Sources/SimCore/Handhelds.swift is behind src/device/*_model.c: run make handhelds"; \
+		exit 1; \
+	fi
+
+# The simulator's tests (simulator/Tests: its D-Bus display and VNC clients, the px2sim link, the
 # state lines and the control socket's commands), with Swift's own build kept
-# in build-native/. Skipped where there is no Swift.
+# in build-native/. Skipped where there is no Swift, and off macOS: the
+# simulator is an AppKit app (Ubuntu's runner has Swift, and its build fails).
 check-simulator:
-	@if command -v swift > /dev/null 2>&1; then \
+	@if [ "$$(uname -s)" = Darwin ] && command -v swift > /dev/null 2>&1; then \
 		cd simulator && swift test --scratch-path ../build-native/simulator; \
 	else \
-		echo "check-simulator: skipped, no Swift"; \
+		echo "check-simulator: skipped, not macOS or no Swift"; \
 	fi
+
+# The published QEMU image's way to a developer, offline on a stand-in
+# archive: tools/qemu-run.sh fetch and its pin, and the SSH key QEMU hands
+# the VM in place of one in the image (tools/qemu-image-check.sh)
+check-qemu-image:
+	@sh tools/qemu-image-check.sh
 
 # px2sim's choice of the keyboard it takes (plastron/.../px2sim/src/kbdsel.h):
 # QEMU's, never a program's uinput one (gptokeyb's Fake Keyboard). Host
@@ -122,7 +248,7 @@ check-px2sim:
 # page (its package/zyperos/zyperos.mk), and ZyperOS Installer has it too.
 # ZyperOS counts from 0.1.0. Change it with
 # tools/set-version.sh, which sets the installer's with it.
-VERSION ?= 1.0.6
+VERSION ?= 1.1.0
 
 # A release, from this Mac (tools/release.sh): the card image of each device
 # in config/devices built clean by plastron from this commit; PUBLISH=1 then
@@ -189,12 +315,17 @@ build-native/cheevos-check: tools/cheevos-check.c src/cheevos.c src/cheevos.h \
 check-hare: build-native/hare-check
 	@./build-native/hare-check
 
-build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) FORCE
+# A game's picture and video in a listing are the launcher's lookup
+# (src/esmedia.h's game_media), so the lookup is linked as the launcher has it.
+HARE_GAME_MEDIA = src/esmedia.c src/library.c src/snaps.c src/db.c
+
+build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/hare-check-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/hare-check-artnames"' -DREPO_WEB='"$(CURDIR)/res/web"' \
-	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lsqlite3 -lpthread
 
 # The File Transfer page on the host, over a scratch card: the same routes and
 # server, for a browser and for tools/readme-shots.py's pictures of the page.
@@ -205,12 +336,13 @@ build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c
 check-portal: build-native/portal-serve
 	@python3 tools/portal-check.py
 
-build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) FORCE
+build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/portal-serve-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/portal-serve-artnames"' \
-	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lm -lsqlite3 -lpthread
 
 # Hare's transport, driven by a real client over a real socket. An HTTP parser
 # is where "looks right" and "is right" part company: every browser sends the
@@ -257,8 +389,31 @@ build-native/audioout-check: tools/audioout-check.c src/audioout.c \
 check-osdbar: build-native/osdbar-check
 	@./build-native/osdbar-check
 
+# The boost past the top of the volume and brightness (src/boost.h): the
+# hold and the three presses that open it, the charge draining as it filled,
+# the held key stopping at the first cell, the way back down, and where it
+# may not open (MP4's lock screen, the menus).
+check-boost: build-native/boost-check
+	@./build-native/boost-check
+
+# The launcher's level keys (src/levels.c) as the screens call them, the
+# device, the database and MP4 stubbed (tools/levels-check.c): with MP4 heard
+# behind the home, a shelf or a menu, its boost works there as on its own
+# screens (the cells on the bar, the hold and the presses that open it, a
+# press down emptying a cell first, each cell told to MP4); over a paused
+# game, the game's the same way; a running game's steps told to MP4 at once;
+# with neither, the menus' own. SDL's headers for platform.h; skipped
+# without them.
+check-levels:
+	@if command -v sdl2-config > /dev/null 2>&1; then \
+		$(MAKE) --no-print-directory build-native/levels-check && ./build-native/levels-check; \
+	else \
+		echo "check-levels: skipped, no SDL2"; \
+	fi
+
 # The Display list's previews (src/dmodefit.h): each mode's rect as the
-# launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c)
+# launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c),
+# and Square Pixels' sizes for the systems #346 names, on both handhelds
 check-dmodefit: build-native/dmodefit-check
 	@./build-native/dmodefit-check
 
@@ -268,7 +423,8 @@ build-native/dmodefit-check: tools/dmodefit-check.c src/dmodefit.c src/dmodefit.
 	      -o $@ tools/dmodefit-check.c src/dmodefit.c diatom/src/scale.c
 
 # MENU > Power Button's rule (src/powerhold.h): a press turns the handheld off
-# in Press mode and a hold of two seconds in Hold mode, once per time down;
+# in Press mode and a hold of one second in Hold mode (its own time, the
+# charging screen's and MP4's two kept), once per time down;
 # the pill's progress and the waits that keep it moving.
 check-powerhold: build-native/powerhold-check
 	@./build-native/powerhold-check
@@ -288,6 +444,27 @@ build-native/homesys-check: tools/homesys-check.c src/homesys.c src/homesys.h FO
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/homesys-check.c src/homesys.c
 
+# A screenshot's file name (src/shotname.h, DESIGN.md 11.68): read as the
+# Screenshot hotkey writes it, every other file left alone, its time kept by
+# the calendar and read back to the same name, and the Screenshots shelf's
+# three orders.
+check-shotname: build-native/shotname-check
+	@./build-native/shotname-check
+
+build-native/shotname-check: tools/shotname-check.c src/shotname.c src/shotname.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/shotname-check.c src/shotname.c
+
+# Collections on the card (src/collect.h): the lists read in their every
+# form and kept as written, added to and taken from, made, renamed and
+# deleted, and a game's rename and delete followed into every list.
+check-collect: build-native/collect-check
+	@./build-native/collect-check
+
+build-native/collect-check: tools/collect-check.c src/collect.c src/collect.h src/atomic.c src/atomic.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/collect-check.c src/collect.c src/atomic.c
+
 # The FPS readout (src/hud.h): its text, its pill left of the level bar at
 # both scales, its colors, and Diatom's copies the same. The glyphs against
 # tools/genhudglyphs.py are check-genhudglyphs, beside check-genfirststart and
@@ -299,6 +476,16 @@ build-native/hud-check: tools/hud-check.c src/hud.c src/hud.h src/hudglyphs.h sr
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/hud-check.c src/hud.c src/osdbar.c -lm
+
+build-native/boost-check: tools/boost-check.c src/boost.h src/osdbar.h src/design.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/boost-check.c -lm
+
+build-native/levels-check: tools/levels-check.c src/levels.c src/levels.h src/boost.h src/osdbar.h \
+                           src/design.h src/platform.h src/mp4c.h FORCE
+	@mkdir -p build-native
+	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
+	      -o $@ tools/levels-check.c src/levels.c -lm
 
 build-native/osdbar-check: tools/osdbar-check.c src/osdbar.c src/osdbar.h FORCE
 	@mkdir -p build-native
@@ -343,17 +530,6 @@ build-native/battery-eta-check: tools/battery-eta-check.c src/battery_eta.c src/
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
 	      -o $@ tools/battery-eta-check.c src/battery_eta.c -lm
 
-# When Slow, the Nintendo DS shelf's row (src/dsslow.h): two choices, the
-# words kept and sent as RUN's frameskip=, Keep Speed for a word that is none,
-# and stepping round. The row on the menu is check-menus'; RUN's keys,
-# check-config's; what Diatom does with them, diatom's check-lateskip.
-check-dsslow: build-native/dsslow-check
-	@./build-native/dsslow-check
-
-build-native/dsslow-check: tools/dsslow-check.c src/dsslow.c src/dsslow.h src/i18n_ids.h FORCE
-	@mkdir -p build-native
-	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/dsslow-check.c src/dsslow.c
-
 # Timing, a system menu row (src/pacing.h): Smooth or Exact, the words kept
 # and sent as RUN's pace=, the system's own default for a word that is none,
 # the database key by tag, and stepping round. The row on the menu is
@@ -365,6 +541,42 @@ check-pacing: build-native/pacing-check
 build-native/pacing-check: tools/pacing-check.c src/pacing.c src/pacing.h src/i18n_ids.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/pacing-check.c src/pacing.c
+
+# Super Game Boy, a system menu row (src/sgbmode.h): Off or Its Games, the
+# words kept and sent as RUN's sgb=, Off for a word that is none,
+# the database key by tag, stepping round, and the shelves that have it (the
+# Game Boy's and the Color's, on mGBA). What Diatom does with sgb=, diatom's
+# check-sgb.
+check-sgbmode: build-native/sgbmode-check
+	@./build-native/sgbmode-check
+
+build-native/sgbmode-check: tools/sgbmode-check.c src/sgbmode.c src/sgbmode.h src/i18n_ids.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/sgbmode-check.c src/sgbmode.c
+
+# Border, a display row (src/border.h): its kinds and words, what the row
+# offers and steps round, a kept kind it cannot show reading Off, the room
+# rule at each mode on the Pixel 2's and the Brick's surfaces, NextUI's tags.
+# What Diatom draws, diatom's check-border and check-border-e2e.
+check-border: build-native/border-check
+	@./build-native/border-check
+
+build-native/border-check: tools/border-check.c src/border.c src/border.h src/dmodefit.c src/dmodefit.h src/i18n_ids.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/border-check.c src/border.c src/dmodefit.c -lm
+
+# The handheld frames (src/handframe.h): Handheld where Sharp Pixels puts the
+# game, Whole a step smaller with the lens in the middle and never under 2x,
+# a game pixel a dot, straight edges on whole pixels, the Color's arc where
+# its model has it, every part inside the body, the Color's six colors. On
+# 640x480 and 1024x768. The sheet that lays each frame under its outlines is
+# tools/handframe-sheet.py.
+check-handframe: build-native/handframe-check
+	@./build-native/handframe-check
+
+build-native/handframe-check: tools/handframe-check.c src/handframe.c src/handframe.h src/handframe_models.c src/dmodefit.c src/dmodefit.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/handframe-check.c src/handframe.c src/handframe_models.c src/dmodefit.c -lm
 
 # The Nintendo DS's language (src/dslang.h): every language MENU > Language has
 # maps to the DS's own or to English, the core's option and its values are the
@@ -381,6 +593,20 @@ check-dslang: build-native/dslang-check
 # host, scanning a scratch card.
 check-gpuframes:
 	@sh tools/gpuframes-check.sh
+
+# Every picture Diatom's GPU ports draw, the right way up on the panel: the
+# shared presenting code (diatom/port/gles_*.h) built with each port's hooks
+# (diatom/test/upright_test.c) and run on Mesa's llvmpipe, each frame read
+# back as that device's display reads it, the TrimUI Brick's page of fb0 from
+# its first byte (issue #419), the GKD Pixel 2's window from its top row:
+# frames at every filter, a DS frame, a GPU core's frames, the Border, a
+# notice, the level bar, On-Screen Stats, the low-battery disc and captures;
+# and the launcher's CRT Curved bent from a target texture, as the Brick
+# bends it, on SDL's OpenGL ES 2 renderer (tools/gpu-upright-bend.c).
+# Linux only (Mesa's EGL); elsewhere it says it skipped, and UPRIGHT_DOCKER=1
+# runs it in tools/p8fx-gl.Dockerfile's Linux (tools/gpu-upright-check.py)
+check-gpu-upright:
+	@python3 tools/gpu-upright-check.py $(if $(UPRIGHT_DOCKER),--docker)
 
 build-native/dslang-check: tools/dslang-check.c src/dslang.c src/dslang.h src/i18n_ids.h \
                            mk/patches/dsperate-lr-language.patch FORCE
@@ -455,6 +681,20 @@ build-native/lowbatt-check: tools/lowbatt-check.c src/lowbatt.c src/lowbatt.h sr
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
 	      -o $@ tools/lowbatt-check.c src/lowbatt.c
 
+# The battery run flat while the handheld runs (src/battempty.h), the rule
+# battery_empty and portkeys go by: the level at BATT_EMPTY_PCT or under
+# twice in a row, or the voltage under the device's empty voltage three times
+# in a row whatever the level says; never on the cable, never on one stray
+# reading. Plain C, no device.
+check-battempty: build-native/battempty-check
+	@./build-native/battempty-check
+
+build-native/battempty-check: tools/battempty-check.c src/battempty.c src/battempty.h src/status.h \
+                              src/device/pixel2_levels.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
+	      -o $@ tools/battempty-check.c src/battempty.c
+
 # The charging screen (src/charging.h): the charger's kind, its lines, the
 # time to full through CC and CV, and its rules. Plain C, no device.
 check-charging: build-native/charging-check
@@ -493,16 +733,39 @@ build-native/themefile-check: tools/themefile-check.c src/themefile.c src/themef
 # steps and saves ZyperOS's own levels: MENU+VOL is the backlight whichever of
 # the two devices is read first, the kernel's autorepeat is no step, a held key
 # repeats on the launcher's clock (src/keyrepeat.h), and the presses that once
-# saved 6 and 6 save 5 and 7 through the launcher's src/db.c. No SDL, no device.
+# saved 6 and 6 save 5 and 7 through the launcher's src/db.c. And the boost past
+# the top over a port (src/boost.h): three presses or a hold open it, its gain
+# goes in a scratch copy of the file the port's plugin reads (src/eqdsp.h), and
+# its cells are kept beside the levels; and its opening, either boost's, by
+# presses or a hold, asks the motor for the launcher's 40 ms buzz at MENU >
+# Sound > Rumble's share (src/rumble.c's words, read through src/db.c), once,
+# never a step or a cell, none at Off; a boost kept from before shows
+# nothing at the start; and whose display may be borrowed (pk_looks): only a
+# settled file, never one inside SDL's look at the display as a program
+# starts (1.1.0-rc.9's "kmsdrm not available"). And over your PICO-8, SELECT's
+# hotkeys by Diatom's chord rule (tools/pkhot.c), the keyboard's CTRL-R
+# (tools/pkkbd.c), written into a pipe, and the screenshot (tools/pkshot.c):
+# PICO-8's 128 out of the panel in every Display mode's rect, the PNG, the
+# pop-up; and what PICO-8 reads while portkeys holds the joypad for the
+# hotkeys (a chord never, every other press at once) and that pad's writes
+# (tools/pkvpad.c), into a pipe. No SDL, no device.
 check-pkkeys: build-native/pkkeys-check
 	@./build-native/pkkeys-check
 
 build-native/pkkeys-check: tools/pkkeys-check.c tools/pkkeys.c tools/pkkeys.h src/keyrepeat.h \
                            src/device/pixel2_levels.h src/audioout.c src/audioout.h \
+                           src/boost.h src/osdbar.h src/design.h src/eqdsp.h \
+                           tools/pkhot.c tools/pkhot.h diatom/src/chord.c diatom/src/chord.h \
+                           tools/pkkbd.c tools/pkkbd.h tools/pkshot.c tools/pkshot.h src/p8draw.c src/p8draw.h \
+                           tools/pkvpad.c tools/pkvpad.h \
+                           src/dmodefit.c src/dmodefit.h src/rumble.c src/rumble.h \
+                           tools/pkfeel.c tools/pkfeel.h src/uisound.c src/uisound.h \
                            src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
-	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/pkkeys-check.c tools/pkkeys.c src/audioout.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -Idiatom/src -Idiatom/include \
+	      -o $@ tools/pkkeys-check.c tools/pkkeys.c tools/pkhot.c diatom/src/chord.c tools/pkkbd.c \
+	      tools/pkshot.c tools/pkvpad.c src/p8draw.c src/dmodefit.c src/audioout.c src/rumble.c src/db.c \
+	      tools/pkfeel.c src/uisound.c src/atomic.c $(I18N_SRC) -lsqlite3 -lz -lm
 
 # Which theme is on: MENU > Appearance's three settings, Auto's seven to seven
 # by the handheld's clock and the minute it may be late by, and the file the
@@ -546,6 +809,112 @@ build-native/sysupdate-check: tools/sysupdate-check.c src/sysupdate.c src/sysupd
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o $@ tools/sysupdate-check.c src/sysupdate.c $(I18N_SRC)
 
+# Your PICO-8 (src/pico8.c): the zip's rules, a zip copied by hand taken
+# out (zips the check writes itself, never Lexaloffle's files), Splore's entry
+# and the page's words; and its picture (src/p8draw.h): each Display mode
+# Diatom's rect for a 128 x 128 picture, and sd/pixel2/PICO-8.sh, run with a
+# stand-in pico8_64, handing that rect (-draw_rect) and filter to it
+check-pico8: build-native/pico8-check
+	@./build-native/pico8-check
+
+# Your PICO-8's wget (sd/pixel2/PICO-8-wget.sh, ZyperOS/pico8/bin/wget):
+# Splore's wget calls handed to curl, with HTTPS and the certificates
+# checked, against a stand-in curl and system wget
+check-pico8-wget:
+	@sh tools/pico8-wget-check.sh
+
+# MP4 over your PICO-8 (DESIGN.md 11.55, src/mp4hand.h), as over a Diatom
+# game: the queue's file handed between processes, whole or not at all
+# (tools/mp4hand-check.c, with AddressSanitizer and UBSan where the compiler
+# has them); then launch.sh's run_port with stand-ins (MP4 not stopped, the
+# follower beside the program and portkeys told of it, ended before the
+# launcher) and the real launcher in desk mode's dummy window against a
+# stand-in daemon: the queue taken on back from PICO-8, the request and the
+# file written as a cart opens, the follower's next track and the boost's
+# gain it passes on from the equalizer's file (portkeys's), and SELECT in the
+# in-game menu over it opening Now Playing; PICO-8 quiet while MP4 plays
+# (the equalizer's file's cut, as the launcher, the follower and the menu
+# write it, and the chain every port has, unchanged) and PICO-8 into a
+# USB-C DAC's chain only where it opens as PICO-8 opens it (--alsa-try,
+# against alsa-lib on Linux) (tools/pico8-mp4-check.py). Each wait is for
+# an event, never for a time.
+check-pico8-mp4: build-native/mp4hand-check native
+	@./build-native/mp4hand-check
+	@python3 tools/pico8-mp4-check.py
+
+# The in-game menu's Display row over your PICO-8 (src/portmenu.h's
+# port_menu_display): launch.sh's run_port with stand-ins, a start again from
+# the restart file and USR2 (the program ended and started again with the
+# new Display, portkeys and the follower going on, a bad word a plain Quit, a
+# file from before none, POWER meanwhile starting nothing), then the real
+# launcher in desk mode's dummy window as portkeys starts it: a game's tabs,
+# the Display tab's row, its list, the question with the cursor on Cancel,
+# Start Again's exit and what it keeps, X from that tab Quit, none over
+# OpenBOR, and --display, the Next Display hotkey's question alone
+# (tools/pico8-display-check.py)
+check-pico8-display: native
+	@python3 tools/pico8-display-check.py
+
+# Your PICO-8's hotkeys, Reset and buttons as the launcher and PICO-8.sh do
+# them (src/portmenu.h, src/p8pad.h): PICO-8.sh's pad line against a
+# stand-in pico8_64; then the real launcher in desk mode's dummy window: a
+# cart opened handing portkeys the hotkeys and the screenshot's folder,
+# PICO-8.sh the pad's line and the pop-up's slab with its empty square; the
+# menu's Game tab and its Reset row and question, --reset's question alone,
+# and its Controls tab changing a button, with the start again it asks for
+# as the menu closes back to the cart, and the next menu where it was left
+check-pico8-keys: native
+	@python3 tools/pico8-keys-check.py
+
+# MENU, then X over your PICO-8 ends it at once (1.1.0-rc.8, "has to be done
+# twice"): launch.sh's run_port with stand-ins, a script that execs its
+# program (PICO-8.sh, OpenBOR.sh) TERMed within a second of the menu's Quit
+# and of POWER, not 2 s later, and a script that runs its program as a child
+# left to go on after it, as before. Linux only (port_end reads /proc);
+# elsewhere it says it skipped, and PICO8_QUIT_DOCKER=1 runs it in
+# tools/p8fx-gl.Dockerfile's Linux (tools/pico8-quit-check.py)
+check-pico8-quit:
+	@python3 tools/pico8-quit-check.py $(if $(PICO8_QUIT_DOCKER),--docker)
+
+# Your PICO-8's Shader and Border (src/p8fx.h), all but the drawing: the
+# look file, the shaders PICO-8 is offered (the launcher's SHADERS for its
+# shelf) and Next Shader on a scratch database, its picture out of PICO-8's
+# preblit (build-native/p8fx-check); sd/pixel2/PICO-8.sh loading p8fx.so
+# first, with a stand-in pico8_64; and the real launcher in desk mode's dummy
+# window as portkeys starts it over PICO-8: its Display tab's Border, Shader
+# and Strength rows in a game's order, each kept and written for the shim, Your
+# Own's picture file, none over OpenBOR, and the look file written as a cart
+# opens from the shelf (tools/p8fx-check.py)
+check-p8fx: build-native/p8fx-check native
+	@python3 tools/p8fx-check.py
+
+build-native/p8fx-check: tools/p8fx-check.c src/p8fx.c src/p8fx_step.c src/p8fx.h src/strength.h src/i18n_ids.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -D_GNU_SOURCE -Isrc -o $@ tools/p8fx-check.c src/p8fx.c src/p8fx_step.c -lsqlite3
+
+# ...and the drawing: the shim (src/p8fx/shim.c) over a stand-in that calls
+# SDL as pico8_64 does (tools/p8fx-standin.c), on SDL's offscreen video and
+# Mesa's OpenGL ES: fail-safe to the pixel, each shader against Diatom's GLSL
+# in C (shaderdemo --image), Blur and a picture round the picture, PICO-8's
+# FPS line on top, a look changed while it runs. Linux only (LD_PRELOAD,
+# Mesa); elsewhere it says it skipped, and P8FX_DOCKER=1 runs it in
+# tools/p8fx-gl.Dockerfile's Linux (tools/p8fx-gl-check.py)
+check-p8fx-gl:
+	@python3 tools/p8fx-gl-check.py $(if $(P8FX_DOCKER),--docker)
+
+build-native/mp4hand-check: tools/mp4hand-check.c src/mp4hand.c src/mp4hand.h src/mp4queue.c src/mp4queue.h \
+                            src/portmenu.h src/pico8.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(MEDIA_SAN) -Isrc \
+	      -o $@ tools/mp4hand-check.c src/mp4hand.c src/mp4queue.c -lm
+
+build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h \
+                          src/p8draw.c src/p8draw.h src/dmodefit.c src/dmodefit.h diatom/src/scale.c \
+                          sd/pixel2/PICO-8.sh $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Idiatom/src -Idiatom/include -o $@ tools/pico8-check.c src/pico8.c \
+	      src/p8draw.c src/dmodefit.c diatom/src/scale.c $(I18N_SRC) -lz
+
 # What the Install PortMaster page says in each state (src/pminstall.c,
 # DESIGN.md 11.32), and the Ports shelf's PortMaster entry
 check-pminstall: build-native/pminstall-check
@@ -571,6 +940,13 @@ check-pmart:
 check-pmhelper:
 	@python3 -I tools/pminstall-run.py
 
+# The libraries PortMaster's ports and their runtimes load from the system
+# (plastron's board/zyperos/ports-libs.txt) asked for in the image of each
+# device that runs ports, and plastron's release check of a built root
+# (scripts/ports-libs.sh) over made-up roots. No image is built.
+check-portlibs:
+	@sh tools/portlibs-check.sh
+
 # What a port's own files say for its Controls pages over it (src/portdoc.c:
 # port.json, its gptokeyb keymap, its README's controls), and the pages they
 # make (src/controls.c), on the made-up ports in tools/fixtures/ports and on
@@ -582,7 +958,7 @@ build-native/portdoc-check: tools/portdoc-check.c src/portdoc.c src/portdoc.h sr
                            src/controls.c src/controls.h src/remap.c src/remap.h src/portmenu.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/portdoc-check.c src/portdoc.c \
-	      src/rajson.c src/controls.c src/powerhold.c src/remap.c $(I18N_SRC)
+	      src/rajson.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c $(I18N_SRC)
 
 # plastron's make push writes the system slot the Pixel 2 is not running,
 # never the one it runs from (scripts/px2-slot.sh): the slot choice, the
@@ -617,6 +993,17 @@ build-native/panelgamma-check: tools/panelgamma-check.c src/panelgamma.c src/pan
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o $@ tools/panelgamma-check.c src/panelgamma.c -lm
 
+# The TrimUI Brick's display's gamma table and saturation
+# (src/panelgamma_sunxi.h): its Screen Colors and Night Mode against a
+# stand-in /dev/disp, with the disp2 driver's command numbers
+check-panelgamma-sunxi: build-native/panelgamma-sunxi-check
+	@./build-native/panelgamma-sunxi-check
+
+build-native/panelgamma-sunxi-check: tools/panelgamma-sunxi-check.c src/panelgamma_sunxi.h src/panelgamma.c \
+                                     src/panelgamma.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o $@ tools/panelgamma-sunxi-check.c src/panelgamma.c -lm
+
 # Night Mode (src/nightmode.h): its warmth in the table, the file's nights
 # and the clock against them, the nights in two zones across summer time's
 # ends, and the migration from Appearance's Auto on a scratch database
@@ -625,10 +1012,33 @@ check-nightmode: build-native/nightmode-check
 
 build-native/nightmode-check: tools/nightmode-check.c src/nightmode.c src/nightmode.h src/nightkeep.c \
                               src/nightkeep.h src/panelgamma.c src/panelgamma.h src/db.c src/db.h \
-                              src/atomic.c FORCE
+                              src/atomic.c src/theme.c src/theme.h src/themefile.c src/look.c \
+                              $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -o $@ tools/nightmode-check.c \
-	      src/nightmode.c src/nightkeep.c src/panelgamma.c src/db.c src/atomic.c -lsqlite3 -lpthread -lm
+	      src/nightmode.c src/nightkeep.c src/panelgamma.c src/db.c src/atomic.c \
+	      src/theme.c src/themefile.c src/look.c $(I18N_SRC) -lsqlite3 -lpthread -lm
+
+# Screen Colors in a game (DESIGN.md 11.42, 1.1.0): the real launcher in desk
+# mode's dummy window, as the Pixel 2 and as the Brick, started back into a
+# game against a Diatom of the check's own, the menu up: the Display tab's
+# Screen Colors row, A opening MENU's page over the paused game, a step kept
+# and on the panel (desk mode's stand-in for the table) with the game still
+# paused, B back to the menu and B again to the game; no row without a table;
+# and over your PICO-8 and OpenBOR (--port-menu, as portkeys starts it), the
+# same row on their Display tab and the page over the program
+check-ingame-colors: native
+	@python3 tools/ingame-colors-check.py
+
+# The in-game menu over OpenBOR, a PortMaster port and PortMaster itself, a
+# game's tabs since 1.1.0-rc.8: the real launcher in desk mode's dummy window
+# as portkeys starts it, as the host and as the Pixel 2: Game's Continue and
+# Quit, Display's Screen Colors alone where the display has a table,
+# Controls' All Controls opening the program's read-only pages, X Quit from
+# any tab, the next menu where the last was left, Keep Waiting while it
+# starts (tools/port-menu-check.py)
+check-port-menu: native
+	@python3 tools/port-menu-check.py
 
 # The display taken back after a game, a crashed one too (src/displayback.h):
 # master asked for until a dying Diatom lets go, and a CRTC left with nothing
@@ -639,6 +1049,27 @@ check-displayback: build-native/displayback-check
 build-native/displayback-check: tools/displayback-check.c src/displayback.c src/displayback.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o $@ tools/displayback-check.c src/displayback.c
+
+# Appearance's Auto on Night Mode's Night Hours (src/theme.h, 1.1.0): light
+# in the day and dark in the night, across midnight and to the minute, dark
+# at exactly the minutes Night Mode's nights are on, the row's three, the
+# first start's migration once a card (a 1.0.5 Auto kept, a new Auto left
+# alone), and the boot screen's word with the hours, which plastron's splash
+# reads to the launcher's theme every minute of the day; and that it never
+# conflicts with Night Mode: no night.* key written, Night Mode the same under
+# all three, the theme turning on the warmth's own second, a 1.0.6 card's
+# Night Mode settings untouched
+check-autotheme: build-native/autotheme-check
+	@./build-native/autotheme-check
+
+build-native/autotheme-check: tools/autotheme-check.c src/theme.c src/theme.h src/nightmode.c src/nightmode.h \
+                              src/nightkeep.c src/nightkeep.h src/panelgamma.c src/panelgamma.h src/db.c \
+                              src/db.h src/atomic.c src/themefile.c src/look.c src/boottheme.c src/boottheme.h \
+                              plastron/buildroot/package/splash/src/zytheme.h $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -o $@ tools/autotheme-check.c \
+	      src/theme.c src/nightmode.c src/nightkeep.c src/panelgamma.c src/db.c src/atomic.c \
+	      src/themefile.c src/look.c src/boottheme.c $(I18N_SRC) -lsqlite3 -lpthread -lm
 
 # The boot screen's theme words (src/boottheme.h, DESIGN.md 11.21)
 check-boottheme: build-native/boottheme-check
@@ -661,6 +1092,14 @@ build-native/splashbright-check: tools/splashbright-check.c plastron/buildroot/p
 
 check-bootbright:
 	@sh tools/bootbright-check.sh
+
+# The boot's ZyperOS version compare (plastron's zyperos.init, version_of and
+# newer_seed): a version with a suffix (1.1.0-rc.1, -kit.N, -test.N) is a
+# version, below its release, so an RC or kit pushed over an older card puts
+# its ZyperOS folder there; what is not a version is false and never stops
+# the shell
+check-seed-version:
+	@sh tools/seed-version-check.sh
 
 UPDATE_SRC = update/main.c update/manifest.c update/status.c update/slots.c
 build-native/zyperos-update: $(UPDATE_SRC) update/update.h FORCE
@@ -685,6 +1124,20 @@ build-native/zyhome-check: tools/zyhome-check.c tools/zychord.h
 	@mkdir -p build-native
 	@$(CC) -Wall -Wextra -Werror -std=gnu11 -o $@ tools/zyhome-check.c
 
+# portkeys's picture on the cursor window (tools/pkover.h): the bar alone and
+# the heat notice alone where and as they went before, the low-battery disc
+# Diatom's to the pixel and its blink, On-Screen Stats' line where hud_place
+# puts it, clear of the disc, all of them in one buffer turned and not, and
+# the frames a second counted from the framebuffer at each blank. No DRM.
+check-pkover: build-native/pkover-check
+	@./build-native/pkover-check
+
+build-native/pkover-check: tools/pkover-check.c tools/pkover.c tools/pkover.h src/hud.c src/hud.h \
+                           src/hudglyphs.h src/osdbar.c src/osdbar.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/pkover-check.c tools/pkover.c src/hud.c src/osdbar.c -lm
+
 check-portkeys: build-native/portkeys-check
 	@./build-native/portkeys-check
 
@@ -699,7 +1152,9 @@ build-native/portkeys-check: tools/portkeys-check.c tools/pkset.c tools/pkset.h 
 # systems.cfg's accent field: six hex digits are that color, and anything else
 # - an empty field, a line that stops before it, a word - is no color at all
 # (CFG_NO_COLOR), which the screens draw by role and never as a color some
-# system has. No SDL; one scratch file under a directory of its own.
+# system has. And its es lines: the folders other systems keep games in,
+# ROCKNIX's all, each read on its own shelf. No SDL; one scratch file under a
+# directory of its own.
 check-config: build-native/config-check
 	@./build-native/config-check
 
@@ -733,6 +1188,18 @@ build-native/gamefile-check: tools/gamefile-check.c src/gamefile.c src/gamefile.
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/gamefile-check.c src/gamefile.c src/biosfile.c src/config.c $(I18N_SRC)
+
+# What the shelf says when a core would not load (src/startfail.h): another
+# machine's build, a library it needs, a library too old, a function nothing
+# has, or nothing more known, in each of the eight languages, with the core's
+# file name and the name dlerror gave, cut where it is long. No SDL.
+check-startfail: build-native/startfail-check
+	@./build-native/startfail-check
+
+build-native/startfail-check: tools/startfail-check.c src/startfail.c src/startfail.h src/platform.h $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/startfail-check.c src/startfail.c $(I18N_SRC)
 
 # The on-screen keyboard's d-pad: down from the grid onto the action row under
 # a column, up from an action key onto the column under its center, the wraps
@@ -775,7 +1242,7 @@ build-native/message-check: tools/message-check.c src/message.c src/message.h sr
 # still waiting for the panel before it, makes its own the one that leaves
 # next - and a held d-pad that starts nothing over (REPEAT_RATE_MS, read from
 # src/keyrepeat.h), MENU deep in a submenu unwinding every level with the
-# panel on screen leaving once, and MENU in Muse's menu bringing back what is
+# panel on screen leaving once, and MENU in MP4's menu bringing back what is
 # under it; and, read from src/main.c with its comments taken out, the
 # in-game menu's close reading input, ended by a press, stopping the game on
 # power, drawn before RESUME and nothing after. No SDL.
@@ -849,6 +1316,26 @@ build-native/gridrule-check: tools/gridrule-check.c src/gridrule.c src/gridrule.
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(pkg-config --cflags sdl2) -Isrc \
 	      -o $@ tools/gridrule-check.c src/gridrule.c $$(pkg-config --libs sdl2) -lm
+
+# Recents' Last Screen card (src/screencard.h, DESIGN.md 11.48): the
+# picture whole times toward its height, the cover in its corner over its
+# shadow, a wide box held to its share
+check-screencard: build-native/screencard-check
+	@./build-native/screencard-check
+
+build-native/screencard-check: tools/screencard-check.c src/screencard.c src/screencard.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(pkg-config --cflags sdl2 SDL2_image SDL2_ttf) -Isrc \
+	      -o $@ tools/screencard-check.c src/screencard.c $$(pkg-config --libs sdl2 SDL2_image) -lm
+
+# The focus's marks on whole panel pixels (src/focusgeo.h, DESIGN.md 11.47):
+# each mark's edges against the Pixel 2's linear scaling, plain C
+check-focusgeo: build-native/focusgeo-check
+	@./build-native/focusgeo-check
+
+build-native/focusgeo-check: tools/focusgeo-check.c src/focusgeo.c src/focusgeo.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o $@ tools/focusgeo-check.c src/focusgeo.c -lm
 
 check-emptyhome: build-native/emptyhome-check
 	@./build-native/emptyhome-check
@@ -1106,6 +1593,24 @@ check-portload:
 	fi
 	@sh tools/portload-check.sh
 
+# The port's latest output at the foot of that screen, as plastron's splash
+# draws it (splash/src/portout.h): read as a terminal shows it, drawn over the
+# screen's own box, cut with an ellipsis, turned as the Pixel 2's panel is;
+# and the letters and the box the launcher writes for it (port_out_write), in
+# English and German, both themes, on the foot under Zyper's frame. The
+# letters need the host build, and are skipped cleanly without SDL2.
+# `sh tools/portout-check.sh --shots DIR` shoots the screen as the lines of a
+# stand-in port change.
+check-portout: build-native/portout-check
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@sh tools/portout-check.sh
+
+build-native/portout-check: tools/portout-check.c plastron/buildroot/package/splash/src/portout.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/portout-check.c
+
 # Zyper as the launcher draws him (src/main.c): in the top ZyperOS menu and
 # no other, his tongue in after a failure, his eyes shut in a blink, and his
 # shadow on Beard - under his chin in the menu and on the power-off screen,
@@ -1170,22 +1675,19 @@ check-design:
 
 # Every string a player reads, in English, 简体中文, Español, Português
 # (Brasil) and Français: res/strings/*.txt, the source, and tools/i18n.py,
-# which writes src/i18n_ids.h, src/i18n_tables.c and the File Transfer page's
-# res/web/i18n/. The check holds them fresh, every string in all five with
+# which writes src/i18n_ids.h, src/i18n_tables.c (the build's own, see
+# I18N_SRC) and the File Transfer page's res/web/i18n/. The check holds the
+# committed ones fresh and the tables uncommitted, every string in all five with
 # English's printf conversions, every ID defined where it is used and used
 # where it is defined, and every character in the font that draws it.
 strings:
 	python3 tools/i18n.py
 
-# What a check that links a part of src/ which says T() links beside it: the
-# strings and their tables (src/i18n.h). English, as the launcher is before
-# the setting is read, unless the check sets another.
-I18N_SRC := src/i18n.c src/i18n_tables.c
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
                    src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
-                   src/device/pixel2_coreopts.c
+                   src/device/pixel2_coreopts.c src/device/brick_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
 DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
@@ -1207,8 +1709,10 @@ check-strings:
 # stderr; the Brick's MENU is a word, wider than the Pixel 2's three dots),
 # and lists what the pseudo-locale's longer words do not fit. A row the Brick
 # has not (Strength, with no GPU shaders) is said, not failed.
+# CHECK_SHARD=I/N (CI's parts, tools/check-run.py) shoots the I-th of N
+# parts of the languages and handhelds
 check-i18n-shots:
-	@python3 tools/i18n-shots.py
+	@python3 tools/i18n-shots.py $(if $(CHECK_SHARD),--part $(CHECK_SHARD))
 
 # How the Brick's initramfs (plastron's brick-rootswitch) reads the kernel's
 # line: the slot's root the boot script names, and a developer's root update
@@ -1235,14 +1739,42 @@ check-hwreport:
 	@$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o build-native/hwreport-check tools/hwreport-check.c src/hwreport.c
 	@./build-native/hwreport-check
 
+# A test kit's code reaches a kit alone (src/kit.h, tools/kitbuild-check.sh):
+# mk/cross.mk adds ZYPEROS_KIT_BUILD and the device's kit file only for a
+# VERSION with "-kit", the hooks' objects have none of it without the define
+# and all of it with it, and the host launcher, never a kit, has none
+check-kitbuild:
+	@CC='$(CC)' DEVICE_PROFILES='$(DEVICE_PROFILES)' DEVICE_BUILDS='$(DEVICE_BUILDS)' sh tools/kitbuild-check.sh
+
+# The Brick kit's lights walk (src/device/brick_kit_walk.h), on a hand clock:
+# the LEDs in the kernel's order by number, the 5 V on first and off last,
+# each LED alone for its second, writes 40 ms apart and one a pass, a stop
+# turning off what is lit, and the row's words as it goes
+check-kitwalk:
+	@mkdir -p build-native
+	@$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o build-native/kitwalk-check tools/kitwalk-check.c
+	@./build-native/kitwalk-check
+
+# What the tools left in the temporary folder and the worktrees' gate frames
+# that nothing touched for a day (tools/clean-scratch.py; -n lists only):
+# scratch cards of runs stopped hard, about 250 MB a language
+.PHONY: clean-scratch
+clean-scratch:
+	@python3 tools/clean-scratch.py $(SCRATCH)
+
 # The same pixels, proved (tools/pixel-gate.py): every shot of check-i18n-shots
 # in every language and both themes, at BASE (origin/main) and here, compared
 # as decoded pixels, with sheets of what changed. Not in CHECKS: it builds the
-# launcher twice. One language or theme: make pixel-gate GATE='--lang en'.
+# launcher twice. One language or theme: make pixel-gate GATE='--lang en'; a
+# pull request's round, only what the change can touch: GATE=--targeted. The
+# base's frames are shared by every worktree (the tool says how);
+# pixel-gate-warm shoots BASE's and nothing else, once a main commit.
 BASE ?= origin/main
-.PHONY: pixel-gate
+.PHONY: pixel-gate pixel-gate-warm
 pixel-gate:
 	@'$(PYIMG)' tools/pixel-gate.py --base '$(BASE)' $(GATE)
+pixel-gate-warm:
+	@'$(PYIMG)' tools/pixel-gate.py --base '$(BASE)' --warm $(GATE)
 
 # The Chinese UI's cut of Noto Sans SC (tools/cjkfont.py), from the two OTFs
 # in CJK_SRC; needs fontTools. Only when check-strings says a character is
@@ -1300,6 +1832,17 @@ check-sounds:
 sounds:
 	python3 -B tools/gensounds.py
 
+# A screenshot felt and heard as it is taken (DESIGN.md 9 and 11.61): over
+# your PICO-8, portkeys's shutter player on alsa-lib into stand-ins that write
+# down what reaches them, PICO-8's own stream beside it (Linux; skipped
+# elsewhere); in a Diatom game, diatom/test/shotfeel.py against the stub core:
+# one buzz a shot at the Rumble level and none at Off, HOTKEY key=shot as it
+# is taken and before its file, the file the frame pixel for pixel, the game's
+# sound as it was (when diatom/build/desktop is there: check-diatom builds it
+# and runs the same test). tools/shotfeel-check.sh says which part is which.
+check-shotfeel:
+	@CC="$(CC)" sh tools/shotfeel-check.sh
+
 # Python with Pillow, for the Plain Jane cards and their check. The first
 # python3 on the PATH may have none (Homebrew's does not), so this is the first
 # of it and pyenv's whose Pillow has Raqm (libraqm), for text image generation
@@ -1344,18 +1887,93 @@ check-controls: build-native/controls-check
 
 # The remap rules, pure: Diatom's map language read and written, the swap rule
 # of a button's change, what is stored for a scope, and the choices a system
-# offers (docs/superpowers/specs/2026-11-13-button-remap-design.md).
+# offers (DESIGN.md 11.45). And your PICO-8's table as SDL's mapping line
+# (src/p8pad.h).
 check-remap: build-native/remap-check
 	@./build-native/remap-check
 
 build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remapstore.c src/remapstore.h src/controls.c \
+                          src/p8pad.c src/p8pad.h \
                           src/controls.h src/padglyph.h src/menu.h src/config.c src/config.h \
                           src/db.c src/db.h src/atomic.c config/systems.cfg \
                           $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/powerhold.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/hotkeys.c src/powerhold.c src/config.c src/db.c src/atomic.c \
+	      src/p8pad.c \
 	      $(I18N_SRC) -lsqlite3
+
+# The player's hotkeys, pure: SELECT and a button for each action, the swap
+# that loses none, what is kept for Every Game, a system and a game, and
+# Diatom's RUN form (src/hotkeys.h, src/hkstore.h)
+check-hotkeys: build-native/hotkeys-check
+	@./build-native/hotkeys-check
+
+build-native/hotkeys-check: tools/hotkeys-check.c src/hotkeys.c src/hotkeys.h src/hkstore.c src/hkstore.h \
+                            src/db.c src/db.h src/atomic.c FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/hotkeys-check.c src/hotkeys.c src/hkstore.c src/db.c src/atomic.c -lsqlite3
+
+# Rumble's levels, the share a game is sent, and what is kept for a game, a
+# system and MENU (src/rumble.h)
+check-rumble: build-native/rumble-check
+	@./build-native/rumble-check
+
+build-native/rumble-check: tools/rumble-check.c src/rumble.c src/rumble.h src/config.c src/config.h \
+                           src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/rumble-check.c src/rumble.c src/config.c src/db.c src/atomic.c \
+	      $(I18N_SRC) -lsqlite3
+
+# The equalizer's settings, presets and the file a port's plugin reads
+# (src/eq.h), and its arithmetic on test tones, with its cost (src/eqdsp.h)
+check-eq: build-native/eq-check
+	@./build-native/eq-check
+
+build-native/eq-check: tools/eq-check.c src/eq.c src/eq.h src/eqdsp.h src/db.c src/db.h src/atomic.c \
+                       $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/eq-check.c src/eq.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3 -lm
+
+# And the volume boost's top cells there (cells 4 to 6, EQ_COMP_TAB): cells
+# 1 to 3 the boost as it was to the sample, against a copy of it in the
+# check; each top cell louder on PICO-8-like chip voices and a loud film,
+# the loud carts' targets at cell 6, no sample past -1 dB of full scale, a
+# sine's THD+N cell by cell, the compressor's swing, silence, the cost; the
+# table's rows against src/boost.h's cells
+check-eqdsp: build-native/eqdsp-check
+	@./build-native/eqdsp-check
+
+build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h src/boost.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O2 -o $@ tools/eqdsp-check.c -lm
+
+# The ports' equalizer plugin (plastron's zyperos-eq), built for this computer
+# and loaded the way alsa-lib's ladspa PCM loads it: flat untouched, Voice
+# heard, the launcher's file followed, its cut (your PICO-8 quiet while MP4
+# plays) faded to silence and back, the volume boost's gain followed and
+# limited, and its cost; then, on Linux, a port's whole chain (eq-port.sh)
+# opened as SDL opens it at every rate a program asks, over a stand-in for
+# the dmix (tools/eqchain-check.sh: PICO-8's 22050 Hz was refused on
+# 1.1.0-rc.5, with no sound), and the boost's gain through it as PICO-8
+# plays (tools/eqchain-gain.c). tools/eqplugin-alsa.sh
+# runs it through the handheld's own alsa-lib, by hand (it needs the SDK).
+check-eqplugin: build-native/eqplugin-check build-native/zyperos_eq.so
+	@./build-native/eqplugin-check build-native/zyperos_eq.so
+	@sh tools/eqchain-check.sh
+
+build-native/zyperos_eq.so: plastron/buildroot/package/zyperos-eq/src/zyperos_eq.c \
+                            plastron/buildroot/package/zyperos-eq/src/ladspa.h src/eqdsp.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O2 -fPIC -shared -Isrc -o $@ \
+	      plastron/buildroot/package/zyperos-eq/src/zyperos_eq.c -lm
+
+build-native/eqplugin-check: tools/eqplugin-check.c src/eqdsp.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O2 -o $@ tools/eqplugin-check.c -lm -ldl
 
 # The in-game Controls pages and the home's A to Z order, drawn
 check-controls-shots:
@@ -1370,7 +1988,7 @@ build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.
                             $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/controls-check.c src/controls.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/controls-check.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3
 
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
@@ -1383,20 +2001,23 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c src/homesys.c \
-	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
+	      src/menu.c src/game_menu.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
 	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c \
 	      src/device/brick_model.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
-# as plastron's gauge reads them, the FIFO writer that never waits and never
-# dies of SIGPIPE, on a real FIFO, and when a File Transfer batch is over.
+# as plastron's gauge reads them (its lights.c linked in, for the setting's
+# line), the FIFO writer that never waits and never dies of SIGPIPE, on a
+# real FIFO, and when a File Transfer batch is over.
+GAUGE_SRC := plastron/buildroot/package/gauge/src
 check-sidelights: build-native/sidelights-check
 	@./build-native/sidelights-check
 
-build-native/sidelights-check: tools/sidelights-check.c src/sidelights.c src/sidelights.h $(I18N_SRC) FORCE
+build-native/sidelights-check: tools/sidelights-check.c src/sidelights.c src/sidelights.h \
+                               $(GAUGE_SRC)/lights.c $(GAUGE_SRC)/lights.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/sidelights-check.c src/sidelights.c $(I18N_SRC)
+	      -o $@ tools/sidelights-check.c src/sidelights.c $(GAUGE_SRC)/lights.c $(I18N_SRC)
 
 build-native/xfer-check: tools/xfer-check.c src/xfer.c src/xfer.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
@@ -1485,7 +2106,8 @@ build-native/devices-check: tools/devices-check.c src/profile.c src/device/profi
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
 # job "devices", .github/workflows/check.yml): the launcher's device files,
-# src/profile.c with each device's profile and model, and Diatom's two ports. Syntax
+# src/profile.c with each device's profile and model, Diatom's two ports, and
+# portkeys whole (check-portkeys-flow compiles its reader and loop alone). Syntax
 # only, so it needs the headers and no device. Elsewhere it says it skipped,
 # so it is not in CHECKS (the macOS job would only ever skip it).
 .PHONY: check-device-compile
@@ -1502,10 +2124,17 @@ check-device-compile:
 	done; \
 	D="-Idiatom/include -Idiatom/src -Idiatom/vendor/rcheevos/include -Idiatom/vendor/lz4"; \
 	echo "  diatom: port/brick.c"; \
-	$(CC) $$F $$D $$S diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c; \
+	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2) \
+		diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c diatom/port/hud.c \
+		diatom/port/panelgamma.c; \
+	echo "  launcher: a test kit's src/device/brick_kit.c and src/device/brick_hw.c (ZYPEROS_KIT_BUILD)"; \
+	$(CC) $$F -DZYPEROS_KIT_BUILD -Isrc $$S src/device/brick_kit.c src/device/brick_hw.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
+	echo "  portkeys: tools/portkeys.c, the Pixel 2's keys, bar and motor over a port, whole"; \
+	$(CC) $$F -Isrc -Idiatom/src -Idiatom/include tools/portkeys.c tools/pkkeys.c tools/pkfeel.c \
+		tools/pkshutter.c src/pcm_out.c; \
 	echo "ok: every device file compiles"
 
 # The handhelds' models (src/device/td_model.h): every key once, the GKD
@@ -1587,8 +2216,10 @@ check-clock: build-native/clock-check
 # The launcher's reader of Diatom's answers (src/resident.c), the device
 # stubbed, against a made-up Diatom on a socket of its own
 # (tools/resident-check.c): SETPLAYER2's answer read while paused, the
-# picture on the way noted, and a game's EXIT before it left for the wait
-# loop rather than eaten. SDL for SDL_GetTicks alone; skipped without it.
+# picture on the way noted, a game's EXIT before it left for the wait
+# loop rather than eaten, and a running game's volume boost said to MP4 at
+# each LEVEL line, none from before its SETLEVEL. SDL for SDL_GetTicks
+# alone; skipped without it.
 check-resident:
 	@if command -v sdl2-config > /dev/null 2>&1; then \
 		$(MAKE) --no-print-directory build-native/resident-check && ./build-native/resident-check; \
@@ -1648,12 +2279,12 @@ check-artscrape: build-native/artscrape-check
 	@ART_SCORING=1 ./build-native/artscrape-check
 	@python3 tools/artscrape-check.py
 
-build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_VERSION='"check"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/artscrape-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/artscrape-check-artdat"' \
-	      -o $@ tools/artscrape-check.c src/artscrape.c src/artsrc.c src/net.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/artscrape-check.c src/artscrape.c src/artsrc.c src/net.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3
 
 # Replace fetches over a cover rather than deleting it first. The real scraper
 # against a stubbed network, so a hit and a miss are both pinned with no device
@@ -1661,11 +2292,11 @@ build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscr
 check-artrun: build-native/artrun-check
 	@./build-native/artrun-check
 
-build-native/artrun-check: tools/artrun-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/artrun-check: tools/artrun-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -DSS_BUSY_WAIT=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/artrun-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/artrun-check-artdat"' \
-	      -o $@ tools/artrun-check.c src/artscrape.c src/artsrc.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/artrun-check.c src/artscrape.c src/artsrc.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3
 
 # SteamGridDB on the device (src/sgdb.h): the real client and a whole run
 # against a fake API - the key in a header and never a URL, the match, the
@@ -1675,14 +2306,14 @@ check-sgdb: build-native/sgdb-check
 	@./build-native/sgdb-check
 	@python3 tools/sgdb-check.py
 
-build-native/sgdb-check: tools/sgdb-check.c src/sgdb.c src/sgdb.h src/sgdbrun.c src/sgdbrun.h src/artscrape.c src/artscrape.h src/rajson.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/sgdb-check: tools/sgdb-check.c src/sgdb.c src/sgdb.h src/sgdbrun.c src/sgdbrun.h src/artscrape.c src/artscrape.h src/rajson.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DSGDB_GAP_MS=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET -DSGDB_QUIET \
 	      -DSGDB_TMP='"build-native/sgdb-reply.json"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/sgdb-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/sgdb-check-artdat"' \
 	      -o $@ tools/sgdb-check.c src/sgdb.c src/sgdbrun.c src/artscrape.c src/artsrc.c src/rajson.c \
-	      src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3 -lpthread
+	      src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # Which systems get videos and for which games (src/snaps.h): off to start,
 # 1.0.4's setting kept, a system's own switch, Videos for.
@@ -1733,7 +2364,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-radl check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-dl-recent check-dl-look check-cheatsdl check-cheats check-rasubmit check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -1822,18 +2453,74 @@ check-raoffline:
 # RetroAchievements of the check's own - this check is its curl, net.c read in
 # whole - on a mixed card: sets right and out of date, new, unknown, empty, a
 # marker RetroAchievements has news for, a 429, the network gone mid-run, a
-# run stopped and finished by the next, libraries that never come, an account
-# refused. The time is the check's. No network.
+# run stopped and finished by the next, libraries that never come, a DS hash
+# kept from before the DS hash, an account refused. The time is the check's.
+# No network.
 check-radl: build-native/radl-check
 	@./build-native/radl-check
 
-build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
+# The downloads' queue (src/dlq.h) and net.c's slots: two lanes side by side,
+# a game, a stop, the card's floor, the step hook and the runs, against this
+# check's own curl. The floor is past any disk so the room rule fires on its
+# first look.
+# A game's cheats with no device: the .cht reader and the list (src/cht.h,
+# src/cheats.h) on a card in a folder of its own
+check-cheats: build-native/cheats-check
+	@./build-native/cheats-check
+
+build-native/cheats-check: tools/cheats-check.c src/cheats.c src/cheats.h src/cht.c src/cht.h src/atomic.c src/atomic.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -DCHEATS_TMP='"$(CURDIR)/build-native/cheats-check-tmp"' \
+	      -o $@ tools/cheats-check.c src/cheats.c src/cht.c src/atomic.c
+
+check-dlq: build-native/dlq-check
+	@./build-native/dlq-check
+
+build-native/dlq-check: tools/dlq-check.c src/dlq.c src/dlq.h src/net.c src/net.h src/monoclock.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
+	      -DNET_TMP='"$(CURDIR)/build-native/dlq-check-tmp"' \
+	      -DDLQ_FLOOR='(1ULL << 62)' -DDLQ_ROOM_MS=1 \
+	      -o $@ tools/dlq-check.c
+
+# MENU > Downloads left with B and opened again (src/dl_screen.c), on the real
+# launcher with a stand-in run: what came is listed as it was, its pictures
+# with it, what came behind the page too, nothing in a game, the wall of a run
+# that ended behind it, the pictures read again after the renderer went
+check-dl-recent:
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/dl-recent-check.py
+
+# A game's panel in MENU > Downloads looking at the card (src/dl_screen.c's
+# one_look), on the real launcher: Videos is On card only for a game whose
+# video is there, its own snap or EmulationStation's, and not for one with
+# none, an empty snap or a snap deleted after a look
+check-dl-look:
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/dl-look-check.py
+
+# The cheats download (src/cheatsdl.h): a zip made in the check, read, matched,
+# written and counted, with no network
+check-cheatsdl: build-native/cheatsdl-check
+	@./build-native/cheatsdl-check
+
+build-native/cheatsdl-check: tools/cheatsdl-check.c src/cheatsdl.c src/cheatsdl.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc $(shell pkg-config --cflags sdl2 2>/dev/null) \
+	      -o $@ tools/cheatsdl-check.c -lz
+
+build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c src/sheet.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
 	      -DNET_TMP='"$(CURDIR)/build-native/radl-check-tmp"' \
 	      -DRADL_TMP='"$(CURDIR)/build-native"' \
 	      $(LZMA_CFLAGS) -o $@ tools/radl-check.c src/radl.c src/rafetch.c src/rajson.c src/cheevos.c \
-	      src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
+	      src/library.c src/sheet.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
 
 # The two set converters - one C on the device, one Python in the bulk tool -
 # over real RetroAchievements responses. Needs credentials and a network;
@@ -1852,12 +2539,12 @@ build-native/raset-check: tools/raset-check.c src/rafetch.c src/rajson.c $(RAHAS
 check-ss: build-native/ss-check
 	@./build-native/ss-check
 
-build-native/ss-check: tools/ss-check.c src/ss.c src/ss.h src/ssfetch.c src/ssfetch.h src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c $(I18N_SRC) FORCE
+build-native/ss-check: tools/ss-check.c src/ss.c src/ss.h src/ssfetch.c src/ssfetch.h src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c src/sheet.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	@$(MAKE) -f mk/native.mk VERSION=$(VERSION) creds
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
 	      -DZYPEROS_VERSION='"check"' \
-	      -o $@ tools/ss-check.c src/ss.c src/ssfetch.c src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c $(I18N_SRC) -lsqlite3 -lpthread
+	      -o $@ tools/ss-check.c src/ss.c src/ssfetch.c src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c src/sheet.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # Scraped display names: SQLite upgrade, real parser/runner, library fallback,
 # and the actual main.c refresh hooks with headless view stubs.
@@ -1866,24 +2553,24 @@ check-titles: build-native/title-check build-native/title-refresh-check build-na
 	@./build-native/title-refresh-check
 	@./build-native/title-bulk-check
 
-build-native/title-check: tools/title-check.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/title-check: tools/title-check.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DSS_TMP='"build-native/title-reply.json"' \
-	      -o $@ tools/title-check.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/artsrc.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-check.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/artsrc.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
 
-build-native/title-bulk-check: tools/title-bulk-check.c src/artscrape.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/title-bulk-check: tools/title-bulk-check.c src/artscrape.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -DSS_BUSY_WAIT=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET \
 	      -DSS_TMP='"build-native/title-bulk-reply.json"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/title-bulk-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/title-bulk-check-artdat"' \
-	      -o $@ tools/title-bulk-check.c src/artscrape.c src/artsrc.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-bulk-check.c src/artscrape.c src/artsrc.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
 
-build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refresh-hooks.py src/main.c src/scraper_screen.c src/library.c src/db.c src/stats.c $(I18N_SRC) FORCE
+build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refresh-hooks.py src/main.c src/scraper_screen.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	python3 tools/title-refresh-hooks.py src/main.c src/scraper_screen.c build-native/title-refresh-hooks.h
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
-	      -o $@ tools/title-refresh-check.c src/library.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-refresh-check.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
 
 # Host build of the launcher, for working on how the shelf looks.
 native:
@@ -1894,6 +2581,14 @@ native:
 # tools/qemu-run.sh deploy. tools/px2-payload.sh says how.
 px2-payload:
 	sh tools/px2-payload.sh
+
+# The programs alone, for a change to the code: build/px2/programs/ZyperOS,
+# the programs and the card's scripts, no cores (tools/px2-payload.sh
+# --programs), and build/px2/system, the system's files a deploy's --system
+# stands in for. tools/px2 deploy sends what differs from the card.
+.PHONY: px2-programs
+px2-programs:
+	sh tools/px2-payload.sh --programs
 
 # The libretro cores ZyperOS redistributes, fetched from its own cores
 # release and hash-pinned (mk/fetch-vendor.sh). Needed once, before the first
@@ -1968,6 +2663,19 @@ build-native/coreopts-check: tools/coreopts-check.c src/coreopts.c src/coreopts.
 	      -o $@ tools/coreopts-check.c src/coreopts.c src/db.c src/atomic.c src/strength.c \
 	      src/device/pixel2_coreopts.c -lsqlite3 -lpthread
 
+# MP4's settings under its own name (src/mp4keys.h): a handheld's "muse."
+# settings from before 1.1.0 moved under "mp4." at its first start, each
+# value kept; the new one kept where both are; nothing for a second start
+check-mp4keys: build-native/mp4keys-check
+	@./build-native/mp4keys-check
+
+build-native/mp4keys-check: tools/mp4keys-check.c src/mp4keys.c src/mp4keys.h src/db.c src/db.h \
+                            src/atomic.c src/strength.c FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/mp4keys-check.c src/mp4keys.c src/db.c src/atomic.c src/strength.c \
+	      -lsqlite3 -lpthread
+
 # The saved library a start shows before it reads the card (src/savedlib.h):
 # a listing written, read and finished is lib_scan's, the check's digest sees
 # changes and not order, and nothing but a whole file is read as one; then
@@ -1980,11 +2688,11 @@ check-savedlib: build-native/savedlib-check
 	fi
 	@sh tools/savedlib-e2e.sh
 
-build-native/savedlib-check: tools/savedlib-check.c src/savedlib.c src/savedlib.h src/library.c src/library.h \
+build-native/savedlib-check: tools/savedlib-check.c src/savedlib.c src/savedlib.h src/library.c src/sheet.c src/library.h \
                              src/db.c src/db.h src/atomic.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/savedlib-check.c src/savedlib.c src/library.c src/db.c src/atomic.c -lsqlite3 -lpthread
+	      -o $@ tools/savedlib-check.c src/savedlib.c src/library.c src/sheet.c src/db.c src/atomic.c -lsqlite3 -lpthread
 
 build-native/db-check: tools/db-check.c src/db.c src/db.h src/atomic.c src/strength.c src/strength.h FORCE
 	@mkdir -p build-native
@@ -2013,22 +2721,22 @@ check-gamern: build-native/gamern-check
 
 build-native/gamern-check: tools/gamern-check.c src/gamern.c src/gamern.h src/gamedel.c src/sheet.c src/gamedel.h \
                            src/esmedia.c src/esmedia.h src/library.c src/db.c src/favorites.c src/stats.c \
-                           src/portinfo.c src/atomic.c $(I18N_SRC) FORCE
+                           src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -o $@ tools/gamern-check.c src/gamern.c src/gamedel.c src/sheet.c src/esmedia.c src/library.c src/db.c \
-	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c $(I18N_SRC) -lsqlite3 -lpthread
+	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # EmulationStation's folders and media (src/esmedia.h): covers, videos,
 # details and the import on a card of small files in three ES layouts
 check-esmedia: build-native/esmedia-check
 	@./build-native/esmedia-check
 
-build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/library.h \
-                            src/db.c src/db.h FORCE
+build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/sheet.c src/library.h \
+                            src/db.c src/db.h src/snaps.c src/snaps.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/db.c -lsqlite3 -lpthread
+	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c src/snaps.c -lsqlite3 -lpthread
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
@@ -2123,15 +2831,15 @@ build-native/bt-check: tools/bt-check.c tools/legend.h src/bt.c src/bt.h src/bt_
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/bt-check.c src/bt.c src/bt_menu.c src/keyhints.c src/spawn.c $(I18N_SRC)
 
-# Muse's view of the Music folder: the two shapes it reads, the litter a Mac
+# MP4's view of the Music folder: the two shapes it reads, the litter a Mac
 # leaves beside every track, and where an album's cover is kept.
-check-muselib: build-native/muselib-check
-	@./build-native/muselib-check
+check-mp4lib: build-native/mp4lib-check
+	@./build-native/mp4lib-check
 
-build-native/muselib-check: tools/muselib-check.c src/muselib.c src/muselib.h $(I18N_SRC) FORCE
+build-native/mp4lib-check: tools/mp4lib-check.c src/mp4lib.c src/mp4lib.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/muselib-check.c src/muselib.c $(I18N_SRC)
+	      -o $@ tools/mp4lib-check.c src/mp4lib.c $(I18N_SRC)
 
 # The logs pack: names and Bluetooth addresses masked, and a whole pack
 # unpacked with the same tar and read back.
@@ -2149,6 +2857,63 @@ build-native/logpack-check: tools/logpack-check.c src/logpack.c src/logpack.h FO
 # held two seconds the one way out.
 check-mp4lock: build-native/mp4lock-check
 	@./build-native/mp4lock-check
+
+# MP4's Player Looks' motion (src/mp4look.h): bars up at once and down on
+# follow's tau at any frame rate, caps held for peak-hold and down with
+# gravity, every bar at rest after, the bands over a look's bars.
+check-mp4look: build-native/mp4look-check
+	@./build-native/mp4look-check
+
+# START on MP4's shelf turns its View (DESIGN.md 11.67), on the real launcher
+# in desk mode's dummy window, as check-desk runs it: Covers, Grid, List and
+# round (no Video), kept as view.MUSE, and SELECT with START, the lock's
+# pair, in either order, turns nothing.
+check-mp4views: native
+	@python3 tools/mp4views-check.py
+
+# MP4 back after a power-off (src/mp4resume.h, DESIGN.md 11.67): the row
+# written and read back, a broken one refused, a session's writes counted;
+# then the real launcher started on cards with each kind of row, in desk
+# mode's dummy window: Now Playing paused at its second, only for a row that
+# says playing, and nothing for one whose file is gone. And a start back into
+# a game, against a Diatom of the check's own: the game first, MP4 held under
+# it, and SELECT in the game's menu Now Playing on it, paused. Each wait is
+# for the screen or the row it names, never for a time.
+check-mp4resume: build-native/mp4resume-check native
+	@./build-native/mp4resume-check
+	@python3 tools/mp4resume-start.py
+
+build-native/mp4resume-check: tools/mp4resume-check.c src/mp4resume.c src/mp4resume.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/mp4resume-check.c src/mp4resume.c -lm
+
+build-native/mp4look-check: tools/mp4look-check.c src/mp4look.c src/mp4look.h src/design.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/mp4look-check.c src/mp4look.c -lm
+
+# An album cover's main color (src/covercolor.h), the cassette's stripe and
+# the vinyl's: one color, a title on white, the larger of two, grey.
+check-covercolor: build-native/covercolor-check
+	@./build-native/covercolor-check
+
+build-native/covercolor-check: tools/covercolor-check.c src/covercolor.c src/covercolor.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/covercolor-check.c src/covercolor.c -lm
+
+# The daemon's bands for the bars (src/mp4d/bands.h): each band lit by a tone
+# at its own middle, silence dark, the window where the listener is and not
+# where the decoder got to, and its time. `build-native/bands-check --song
+# FILE` plays a song through it, which is how its scale was set.
+check-bands: build-native/bands-check
+	@./build-native/bands-check
+
+build-native/bands-check: tools/bands-check.c src/mp4d/bands.c src/mp4d/bands.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O2 -g \
+	      -o $@ tools/bands-check.c src/mp4d/bands.c -lm -lpthread
 
 build-native/mp4lock-check: tools/mp4lock-check.c src/mp4lock.c src/mp4lock.h src/inbutton.h FORCE
 	@mkdir -p build-native
@@ -2173,6 +2938,30 @@ build-native/mp4frame-check: tools/mp4frame-check.c src/mp4frame.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O2 -g \
 	      -o $@ tools/mp4frame-check.c -lpthread
+
+# MP4's video picture of any shape - 4:3 (1440x1080, 480x360), 16:9, odd,
+# tiny, the largest, the size changing inside one file - published as
+# src/mp4d/vid.c publishes it and read by src/mp4video.c into its texture: as
+# wide as the frame's rows, a multiple of 128 (src/mp4frame.h, mpf_stride: the
+# Pixel 2's Mesa ran past a texture's buffer for other widths), each plane
+# fitting Mesa's tile buffer as rows, drawn whole from its own rectangle,
+# nothing out of bounds (UBSan where the compiler has it, and Guard Malloc on
+# a Mac). Needs SDL2.
+check-mp4size:
+	@if pkg-config --exists sdl2 2>/dev/null; then \
+		$(MAKE) --no-print-directory build-native/mp4size-check || exit 1; \
+		if [ -f /usr/lib/libgmalloc.dylib ]; then gm=/usr/lib/libgmalloc.dylib; else gm=; fi; \
+		SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software DYLD_INSERT_LIBRARIES=$$gm \
+			./build-native/mp4size-check; \
+	else echo "check-mp4size: skipped, no SDL2"; fi
+
+build-native/mp4size-check: tools/mp4size-check.c src/mp4video.c src/mp4video.h src/mp4frame.h FORCE
+	@mkdir -p build-native
+	san=; echo 'int main(void){return 0;}' | $(CC) -fsanitize=undefined -x c - -o /dev/null 2>/dev/null && \
+		san='-fsanitize=undefined -fno-sanitize-recover=all'; \
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g $$san -Isrc \
+	      -DMP4SIZE_FRAMES='"$(CURDIR)/build-native/mp4size-frames"' $$(pkg-config --cflags sdl2) \
+	      -o $@ tools/mp4size-check.c $$(pkg-config --libs sdl2) -lm
 
 # Player 2's frame codec (src/p2d/codec.c): a frame of palette indices, XORed
 # with the last one, raw-deflated; and the decoder the page mirrors. The check
@@ -2278,24 +3067,24 @@ build-native/p2-check: tools/p2-check.c src/p2.c src/p2.h src/hotspot.h src/p2sh
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/p2-check.c src/p2.c
 
-check-musequeue: build-native/musequeue-check
-	@./build-native/musequeue-check
+check-mp4queue: build-native/mp4queue-check
+	@./build-native/mp4queue-check
 
-build-native/musequeue-check: tools/musequeue-check.c src/musequeue.c src/musequeue.h FORCE
+build-native/mp4queue-check: tools/mp4queue-check.c src/mp4queue.c src/mp4queue.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/musequeue-check.c src/musequeue.c
+	      -o $@ tools/mp4queue-check.c src/mp4queue.c
 
 # Album covers from MusicBrainz: the rule that picks the record, against what
 # MusicBrainz said about the first card's albums, and a run on stubbed network.
-check-museart: build-native/museart-check
-	@./build-native/museart-check
+check-mp4art: build-native/mp4art-check
+	@./build-native/mp4art-check
 
-build-native/museart-check: tools/museart-check.c src/museart.c src/museart.h \
+build-native/mp4art-check: tools/mp4art-check.c src/mp4art.c src/mp4art.h \
                             src/urlenc.c src/rajson.c tools/fixtures/musicbrainz/*.json $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/museart-check.c src/museart.c src/urlenc.c src/rajson.c $(I18N_SRC)
+	      -o $@ tools/mp4art-check.c src/mp4art.c src/urlenc.c src/rajson.c $(I18N_SRC)
 
 # src/zypermark.h is Zyper as triangles, generated from tools/zyperdef.py
 # because C cannot import it; this proves it is current, and that the ground
@@ -2325,6 +3114,20 @@ shaderdemo: build-native/shaderdemo
 
 check-shaderdemo: build-native/shaderdemo
 	@'$(PYIMG)' tools/shaderdemo-check.py
+
+# ZyperOS's own screens' shader (src/screenfx.h): its picture held to
+# Diatom's GLSL through tools/shaderdemo.c's port of it, at a game's size,
+# every pixel, what the Pixel 2 shows of each old screen, and the masks
+# kept and used again (src/screenfx_draw.c) on SDL's software renderer.
+build-native/screenfx-check: tools/screenfx-check.c tools/shaderdemo.c src/screenfx.c src/screenfx.h \
+                             src/screenfx_draw.c src/screenfx_draw.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -O2 -Wall -Wextra -Isrc $$(pkg-config --cflags sdl2 SDL2_image) \
+	  -o $@ tools/screenfx-check.c src/screenfx.c src/screenfx_draw.c $$(pkg-config --libs sdl2 SDL2_image) -lm
+
+.PHONY: check-screenfx
+check-screenfx: build-native/screenfx-check
+	@./build-native/screenfx-check
 
 # The graded bar (src/ds/scale.h): a scale value reads back as written and
 # keeps its range, words are never one, and the knob is drawn where the value
@@ -2462,11 +3265,11 @@ build-native/randgame-check: tools/randgame-check.c src/randgame.c src/randgame.
 check-shelfdir: build-native/shelfdir-check
 	@./build-native/shelfdir-check
 
-build-native/shelfdir-check: tools/shelfdir-check.c src/shelfdir.c src/shelfdir.h src/library.c \
+build-native/shelfdir-check: tools/shelfdir-check.c src/shelfdir.c src/shelfdir.h src/library.c src/sheet.c \
                              src/library.h src/db.c src/atomic.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/shelfdir-check.c src/shelfdir.c src/library.c src/db.c src/atomic.c \
+	      -o $@ tools/shelfdir-check.c src/shelfdir.c src/library.c src/sheet.c src/db.c src/atomic.c \
 	      -lsqlite3 -lpthread
 .PHONY: check-home
 check-home:
@@ -2479,14 +3282,54 @@ check-home-shots: native
 
 # The line under a game's name on Favorites: its own system (src/games.c)
 .PHONY: check-favorites-shots
+# Your PICO-8 on the host (tools/pico8-shots.py): the PICO-8 shelf with
+# Splore before and after the player's PICO-8 is on the card, the Core row and
+# the page that says how to add it, in both themes
+.PHONY: pico8-shots
+pico8-shots: native
+	@'$(PYIMG)' tools/pico8-shots.py
+
 check-favorites-shots: native
 	@'$(PYIMG)' tools/favorites-shot-check.py
+
+# A system turned off the home keeps its games on Favorites and Recents, and
+# they start from there on its own core (src/shelfbuild.c, app.parked)
+.PHONY: check-homesys-groups
+check-homesys-groups: native
+	@'$(PYIMG)' tools/homesys-groups-check.py
+
+# A program of its own (your PICO-8 and Splore, OpenBOR, a port) reaches
+# Recents and Played (src/stats.h): the session the launcher hands over with
+# it, closed by launch.sh's --port-played as it ends, POWER too; and Recents
+# says when each game was last played, in Covers, Grid, List and Video, both
+# themes (tools/recents-played-check.py)
+.PHONY: check-recents-played
+check-recents-played: native
+	@python3 tools/recents-played-check.py
+
+# A late frame left undrawn reaches Diatom when the launcher starts a Diatom
+# of its own for the game (no resident one), as RUN's frameskip=late does
+.PHONY: check-lateskip-launch
+check-lateskip-launch: native
+	@python3 tools/lateskip-launch-check.py
 
 # The song's name in the top bar slides when too long, and Now Playing's foot
 # is a row of hints (src/home.c, src/main.c)
 .PHONY: check-np-footer
 check-np-footer: native
 	@'$(PYIMG)' tools/np-footer-check.py
+
+# Whether a video is too big for the CPU, which MP4 then says (src/mp4d/vidtry.h):
+# the pictures shown and dropped the Pixel 2 measured with dav1d (720p60 and
+# 1080p30 AV1 never, 1080p60 within 6 s), taken back when it turns light, a
+# seek's catch-up not counted
+.PHONY: check-vidtry
+check-vidtry: build-native/vidtry-check
+	@./build-native/vidtry-check
+
+build-native/vidtry-check: tools/vidtry-check.c src/mp4d/vidtry.h src/mp4frame.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/vidtry-check.c
 
 # Every option row keeps one rule (DESIGN.md 9, src/menu.h's menu_choice):
 # more than two choices open their list on A, two turn over, and every table
@@ -2540,7 +3383,7 @@ check-tour-previews: native
 
 .PHONY: check-games
 # A video snap of any shape - 640x480, a Nintendo DS game's 320x480, a Game
-# Boy game's, 534x480, a width of 1, odd ones - published as Muse publishes
+# Boy game's, 534x480, a width of 1, odd ones - published as MP4 publishes
 # it, read into its texture and drawn on the shelf and on a game's Cover and
 # Video page: its own shape where it is drawn, a texture never under 640x480
 # (src/mp4frame.h, mpf_tex_size: the Pixel 2's GPU faulted on narrower ones),
@@ -2570,6 +3413,12 @@ yuvtarget:
 check-games:
 	@$(MAKE) --no-print-directory $(NATIVE_J) -f mk/native.mk VERSION=$(VERSION) build-native/games-check
 	@SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software ./build-native/games-check
+
+# The Shader lists' pictures load as textures with alpha, which the Pixel 2's
+# SDL needs to draw them into the screen opaque
+check-shaderpic:
+	@$(MAKE) --no-print-directory $(NATIVE_J) -f mk/native.mk VERSION=$(VERSION) build-native/shaderpic-check
+	@SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software ./build-native/shaderpic-check
 
 # The card for a game or an album with no art, drawn on an art worker rather
 # than on the frame: the frame's pixels byte for byte, every kind of title,

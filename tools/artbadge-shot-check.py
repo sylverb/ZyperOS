@@ -106,7 +106,7 @@ def card(name):
 def shot(base, env, name, shelf, theme, game='', show=None):
     (base / 'root/.last').write_text(f'{shelf}\n{game}\n')
     if show:
-        run(env, '--set', f'muse.show={show}')
+        run(env, '--set', f'mp4.show={show}')
     file = OUT / f'{name}-{theme}.png'
     run(env, '--shot', str(file), '--screen', 'games', '--phase', '3200', '--status', STATUS,
         '--theme', theme)
@@ -143,10 +143,11 @@ def pink(im, box):
                if p[x, y][0] - p[x, y][1] > 20 and p[x, y][0] - p[x, y][2] > 8)
 
 
-# MP4's focused card: an album's generated card fills the square frame, 461
-# across (CF_LAYOUT_ALBUMS: 0.60 of 768, centered at 0.54 down), so its art's
-# top left is at (281, 184) and its badge's center 32 in from that
-MP4_BADGE = (281.5 + 32, 414.7 - 230.4 + 32, 20)
+# MP4's focused card, on the games cover row since MP4's shelf is a games
+# shelf's (DESIGN.md 11.67): an album's square card fitted into the 384 x 328
+# box (src/games.c), 328 x 328 at (348, 212), its badge's center 32 in from
+# that, as a game's is (cover_badge)
+MP4_BADGE = (348 + 32, 212 + 32, 20)
 
 
 def mp4_kind(im, ink):
@@ -215,6 +216,6 @@ for theme in ('light', 'dark'):
     im = shot(base, env, 'mp4-music', 'MUSE', theme, show='music')
     got = mp4_kind(im, ink)
     assert got is None, f'{theme}: a badge on Music alone ({got})'
-run(env, '--set', 'muse.show=all')
+run(env, '--set', 'mp4.show=all')
 print('ok: a heart before a favorite\'s name, on no cover and not on Favorites; '
       'on MP4\'s All an album, a book and a video each badged, and none on Music alone')

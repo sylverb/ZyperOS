@@ -87,6 +87,10 @@ static const sa_frame SA_FRAMES_COLECO[] = {
     { 17, 94 }, { 18, 93 }, { 19, 94 },
 };
 
+static const sa_frame SA_FRAMES_COLLECTIONS[] = {
+    { 0, 400 }, { 1, 400 },
+};
+
 static const sa_frame SA_FRAMES_DC[] = {
     { 20, 94 }, { 21, 94 }, { 22, 93 }, { 23, 94 }, { 24, 94 }, { 25, 94 }, { 0, 1218 }, { 0, 844 },
     { 1, 94 }, { 2, 94 }, { 3, 93 }, { 4, 94 }, { 5, 94 }, { 6, 94 }, { 7, 93 }, { 8, 94 },
@@ -291,6 +295,10 @@ static const sa_frame SA_FRAMES_SAVES[] = {
     { 0, 0 },
 };
 
+static const sa_frame SA_FRAMES_SCREENSHOTS[] = {
+    { 0, 400 }, { 1, 400 },
+};
+
 static const sa_frame SA_FRAMES_SCUMMVM[] = {
     { 1, 400 }, { 0, 400 },
 };
@@ -375,6 +383,7 @@ static const sa_asset SA_ASSETS[] = {
     { "BIOS", "system-icons/BIOS.png", "system-icons/BIOS-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_BIOS },
     { "BOOKS", "system-icons/BOOKS.png", "system-icons/BOOKS-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_BOOKS },
     { "COLECO", "system-icons/COLECO.png", "system-icons/COLECO-still.png", 256, 7, 4, 27, 160, 41, 39, 59, 6000, SA_FRAMES_COLECO },
+    { "COLLECTIONS", "system-icons/COLLECTIONS.png", "system-icons/COLLECTIONS-still.png", 256, 1, 2, 2, 56, 56, 160, 72, 800, SA_FRAMES_COLLECTIONS },
     { "DC", "system-icons/DC.png", "system-icons/DC-still.png", 256, 3, 9, 27, 91, 7, 106, 124, 6000, SA_FRAMES_DC },
     { "DOOM", "system-icons/DOOM.png", "system-icons/DOOM-still.png", 256, 1, 2, 2, 14, 74, 225, 126, 800, SA_FRAMES_DOOM },
     { "FAVORITES", "system-icons/FAVORITES.png", "system-icons/FAVORITES-still.png", 256, 2, 1, 2, 43, 56, 170, 163, 800, SA_FRAMES_FAVORITES },
@@ -410,6 +419,7 @@ static const sa_asset SA_ASSETS[] = {
     { "ROMS", "system-icons/ROMS.png", "system-icons/ROMS-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_ROMS },
     { "SATURN", "system-icons/SATURN.png", "system-icons/SATURN-still.png", 256, 3, 9, 27, 90, 15, 109, 101, 6000, SA_FRAMES_SATURN },
     { "SAVES", "system-icons/SAVES.png", "system-icons/SAVES-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_SAVES },
+    { "SCREENSHOTS", "system-icons/SCREENSHOTS.png", "system-icons/SCREENSHOTS-still.png", 256, 2, 1, 2, 8, 56, 112, 88, 800, SA_FRAMES_SCREENSHOTS },
     { "SCUMMVM", "system-icons/SCUMMVM.png", "system-icons/SCUMMVM-still.png", 256, 2, 1, 2, 46, 163, 31, 42, 800, SA_FRAMES_SCUMMVM },
     { "SEGACD", "system-icons/SEGACD.png", "system-icons/SEGACD-still.png", 256, 2, 17, 35, 26, 150, 111, 40, 6000, SA_FRAMES_SEGACD },
     { "SG1000", "system-icons/SG1000.png", "system-icons/SG1000-still.png", 256, 3, 1, 4, 30, 158, 82, 48, 2200, SA_FRAMES_SG1000 },

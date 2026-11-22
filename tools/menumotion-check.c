@@ -16,8 +16,8 @@
  *   - a press on a screen still waiting for the panel before it to leave
  *     ends that leave, and its own panel, at rest, is then the one on
  *     screen: what leaves next is the panel the press left there;
- *   - Muse's shelf takes a menu's panel off over itself and gives it back,
- *     and MENU in Muse's menu, which closes only that menu, brings the
+ *   - MP4's shelf takes a menu's panel off over itself and gives it back,
+ *     and MENU in MP4's menu, which closes only that menu, brings the
  *     screen under it back;
  *   - a held d-pad, a press every REPEAT_RATE_MS (src/keyrepeat.h's, read by
  *     the Makefile), puts the panel at rest once and starts nothing over;
@@ -156,7 +156,7 @@ int main(void)
 	const unsigned Q = DS_MS_QUICK, X = DS_MS_EXIT;
 	unsigned t;
 	mm_frame f;
-	int top, sub, deep, muse, ok;
+	int top, sub, deep, mp4, ok;
 
 	/* ---- opened on the shelf ---- */
 	mm_reset();
@@ -365,12 +365,12 @@ int main(void)
 	   "a press on a panel arriving: it is at rest, and on screen as it was");
 	ck(mm_settle(0, 1030, 3) == 3, "a press on the shelf changes nothing on screen");
 
-	/* ---- Muse's shelf ---- */
+	/* ---- MP4's shelf ---- */
 	mm_reset();
 	top = mm_open(1000, false);
 	mm_press(top);
-	muse = mm_base(5000, true);
-	ck(muse == 2, "Muse's shelf is a level of its own");
+	mp4 = mm_base(5000, true);
+	ck(mp4 == 2, "MP4's shelf is a level of its own");
 	f = mm_leaving(5000 + X / 2);
 	ck(leaving(f.before, 0.5f) && near(f.scrim, f.before.alpha),
 	   "and takes the menu's panel off over itself, with the scrim");
@@ -381,30 +381,30 @@ int main(void)
 	mm_press(sub);
 	mm_close(sub, 6000, sub, false);
 	ck(mm_leaving(6000).moving, "and leaves over it with the scrim");
-	mm_close(muse, 7000, 0, false);
+	mm_close(mp4, 7000, 0, false);
 	f = mm_at(top, 7000);
 	ck(mm_depth() == 1 && f.panel.alpha == 0.0f && f.scrim == 0.0f && f.before.alpha == 0.0f &&
 	   !mm_leaving(7000).moving,
 	   "closed, it gives the menu back as it opened, scrim and all");
 	ck(at_rest(mm_at(top, 7000 + Q)), "which is at rest at quick");
 
-	/* MENU in Muse's menu, over its tracks, closes that menu alone */
+	/* MENU in MP4's menu, over its tracks, closes that menu alone */
 	mm_reset();
-	muse = mm_base(1000, false);
+	mp4 = mm_base(1000, false);
 	top = mm_open(1100, false);
 	mm_press(top);
 	sub = mm_open(2000, true);
 	mm_press(sub);
 	mm_close(sub, 3000, sub, true);
-	ck(at_rest(mm_at(top, 3000 + X / 2)), "MENU in Muse's menu brings nothing back by itself");
+	ck(at_rest(mm_at(top, 3000 + X / 2)), "MENU in MP4's menu brings nothing back by itself");
 	mm_return(top, 3000, sub);
 	f = mm_at(top, 3000);
 	ck(mm_depth() == top && f.before.alpha == 1.0f && f.panel.alpha == 0.0f && f.scrim == 1.0f,
 	   "but where it stops, the tracks come back after the menu's panel leaves");
 	ck(at_rest(mm_at(top, 3000 + X + Q)), "at rest at exit and quick");
-	mm_return(muse, 4000, 0);
-	ck(mm_depth() == muse && !mm_leaving(4000).moving,
-	   "and stopping at Muse's shelf brings nothing back");
+	mm_return(mp4, 4000, 0);
+	ck(mm_depth() == mp4 && !mm_leaving(4000).moving,
+	   "and stopping at MP4's shelf brings nothing back");
 
 	/* ---- the stack's edges ---- */
 	mm_reset();
@@ -444,10 +444,12 @@ int main(void)
 	/* ---- the in-game menu, in src/ingame_screen.c, and its leaving, in src/main.c ---- */
 	{
 		char *gm = main_fn("src/ingame_screen.c", "void game_menu(app *a)\n{");
+		/* the hand back, shared with Reset Game's question (gm_resume) */
+		char *gr = main_fn("src/ingame_screen.c", "static void gm_resume(app *a)\n{");
 		char *pl = main_fn("src/main.c", "leave_end panel_leave_run(");
 
-		ck(gm && pl, "src/ingame_screen.c has game_menu and src/main.c panel_leave_run "
-		             "(run from the top of the tree)");
+		ck(gm && gr && pl, "src/ingame_screen.c has game_menu and gm_resume, and src/main.c "
+		                   "panel_leave_run (run from the top of the tree)");
 		if (pl) {
 			long poll = first(pl, "plat_input_poll(&a->in)");
 			long power = first(pl, "a->in.pressed[IN_POWER] || idle_due(a)");
@@ -460,27 +462,30 @@ int main(void)
 			   "Auto Off back, and a press ends it before the frame is drawn");
 			ck(first(pl, "LEAVE_POWER") > poll, "and says when power came");
 		}
-		if (gm) {
+		if (gm && gr) {
 			long leave = first(gm, "panel_leave_run(");
 			long power = first(gm, "LEAVE_POWER");
 			long stop = first(gm, "gm_power(");
 			long cut = first(gm, "mm_leaving_cut();");
-			long pages = first(gm, "present_clear(a, DIATOM_PAGE);");
-			long resume = first(gm, "plat_resident_line(\"RESUME\");");
-			const char *after = resume >= 0 ? gm + resume : "";
+			long back = first(gm, "if (c.resume) gm_resume(a);");
+			long pages = first(gr, "present_clear(a, DIATOM_PAGE);");
+			long resume = first(gr, "plat_resident_line(\"RESUME\");");
+			const char *after = resume >= 0 ? gr + resume : "";
 			const char *no = leave >= 0 ? strstr(gm + leave, "c.resume = false") : NULL;
 
 			ck(leave >= 0 && power > leave && stop > power && cut > stop &&
-			   pages > cut && resume > pages,
+			   back > cut && pages >= 0 && resume > pages,
 			   "game_menu draws its close, stops the game on power in it, then drops "
 			   "what is left of it, then hands the pages back, then sends RESUME");
-			ck(no && no - gm < pages, "and does not resume a game power stopped");
+			ck(no && no - gm < back, "and does not resume a game power stopped");
 			ck(!strstr(after, "plat_present") && !strstr(after, "present_clear") &&
 			   !strstr(after, "panel_leave") && !strstr(after, "menu_draw") &&
-			   !strstr(after, "render("),
+			   !strstr(after, "render(") && !strstr(gm + back, "plat_present") &&
+			   !strstr(gm + back, "menu_draw"),
 			   "and draws nothing after RESUME");
 		}
 		free(gm);
+		free(gr);
 		free(pl);
 	}
 

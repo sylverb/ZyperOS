@@ -36,26 +36,26 @@ ja = アドレス
 it = Indirizzo
 
 [about.no_address_yet]
-note = The Address row's value while the network has given none yet. A lowercase value.
-en = no address yet
+note = The Address row's value while the network has given none yet. A value, begun with a capital.
+en = No address yet
 zh-Hans = 暂无地址
-es = aún sin dirección
-pt-BR = ainda sem endereço
-fr = pas encore d'adresse
-de = noch keine Adresse
+es = Aún sin dirección
+pt-BR = Ainda sem endereço
+fr = Pas encore d'adresse
+de = Noch keine Adresse
 ja = アドレス未取得
-it = ancora nessun indirizzo
+it = Ancora nessun indirizzo
 
 [about.not_connected]
-note = The Address row's value with no network. A lowercase value.
-en = not connected
+note = The Address row's value with no network. A value, begun with a capital.
+en = Not connected
 zh-Hans = 未连接
-es = sin conexión
-pt-BR = não conectado
-fr = non connecté
-de = nicht verbunden
+es = Sin conexión
+pt-BR = Não conectado
+fr = Non connecté
+de = Nicht verbunden
 ja = 未接続
-it = non connesso
+it = Non connesso
 
 [about.battery]
 note = About, page 1: a row label; its value is the charge ("82%").
@@ -80,15 +80,15 @@ ja = %d%% 充電中
 it = %d%% in carica
 
 [about.unknown]
-note = A row's value on About when the handheld cannot read it (the battery, the card's storage). A lowercase value; it stands beside rows of either gender, so a form that does not agree is best. tight: beside About's longest labels (Battery health)
-en = unknown
+note = A row's value on About when the handheld cannot read it (the battery, the card's storage). A value, begun with a capital; it stands beside rows of either gender, so a form that does not agree is best. tight: beside About's longest labels (Battery health)
+en = Unknown
 zh-Hans = 未知
-es = sin datos
-pt-BR = indisponível
-fr = indisponible
-de = unbekannt
+es = Sin datos
+pt-BR = Indisponível
+fr = Indisponible
+de = Unbekannt
 ja = 不明
-it = nessun dato
+it = Nessun dato
 
 [about.awake_for]
 note = About, page 1: a row label; its value is how long the handheld has been on, about.uptime.
@@ -163,9 +163,20 @@ zh-Hans = 约 %u%%
 es = %u%% estimado
 pt-BR = %u%% estimado
 fr = %u%% estimé
-de = ca. %u\u00a0%%
+de = Etwa %u\u00a0%%
 ja = 推定 %u%%
 it = %u%% stimato
+
+[about.not_measured]
+note = The Battery health and Full charge rows' value while the battery's full charge was never measured: the handheld measures it after a full charge, at a later start after time off, and until then knows only the design's. A value, begun with a capital; it stands beside rows of either gender, so a form that does not agree is best. tight: beside About's longest labels (Battery health)
+en = Not measured yet
+zh-Hans = 尚未测量
+es = Aún sin medir
+pt-BR = Sem medição
+fr = À mesurer
+de = Nicht gemessen
+ja = 未測定
+it = Da misurare
 
 [about.full_charge]
 note = About, page 2: what the battery holds when full now, "1,730 mAh".
@@ -237,56 +248,56 @@ it = Aiuto con altre console portatili
 note = Thanks: beside "plastron", Eric Reinsmidt's system ZyperOS builds on.
 en = Eric's Linux base
 zh-Hans = Eric 的 Linux 基础系统
-es = la base Linux de Eric
-pt-BR = a base Linux do Eric
-fr = la base Linux d'Eric
+es = La base Linux de Eric
+pt-BR = A base Linux do Eric
+fr = La base Linux d'Eric
 de = Erics Linux-Basis
 ja = Eric の Linux ベース
-it = la base Linux di Eric
+it = La base Linux di Eric
 
 [about.thanks_kernel]
 note = Thanks: beside who made the handheld's kernel ("ROCKNIX", "Allwinner"). %s is the handheld's short name, the same in every language ("Pixel 2", "Brick").
-en = the %s kernel
+en = The %s kernel
 zh-Hans = %s 内核
-es = el kernel del %s
-pt-BR = o kernel do %s
-fr = le noyau du %s
+es = El kernel del %s
+pt-BR = O kernel do %s
+fr = Le noyau du %s
 de = Kernel des %s
 ja = %s のカーネル
-it = il kernel del %s
+it = Il kernel del %s
 
 [about.thanks_buildroot]
 note = Thanks: beside "Buildroot", the tool that builds the system.
-en = the Linux build
+en = The Linux build
 zh-Hans = Linux 构建系统
-es = la compilación de Linux
-pt-BR = a compilação do Linux
-fr = la compilation Linux
-de = der Linux-Build
+es = La compilación de Linux
+pt-BR = A compilação do Linux
+fr = La compilation Linux
+de = Der Linux-Build
 ja = Linux のビルド
-it = la compilazione di Linux
+it = La compilazione di Linux
 
 [about.thanks_libretro]
 note = Thanks: beside "libretro".
-en = the emulator cores
+en = The emulator cores
 zh-Hans = 模拟器核心
-es = los núcleos de emulación
-pt-BR = os núcleos de emulação
-fr = les cœurs d'émulation
-de = die Emulator-Cores
+es = Los núcleos de emulación
+pt-BR = Os núcleos de emulação
+fr = Les cœurs d'émulation
+de = Die Emulator-Cores
 ja = エミュレーターコア
-it = i core degli emulatori
+it = I core degli emulatori
 
 [about.thanks_portmaster]
 note = Thanks: beside "PortMaster": the ports, PC games made to run on handhelds.
-en = the ports
+en = The ports
 zh-Hans = 移植游戏
-es = los ports
-pt-BR = os ports
-fr = les portages
-de = die Ports
+es = Los ports
+pt-BR = Os ports
+fr = Les portages
+de = Die Ports
 ja = 移植ゲーム
-it = i port
+it = I port
 
 [about.thanks_menu_music]
 note = Thanks: a row label, the music the menus play; its value is "OpenGameArt".
@@ -301,69 +312,69 @@ it = Musica del menu
 
 [about.thanks_lexend]
 note = Thanks: beside "Lexend", the typeface.
-en = the font
+en = The font
 zh-Hans = 字体
-es = la fuente
-pt-BR = a fonte
-fr = la police
-de = die Schrift
+es = La fuente
+pt-BR = A fonte
+fr = La police
+de = Die Schrift
 ja = フォント
-it = il font
+it = Il font
 
 [about.thanks_sdl]
 note = Thanks: beside "SDL, Mesa".
-en = screen and input
+en = Screen and input
 zh-Hans = 画面和输入
-es = pantalla y controles
-pt-BR = tela e controles
-fr = écran et commandes
+es = Pantalla y controles
+pt-BR = Tela e controles
+fr = Écran et commandes
 de = Bild und Eingabe
 ja = 画面と入力
-it = schermo e comandi
+it = Schermo e comandi
 
 [about.thanks_ffmpeg]
 note = Thanks: beside "FFmpeg, SQLite": FFmpeg plays video, SQLite keeps the game library.
-en = video, library
+en = Video, library
 zh-Hans = 视频、游戏库
-es = video, biblioteca
-pt-BR = vídeo, biblioteca
-fr = vidéo, ludothèque
+es = Video, biblioteca
+pt-BR = Vídeo, biblioteca
+fr = Vidéo, ludothèque
 de = Video, Bibliothek
 ja = 動画、ライブラリ
-it = video, libreria
+it = Video, libreria
 
 [about.thanks_minimp3]
 note = Thanks: beside "minimp3, stb_vorbis".
-en = music
+en = Music
 zh-Hans = 音乐
-es = música
-pt-BR = música
-fr = musique
+es = Música
+pt-BR = Música
+fr = Musique
 de = Musik
 ja = 音楽
-it = musica
+it = Musica
 
 [about.thanks_linux]
 note = Thanks: beside "Linux, U-Boot".
-en = the system
+en = The system
 zh-Hans = 系统
-es = el sistema
-pt-BR = o sistema
-fr = le système
-de = das System
+es = El sistema
+pt-BR = O sistema
+fr = Le système
+de = Das System
 ja = システム
-it = il sistema
+it = Il sistema
 
 [about.thanks_temurin]
 note = Thanks: beside "Temurin, DejaVu", which run the J2ME (old phone) games.
 en = J2ME games
 zh-Hans = J2ME 游戏
-es = juegos J2ME
-pt-BR = jogos J2ME
-fr = jeux J2ME
+es = Juegos J2ME
+pt-BR = Jogos J2ME
+fr = Jeux J2ME
 de = J2ME-Spiele
 ja = J2ME ゲーム
-it = giochi J2ME
+it = Giochi J2ME
 
 [about.licenses]
 note = Under the last thanks page: every license is in the card's Licenses/ folder (a folder name, kept).

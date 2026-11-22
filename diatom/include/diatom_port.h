@@ -19,6 +19,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* The level bar's look (osdbar_look), which the host hands the port to draw:
+ * ZyperOS's own header, vendored in port/, for its type and sizes alone. It
+ * declares functions only a port with a bar links (port/osdbar.c). */
+#include "../port/osdbar.h"
+
 /* Cores may emit 0RGB1555 too; Diatom refuses it. Measured 2026-08-23: all six
  * cores tested then chose RGB565 when offered both. XRGB8888 is in use since:
  * fceumm declares it (src/env.c, diatom_env_pixfmt_begin), and a GPU core's
@@ -69,6 +74,11 @@ typedef enum {
 	DIATOM_FILTER_CRT_CURVED,
 	DIATOM_FILTER_SCANLINES,
 	DIATOM_FILTER_LCD,
+	/* The LCD's grid on a screen with no light behind it, as the Game Boy
+	 * Color's and the first Game Boy Advance's were: a light pixel shows
+	 * the screen's backing rather than glowing white. Which systems it is
+	 * for is the host's to say (ZyperOS: the Game Boy's three). */
+	DIATOM_FILTER_LCD_UNLIT,
 	DIATOM_FILTER_COUNT
 } diatom_filter;
 
@@ -183,6 +193,19 @@ void diatom_port_strength(int percent);
  * scaled, is refused rather than clipped: something drawn half off the
  * screen is a bug that looks like a design choice. */
 void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms);
+
+/* The Border: a picture drawn under the game, filling the surface where the
+ * game's picture does not (src/border.h). Stretched to the whole surface,
+ * smoothly (a small one, the blur's 32x24, is soft by being stretched),
+ * and opaque whatever its alpha: under the game and under every overlay,
+ * which stay on top. 8-bit BGRA, `w * 4` bytes a row.
+ *
+ * COPIED, unlike the overlay: it stays for the whole game, and a port that
+ * draws on the CPU keeps its own copy at the surface's size anyway. Uploaded
+ * or painted once a call, so a picture held costs nothing a frame but its
+ * pixels drawn where black was. Held until the next call; NULL clears it to
+ * black, as before any. */
+void diatom_port_border(const uint8_t *bgra, int w, int h);
 
 /* Stop presenting, without tearing down. Returns when nothing is pending and
  * nothing is in flight, so a SECOND presenter may take the display safely.
@@ -347,6 +370,17 @@ void diatom_port_audio_get(char *out, size_t cap);
 void     diatom_port_input_poll(void);
 uint32_t diatom_port_input_state(void);
 
+/* The buttons that went down during the last poll, whether they are held now
+ * or were let go again before it ended: a tap that went down and up between
+ * two polls is here and not in diatom_port_input_state. A slow game polls
+ * ten times a second (a Saturn game at 10 fps, 2026-11-20: an 80 ms press of
+ * MENU never opened the menu), and a quick press fits between two polls.
+ * The host reads it for its own keys alone (MENU, a hotkey under SELECT, the
+ * stick's turn, the DS's screens), as the level keys are latched below; a
+ * core reads the state only, as libretro polls it. Each poll starts it again
+ * and diatom_port_input_reset clears it. */
+uint32_t diatom_port_input_pressed(void);
+
 /* Called when a pause ends, before the next poll. While paused nothing polls,
  * and the launcher's menu was time somebody spent pressing buttons: a port
  * whose input queues (evdev, SDL's event queue) would read it all back on the
@@ -357,14 +391,21 @@ uint32_t diatom_port_input_state(void);
 void     diatom_port_input_reset(void);
 
 /* The rumble motor. `strong` and `weak` are the two motors a pad of the
- * DualShock kind has, 0 (still) to 65535 (full); a device with one motor runs
- * it from whichever is stronger. Both 0 stops it. The whole state each time,
- * not a change, so a call is never read against one that was missed.
+ * DualShock kind has, 0 (still) to 65535 (full), as the core asks; a device
+ * with one motor runs it from whichever is stronger. `scale`, 0 to 1, is how
+ * much of that reaches the hand: the player's Rumble level (MENU > Sound, or
+ * the game's own: Off 0, Low 0.35, Medium 0.65, Full 1) times the system's
+ * share (systems.cfg's rumble| lines, Doom's 0.35). Each port makes its
+ * motor's sense of it: the Pixel 2's force feedback runs at the strength
+ * times the scale; a motor whose strength is a voltage (the Brick's) may take
+ * the scale as its step. Both strengths 0, or a scale of 0, stops it. The
+ * whole state each time, not a change, so a call is never read against one
+ * that was missed.
  *
  * May be called from a core's own thread (flycast2021 rumbles from its
  * emulation thread), so a port serializes it. A port with no motor says so in
  * its caps (rumble = false) and returns false here. */
-bool     diatom_port_rumble(uint16_t strong, uint16_t weak);
+bool     diatom_port_rumble(uint16_t strong, uint16_t weak, float scale);
 
 /* Levels the user can change with the device's own keys while a game runs -
  * volume and brightness on the Brick and the GKD Pixel 2, nothing at all on
@@ -421,6 +462,31 @@ uint32_t diatom_port_level_keys(void);
  * a held key keeps it up. */
 void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions);
 
+/* What the level bar looks like now, as the host's boost past the top works
+ * it out (port/boost.h, DESIGN.md 11.6): the level, the mark moving to it, the
+ * boost's cells, its charge, the flash as it opens. Said before each
+ * diatom_port_level_shown and again each frame it moves while the bar is up;
+ * a copy is kept until said again. The port draws it (osdbar_render_look)
+ * while the bar is up for the look's kind, and the plain bar for any other
+ * (POWER's hold, a kind the host has not given a look for). Keeps the bar's
+ * life as it was: only diatom_port_level_shown brings it up or holds it. A
+ * port with no bar implements it as a no-op and is correct. */
+void diatom_port_level_look(const osdbar_look *look);
+
+/* The brightness boost's lift of the mid-tones in the display's gamma table
+ * (panelgamma.h's `lift`): 0 none, up to PANELGAMMA_LIFT_MAX, kept until said
+ * again, through every load of the table after (Screen Colors, Night Mode,
+ * the display taken back). The top rung is the backlight's own maximum, so
+ * this is all there is past it. A port with no table ignores it. */
+void diatom_port_level_lift(int lift);
+
+/* True once after the headphone jack's plug went in or out under a game: a
+ * change the port saw on its own poll, not its first look after a handover.
+ * The host closes the volume boost then, so the new output starts at the top
+ * without it, as the launcher does on its side. A port with no jack returns
+ * false. */
+bool diatom_port_level_plugged(void);
+
 /* Show the low-battery disc over the game, or take it off. The launcher
  * decides what low and critical mean; the port draws the disc the launcher
  * draws on its own screens, in the same place: radius 9, centered 34 px from
@@ -441,9 +507,10 @@ typedef struct {
 } diatom_hud_words;
 void diatom_port_hud_style(const diatom_hud_words *w);
 
-/* ...and the line shown with these numbers, the frames the core ran a
- * second and that against the game's own rate (1 is full speed), until the
- * next call; or taken off. The port reads what else its items say (the
+/* ...and the line shown with these numbers, the pictures the core made a
+ * second and the frames it emulated against the game's own rate (1 is full
+ * speed; src/emumeter.h says how each is counted), until the next call; or
+ * taken off. The port reads what else its items say (the
  * chip's temperature, load and clock, the battery, the time) itself, then,
  * and only those picked. The host calls it twice a second while it is on,
  * from the emulation thread. A port with no screen of its own implements

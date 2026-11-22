@@ -15,7 +15,7 @@ export SDL_VIDEODRIVER=pvrfb SDL_RENDER_DRIVER=opengles2
 # .asoundrc named as a top-level ALSA config file, and not only reached through
 # alsa.conf's @hooks load: alsa-lib re-reads its config at the next open when a
 # file in this list changes, and never checks files a hook loaded. So a headset
-# paired after Diatom or Muse started, whose PCM bt_write_asoundrc has just
+# paired after Diatom or MP4 started, whose PCM bt_write_asoundrc has just
 # added, was `Unknown PCM` to both until they restarted (measured 2026-09-25).
 # The .asoundrc in HOME, which launch.sh sets to USERDATA_PATH.
 export ALSA_CONFIG_PATH=/usr/share/alsa/alsa.conf:$USERDATA_PATH/.asoundrc
@@ -31,8 +31,13 @@ HAS_PORTKEYS=0     # portkeys is built for the Pixel 2 only (plastron's zyperos.
 HAS_PORT_STILL=0   # the Brick's splash (splash-fb.c) has no --still
 HAS_PORT_TURN=0    # its panel is not turned, and its SDL2 is pvrfb's, not kmsdrm's
 HAS_ZYHOME=0       # zyhome is built for the Pixel 2 only (plastron's zyperos.mk)
-HAS_USBDRIVE=0     # the Brick's image has no usbdrive
+HAS_USBDRIVE=1     # Flash Drive: the image's usbdrive (plastron's package, the Brick's build)
 HAS_OFF_PENDING=0  # its power-off has no last step (lastoff) to start it for a charger
+
+# The boot partition, which the Brick's system keeps read-only at /boot for
+# its closed files: what ZyperOS Installer left there for a card's first
+# start (launch.sh: your PICO-8), already there
+device_boot_mount() { [ -d /boot ] && BOOT_DIR=/boot; }
 
 WIFI_DOWN="the radio did not come up"
 
@@ -60,7 +65,7 @@ bt_on() {
 	}
 	# The headsets' PCMs again, now that their bonds can be read: they live on
 	# plastron's state partition, which Bluetooth's start mounts, so the write
-	# before start_resident found none. The emulator and Muse see the new
+	# before start_resident found none. The emulator and MP4 see the new
 	# file at their next open (ALSA_CONFIG_PATH, above)
 	command -v bt_write_asoundrc > /dev/null && bt_write_asoundrc
 	sleep 3          # let both profiles register with BlueZ before any connect
@@ -69,7 +74,7 @@ bt_on() {
 
 # Whether bluealsa has an A2DP stream for this address yet. The link comes up
 # first and the stream a moment after, and a headset published in between
-# is one that nothing can open: Muse got `No such device` and fell back to
+# is one that nothing can open: MP4 got `No such device` and fell back to
 # the speaker, and stayed there until something happened to re-send the
 # route (seen 2026-09-26, switching to the OpenFit). -l lists each device's
 # PCMs under its own line, so the A2DP line has to be under THIS one's.

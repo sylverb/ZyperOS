@@ -55,9 +55,8 @@ typedef struct {
 /* Each of a shelf's disc bios names gets the sizes its firmware line gives,
  * in the field's order; a name no line gives stays 0, which checks nothing
  * but that the file is there */
-static void bios_sizes_apply(system_cfg *s, const fw_line *fw, int nfw)
+static void names_sized(const char *p, unsigned (*bytes)[CFG_BIOS_SIZES], const fw_line *fw, int nfw)
 {
-	const char *p = s->disc_bios;
 	int k, j;
 
 	for (k = 0; *p && k < CFG_BIOS_NAMES; k++) {
@@ -65,10 +64,18 @@ static void bios_sizes_apply(system_cfg *s, const fw_line *fw, int nfw)
 
 		for (j = 0; j < nfw; j++)
 			if (strlen(fw[j].name) == n && !strncmp(fw[j].name, p, n))
-				memcpy(s->bios_bytes[k], fw[j].bytes, sizeof s->bios_bytes[k]);
+				memcpy(bytes[k], fw[j].bytes, sizeof bytes[k]);
 		p += n;
 		if (*p) p++;
 	}
+}
+
+/* And the names a type of file needs (a `bios|tag|names|extensions` line),
+ * the same way */
+static void bios_sizes_apply(system_cfg *s, const fw_line *fw, int nfw)
+{
+	names_sized(s->disc_bios, s->bios_bytes, fw, nfw);
+	names_sized(s->type_bios, s->type_bios_bytes, fw, nfw);
 }
 
 /* sys|display name|rom folder|core|tag|card|RRGGBB|extensions */
@@ -79,13 +86,16 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	if (!f) return false;
 	char line[1024];
 	/* power|tag|level, map|tag|spec, controller|tag|n, stick|tag|dpad,
-	 * rumble|tag|percent, bios|tag|names, es|tag|names and needs|tag|what lines, applied
+	 * rumble|tag|percent, bios|tag|names (and bios|tag|names|extensions), es|tag|names and
+	 * needs|tag|what lines, applied
 	 * once every system is read, so they may sit anywhere in the file; and
 	 * firmware|name|bytes lines, by a disc bios name rather than a tag */
 	struct { char kind[12], tag[8], value[160]; } extra[CFG_MAX_SYSTEMS * 4];
 	int nextra = 0;
 	fw_line fw[CFG_MAX_SYSTEMS];
 	int nfw = 0;
+	struct { char tag[8], core[CFG_STR], paths[160]; } br[CFG_MAX_SYSTEMS];
+	int nbr = 0;
 	while (fgets(line, sizeof line, f) && out->count < CFG_MAX_SYSTEMS) {
 		strip(line);
 		if (!line[0] || line[0] == '#') continue;
@@ -101,6 +111,30 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			snprintf(extra[nextra].kind, sizeof extra[0].kind, "stickoff");
 			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
 			nextra++;
+			continue;
+		}
+		/* bios|tag|names|extensions: firmware for those types of file
+		 * alone (an .fds image's disksys.rom), kept as two entries */
+		if (n == 4 && !strcmp(fld[0], "bios") &&
+		    nextra + 1 < (int)(sizeof extra / sizeof extra[0])) {
+			snprintf(extra[nextra].kind, sizeof extra[0].kind, "biostype");
+			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
+			snprintf(extra[nextra].value, sizeof extra[0].value, "%s", fld[2]);
+			nextra++;
+			snprintf(extra[nextra].kind, sizeof extra[0].kind, "biosexts");
+			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
+			snprintf(extra[nextra].value, sizeof extra[0].value, "%s", fld[3]);
+			nextra++;
+			continue;
+		}
+		/* brings|tag|core|paths: files the player brings for a core */
+		if (n == 4 && !strcmp(fld[0], "brings")) {
+			if (nbr < CFG_MAX_SYSTEMS) {
+				snprintf(br[nbr].tag, sizeof br[nbr].tag, "%s", fld[1]);
+				snprintf(br[nbr].core, sizeof br[nbr].core, "%s", fld[2]);
+				snprintf(br[nbr].paths, sizeof br[nbr].paths, "%s", fld[3]);
+				nbr++;
+			}
 			continue;
 		}
 		if (n == 3 && !strcmp(fld[0], "firmware")) {
@@ -122,6 +156,7 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") || !strcmp(fld[0], "pace") ||
 		               !strcmp(fld[0], "controller") || !strcmp(fld[0], "stick") ||
 		               !strcmp(fld[0], "rumble") || !strcmp(fld[0], "needs") ||
+		               !strcmp(fld[0], "frameskip") ||
 	               !strcmp(fld[0], "bios") || !strcmp(fld[0], "es"))) {
 			if (nextra < (int)(sizeof extra / sizeof extra[0])) {
 				snprintf(extra[nextra].kind, sizeof extra[0].kind, "%s", fld[0]);
@@ -168,11 +203,18 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 				snprintf(s->disc_bios, sizeof s->disc_bios, "%s", extra[i].value);
 				s->bios_every = true;
 			}
+			else if (!strcmp(extra[i].kind, "biostype"))
+				snprintf(s->type_bios, sizeof s->type_bios, "%s", extra[i].value);
+			else if (!strcmp(extra[i].kind, "biosexts"))
+				snprintf(s->type_exts, sizeof s->type_exts, "%s", extra[i].value);
 			else if (!strcmp(extra[i].kind, "es"))
 				snprintf(s->es, sizeof s->es, "%s", extra[i].value);
 			else if (!strcmp(extra[i].kind, "needs")) {
 				/* only what the launcher knows to ask the device */
 				if (!strcmp(extra[i].value, "gpu-frames")) s->needs_gpu_frames = true;
+			}
+			else if (!strcmp(extra[i].kind, "frameskip")) {
+				if (!strcmp(extra[i].value, "late")) s->late_skip = true;
 			}
 			else if (!strcmp(extra[i].kind, "rumble")) {
 				int pct = atoi(extra[i].value);
@@ -182,27 +224,46 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			else
 				s->controller = (unsigned)strtoul(extra[i].value, NULL, 10);
 		}
+	/* The files a shelf's core needs from the player, for a core it lists */
+	for (int i = 0; i < nbr; i++)
+		for (int k = 0; k < out->count; k++) {
+			system_cfg *s = &out->systems[k];
+			char one[CFG_STR];
+			int j;
+
+			if (strcmp(s->tag, br[i].tag)) continue;
+			for (j = 0; cfg_core_at(s, j, one, sizeof one); j++)
+				if (!strcmp(one, br[i].core)) {
+					snprintf(s->brings_core, sizeof s->brings_core, "%s", br[i].core);
+					snprintf(s->brings, sizeof s->brings, "%s", br[i].paths);
+				}
+		}
 	/* After the bios lines, which set a shelf's names too */
 	for (int k = 0; k < out->count; k++)
 		bios_sizes_apply(&out->systems[k], fw, nfw);
 	return out->count > 0;
 }
 
-void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, const char *pace,
-                  char *out, int cap)
+void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap)
+{
+	cfg_run_keys_at(s, dual, pace, s->rumble ? s->rumble : 100, out, cap);
+}
+
+void cfg_run_keys_at(const system_cfg *s, bool dual, const char *pace, int rumble,
+                     char *out, int cap)
 {
 	int n = 0;
 
 	out[0] = '\0';
-	if (dual)
-		n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=%s",
-		              frameskip && frameskip[0] ? frameskip : "late");
+	if (dual) n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=late");
+	else if (s->late_skip) n += snprintf(out + n, (size_t)(cap - n), "frameskip=late");
 	if (s->power[0] && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%spower=%s", n ? "\t" : "", s->power);
 	if (s->controller && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%scontroller=%u", n ? "\t" : "", s->controller);
-	if (s->rumble && n < cap)
-		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", s->rumble);
+	/* The motor's share in percent, 0 (Off) to 99; all of it says nothing */
+	if (rumble >= 0 && rumble < 100 && n < cap)
+		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", rumble);
 	if (s->pace[0] && n < cap) {
 		if (!pace || (strcmp(pace, "smooth") && strcmp(pace, "exact"))) pace = s->pace;
 		n += snprintf(out + n, (size_t)(cap - n), "%space=%s", n ? "\t" : "", pace);

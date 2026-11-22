@@ -41,6 +41,10 @@ protocol. What it holds, each a thing I asked for on 2026-11-06:
     Transfer over the cable and Wi-Fi File Transfer over Wi-Fi, in its tab,
     on the PIN screen and over the folders, and never a name the browser
     kept from the other link
+  - the PIN screen (2026-11-19, an idea on the Discord): the first box has
+    the cursor as the page comes up, before the handheld has answered, so
+    the PIN can be typed straight away and what is typed stays; a digit
+    typed with the cursor out of the boxes goes into the first empty one
   - a drop in the middle of an upload (2026-11-14: a 517 MB disc lost
     whole to a few seconds without Wi-Fi): the file waits for the handheld,
     says how much it kept and, after a while, the address to check, then
@@ -48,6 +52,23 @@ protocol. What it holds, each a thing I asked for on 2026-11-06:
     go of its part; ten minutes with no answer give up, and Try again goes
     on from the part; a page loaded again, with the same file picked again,
     goes on from it too
+  - a console's own folder (GBA, NES...) stays where it is (1.0.6 rc.3,
+    "Can we not allow moving console folders in the file transfer
+    portal?"): its menu opens it and says why that is all, a drag, a pick
+    or a finger held on it says the same and nothing moves, Cmd+A leaves it
+    out, the device refuses its move, rename and delete itself, and a
+    folder of games in it still moves
+  - each game wears the picture the handheld shows for it, and the listing
+    names its video, as the launcher's own lookup finds them (2026-11-20,
+    metior on the Discord: "The web interface doesn't read from the
+    EmulationStation folder structure for images and video like the OS
+    itself does"): on a card with EmulationStation's layouts (Knulli's
+    gamelist.xml, images/ and videos/, Skraper's media/, ArkOS's and ROGUE
+    OS's downloaded_images/ and downloaded_videos/) and ZyperOS's own
+    .media, every game's answers on the page are build-native/portal-serve
+    games' (the shelf's scan and src/esmedia.h's game_media), a disc set's
+    folder and a game in a folder of games too, each picture comes, and a
+    picture or a gamelist.xml sent from the page shows on the next listing
 
 No device is touched and nothing is fetched from the internet: the release
 GitHub would answer is given to the page. Chrome is needed; without it the
@@ -186,6 +207,82 @@ def signed_in(page, server, path='roms'):
                       "(document.querySelectorAll('#list li').length > 0 || !document.getElementById('settings').hidden)")
 
 
+# EmulationStation's layouts beside ZyperOS's own (DESIGN.md 11.40), with
+# pictures a browser draws: the shelf's own pixel art and a photo
+ES_PNG = ROOT / 'res/system-icons/NDS.png'
+ES_JPG = ROOT / 'res/readme/zyper-photo.jpg'
+ES_LIST = '''<?xml version="1.0"?>
+<gameList>
+	<game>
+		<path>./Mario Kart DS (USA).nds</path>
+		<name>Mario Kart DS</name>
+		<image>./images/mkds-box.png</image>
+		<video>./videos/mkds.mp4</video>
+	</game>
+</gameList>
+'''
+
+
+def es_card(card):
+    """Each layout's games, and what the shelf shows for each:
+    nds is Knulli's and Batocera's (gamelist.xml naming files no name rule
+    finds, images/<name>-thumb.jpg and videos/<name>.mp4 by name, a game in
+    a folder of games, one with ZyperOS's own cover over ES's, one with
+    nothing); psx Skraper's media/ and, for a disc set in its own folder,
+    ArkOS's and ROGUE OS's downloaded_images/ and downloaded_videos/; SNES
+    ZyperOS's own .media, a game in a folder of games with its cover in its
+    console's .media; gba a game whose picture comes from the page later"""
+    roms = card / 'Roms'
+    png, jpg = ES_PNG.read_bytes(), ES_JPG.read_bytes()
+
+    def put(rel, data=b'game'):
+        path = roms / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    put('nds/Mario Kart DS (USA).nds')
+    put('nds/gamelist.xml', ES_LIST.encode())
+    put('nds/images/mkds-box.png', png)
+    put('nds/videos/mkds.mp4', b'mp4')
+    put('nds/Tetris DS (Europe).nds')
+    put('nds/images/Tetris DS (Europe)-thumb.jpg', jpg)
+    put('nds/videos/Tetris DS (Europe).mp4', b'mp4')
+    put('nds/Picross DS (Europe).nds')
+    put('nds/images/Picross DS (Europe)-image.jpg', jpg)
+    put('nds/.media/Picross DS (Europe).png', png)
+    put('nds/Hacks/Hack DS.nds')
+    put('nds/images/Hack DS-image.png', png)
+    put('nds/Bare DS.nds')
+    put('psx/Crash (USA).chd')
+    put('psx/media/box2dfront/Crash (USA).png', png)
+    put('psx/media/videos/Crash (USA).mp4', b'mp4')
+    put('psx/Spyro (USA)/Spyro (USA).cue', b'FILE "Spyro (USA).bin" BINARY\n')
+    put('psx/Spyro (USA)/Spyro (USA).bin')
+    put('psx/downloaded_images/Spyro (USA).png', png)
+    put('psx/downloaded_videos/Spyro (USA).mp4', b'mp4')
+    put('SNES/Own Game.sfc')
+    put('SNES/.media/Own Game.png', png)
+    put('SNES/.media/Own Game.mp4', b'mp4')
+    put('SNES/Hacks/Own Hack.sfc')
+    put('SNES/.media/Own Hack.png', png)
+    put('gba/Later.gba')
+
+
+def shelf_games(card, web):
+    """What the handheld shows for each game on the card, by its own scan and
+    lookup (portal-serve games): {(folder, file): (dir, cover, video)}, the
+    picture and the video as the page's paths, None for none"""
+    out = subprocess.run([str(ROOT / 'build-native/portal-serve'), str(card), str(web), 'games'],
+                         capture_output=True, text=True, check=True).stdout
+    roms = str(card / 'Roms') + '/'
+    page_path = lambda p: 'roms/' + p[len(roms):] if p.startswith(roms) else (p or None)
+    games = {}
+    for line in out.splitlines():
+        folder, file, d, cover, video = line.split('\t')
+        games[(folder, file)] = (int(d), page_path(cover), page_path(video))
+    return games
+
+
 RELEASE = {'tag_name': 'v0.4.1', 'assets': [
     {'name': 'ZyperOS-pixel2-update.txt', 'size': 18000, 'browser_download_url': 'https://example.invalid/a'},
     {'name': 'ZyperOS-v0.4.1-pixel2-update.zpk', 'size': 38000000, 'browser_download_url': 'https://example.invalid/b'}]}
@@ -227,6 +324,20 @@ def main():
             check(got['aw'] == '/icons/AW.png', 'Atomiswave, with no games, has its art')
             check(got['bgm'] == '/icons/FOLDER.png', f"Roms/BGM is an ordinary folder: {got['bgm']}")
             check(bool(got['tile']), "a console's tile is in its color")
+            server.stop()
+            # Folder Color (MENU > Display > Theme): every console's tile in
+            # its color, and each its own again without it
+            server = Server(card, web, 'usb', 'update=off', 'folders=teal')
+            check(signed_in(page, server), 'the page came up with Folder Color on Teal')
+            tiles = page.js("""(() => { const tile = (n) => { const r = [...document.querySelectorAll('#list li')]
+                .find((li) => li.querySelector('.name').textContent === n);
+                return r && r.querySelector('.sico').style.getPropertyValue('--sys'); };
+                return [tile('NES'), tile('SNES'), tile('BGM')]; })()""")
+            check(tiles[0] == tiles[1] == '#3FD4C0' and not tiles[2],
+                  f"Folder Color takes every console's tile, and no other folder's: {tiles}")
+            server.stop()
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server), 'and the page came up again as it ships')
             check(got['places'] == ['/icons/ROMS.png', '/icons/MUSIC.png', '/icons/BOOKS.png', '/icons/VIDEOS.png',
                                     '/icons/BGM.png', '/icons/BIOS.png', '/icons/SAVES.png', '/icons/STATES.png'],
                   f"the card's folders wear theirs, Music its vinyl album, Menu Music the cassette: {got['places']}")
@@ -243,6 +354,81 @@ def main():
             check(page.until("[...document.querySelectorAll('#list .name')].some((n) => n.textContent === '.media')"),
                   'Show hidden folders lists it')
             page.js("document.getElementById('showhidden').click()")
+
+            print("each game's picture and video, as the handheld finds them:")
+            es_card(card)
+            server.stop()
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server), 'the page came up over a card with EmulationStation folders')
+            listing = lambda path: page.js(f"api('GET', '/api/list?p=' + enc({json.dumps(path)}))"
+                                           ".then((r) => r.json())")['entries']
+            # A folder listed before it has ES's media, and a picture and a
+            # gamelist.xml sent from the page: on the next listing
+            check(not any(e.get('cover') for e in listing('roms/gba')), 'gba has no picture yet')
+            sent = page.js("""(async () => {
+                await api('POST', '/api/mkdir?p=' + enc('roms/gba/images'));
+                await api('POST', '/api/mkdir?p=' + enc('roms/gba/clips'));
+                await putFile('roms/gba/images/Later-image.png', await (await fetch('/icons/GBA.png')).blob());
+                await putFile('roms/gba/clips/Later.mp4', new Blob(['mp4']));
+                await putFile('roms/gba/gamelist.xml', new Blob(['<gameList><game><path>./Later.gba</path>' +
+                    '<video>./clips/Later.mp4</video></game></gameList>']));
+                return 'sent'; })().catch((e) => e.message)""")
+            check(sent == 'sent', f'the picture and the list went: {sent}')
+            later = {e['name']: e for e in listing('roms/gba')}.get('Later.gba', {})
+            check(later.get('cover') == 'roms/gba/images/Later-image.png' and
+                  later.get('video') == 'roms/gba/clips/Later.mp4',
+                  f'and the next listing has them: {later}')
+            games = shelf_games(card, web)
+            want = {('nds', 'Mario Kart DS (USA).nds'): ('roms/nds/images/mkds-box.png', 'roms/nds/videos/mkds.mp4'),
+                    ('nds', 'Tetris DS (Europe).nds'): ('roms/nds/images/Tetris DS (Europe)-thumb.jpg',
+                                                         'roms/nds/videos/Tetris DS (Europe).mp4'),
+                    ('nds', 'Picross DS (Europe).nds'): ('roms/nds/.media/Picross DS (Europe).png', None),
+                    ('nds', 'Hacks/Hack DS.nds'): ('roms/nds/images/Hack DS-image.png', None),
+                    ('nds', 'Bare DS.nds'): (None, None),
+                    ('psx', 'Crash (USA).chd'): ('roms/psx/media/box2dfront/Crash (USA).png',
+                                                 'roms/psx/media/videos/Crash (USA).mp4'),
+                    ('psx', 'Spyro (USA)/Spyro (USA).cue'): ('roms/psx/downloaded_images/Spyro (USA).png',
+                                                            'roms/psx/downloaded_videos/Spyro (USA).mp4'),
+                    ('SNES', 'Own Game.sfc'): ('roms/SNES/.media/Own Game.png', 'roms/SNES/.media/Own Game.mp4'),
+                    ('SNES', 'Hacks/Own Hack.sfc'): ('roms/SNES/.media/Own Hack.png', None),
+                    ('gba', 'Later.gba'): ('roms/gba/images/Later-image.png', 'roms/gba/clips/Later.mp4')}
+            got = {k: games.get(k, (0, 'not a game', ''))[1:] for k in want}
+            check(got == want, f"the handheld's lookup finds each layout's: {got}")
+            # Every game on the card, the page's answers against the handheld's:
+            # a game is the entry its launch path names in the folder it is in
+            place = lambda folder, file, d: (f'roms/{folder}' + (f'/{file[:d]}' if d else ''),
+                                             file[d + 1 if d else 0:].split('/')[0])
+            lists, wrong = {}, []
+            for (folder, file), (d, cover, video) in sorted(games.items()):
+                where, entry = place(folder, file, d)
+                if where not in lists:
+                    lists[where] = {e['name']: e for e in listing(where)}
+                row = lists[where].get(entry, {})
+                if (row.get('cover'), row.get('video')) != (cover, video):
+                    wrong.append(f"{folder}/{file}: page {row.get('cover')}, {row.get('video')}; "
+                                 f"handheld {cover}, {video}")
+            check(len(games) >= len(want) and not wrong,
+                  f"every game's picture and video on the page are the handheld's ({len(games)} games): {wrong}")
+            # And drawn: each row's picture is the one named, and it came
+            for where in ['roms/nds', 'roms/nds/Hacks', 'roms/psx', 'roms/SNES', 'roms/SNES/Hacks', 'roms/gba']:
+                page.js(f"go({json.dumps(where)}, 'none')")
+                page.until(f"cwd === {json.dumps(where)}")
+                shown = lambda: page.js("""Object.fromEntries([...document.querySelectorAll('#list li')].map((li) => {
+                    const i = li.querySelector('img.cover');
+                    return [li.querySelector('.name').textContent,
+                            i ? [new URL(i.src).searchParams.get('p'), i.complete && i.naturalWidth > 0] : null]; }))""")
+                expect = {}
+                for (folder, file), (d, cover, video) in games.items():
+                    at, entry = place(folder, file, d)
+                    if at == where:
+                        expect[entry] = [cover, True] if cover else None
+                page.until(f"(() => {{ const want = {json.dumps(expect)}; "
+                           "return [...document.querySelectorAll('#list li')].every((li) => { "
+                           "const w = want[li.querySelector('.name').textContent]; const i = li.querySelector('img.cover'); "
+                           "return !w || (i && i.complete && i.naturalWidth > 0); }); })()")
+                rows = shown()
+                bad = {n: (rows.get(n), w) for n, w in expect.items() if rows.get(n) != w}
+                check(not bad, f'{where}: each game wears its picture, and it came: {bad or sorted(expect)}')
 
             print("a console's .media, dropped or picked, and nothing else hidden:")
             # A picked folder as the Upload folder picker hands it over, each
@@ -557,6 +743,80 @@ def main():
                   not (nes / 'A Del 1.nes').exists() and not (nes / 'A Del 2.nes').exists(), 'and both are gone')
             server.stop()
 
+            print("a console's own folder stays where it is (1.0.6 rc.3):")
+            kept = 'Console folders stay where they are, so ZyperOS can find their games.'
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server), 'the page came up on ROMs')
+            page.js("go('roms', 'none')")
+            page.until(f"cwd === 'roms' && !!{row('NES')} && !!{row('BGM')}")
+            page.js("scrollTo(0, 0)")
+            got = page.js("[entries.find((e) => e.name === 'NES').console === true,"
+                          " !entries.find((e) => e.name === 'BGM').console]")
+            check(got == [True, True], f"the device says NES's folder is a console's and BGM's is not: {got}")
+            # Its menu: Open, and the line that says why; no Rename, Move to
+            # folder, Select or Delete (NES in the window: ROMs is long)
+            page.js(f"{row('NES')}.scrollIntoView({{ block: 'center' }})")
+            click(f"{row('NES')}.querySelector('.iconbtn')")
+            page.until("!document.getElementById('menu').hidden")
+            got = page.js("[[...document.querySelectorAll('#menu .item')].map((b) => b.textContent),"
+                          " (document.querySelector('#menu .sub p') || {}).textContent]")
+            check(got == [['Open'], kept], f"a console's folder's menu opens it and says why that is all: {got}")
+            key('Escape')
+            page.until("document.getElementById('menu').hidden")
+            page.js(f"{row('BGM')}.scrollIntoView({{ block: 'center' }})")
+            click(f"{row('BGM')}.querySelector('.iconbtn')")
+            page.until("!document.getElementById('menu').hidden")
+            got = page.js("[...document.querySelectorAll('#menu .item')].map((b) => b.textContent)")
+            check(got == ['Open', 'Rename', 'Move to folder', 'Select', 'Delete'],
+                  f"a folder at the top of ROMs that is no console's keeps every action: {got}")
+            key('Escape')
+            page.until("document.getElementById('menu').hidden")
+            # A drag: nothing lifts, the line says why, nothing moves, and
+            # the press it ends in does not open the folder
+            page.js(f"{row('NES')}.scrollIntoView({{ block: 'center' }})")
+            nextdoor = page.js(f"{row('NES')}.nextElementSibling.querySelector('.name').textContent")
+            mouse_drag('NES', at(f"{row('NES')}.nextElementSibling"))
+            check(page.until(f"{toast}.classList.contains('show') && {toast}.textContent === {json.dumps(kept)}") and
+                  not page.js("document.querySelector('.ghost')") and page.js("cwd") == 'roms',
+                  "a console's folder dragged says why it stays: " + str(page.js(f"{toast}.textContent")))
+            check((card / 'Roms/NES').is_dir() and not (card / 'Roms' / nextdoor / 'NES').exists(),
+                  f'and it stayed, not in {nextdoor}')
+            page.js(f"{toast}.classList.remove('show'); {toast}.textContent = ''")
+            # Picked: Cmd and a press, Select all, Cmd+A leave it out
+            click(row('NES'), 4)
+            check(page.until(f"{toast}.textContent === {json.dumps(kept)}") and page.js(picked) == 0,
+                  "Cmd and a press on a console's folder say why and pick nothing")
+            key('a', 4)
+            check(page.until(f"{picked} > 0") and page.js(picked) == page.js("pickable().length") and
+                  not page.js(f"{row('NES')}.classList.contains('sel')") and
+                  page.js(f"{row('BGM')}.classList.contains('sel')"),
+                  "Cmd+A picks every row but the consoles' folders: " + str(page.js(picked)))
+            key('Escape')
+            page.until(f"{picked} === 0")
+            # A finger held on it: the line, and it is not picked
+            page.dt.call('Emulation.setTouchEmulationEnabled', enabled=True, maxTouchPoints=1)
+            (x0, y0) = at(row('NES'))
+            page.dt.call('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': x0, 'y': y0}])
+            time.sleep(0.7)
+            page.dt.call('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
+            check(page.until(f"{toast}.textContent === {json.dumps(kept)}") and page.js(picked) == 0 and
+                  page.js("document.getElementById('selbar').hidden"),
+                  "a finger held on a console's folder says why and picks nothing")
+            page.dt.call('Emulation.setTouchEmulationEnabled', enabled=False)
+            # An old page or a script: the device refuses all three itself
+            got = page.js("""(async () => { const post = async (u) => (await fetch(u, { method: 'POST',
+                credentials: 'same-origin' })).status;
+                return [await post('/api/move?p=roms%2FNES&to=roms%2FBGM'),
+                        await post('/api/rename?p=roms%2FNES&to=Nintendo'),
+                        await post('/api/delete?p=roms%2FAtomiswave')]; })()""")
+            check(got == [403, 403, 403] and (card / 'Roms/NES').is_dir() and (card / 'Roms/Atomiswave').is_dir(),
+                  f"the device refuses a console's folder's move, rename and delete (empty too): {got}")
+            # A folder of games in a console's still moves: Hacks, by Move to
+            got = page.js("""(async () => (await fetch('/api/move?p=roms%2FNES%2FHacks&to=roms%2FNES%2FMade',
+                { method: 'POST', credentials: 'same-origin' })).status)()""")
+            check(got == 200 and (nes / 'Made/Hacks').is_dir(), f"a folder of games in a console's still moves: {got}")
+            server.stop()
+
             print("the page in the handheld's language:")
             server = Server(card, web, 'usb', 'update=off', 'space=88.4/119', 'lang=fr')
             check(signed_in(page, server) and
@@ -591,6 +851,61 @@ def main():
             server = Server(card, web, 'update=off')
             check(signed_in(page, server) and page.js(f"{names}.every((n) => n === 'Wi-Fi File Transfer')"),
                   f"the page is Wi-Fi File Transfer: {page.js(names)}")
+            server.stop()
+
+            print('the PIN screen: the cursor in the first box from the start:')
+            server = Server(card, web, 'update=off')
+            slow = lambda ms: page.dt.call('Network.emulateNetworkConditions', offline=False, latency=ms,
+                                           downloadThroughput=-1, uploadThroughput=-1)
+            typed = "[...document.querySelectorAll('#boxes input')].map((b) => b.value).join('')"
+            cursor = "[...document.querySelectorAll('#boxes input')].indexOf(document.activeElement)"
+            # The page's first question, "is there a session?" (/api/list),
+            # marked when its answer comes: a 401 has no resource timing entry
+            answered = 'window.listAnswered === true'
+            page.dt.call('Page.enable')  # or the script below is never put in
+            mark = page.dt.call('Page.addScriptToEvaluateOnNewDocument', source="""(() => {
+                const f = window.fetch;
+                window.fetch = function (u) {
+                    const p = f.apply(this, arguments);
+                    if (String(u).includes('/api/list'))
+                        p.then(() => { window.listAnswered = true; }, () => { window.listAnswered = true; });
+                    return p;
+                };
+            })()""")['identifier']
+
+            def digit(d):
+                page.dt.call('Input.dispatchKeyEvent', type='keyDown', key=d, code='Digit' + d, text=d,
+                             windowsVirtualKeyCode=48 + int(d))
+                page.dt.call('Input.dispatchKeyEvent', type='keyUp', key=d, code='Digit' + d,
+                             windowsVirtualKeyCode=48 + int(d))
+            # A handheld slow to answer, as over a weak Wi-Fi: every request
+            # 1.5 s, so the page is up well before it says there is no session
+            slow(1500)
+            fresh(page, f'{server.origin}/')
+            page.until("typeof sendPin === 'function'", 30)
+            # The focus lands a moment after the script on a busy runner (a
+            # CI part, 2026-11-21: -1 read at once): looked for while the
+            # handheld's answer, 1.5 s off, has not come
+            page.until(f"{cursor} === 0 || {answered}", 1.2)
+            check(not page.js(answered) and page.js(cursor) == 0,
+                  f"before the handheld has answered, the first box has the cursor: {page.js(cursor)}")
+            digit('4')
+            digit('7')
+            ok = page.until(answered, 15)
+            time.sleep(0.3)  # the page's own handling of that answer, after the mark
+            check(ok and page.js(f"{typed} === '47' && {cursor} === 2"),
+                  f"digits typed before it answered stay, the cursor in the third box: "
+                  f"answered {ok}, {page.js(typed)!r}, box {page.js(cursor)}")
+            page.dt.call('Page.removeScriptToEvaluateOnNewDocument', identifier=mark)
+            page.dt.call('Page.disable')
+            slow(0)
+            # A press on the page outside the boxes takes the cursor out of
+            # them; the next digit still goes into the first empty box
+            page.js("document.activeElement.blur()")
+            digit('2')
+            check(page.until(f"{typed} === '472' && {cursor} === 3", 5),
+                  f"a digit typed with the cursor out of the boxes lands in the first empty one: "
+                  f"{page.js(typed)!r}, box {page.js(cursor)}")
             server.stop()
 
             print('a drop in the middle of an upload: the file waits, then goes on:')
@@ -736,7 +1051,8 @@ def main():
     if failures:
         print(f'\n{failures} check(s) failed')
         return 1
-    print('\nok: the page wears its art, hides dot folders, counts the room, says the time, '
+    print('\nok: the page wears its art, gives each game the handheld\'s picture and video, hides dot folders, '
+          'counts the room, says the time, '
           'follows the handheld\'s stop, updates over the cable, moves files by dragging, '
           'speaks its language, is named after its link and goes on after a drop')
     return 0

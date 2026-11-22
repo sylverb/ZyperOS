@@ -17,6 +17,7 @@
 #include "rabadge.h"
 #include "rafetch.h"
 #include "remap.h"
+#include "collect_screen.h"
 #include "remapstore.h"
 #include "shelf_keys.h"
 #include "shelfbuild.h"
@@ -48,32 +49,48 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 {
 	const system_cfg *s = &a->sys.systems[owner];
 	char p[LIB_PATH * 3];
-	struct stat st;
 
 	memset(gi, 0, sizeof *gi);
 	gi->can_delete = gd_shelf_deletes(s->core);
-	gi->can_rename = !is_muse(s) && gr_renames(s->core, g->file, g->dir);
-	gi->can_favorite = !is_muse(s);
+	gi->can_rename = !is_mp4(s) && gr_renames(s->core, g->file, g->dir);
+	gi->can_favorite = !is_mp4(s);
 	gi->favorite = gi->can_favorite && fav_is(s->tag, g->file);
+	/* The core it starts on, where the shelf has more than one */
+	if (cfg_core_count(s) > 1) {
+		char lb[64];
+
+		snprintf(gi->core, sizeof gi->core, "%s", core_label(s->core, lb, sizeof lb));
+	}
+	/* Its file, brackets and all (DESIGN.md 11.69), and a set's discs.
+	 * Only a file that is on the card: Install PortMaster's entry and
+	 * Splore's are ZyperOS's own, with no file behind them to name. One
+	 * stat, and for a set its folder or its .m3u read, as the page opens. */
+	snprintf(p, sizeof p, "%s/%s/%s", P_ROMS, s->folder, g->file);
+	if (s->folder[0] && access(p, F_OK) == 0) {
+		bool hooked = lib_shelf_hooked(s->exts);
+		int discs = lib_discs(P_ROMS, s->folder, g->file, g->dir, hooked);
+
+		lib_file_shown(g->file, g->dir, hooked, gi->file, sizeof gi->file);
+		if (discs > 1) snprintf(gi->discs, sizeof gi->discs, "%d", discs);
+	}
+	/* Collections take every game a favorite can be (src/collect.h) */
+	gi->can_collect = gi->can_favorite && s->folder[0];
+	if (gi->can_collect) collect_value(s->folder, g->file, gi->collected, sizeof gi->collected);
 	/* A key of its own on the card (map.<tag>.<file>): read here, so a reset
 	 * on the Buttons page takes the row away when the page comes back */
 	{
 		rm_table own;
 
-		gi->own_buttons = !is_muse(s) && rms_game(s, g->file, &own);
+		gi->own_buttons = !is_mp4(s) && rms_game(s, g->file, &own);
 	}
 
 	/* The save slots are not read here any more. The row that showed them went
 	 * on 2026-09-17 - the carousel shows them when you load, with the frames
 	 * rather than a count - and with it went a stat of every slot plus the
 	 * autosave each time this screen opened. */
-	box_art_path(s->folder, g->name, p, sizeof p);
-	gi->has_art = (stat(p, &st) == 0 && st.st_size > 0) ||
-	              es_media(P_ROMS, s->folder, g->file, g->name, ES_COVER, true, p, sizeof p);
-	gi->has_snap = (snaps_path(P_ROMS, s->folder, g->name, p, sizeof p) &&
-	                stat(p, &st) == 0 && st.st_size > 0) ||
-	               es_media(P_ROMS, s->folder, g->file, g->name, ES_VIDEO, true, p, sizeof p);
-	gi->own_art = pm_cover_path(a, owner, g, theme_index(), p, sizeof p);
+	gi->has_art = game_media(P_ROMS, s->folder, g->file, g->name, ES_COVER, true, p, sizeof p);
+	gi->has_snap = game_media(P_ROMS, s->folder, g->file, g->name, ES_VIDEO, true, p, sizeof p);
+	gi->own_art = own_cover_path(a, owner, g, theme_index(), p, sizeof p);
 	/* PortMaster's entry with PortMaster on the card: Reinstall PortMaster */
 	gi->can_reinstall = pm_is_entry(a, owner, g) && pm_on_card(s->folder);
 
@@ -169,6 +186,8 @@ typedef struct {
 	/* Y on the page (or A on Favorite) changed the favorite: the Favorites
 	 * shelf is rebuilt once the page has closed */
 	bool        fav_changed;
+	/* Add to Collection changed a collection: Collections the same */
+	bool        coll_changed;
 	char        said[192];
 } info_ctx;
 
@@ -220,6 +239,16 @@ static menu_result info_key(app *a, void *ctx, in_button key, int sel)
 		if ((db_game_get(db_lib(), folder, c->g->file, &m) ||
 		     es_details(P_ROMS, folder, c->g->file, c->g->name, &m, NULL)) && m.synopsis[0])
 			synopsis_screen(a, c->g->title, m.synopsis, c->st.accent);
+		return MENU_STAY;
+	}
+
+	if (!strcmp(rows[sel].label, T(S_COLLECT_ADD))) {
+		/* The collections, ticked where it is in one (src/collect_screen.h);
+		 * the shelf made again once this page closes */
+		if (collect_page(a, c->owner, c->g, c->st.accent)) c->coll_changed = true;
+		gi_gather(a, c->owner, c->g, &c->gi);
+		plat_input_flush();
+		memset(&a->in, 0, sizeof a->in);
 		return MENU_STAY;
 	}
 
@@ -325,6 +354,7 @@ void game_info_screen(app *a)
 	/* The card may now hold art it did not before. */
 	free_all_textures(a);
 	if (c.fav_changed) refresh_favorites_shelf(a);
+	if (c.coll_changed && !c.deleted) refresh_collections_shelf(a);
 	if (c.deleted && c.said[0] && a->running)
 		result_message(a, T(S_GAMEMENU_DELETE), c.said);
 }
@@ -353,8 +383,9 @@ void info_preview(app *a, bool net, const char *on_row)
 	 * until the rows were reordered and then was Saves - so the shot showed a
 	 * highlight on a dead row, which the real screen cannot do. */
 	sel = rows[0].live ? 0 : menu_step_sel(rows, n, 0, +1);
-	/* --info-delete and --info-rename: the cursor on Delete Game or Rename,
-	 * by its label as info_key finds it */
+	/* --info-delete, --info-rename, --info-collect and --info-on-buttons:
+	 * the cursor on Delete Game, Rename, Add to Collection or Buttons, by its
+	 * label as info_key finds it */
 	for (int i = 0; on_row && i < n; i++)
 		if (!strcmp(rows[i].label, on_row)) sel = i;
 

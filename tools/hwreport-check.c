@@ -43,6 +43,8 @@ int main(void)
 	f.closed_present = 13;
 	f.closed_total = 13;
 	strcpy(f.boot_times, "0.61 init\n0.72 closed\n\n1.43 card\n");
+	strcpy(f.leds, "2: sunxi_led0r sunxi_led0g");
+	strcpy(f.motor_rail, "axp2202-bldo3, 3300000 uV, enabled");
 	hwreport_build(&f, out, sizeof out);
 	ck(!strcmp(out,
 	           "Hardware:\n"
@@ -52,6 +54,8 @@ int main(void)
 	           "  Graphics: PowerVR Rogue GE8300, OpenGL ES 3.2 build 1.11@5516664\n"
 	           "  Wi-Fi: xr829\n"
 	           "  Closed files: 13 of 13\n"
+	           "  LEDs: 2: sunxi_led0r sunxi_led0g\n"
+	           "  Motor rail: axp2202-bldo3, 3300000 uV, enabled\n"
 	           "Boot times:\n"
 	           "  0.61 init\n"
 	           "  0.72 closed\n"
@@ -63,7 +67,8 @@ int main(void)
 	hwreport_build(&f, out, sizeof out);
 	ck(!strcmp(out, "Hardware:\n  Panel: -\n  Inputs: -\n  GPU driver: -\n  Graphics: -\n  Wi-Fi: -\n"
 	                "Boot times:\n  -\n"),
-	   "nothing known: every value -, and no closed files line on a device without them");
+	   "nothing known: every value -, and no closed files, LEDs or motor rail line on a device "
+	   "without them (the Pixel 2's report as before)");
 
 	memset(&f, 0, sizeof f);
 	memset(f.panel, 'x', sizeof f.panel - 1);
@@ -80,6 +85,30 @@ int main(void)
 	ck(hw_klog_line(klog, "PVR_K:", line, sizeof line) && !strncmp(line, "PVR_K:  301: Read BVNC", 22),
 	   "the GPU driver's line");
 	ck(!hw_klog_line(klog, "panfrost", line, sizeof line), "no line with it: false");
+#ifdef ZYPEROS_KIT_BUILD
+	/* A test kit's report (src/kit.h; make check-kitbuild builds this with
+	 * ZYPEROS_KIT_BUILD): the lights' facts a line each and the PMIC's
+	 * registers eight a line, after the motor rail and before the boot
+	 * times */
+	memset(&f, 0, sizeof f);
+	f.closed_total = -1;
+	strcpy(f.motor_rail, "axp2202-bldo3, 3300000 uV, enabled");
+	strcpy(f.led_facts, "LEDs: 23 (69 devices, max_brightness 255)\n\n5 V pin: gpio107 (PD11) out, 0\n"
+	                    "led_anim: none");
+	strcpy(f.pmic_regs, "00: 1f\n01: 00\n02: 3a\n03: 4b\n04: 00\n05: 80\n06: 01\n07: ff\n08: 12\n\n09: 34\n");
+	hwreport_build(&f, out, sizeof out);
+	ck(!strcmp(out, "Hardware:\n  Panel: -\n  Inputs: -\n  GPU driver: -\n  Graphics: -\n  Wi-Fi: -\n"
+	                "  Motor rail: axp2202-bldo3, 3300000 uV, enabled\n"
+	                "  LED facts:\n"
+	                "    LEDs: 23 (69 devices, max_brightness 255)\n"
+	                "    5 V pin: gpio107 (PD11) out, 0\n"
+	                "    led_anim: none\n"
+	                "  PMIC registers:\n"
+	                "    00: 1f  01: 00  02: 3a  03: 4b  04: 00  05: 80  06: 01  07: ff\n"
+	                "    08: 12  09: 34\n"
+	                "Boot times:\n  -\n"),
+	   "a kit: the lights' facts a line each, then the PMIC's registers eight a line, an empty line skipped");
+#endif
 	if (fails) {
 		printf("hwreport: %d of %d checks failed\n", fails, checks);
 		return 1;

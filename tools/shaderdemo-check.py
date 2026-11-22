@@ -12,7 +12,7 @@ This fails when:
     folder of its own and compared pixel for pixel);
   - a filter the Shader rows offer (SHADERS, src/app.h) has a picture missing;
   - Diatom's filters changed since the pictures were made: its GLSL
-    (diatom/port/pixel2.c, Sharp-Shimmerless's pass through the CRT's) or the
+    (diatom/port/gles_shaders.h, Sharp-Shimmerless's pass through the CRT's) or the
     Brick's Sharp-Shimmerless on its CPU (diatom/port/brick.c). Port the change
     into tools/shaderdemo.c, run make shaderdemo, look at the pictures, set
     them beside a Pixel 2's (tools/shaderdemo-device.sh), and record them
@@ -51,9 +51,9 @@ def brick_block(path):
 def sources():
     """What the pictures stand for: each part's name and its text's sha256"""
     parts = {
-        "diatom/port/pixel2.c (the filters' GLSL)":
-            between(ROOT / "diatom/port/pixel2.c", "static const char *SHIMMERLESS_SHADER",
-                    "static const char *SOLID_SHADER"),
+        "diatom/port/gles_shaders.h (the filters' GLSL)":
+            between(ROOT / "diatom/port/gles_shaders.h", "static const char *SHIMMERLESS_SHADER",
+                    "/* Each filter's shader, in diatom_filter's order"),
         "diatom/port/brick.c (Sharp-Shimmerless on the CPU)": brick_block(ROOT / "diatom/port/brick.c"),
     }
     return {k: hashlib.sha256(v.encode("utf-8")).hexdigest() for k, v in parts.items()}

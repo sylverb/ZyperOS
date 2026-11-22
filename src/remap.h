@@ -9,7 +9,7 @@
  * each of the handheld's buttons gives the core, in Diatom's map language
  * (diatom/src/env.c, diatom_input_set_map): `from:to`, `none`, a turbo
  * `x:a~3`, and a layer `held+from:to`. Design:
- * docs/superpowers/specs/2026-11-13-button-remap-design.md, sections 3 and 6. */
+ * DESIGN.md 11.45. */
 
 /* The handheld's buttons, in the order the Controls tab lists them */
 enum { RM_A, RM_B, RM_X, RM_Y, RM_L1, RM_R1, RM_L2, RM_R2, RM_START, RM_SELECT, RM_BUTTONS };
@@ -23,6 +23,16 @@ enum {
 
 /* Nothing: the button gives the game no button */
 #define RM_NONE (-1)
+
+/* The d-pad as the stick, on a button (a system with a `stick|` line,
+ * DESIGN.md 11.45): Stick On/Off turns the d-pad into the stick and back at
+ * each press, Stick While Held for as long as the button is held. Neither
+ * is a button of the game's: Diatom hides the button from the core and
+ * turns the d-pad itself (diatom/src/env.c). In the map, `r2:stick` and
+ * `l2:stickhold`. They swap as a game button does, and never turbo. */
+#define RM_STICK_TOGGLE (-2)
+#define RM_STICK_HOLD   (-3)
+#define RM_IS_STICK(to) ((to) == RM_STICK_TOGGLE || (to) == RM_STICK_HOLD)
 
 /* The half-period of a turbo, in frames, that every turbo choice uses */
 #define RM_TURBO 3
@@ -63,6 +73,9 @@ bool rm_load(const rm_table *def, const char *stored, rm_table *out);
 
 bool rm_equal(const rm_table *a, const rm_table *b);
 
+/* Whether a button of t is Stick On/Off or Stick While Held */
+bool rm_has_stick(const rm_table *t);
+
 /* Whether a button gives something other than def's */
 bool rm_changed(const rm_table *def, const rm_table *t, int button);
 
@@ -71,6 +84,11 @@ bool rm_changed(const rm_table *def, const rm_table *t, int button);
  * in base (a swap, not a copy). Turbo and nothing never swap. Worked from
  * base, the table when the cursor came onto the row, so steps never pile up. */
 void rm_set(rm_table *t, const rm_table *base, int button, rm_choice c);
+
+/* t becomes base with one change, button gives c, and no swap: a button
+ * that gives c already keeps it, so both give it (issue #305, Y in a
+ * button's list: DESIGN.md 11.45, "Two buttons on one game button") */
+void rm_share(rm_table *t, const rm_table *base, int button, rm_choice c);
 
 /* The targets def reaches, plain or turbo, that t reaches nowhere, in target
  * order, at most max. The count. */

@@ -339,6 +339,170 @@ static void presses(void)
 	ck(acts[8] == 1u << CHORD_SAVE, "MENU under a waiting SELECT does not give it to the game");
 }
 
+/* The keys from the launcher (chord_keys_parse, chord_set_keys): a face
+ * button as a hotkey's, a shoulder that is none any more is the game's
+ * under SELECT, and a bad spec changes nothing */
+static void keys_from_launcher(void)
+{
+	int key[CHORD_ACTS], def[CHORD_ACTS], i;
+	uint32_t h[MAXT] = { 0 };
+	chord c;
+	uint32_t was = 0;
+	unsigned got[MAXT];
+	uint32_t vis[MAXT];
+
+	chord_default_keys(def);
+	ck(def[CHORD_SAVE] == DIATOM_BTN_R1 && def[CHORD_SHOT] == -1 && def[CHORD_QUIT] == -1,
+	   "the keys from the start: the shoulders' four, none for the rest");
+	ck(chord_keys_parse("save:r1,load:l1,faster:r2,slower:l2,shot:y,quit:start", key) &&
+	   key[CHORD_SHOT] == DIATOM_BTN_Y && key[CHORD_QUIT] == DIATOM_BTN_START &&
+	   key[CHORD_SHADER] == -1, "a launcher's keys");
+	memcpy(key, def, sizeof key);
+	ck(!chord_keys_parse("shot:y,reset:y", key) && !chord_keys_parse("shot:select", key) &&
+	   !chord_keys_parse("shot:menu", key) && !chord_keys_parse("zoom:y", key) &&
+	   !chord_keys_parse("shot", key) && !chord_keys_parse("shot:y,shot:x", key) &&
+	   !memcmp(key, def, sizeof key), "a bad spec, SELECT, MENU or a button twice: refused, untouched");
+	ck(chord_keys_parse("none", key) && key[CHORD_SAVE] == -1 && key[CHORD_SLOWER] == -1,
+	   "none: no hotkey at all");
+
+	/* SELECT+Y with Y the screenshot's, and R1 no hotkey: SELECT then R1 is
+	 * the game's, R1 and SELECT both */
+	chord_keys_parse("shot:y", key);
+	chord_reset(&c);
+	chord_set_keys(&c, key);
+	fill(h, 2, 10, SEL);
+	fill(h, 5, 3, DIATOM_BIT(DIATOM_BTN_Y));
+	fill(h, 30, 10, SEL);
+	fill(h, 33, 3, R1);
+	for (i = 0; i < 45; i++) {
+		chord_out o = chord_turn(&c, h[i], was, (uint64_t)(1000 + i * TURN_MS), chord_keys(&c));
+
+		vis[i] = (h[i] & ~o.hide) | o.give;
+		got[i] = o.acts;
+		was = h[i];
+	}
+	ck(got[5] == 1u << CHORD_SHOT, "SELECT+Y: the screenshot, on Y's turn");
+	ck(!(vis[5] & DIATOM_BIT(DIATOM_BTN_Y)) && !(vis[6] & DIATOM_BIT(DIATOM_BTN_Y)),
+	   "and the game never sees that Y");
+	ck(!got[33] && (vis[33] & R1) && (vis[33] & SEL),
+	   "R1 no hotkey: SELECT then R1 is the game's, both");
+	ck(chord_keys(&c) == DIATOM_BIT(DIATOM_BTN_Y) && chord_key_of(&c, CHORD_SAVE) == 0,
+	   "chord_keys: Y alone");
+	/* a reset is the keys from the start again */
+	chord_reset(&c);
+	ck(chord_keys(&c) == CHORD_KEYS, "chord_reset: the shoulders' four again");
+}
+
+/* A slow game's turns (chord_view, as main.c's sel_poll feeds the rule): a
+ * tenth of a second each, a Saturn game's 10 fps, and `pr` what went down at
+ * each poll, a tap let go again before it too. `seen` is what the core is
+ * answered: the pad as it is, less what is hidden, with what is given. */
+#define SLOW_MS 100
+static void run_slow(const uint32_t *held, const uint32_t *pr, int n, uint32_t live)
+{
+	chord c;
+	uint32_t was = 0, pad_was = 0;
+	int t;
+
+	chord_reset(&c);
+	for (t = 0; t < n; t++) {
+		const uint32_t view = chord_view(&c, held[t], pad_was, pr[t], live);
+		chord_out o = chord_turn(&c, view, was, (uint64_t)(1000 + t * SLOW_MS), live);
+
+		seen[t] = (held[t] & ~o.hide) | o.give;
+		acts[t] = o.acts;
+		was = view;
+		pad_was = held[t];
+	}
+}
+
+static void taps(void)
+{
+	uint32_t h[MAXT], pr[MAXT];
+	const unsigned SAVE = 1u << CHORD_SAVE;
+
+	/* SELECT held, R1 down and up between two polls: the hotkey once, on
+	 * that turn, and the game never sees SELECT or R1 */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	fill(h, 2, 6, SEL);
+	pr[2] = SEL;
+	pr[4] = R1;
+	run_slow(h, pr, 12, ALL);
+	ck(acts[4] == SAVE && acts_in(0, 12) == SAVE, "slow: SELECT held, R1 tapped between two polls: save once");
+	ck(count(0, 12, SEL) == 0 && count(0, 12, R1) == 0, "  and the game sees neither SELECT nor R1");
+
+	/* The same tap with SELECT let go in that same moment: the hotkey still,
+	 * and no SELECT given to the game for it */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	fill(h, 2, 2, SEL);
+	pr[2] = SEL;
+	pr[4] = R1;
+	run_slow(h, pr, 12, ALL);
+	ck(acts_in(0, 12) == SAVE && acts[4] == SAVE, "slow: R1 tapped as SELECT is let go: save once");
+	ck(count(0, 12, SEL) == 0, "  and the game is given no SELECT");
+
+	/* SELECT held past CHORD_HOLD_MS, the game's then: a tapped R1 is a
+	 * hotkey still, as a held one is */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	fill(h, 2, 12, SEL);
+	pr[2] = SEL;
+	pr[10] = R1;
+	run_slow(h, pr, 16, ALL);
+	ck(acts_in(0, 16) == SAVE && acts[10] == SAVE, "slow: SELECT held 0.8 s, R1 tapped: save once");
+	ck(count(10, 12, R1) == 0, "  and the game never sees that R1");
+
+	/* R1 tapped with no SELECT: the game's, and nothing more than libretro's
+	 * poll gave it before (nothing: it was up at the poll) */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	pr[3] = R1;
+	run_slow(h, pr, 8, ALL);
+	ck(acts_in(0, 8) == 0 && count(0, 8, R1) == 0, "slow: R1 tapped alone: no hotkey, nothing given");
+
+	/* SELECT down in the same turn R1 was tapped: R1 may have been let go
+	 * before SELECT came, so no hotkey (a game's R1, then SELECT) */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	fill(h, 3, 6, SEL);
+	pr[3] = SEL | R1;
+	run_slow(h, pr, 12, ALL);
+	ck(acts_in(0, 12) == 0, "slow: R1 tapped in SELECT's own turn: no hotkey");
+
+	/* SELECT tapped alone between two polls: never added, so the game's as
+	 * libretro polls it */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	pr[3] = SEL;
+	run_slow(h, pr, 8, ALL);
+	ck(acts_in(0, 8) == 0 && count(0, 8, SEL) == 0, "slow: SELECT tapped alone: not made up");
+
+	/* A key that is no hotkey now (no states: save's R1 the game's) */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	fill(h, 2, 6, SEL);
+	pr[2] = SEL;
+	pr[4] = R1;
+	run_slow(h, pr, 12, ALL & ~R1);
+	ck(acts_in(0, 12) == 0, "slow: R1 tapped under SELECT, R1 no live hotkey: nothing");
+
+	/* A hold under SELECT, many polls long, is one hotkey, as before */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	fill(h, 2, 10, SEL);
+	fill(h, 4, 5, R1);
+	pr[2] = SEL;
+	pr[4] = R1;
+	run_slow(h, pr, 16, ALL);
+	ck(acts_in(0, 16) == SAVE && acts[4] == SAVE, "slow: SELECT+R1 held 0.5 s: save once");
+	ck(count(0, 16, R1) == 0 && count(0, 16, SEL) == 0, "  and the game sees neither");
+
+	/* Two taps of R2 under one SELECT, a poll between them up: two steps */
+	memset(h, 0, sizeof h); memset(pr, 0, sizeof pr);
+	fill(h, 2, 10, SEL);
+	pr[2] = SEL;
+	pr[4] = R2;
+	pr[6] = R2;
+	run_slow(h, pr, 16, ALL);
+	ck(acts[4] == 1u << CHORD_FASTER && acts[6] == 1u << CHORD_FASTER &&
+	   acts_in(0, 16) == 1u << CHORD_FASTER && acts_in(5, 6) == 0,
+	   "slow: R2 tapped twice under SELECT: faster twice");
+}
+
 int main(void)
 {
 	tap();
@@ -347,6 +511,8 @@ int main(void)
 	together();
 	live_keys();
 	presses();
+	keys_from_launcher();
+	taps();
 	printf("chord: %d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

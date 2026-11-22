@@ -1,0 +1,123 @@
+ZyperOS: a frame the frontend will not show is left undrawn, the late skip
+the Nintendo DS has (Diatom's RUN frameskip=late), from the same signal.
+
+Diatom marks a frame it will not show: at 1x under frameskip=late, one that
+starts more than half a period behind its schedule (two in a row at most),
+and in fast forward the frames of a turn before its last. It says so through
+libretro's audio buffer status callback, the underrun flag up for those
+frames (diatom/src/env.c, diatom_env_frame_shown), and DSperate's wrapper
+skips the DS's drawing on it (dsperate_frameskip). PPSSPP never asked for
+the callback, so the PSP drew every frame however late it ran: on a GKD
+Pixel 2 (1.1.0-rc.4) Tekken 6 at 0.62x its speed, Gran Turismo 0.50x,
+WipEout Pure 0.47x, God of War 0.31x.
+
+A new core option, ppsspp_frontend_frameskip ("Frameskip, when the frontend
+asks for it", auto or disabled, auto by default, as dsperate_frameskip's
+words), asks for the callback. A frame the emulation thread starts while the
+flag is up runs with SKIPDRAW_SKIPFRAME, the bit PPSSPP's own frameskip sets:
+its draws are left out, the game, its CPU and its sound run whole. The
+undrawn frame's framebuffer is not really dirty, so __DisplayFlip asks for no
+new frame and the frame after it runs in the same retro_run, drawn: never
+two undrawn in a row, and that retro_run brings two periods of sound, which
+Diatom (paced by sound for PPSSPP) waits two periods for. Not used with
+PPSSPP's own Frameskip or Auto Frameskip on (the player's pick), nor with
+duplicate frames on, whose 60 Hz flips would end a retro_run on the undrawn
+frame. A frontend that never raises the flag (a game that keeps up, or a
+frontend without frameskip=late) never has a frame skipped: every frame is
+drawn, as before.
+
+Measured on the Pixel 2 with a test core that skipped one frame in two
+(fixed frameskip 1, the most this patch can skip): Tekken 6 0.62x to 1.00x,
+Gran Turismo 0.50x to 0.73x, WipEout 0.47x to 0.76x, God of War 0.31x to
+0.54x; PPSSPP's own auto frameskip (up to 2) skipped Daxter while it was on
+time, 30 pictures a second down to 21.
+diff --git a/libretro/libretro.cpp b/libretro/libretro.cpp
+index e55ee9a..5d358fd 100644
+--- a/libretro/libretro.cpp
++++ b/libretro/libretro.cpp
+@@ -129,6 +129,26 @@ namespace Libretro
+    static bool detectVsyncSwapIntervalOptShown = true;
+    static bool softwareRenderInitHack = false;
+ 
++   // The frontend's frame skip (ppsspp_frontend_frameskip, "auto"): through
++   // the audio buffer status callback the frontend says which frames it will
++   // not show - a frame that starts late (ZyperOS's Diatom under RUN
++   // frameskip=late) or one fast forward passes over - and its underrun flag
++   // is up for those. A frame the emulation thread starts while the flag is
++   // up has its drawing left out (SKIPDRAW_SKIPFRAME, as PPSSPP's own
++   // frameskip leaves it out); the game, its CPU and its sound run whole.
++   // A frame left undrawn does not end retro_run (its framebuffer is not
++   // really dirty: sceDisplay's __DisplayFlip asks for no new frame), so the
++   // frame after it runs in the same call and is drawn: never two undrawn in
++   // a row. A frontend that never raises the flag never has a frame skipped.
++   static bool frontendSkip = true;
++   static std::atomic<bool> frontendSkipBehind(false);
++
++   static void RETRO_CALLCONV frontend_skip_status(bool active, unsigned occupancy, bool underrun_likely)
++   {
++      (void)occupancy;
++      frontendSkipBehind.store(active && underrun_likely, std::memory_order_relaxed);
++   }
++
+    static s64 expectedTimeUsPerRun = 0;
+    static uint32_t vsyncSwapInterval = 1;
+    static uint32_t vsyncSwapIntervalLast = 1;
+@@ -766,6 +786,18 @@ static void check_variables(CoreParameter &coreParam)
+          g_Config.bAutoFrameSkip = true;
+    }
+ 
++   var.key = "ppsspp_frontend_frameskip";
++   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
++      frontendSkip = strcmp(var.value, "disabled") != 0;
++   {
++      // Asked for on, given back off (NULL); the flag down until the
++      // frontend next says otherwise
++      struct retro_audio_buffer_status_callback cb = { frontend_skip_status };
++      if (!environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, frontendSkip ? &cb : NULL))
++         frontendSkip = false;
++      frontendSkipBehind.store(false, std::memory_order_relaxed);
++   }
++
+    var.key = "ppsspp_frame_duplication";
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+    {
+@@ -1395,6 +1427,14 @@ namespace Libretro
+          gpu->BeginHostFrame(displayLayoutConfig);
+       }
+ 
++      // The frontend's frame skip (frontend_skip_status): this frame
++      // undrawn while the frontend says it is behind. Not over PPSSPP's own
++      // frameskip, if the player picked it, nor with duplicate frames on,
++      // whose 60 Hz flips would end retro_run on the undrawn frame.
++      if (frontendSkip && frontendSkipBehind.load(std::memory_order_relaxed) &&
++          g_Config.iFrameSkip == 0 && !g_Config.bAutoFrameSkip && !g_Config.bRenderDuplicateFrames)
++         gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
++
+       PSP_RunLoopWhileState();
+       switch (coreState) {
+       case CORE_NEXTFRAME:
+diff --git a/libretro/libretro_core_options.h b/libretro/libretro_core_options.h
+index a8a1bd3..b68f4bc 100644
+--- a/libretro/libretro_core_options.h
++++ b/libretro/libretro_core_options.h
+@@ -406,6 +406,20 @@ struct retro_core_option_v2_definition option_defs_us[] = {
+       BOOL_OPTIONS,
+       "disabled"
+    },
++   {
++      "ppsspp_frontend_frameskip",
++      "Frameskip, when the frontend asks for it",
++      NULL,
++      "Leave out the drawing of a frame the frontend will not show (one that starts late, or one fast forward passes over), never two in a row. The game and its sound run whole. Not used with Frameskip, Auto Frameskip or duplicate frames on.",
++      NULL,
++      "video",
++      {
++         { "auto",     NULL },
++         { "disabled", NULL },
++         { NULL, NULL },
++      },
++      "auto"
++   },
+    {
+       "ppsspp_frame_duplication",
+       "Render Duplicate Frames to 60 Hz",

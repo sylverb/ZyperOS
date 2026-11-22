@@ -2,6 +2,7 @@
 /* The Diatom transport: the launcher's side of the socket to the resident
  * emulator. Nothing in it knows which device it runs on. */
 #include "device.h"
+#include "levels.h"
 #include "platform.h"
 #include "powerhold.h"
 
@@ -29,6 +30,17 @@ static SDL_Rect d_rect;
 static bool     d_rect_known;
 static int    d_pend_vol = -1, d_pend_vol_n;      /* LEVEL events, held until */
 static int    d_pend_bri = -1, d_pend_bri_n;      /* EXIT hands levels back  */
+/* ...and each one's boost past the top (src/levels.h), its cells filled: 0
+ * from a Diatom that does not say it */
+static int    d_pend_vol_boost, d_pend_bri_boost;
+/* Whether this stretch of the game says its volume boost to MP4 as it moves
+ * (levels_game_boost): from Diatom's first LEVEL with the cells the launcher
+ * keeps, which is the one SETLEVEL gave it. A RUN or a RESUME makes Diatom
+ * say its levels again in the first frames, and it reads one message a
+ * frame, so a line before its SETLEVEL can carry the cells it had before
+ * (another game's, or none): heard behind the game, that would duck MP4 for
+ * a frame or two. Off again at RUN, PAUSED and EXIT. */
+static bool   d_boost_live;
 /* Diatom's QUIET: what the launcher wants, and what this connection was last
  * told. -1 is "never told", which a new connection is. */
 static int    d_quiet, d_quiet_said = -1;
@@ -36,6 +48,9 @@ static int    d_lowbat, d_lowbat_said = -1;
 /* Diatom's CHANNELS, the same way: what the launcher wants, and what this
  * connection was last told, "" being never. */
 static char   d_chan[8] = "stereo", d_chan_said[8];
+/* The equalizer's bands for where Diatom plays (src/eq.h), as SETEQ carries
+ * them: sent on a change and before every RUN, as the channels are */
+static char   d_eq[24] = "0,0,0,0,0", d_eq_said[24];
 
 const char *plat_resident_socket(void)
 {
@@ -52,14 +67,19 @@ static void dclose(void)
 
 /* The next RUN's own keys, and the stylus and the swap Diatom reports. See
  * platform.h. */
-static char d_run_keys[128];
+/* RUN's keys beyond the usual: power, controller, stick, a DS game's
+ * screens, the hotkeys and the screenshots' folder (a path) */
+static char d_run_keys[1536];
 static char d_map[256];          /* plat_resident_map, for the next RUN */
 static char d_opt[128];         /* plat_resident_opt, "key\tvalue=..." */
 static bool d_stylus, d_swap;
+/* The game's core asked for the motor, as its last PAUSED said (rumble=1):
+ * the in-game Controls tab's Rumble row. Off at every RUN. */
+static bool d_rumble_asked;
 
 static bool dsend(const char *fmt, ...)
 {
-	char line[2048];
+	char line[4096];
 	va_list ap;
 	int n;
 
@@ -211,6 +231,7 @@ static bool dconnect(void)
 	d_quiet_said = -1;
 	d_lowbat_said = -1;
 	d_chan_said[0] = '\0';
+	d_eq_said[0] = '\0';
 	d_generation++;
 
 	dsock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -335,9 +356,37 @@ static void d_note_stick(const char *l)
 	if (d_on_stick) d_on_stick(l[9] == '1');
 }
 
+static void (*d_on_disk)(const char *state, int disk, char side);
+
+void plat_resident_on_disk(void (*fn)(const char *state, int disk, char side)) { d_on_disk = fn; }
+
+/* "DISK\tstate=selected\tdisk=1\tof=2\tside=B", or "DISK\tstate=eject-first" */
+static void d_note_disk(const char *l)
+{
+	const char *st = strstr(l, "state="), *dk = strstr(l, "\tdisk="), *sd = strstr(l, "\tside=");
+	char state[16];
+
+	if (!st || !d_on_disk) return;
+	snprintf(state, sizeof state, "%.*s", (int)strcspn(st + 6, "\t\r\n"), st + 6);
+	d_on_disk(state, dk ? atoi(dk + 6) : 0, sd ? sd[6] : 0);
+}
+
 static void (*d_on_quick)(int what, const char *path);
 
 void plat_resident_on_quick(void (*fn)(int what, const char *path)) { d_on_quick = fn; }
+
+/* The player's hotkeys (src/hotkeys.h) that are the launcher's to carry
+ * out: a screenshot written (SHOT path=), the next shader or display mode
+ * (HOTKEY key=shader|display) */
+static void (*d_on_hotkey)(const char *key, const char *path);
+
+void plat_resident_on_hotkey(void (*fn)(const char *key, const char *path)) { d_on_hotkey = fn; }
+
+/* What the last PAUSED was for: "reset" or "quit" from a hotkey, "" for
+ * MENU's (plat_resident_paused_for) */
+static char d_pause_for[8];
+
+const char *plat_resident_paused_for(void) { return d_pause_for; }
 
 static void (*d_on_progress)(int id, const char *text, int value, int target);
 
@@ -360,10 +409,60 @@ void plat_resident_on_battery_empty(bool (*fn)(void)) { d_battery_empty = fn; }
  * to 0 on each re-entry made a running game look like one that never started.
  * The cost was not cosmetic - see the ERROR arm in diatom_wait. */
 static int d_got_running;
+/* The refusal of the game last sent, from Diatom's ERROR before RUNNING
+ * (plat_resident_start_error): kept by plat_resident_wait and taken by the
+ * launcher once the wait says the game never started */
+static plat_start_error d_start_err;
+static int d_start_err_set;
 
 bool plat_resident_started(void)
 {
 	return d_got_running != 0;
+}
+
+/* The value of `key` in a tab-separated line of key=value, in `out` ("" when
+ * the line has none) */
+static void d_field(const char *line, const char *key, char *out, size_t n)
+{
+	char pat[40];
+	const char *p;
+	size_t len;
+
+	out[0] = '\0';
+	snprintf(pat, sizeof pat, "\t%s=", key);
+	p = strstr(line, pat);
+	if (!p) return;
+	p += strlen(pat);
+	len = strcspn(p, "\t\r\n");
+	if (len >= n) len = n - 1;
+	memcpy(out, p, len);
+	out[len] = '\0';
+}
+
+/* An ERROR line that came before RUNNING: a core that would not load says
+ * why (code=core_load, diatom/src/corefail.h) and the launcher keeps it for
+ * the shelf to say. Any other refusal is left to the log. */
+static void d_note_start_error(const char *line)
+{
+	plat_start_error e;
+
+	memset(&e, 0, sizeof e);
+	d_field(line, "code", e.code, sizeof e.code);
+	if (strcmp(e.code, "core_load") != 0) return;
+	d_field(line, "why", e.why, sizeof e.why);
+	d_field(line, "name", e.name, sizeof e.name);
+	d_field(line, "version", e.version, sizeof e.version);
+	d_field(line, "msg", e.core, sizeof e.core);
+	d_start_err = e;
+	d_start_err_set = 1;
+}
+
+bool plat_resident_start_error(plat_start_error *out)
+{
+	if (!d_start_err_set) return false;
+	d_start_err_set = 0;
+	if (out) *out = d_start_err;
+	return true;
 }
 
 bool plat_resident_send(const plat_game_run *run)
@@ -378,6 +477,7 @@ bool plat_resident_send(const plat_game_run *run)
 	 * diatom_wait, because the launcher re-enters that after every in-game
 	 * menu and the answer must survive those. */
 	d_got_running = 0;
+	d_start_err_set = 0;
 
 	{
 		char *l;
@@ -393,6 +493,8 @@ bool plat_resident_send(const plat_game_run *run)
 		d_preview[0] = '\0';
 		d_rect_known = false;
 		d_pend_vol = d_pend_bri = -1;
+		d_pend_vol_boost = d_pend_bri_boost = 0;
+		d_boost_live = false;
 		d_stick_asked = 0;
 
 		/* Before RUN, not after. mgba_sgb_borders and mgba_use_bios are both
@@ -425,6 +527,10 @@ bool plat_resident_send(const plat_game_run *run)
 		 * restarted cannot start in stereo for a player who hears with one. */
 		if (dsend("SETCHANNELS\tmode=%s", d_chan))
 			snprintf(d_chan_said, sizeof d_chan_said, "%s", d_chan);
+		/* The equalizer for the channels' reasons: the first sample is
+		 * already shaped, and a resident that restarted is told again */
+		if (dsend("SETEQ\tbands=%s", d_eq))
+			snprintf(d_eq_said, sizeof d_eq_said, "%s", d_eq);
 		/* The low-battery disc for quiet's reasons too:
 		 * a game started on a low battery shows it from its first frame. */
 		if (dsend("SETLOWBATTERY\ton=%d\tblink=%d", d_lowbat > 0, d_lowbat == 2))
@@ -440,6 +546,7 @@ bool plat_resident_send(const plat_game_run *run)
 		 * process holds it. */
 		device_display_release();
 		d_stylus = d_swap = false;
+		d_rumble_asked = false;
 		/* The zone Date & Time chose, which this process holds in TZ
 		 * (plat_clock_zone), for a game's real-time clock: Diatom is started
 		 * by launch.sh with none, so its cores read UTC without it. With
@@ -496,13 +603,17 @@ bool plat_resident_send(const plat_game_run *run)
 		 * twelve-rung ladder, so every level handed to a game arrived one rung
 		 * too bright, and the inbound rescale then took a rung off on the way
 		 * back. The two canceled often enough to look like nothing was wrong.
-		 * Both are written off the shared maxima now. */
+		 * Both are written off the shared maxima now.
+		 *
+		 * Each with its boost past the top (src/levels.h), the cells kept
+		 * filled, so a game starts as loud and as bright as the shelf was;
+		 * an older Diatom skips the field. */
 		vol = plat_volume_get();
 		bri = plat_brightness_get();
-		if (vol >= 0) dsend("SETLEVEL\tkind=volume\tindex=%d\tcount=%d",
-		                    vol, PLAT_VOL_MAX + 1);
-		if (bri >= 0) dsend("SETLEVEL\tkind=brightness\tindex=%d\tcount=%d",
-		                    bri, PLAT_BRIGHT_MAX + 1);
+		if (vol >= 0) dsend("SETLEVEL\tkind=volume\tindex=%d\tcount=%d\tboost=%d",
+		                    vol, PLAT_VOL_MAX + 1, levels_boost(OSDBAR_VOLUME));
+		if (bri >= 0) dsend("SETLEVEL\tkind=brightness\tindex=%d\tcount=%d\tboost=%d",
+		                    bri, PLAT_BRIGHT_MAX + 1, levels_boost(OSDBAR_BRIGHT));
 		/* And the mute, ON EVERY RUN and not only when it changes. A state
 		 * sent only on transition is wrong exactly once - the first time -
 		 * which here means a game started with the switch already down comes
@@ -540,6 +651,15 @@ void plat_resident_channels(const char *mode)
 	if (dsock >= 0 && strcmp(d_chan, d_chan_said) &&
 	    dsend("SETCHANNELS\tmode=%s", d_chan))
 		snprintf(d_chan_said, sizeof d_chan_said, "%s", d_chan);
+}
+
+void plat_resident_eq(const int8_t db[5])
+{
+	snprintf(d_eq, sizeof d_eq, "%d,%d,%d,%d,%d", db[0], db[1], db[2], db[3], db[4]);
+	/* Only over a connection that exists, as the channels: the next RUN
+	 * sends it */
+	if (dsock >= 0 && strcmp(d_eq, d_eq_said) && dsend("SETEQ\tbands=%s", d_eq))
+		snprintf(d_eq_said, sizeof d_eq_said, "%s", d_eq);
 }
 
 bool plat_resident_line(const char *fmt, ...)
@@ -630,18 +750,26 @@ static void d_note_level(const char *l)
 	const char *k = strstr(l, "kind=");
 	const char *i = strstr(l, "index=");
 	const char *c = strstr(l, "count=");
-	int idx, cnt;
+	const char *b = strstr(l, "\tboost=");
+	int idx, cnt, boost;
 
 	if (!k || !i || !c) return;
 	idx = atoi(i + 6);
 	cnt = atoi(c + 6);
+	boost = b ? atoi(b + 7) : 0;
 	if (cnt < 2) return;
 	if (strncmp(k + 5, "volume", 6) == 0) {
 		level_lit(true, idx, d_pend_vol >= 0 ? d_pend_vol : plat_volume_get(), cnt);
-		d_pend_vol = idx; d_pend_vol_n = cnt;
+		d_pend_vol = idx; d_pend_vol_n = cnt; d_pend_vol_boost = boost;
+		/* ...and its boost to MP4 at once, music behind a game being what
+		 * is heard then (the game is quiet for it): a hold, a press or VOL-
+		 * in the game is heard in the same step, where the level and the
+		 * cells kept wait for the pause or the end below */
+		if (!d_boost_live && boost == levels_boost(OSDBAR_VOLUME)) d_boost_live = true;
+		if (d_boost_live) levels_game_boost(OSDBAR_VOLUME, boost);
 	} else if (strncmp(k + 5, "brightness", 10) == 0) {
 		level_lit(false, idx, d_pend_bri >= 0 ? d_pend_bri : plat_brightness_get(), cnt);
-		d_pend_bri = idx; d_pend_bri_n = cnt;
+		d_pend_bri = idx; d_pend_bri_n = cnt; d_pend_bri_boost = boost;
 	}
 }
 
@@ -749,6 +877,7 @@ void plat_resident_opt(const char *key, const char *value)
 		d_opt[0] = '\0';
 }
 
+bool plat_resident_rumble_asked(void) { return d_rumble_asked; }
 bool plat_resident_stylus(void) { return d_stylus; }
 void plat_resident_note_stylus(bool on) { d_stylus = on; }
 
@@ -874,14 +1003,28 @@ static void d_apply_levels(void)
 	 * The rescale has to target THIS side's top of range. It read 10 while the
 	 * brightness ladder had grown to twelve rungs, which is not the identity:
 	 * a level of 7 came back as 6, and every brightness set inside a game lost
-	 * a rung on the way out. That is why the maxima are in platform.h now. */
-	if (d_pend_vol >= 0 && d_pend_vol_n > 1)
+	 * a rung on the way out. That is why the maxima are in platform.h now.
+	 *
+	 * And the boost past the top beside each, which src/levels.c keeps and
+	 * applies: given the level on this side's scale, the top being where it
+	 * opens, after the setter, so the level it finds is the one set. */
+	if (d_pend_vol >= 0 && d_pend_vol_n > 1) {
 		plat_volume_set_pct((d_pend_vol * 100 + (d_pend_vol_n - 1) / 2)
 		                    / (d_pend_vol_n - 1));
-	if (d_pend_bri >= 0 && d_pend_bri_n > 1)
-		plat_brightness_set((d_pend_bri * PLAT_BRIGHT_MAX + (d_pend_bri_n - 1) / 2)
-		                    / (d_pend_bri_n - 1));
+		levels_from_game(OSDBAR_VOLUME,
+		                 (d_pend_vol * PLAT_VOL_MAX + (d_pend_vol_n - 1) / 2) / (d_pend_vol_n - 1),
+		                 d_pend_vol_boost);
+	}
+	if (d_pend_bri >= 0 && d_pend_bri_n > 1) {
+		const int bri = (d_pend_bri * PLAT_BRIGHT_MAX + (d_pend_bri_n - 1) / 2)
+		              / (d_pend_bri_n - 1);
+
+		plat_brightness_set(bri);
+		levels_from_game(OSDBAR_BRIGHT, bri, d_pend_bri_boost);
+	}
 	d_pend_vol = d_pend_bri = -1;
+	d_pend_vol_boost = d_pend_bri_boost = 0;
+	d_boost_live = false;
 }
 
 /* POWER held over a game, with MENU > Power Button on Hold (src/powerhold.h):
@@ -943,14 +1086,37 @@ static int diatom_wait(void)
 		 * below the mixer: measured 2026-09-16 by muting a tone played from a
 		 * second process while Diatom held the dmix slave. */
 		plat_mute_poll(false);
-		while ((l = dline(100))) {
+		while ((l = dline((int)device_game_wait(100)))) {
 			if      (strncmp(l, "RUNNING", 7) == 0) d_got_running = 1;
 			/* The menu is the launcher's, and so are the levels while it is
 			 * up: taken at PAUSED as at EXIT. Taken only at EXIT, a press in
 			 * the menu stepped from the level before the game - seen on the
 			 * GKD Pixel 2 2026-10-02, raised to 18 in a game, and the menu's
 			 * first press went to 3. */
-			else if (strncmp(l, "PAUSED", 6) == 0)  { d_apply_levels(); return RES_PAUSED; }
+			else if (strncmp(l, "PAUSED", 6) == 0)  {
+				{   /* PAUSED's fields: for= a hotkey's pause, rumble=1 */
+					const char *f = strstr(l, "\tfor=");
+					int fl = f ? (int)strcspn(f + 5, "\t") : 0;
+
+					snprintf(d_pause_for, sizeof d_pause_for, "%.*s", fl, f ? f + 5 : "");
+				}
+				d_rumble_asked = strstr(l, "\trumble=1") != NULL;
+				d_apply_levels();
+				return RES_PAUSED;
+			}
+			/* A hotkey of the player's own: a screenshot taken (its
+			 * shutter, said at the press, before the file is written),
+			 * a screenshot written, the next shader or display mode for
+			 * the launcher to step */
+			else if (strcmp(l, "HOTKEY\tkey=shot") == 0) {
+				if (d_on_hotkey) d_on_hotkey("shot", NULL);
+			}
+			else if (strncmp(l, "SHOT\tpath=", 10) == 0) {
+				if (d_on_hotkey) d_on_hotkey("shot", l + 10);
+			}
+			else if (strncmp(l, "HOTKEY\tkey=shader", 18) == 0 || strncmp(l, "HOTKEY\tkey=display", 19) == 0) {
+				if (d_on_hotkey) d_on_hotkey(l + 11, NULL);
+			}
 			else if (strncmp(l, "PREVIEW\tpath=", 13) == 0)
 				snprintf(d_preview, sizeof d_preview, "%s", l + 13);
 			else if (strncmp(l, "LEVEL\t", 6) == 0) d_note_level(l);
@@ -966,6 +1132,8 @@ static int diatom_wait(void)
 			/* R2 in a PSP game: "STICK\ton=1" while the d-pad is the stick;
 			 * or the answer to the menu's own SETSTICK (d_note_stick) */
 			else if (strncmp(l, "STICK\ton=", 9) == 0) d_note_stick(l);
+			/* L1 or R1 moved a Famicom Disk System game's disk */
+			else if (strncmp(l, "DISK\t", 5) == 0) d_note_disk(l);
 			/* SELECT's quick slot: the hotkey, and what came of the SAVE or
 			 * LOAD the launcher sent for it (and of the menu's, which are
 			 * answered the same way and are no business of the callback's
@@ -1049,7 +1217,10 @@ static int diatom_wait(void)
 				 * framebuffer - two presenters, which wedges the display
 				 * engine in-kernel, and the supervisor powered the device
 				 * off. */
-				if (!d_got_running) return RES_DEAD;
+				if (!d_got_running) {
+					d_note_start_error(l);
+					return RES_DEAD;
+				}
 			}
 		}
 		if (dsock < 0) return RES_DEAD;            /* EOF mid-game */

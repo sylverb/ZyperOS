@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "library.h"
+#include "sheet.h"
 #include "titletext.h"
 
 #include <dirent.h>
@@ -356,6 +357,82 @@ void lib_display_title(db *d, const char *folder, const char *file,
                        const char *name, char *out, size_t n)
 {
 	if (!db_game_title(d, folder, file, out, n)) lib_title(name, out, n);
+}
+
+/* The launch path past the folders of games it is kept in, when `dir` is
+ * the length of a run of them ("RPGs" of "RPGs/Xeno/Disc 1.cue"); anything
+ * else leaves the path whole rather than cut it at a stray length */
+static const char *own_path(const char *file, unsigned dir)
+{
+	size_t len = strlen(file);
+
+	return dir && dir < len && file[dir] == '/' ? file + dir + 1 : file;
+}
+
+/* The name lib_title cuts, given back with its brackets (2026-11-21,
+ * DoctorIssa on the Discord: "at least have them appear when you look at
+ * the details of a game?"): a dump's brackets are how one copy is told from
+ * another, a region, a revision, a disc, a hack's version. */
+void lib_file_shown(const char *file, unsigned dir, bool hooked, char *out, size_t n)
+{
+	const char *own, *slash, *base, *dot;
+	size_t len;
+
+	if (!out || !n) return;
+	if (!file) { out[0] = '\0'; return; }
+	own = own_path(file, dir);
+	slash = strchr(own, '/');
+	if (hooked && slash) {
+		snprintf(out, n, "%.*s", (int)(slash - own), own);
+		return;
+	}
+	/* Less the extension, as Rename's keyboard has the name; a dot that
+	 * opens the name is no extension (".hack") */
+	base = strrchr(own, '/');
+	base = base ? base + 1 : own;
+	dot = strrchr(base, '.');
+	len = dot && dot != base ? (size_t)(dot - own) : strlen(own);
+	snprintf(out, n, "%.*s", (int)len, own);
+}
+
+int lib_discs(const char *roms_root, const char *folder, const char *file,
+              unsigned dir, bool hooked)
+{
+	char path[LIB_PATH * 3];
+	const char *slash;
+	int n = 0;
+
+	if (!roms_root || !folder || !file || hooked) return 1;
+	slash = strchr(own_path(file, dir), '/');
+	snprintf(path, sizeof path, "%s/%s", roms_root, folder);
+	/* A playlist, loose or the one its set's folder starts by: the disc
+	 * images it names, as hide_m3u_discs reads them (its discs alone, not
+	 * the tracks their sheets name), and never a WAD a Doom .m3u names */
+	if (ext_index(file, SET_EXTS) == 0) {
+		sheet_names *s = malloc(sizeof *s);
+
+		if (!s) return 1;
+		s->n = 0;
+		s->outside = false;
+		sheet_read(path, file, s, 1);
+		for (int i = 0; i < s->n; i++)
+			if (ext_index(s->name[i], SET_EXTS) > 0) n++;
+		free(s);
+	} else if (slash) {
+		/* A set in a folder of its own: its images as the scan counted
+		 * them when it made the folder one game (set_read) */
+		size_t at = strlen(path);
+		dir_list l;
+		set_info si;
+
+		snprintf(path + at, sizeof path - at, "/%.*s", (int)(slash - file), file);
+		if (dir_read(path, &l)) {
+			set_read(&l, &si);
+			n = si.images;
+		}
+		dir_free(&l);
+	}
+	return n > 1 ? n : 1;
 }
 
 bool lib_refresh_title(db *d, const char *folder, game_entry *entry)
@@ -740,6 +817,81 @@ static bool shelf_discs(const char *exts)
 	return false;
 }
 
+/* ---- a playlist's discs (2026-11-19) ---------------------------------------
+ *
+ * metior and Davistoa on the Discord, my OK: a game with an .m3u beside its
+ * discs is one entry, the .m3u, which starts it with its discs to swap. The
+ * discs it names are off the list, the Grid, Search and Random Game, since
+ * all of them are this listing. A disc no .m3u names stays, and so does every
+ * .m3u. Only disc images (SET_EXTS) go: Doom's .m3u names WADs, each a game
+ * of its own too.
+ *
+ * Only a loose .m3u is read: one in a folder of its own is that folder's game
+ * (set_is_game), and its discs, in its folder, are no entries. The names are
+ * src/sheet.c's, as Delete Game and File Transfer read them: relative to the
+ * .m3u's folder, into the folders under it (Davistoa keeps his discs in one),
+ * "#" lines and CRLF ends as any .m3u has them, a name that leaves the
+ * console's folder or a disc that is not there hiding nothing. Matched
+ * without case, as the card's exFAT opens them. One read a loose .m3u and no
+ * more: a shelf with none pays a look at each entry's extension. */
+
+/* Whether `g` is an .m3u lying loose (not the one a set folder launches) */
+static bool loose_m3u(const game_entry *g)
+{
+	const char *in = g->file + (g->dir ? g->dir + 1 : 0);
+
+	return !strchr(in, '/') && ext_index(in, SET_EXTS) == 0;
+}
+
+static int claim_cmp(const void *a, const void *b)
+{
+	return strcasecmp(*(char *const *)a, *(char *const *)b);
+}
+
+static void hide_m3u_discs(const char *dirpath, const char *exts, game_list *l)
+{
+	sheet_names *s = NULL;
+	char **claim = NULL;
+	int n = 0, cap = 0, i, o;
+
+	if (!lib_ext_allowed("m3u", exts)) return;
+	for (i = 0; i < l->count; i++) {
+		if (!loose_m3u(&l->items[i])) continue;
+		if (!s && !(s = malloc(sizeof *s))) break;
+		s->n = 0;
+		s->outside = false;
+		/* Its discs alone, not the tracks their sheets name (depth 1) */
+		sheet_read(dirpath, l->items[i].file, s, 1);
+		for (int k = 0; k < s->n; k++) {
+			if (n == cap) {
+				int more = cap ? cap * 2 : 64;
+				char **bigger = realloc(claim, (size_t)more * sizeof *bigger);
+
+				if (!bigger) goto out;
+				claim = bigger;
+				cap = more;
+			}
+			if (!(claim[n] = strdup(s->name[k]))) goto out;
+			n++;
+		}
+	}
+	if (n == 0) goto out;
+	qsort(claim, (size_t)n, sizeof *claim, claim_cmp);
+	for (i = o = 0; i < l->count; i++) {
+		const char *file = l->items[i].file;
+		int r = ext_index(file, SET_EXTS);
+
+		if (r > 0 && bsearch(&file, claim, (size_t)n, sizeof *claim, claim_cmp)) continue;
+		if (o != i) l->items[o] = l->items[i];
+		o++;
+	}
+	l->count = o;
+out:
+	for (i = 0; i < n; i++) free(claim[i]);
+	free(claim);
+	free(s);
+}
+
 bool lib_scan_listing(const char *roms_root, const char *folder, const char *exts,
                       game_list *out)
 {
@@ -764,6 +916,7 @@ bool lib_scan_listing(const char *roms_root, const char *folder, const char *ext
 	w.out = out;
 	walk_folder(&w, dirpath, "", &top, 0);
 	dir_free(&top);
+	hide_m3u_discs(dirpath, exts, out);
 	if (out->count == 0) { free(out->items); out->items = NULL; return false; }
 	return true;
 }

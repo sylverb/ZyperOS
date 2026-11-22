@@ -16,10 +16,11 @@
 #include "hareart.h"
 #include "hotpanel.h"
 #include "logpack.h"
+#include "look.h"
 #include "mdns.h"
 #include "menu_panel.h"
-#include "muse_screen.h"
-#include "musec.h"
+#include "mp4_screen.h"
+#include "mp4c.h"
 #include "pace.h"
 #include "panel.h"
 #include "place.h"
@@ -35,6 +36,7 @@
 #include "usblink.h"
 #include "xfer.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -438,7 +440,8 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 	bt_device  bt[BT_MAX];
 	const char *secrets[WIFI_MAX_NETS + BT_MAX + 5];
 	char       now_ssid[WIFI_SSID_MAX] = "", ip[64], logs[CFG_STR * 2];
-	char       folder[64], about[8192], err[128], stamp[32], sysver[64] = "-", hw[3072];
+	char       folder[64], about[8192 + HWREPORT_KIT_ROOM], err[128], stamp[32], sysver[64] = "-",
+	           hw[3072 + HWREPORT_KIT_ROOM];
 	hw_facts   facts;
 	int        n = 0, saved, nb, i;
 	size_t     at = 0;
@@ -496,9 +499,9 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 	for (i = 0; g_logs_app && i < g_logs_app->sys.count; i++) {
 		const system_cfg *sc = &g_logs_app->sys.systems[i];
 
-		if (is_muse(sc))
+		if (is_mp4(sc))
 			ABOUT("  %-22s %d albums, %d books, %d tracks\n", sc->name,
-			      ml_count(&g_muse, false), ml_count(&g_muse, true), g_muse.ntracks);
+			      ml_count(&g_mp4, false), ml_count(&g_mp4, true), g_mp4.ntracks);
 		else
 			ABOUT("  %-22s %d\n", sc->name, sys_games(&g_logs_app->view[i])->count);
 	}
@@ -529,21 +532,21 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 }
 
 /* A folder about to be deleted whole from Wi-Fi File Transfer, or a folder or file
- * about to be renamed there: if Muse is playing or paused on that file or on
- * one in that folder, stop Muse first. The shelf is rebuilt when the screen
+ * about to be renamed there: if MP4 is playing or paused on that file or on
+ * one in that folder, stop MP4 first. The shelf is rebuilt when the screen
  * closes, as for any change there; this is only so the player is not left
  * holding a file that is gone. */
-void muse_before_delete(const char *abs)
+void mp4_before_delete(const char *abs)
 {
-	const char *p = musec_path();
+	const char *p = mp4c_path();
 	char full[LIB_PATH * 2];
 	size_t n = strlen(abs);
 
 	if (!p[0]) return;
 	snprintf(full, sizeof full, "%s/%s", P_CARD, p);
 	if (!strncmp(full, abs, n) && (full[n] == '/' || !full[n])) {
-		fprintf(stderr, "muse: stopped, what it played is being moved or deleted\n");
-		musec_stop();
+		fprintf(stderr, "mp4: stopped, what it played is being moved or deleted\n");
+		mp4c_stop();
 	}
 }
 
@@ -618,7 +621,7 @@ static void book_file_follows(const char *folder, const char *from, const char *
  * folder's path, for it and any folder in it; and the shelf held in memory,
  * until it is read again on the way out of the screen, so the page's lists
  * find the album's cover meanwhile. */
-static void muse_after_rename(const char *from, const char *to, bool tidied)
+static void mp4_after_rename(const char *from, const char *to, bool tidied)
 {
 	size_t card = strlen(P_CARD), fl;
 	const char *frel, *trel, *fbase = strrchr(from, '/'), *tbase = strrchr(to, '/');
@@ -635,20 +638,20 @@ static void muse_after_rename(const char *from, const char *to, bool tidied)
 	fl = strlen(frel);
 	/* A file renamed by hand: its track, and a book's place if it was there */
 	if (stat(to, &st) == 0 && !S_ISDIR(st.st_mode)) {
-		for (k = 0; k < g_muse.ntracks; k++)
-			if (!strcmp(g_muse.tracks[k].path, frel))
-				snprintf(g_muse.tracks[k].path, sizeof g_muse.tracks[k].path, "%s", trel);
+		for (k = 0; k < g_mp4.ntracks; k++)
+			if (!strcmp(g_mp4.tracks[k].path, frel))
+				snprintf(g_mp4.tracks[k].path, sizeof g_mp4.tracks[k].path, "%s", trel);
 		/* A rename names a sibling, so the folder is the same on both */
 		snprintf(cfrom, sizeof cfrom, "%.*s", (int)(fbase - frel), frel);
 		book_file_follows(cfrom, fbase + 1, tbase + 1);
-		fprintf(stderr, "muse: %s is now %s\n", frel, trel);
+		fprintf(stderr, "mp4: %s is now %s\n", frel, trel);
 		return;
 	}
 	/* Each track at its new path. Tidy names renamed a file in the folder
 	 * itself by ml_tidy_file unless that name was taken, so the same rule
 	 * finds it again; anything else kept its name. */
-	for (k = 0; k < g_muse.ntracks; k++) {
-		ml_track *t = &g_muse.tracks[k];
+	for (k = 0; k < g_mp4.ntracks; k++) {
+		ml_track *t = &g_mp4.tracks[k];
 		char tidy[256], np[LIB_PATH], there[LIB_PATH * 2 + 300];
 		const char *file;
 
@@ -670,11 +673,11 @@ static void muse_after_rename(const char *from, const char *to, bool tidied)
 			         tbase + 1, EXT[k]);
 			rename(cfrom, cto);
 		}
-		keys_follow(db_lib(), "museart.", frel, trel);
+		keys_follow(db_lib(), "mp4art.", frel, trel);
 		keys_follow(db_dev(), "book.", frel, trel);
 	}
 	if (tidied) book_file_follows(trel, NULL, NULL);
-	if (strcmp(frel, trel)) fprintf(stderr, "muse: %s is now %s\n", frel, trel);
+	if (strcmp(frel, trel)) fprintf(stderr, "mp4: %s is now %s\n", frel, trel);
 }
 
 /* No network to be on, and an adapter that can be one: the screen makes the
@@ -704,12 +707,25 @@ static const system_cfg *xfer_sys_of(const char *folder)
 	return NULL;
 }
 
-/* A console's color for its folder, as hare_set_folder_color asks */
+/* A system's folder, as xfer_set_systems asks: a console's own folder on
+ * the page, which never moves, is renamed or is deleted. In any case, as
+ * the card's folders are (vfat): "gba" is GBA's folder too. */
+static bool xfer_folder_known(const char *folder)
+{
+	int i;
+
+	for (i = 0; g_xfer_sys_ok && i < g_xfer_sys.count; i++)
+		if (!strcasecmp(g_xfer_sys.systems[i].folder, folder)) return true;
+	return false;
+}
+
+/* A console's color for its folder, as hare_set_folder_color asks: its
+ * own, or Folder Color's for every folder (MENU > Display > Theme) */
 static unsigned xfer_folder_color(const char *folder)
 {
 	const system_cfg *s = xfer_sys_of(folder);
 
-	return s ? s->accent : CFG_NO_COLOR;
+	return s ? look_folder_rgb(s->accent) : CFG_NO_COLOR;
 }
 
 /* And its pixel art, as hare_set_folder_icon asks: the shelf's own for the
@@ -1280,7 +1296,7 @@ static void es_imported(const char *folder, const es_import_list *l, void *ctx)
 		bool changed = false;
 		int at;
 
-		if (v->owner || is_muse(sc) || strcmp(sc->folder, folder) || v->list.count <= 0) continue;
+		if (v->owner || is_mp4(sc) || strcmp(sc->folder, folder) || v->list.count <= 0) continue;
 		snprintf(file, sizeof file, "%s", v->list.items[v->cursor].file);
 		for (int i = 0; i < l->n; i++) {
 			int k = lib_find_entry(&v->list, NULL, 0, l->got[i].file);
@@ -1376,8 +1392,8 @@ static bool xs_open(app *a, int way)
 		plat_cable_reconnect();
 	}
 	hare_set_logs(pack_logs);
-	hare_set_before_delete(muse_before_delete);
-	hare_set_after_rename(muse_after_rename);
+	hare_set_before_delete(mp4_before_delete);
+	hare_set_after_rename(mp4_after_rename);
 	/* Box art fetched by the page is USB File Transfer's alone (hareart.h);
 	 * a cover uploaded into a shelf's .media is shrunk on every device. */
 	hareart_init(&a->sys, P_ROMS);
@@ -1407,6 +1423,9 @@ static bool xs_open(app *a, int way)
 	if (g_xfer_sys_ok) shelf_folders_apply(&g_xfer_sys);
 	hare_set_folder_color(xfer_folder_color);
 	hare_set_folder_icon(xfer_folder_icon);
+	/* A console's own folder stays put (xfer_console); without systems.cfg,
+	 * every folder at the top of ROMs is taken for one */
+	xfer_set_systems(g_xfer_sys_ok ? xfer_folder_known : NULL);
 	snprintf(path, sizeof path, "%s/system-icons", P_ROOT);
 	hare_set_icons(path);
 	if (hot) {
@@ -1812,11 +1831,15 @@ static int xs_ask(app *a, const char *heading, const char *const *labels, const 
 		/* B: the first answer, which loses nothing; MENU: the same, and on
 		 * to the shelf */
 		if (menu_leaving(a)) { choice = -1; break; }
-		if (in_repeat(&a->in, IN_LEFT) || in_repeat(&a->in, IN_RIGHT)) {
-			in_button b = in_repeat(&a->in, IN_LEFT) ? IN_LEFT : IN_RIGHT;
+		/* each button read once a frame: a second read of a held Left
+		 * was false and turned it Right (in_repeat_axis) */
+		int lr = in_repeat_axis(&a->in, IN_LEFT, IN_RIGHT);
+
+		if (lr) {
+			in_button b = lr < 0 ? IN_LEFT : IN_RIGHT;
 
 			moved_sound(a, b);
-			sel = (sel + (b == IN_LEFT ? -1 : 1) + n) % n;
+			sel = (sel + lr + n) % n;
 		}
 		if (a->in.pressed[IN_ACCEPT]) {
 			uisound_play(DS_SOUND_ACCEPT);
@@ -1979,25 +2002,25 @@ void xfer_screen_way(app *a, int way)
 		 * can show it and Album Art can judge it: an album the shelf never
 		 * drew had none there, so the page showed nothing and asked
 		 * MusicBrainz over a cover the files already carried (Eric,
-		 * 2026-10-05). cover_file asks Muse as the shelf does, one album
-		 * each tenth of a second, again for any Muse has not answered. */
-		muse_poll();
+		 * 2026-10-05). cover_file asks MP4 as the shelf does, one album
+		 * each tenth of a second, again for any MP4 has not answered. */
+		mp4_poll();
 		cover_answers();
-		muse_file_albums();             /* read again on the way out, if moved */
+		mp4_file_albums();             /* read again on the way out, if moved */
 		/* One round of the albums as the screen opens, and another after
 		 * files have moved or the library changed, then still: going round
-		 * for as long as the screen was open asked Muse about every album
+		 * for as long as the screen was open asked MP4 about every album
 		 * ten times a second on a screen nobody touched (2026-11-10) */
-		if (cover_albums != g_muse.nalbums ||
+		if (cover_albums != g_mp4.nalbums ||
 		    cover_moved != (unsigned long long)g_xs.in + (unsigned long long)g_xs.out) {
-			cover_albums = g_muse.nalbums;
+			cover_albums = g_mp4.nalbums;
 			cover_moved = (unsigned long long)g_xs.in + (unsigned long long)g_xs.out;
-			cover_left = g_muse.nalbums;
+			cover_left = g_mp4.nalbums;
 		}
-		if (g_cov && g_muse.nalbums > 0 && cover_left > 0 && now - cover_at >= 100u) {
+		if (g_cov && g_mp4.nalbums > 0 && cover_left > 0 && now - cover_at >= 100u) {
 			char pic[LIB_PATH * 2 + 8];
 
-			int al = (int)(cover_next++ % (unsigned)g_muse.nalbums);
+			int al = (int)(cover_next++ % (unsigned)g_mp4.nalbums);
 
 			cover_left--;
 
@@ -2076,7 +2099,7 @@ void xfer_screen_way(app *a, int way)
 
 			for (b = 0; b < IN_COUNT && !press; b++) press = a->in.pressed[b];
 			light = pace_screen_step(&scr, plat_now_ms(), a->auto_off, on_charger(),
-			                         musec_playing(), press, xs_moving(), g_xs.st.clients, &spent);
+			                         mp4c_playing(), press, xs_moving(), g_xs.st.clients, &spent);
 			if (light != was) {
 				if (was == PACE_OFF) plat_backlight(true);
 				if (was == PACE_DIM) plat_backlight_dim(false);
@@ -2132,10 +2155,7 @@ void xfer_screen_way(app *a, int way)
 			}
 		}
 
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		if (!panel_frame(a, lv, &k)) continue;
 		tick_tint(a);

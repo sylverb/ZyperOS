@@ -7,6 +7,7 @@
 
 #include "design.h"
 #include "sys_menu.h"
+#include "controls.h"
 #include "homesys.h"
 #include "i18n.h"
 #include "uisound.h"
@@ -49,8 +50,6 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		 * account nobody can reach is a row that can only fail. Audio Output
 		 * stays, since a cable and the speaker are still two places. */
 		if (u->no_wifi && r == PM_WIFI) continue;
-		/* A phone's USB tethering is a way out with no radio */
-		if (u->no_wifi && !u->online && r == PM_ACHIEVEMENTS) continue;
 		/* Unless the files go over a cable, which needs no radio. */
 		if (u->no_wifi && !u->cable_xfer && r == PM_XFER) continue;
 		if (u->no_bt && r == PM_BT) continue;
@@ -60,13 +59,15 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		if (u->no_charge_limit && r == PM_CHARGE) continue;
 		if (u->no_usb_power && r == PM_USB) continue;
 		if ((u->no_usb_power || u->no_usb_wait) && r == PM_USB_WAIT) continue;
-		/* Strength only while a system draws an old screen */
+		/* The screens' Shader where the device draws an old screen, and
+		 * Strength only while they are one */
+		if (u->no_shader && (r == PM_SHADER || r == PM_STRENGTH)) continue;
 		if (u->no_strength && r == PM_STRENGTH) continue;
 		if (u->no_screen_colors && r == PM_SCREEN) continue;
 		/* Night Mode where the display has a table for it */
-		if (u->no_night && (r == PM_NIGHT || r == PM_NIGHT_WARMTH || r == PM_NIGHT_HOURS)) continue;
-		if (u->no_night_warmth && r == PM_NIGHT_WARMTH) continue;
-		if (u->no_night_hours && r == PM_NIGHT_HOURS) continue;
+		if (u->no_night && r == PM_NIGHT) continue;
+		/* Rumble where there is a motor ZyperOS runs */
+		if (u->no_rumble && r == PM_RUMBLE) continue;
 		out[n++] = (pm_row)r;
 	}
 	return n;
@@ -76,19 +77,18 @@ pm_tab sys_menu_tab_of(pm_row r)
 {
 	/* No default: -Wswitch names a row that has no tab */
 	switch (r) {
-	case PM_SEARCH: case PM_STATS: case PM_RANDOM: case PM_ACHIEVEMENTS:
-	case PM_SCRAPER:
+	case PM_SEARCH: case PM_STATS: case PM_RANDOM: case PM_SCRAPER:
 		return PT_GAMES;
 	case PM_APPEARANCE: case PM_THEME: case PM_HOME:
 	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
-	case PM_STRENGTH: case PM_SCREEN: case PM_NIGHT: case PM_NIGHT_WARMTH: case PM_NIGHT_HOURS:
+	case PM_STRENGTH: case PM_SCREEN: case PM_NIGHT:
 		return PT_DISPLAY;
-	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC:
+	case PM_AUDIO: case PM_CHANNELS: case PM_EQ: case PM_SOUNDS: case PM_MUSIC: case PM_RUMBLE:
 		return PT_SOUND;
 	case PM_USB_WAIT: case PM_WIFI: case PM_BT: case PM_XFER: case PM_USB:
 	case PM_DEVELOPER:
 		return PT_CONNECTIONS;
-	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_POWER: case PM_SLEEP:
+	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_HOTKEYS: case PM_POWER: case PM_SLEEP:
 	case PM_CHARGE: case PM_LIGHTS: case PM_STORAGE: case PM_UPDATE:
 		return PT_SYSTEM;
 	case PM_ABOUT: case PM_CONTROLS: case PM_TOUR:
@@ -128,11 +128,12 @@ int sys_menu_system_rows(const sys_ui *u, sm_row *out)
 	int n = 0, r;
 
 	for (r = 0; r < SM_ROWS; r++) {
-		if (u->no_wifi && !u->online && r == SM_BOXART) continue;
 		if (!u->dslang && r == SM_DSLANG) continue;
-		if (!u->dsslow && r == SM_DSSLOW) continue;
+		if (!u->sgb && r == SM_SGB) continue;
 		if (!u->pace && r == SM_PACE) continue;
 		if (u->no_strength && r == SM_STRENGTH) continue;
+		if (!u->border && r == SM_BORDER) continue;
+		if ((!u->border || !u->border_color) && r == SM_BORDER_COLOR) continue;
 		out[n++] = (sm_row)r;
 	}
 	return n;
@@ -209,25 +210,30 @@ int sys_menu_snaps_rows(const snaps_ui *u, snaps_bufs *b, menu_row *out,
 
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids)
 {
+	/* The battery's three together: the cable, off it, and low */
+	static const side_light_part ORDER[LP_COUNT] = { LP_BAR, LP_LOW, LP_BATTERY, LP_LEVEL, LP_DONE, LP_CHEER };
 	int i;
 
 	for (i = 0; i < LP_COUNT; i++) {
-		ids[i] = (side_light_part)i;
-		out[i] = (menu_row){ side_lights_part_name((side_light_part)i),
-		                     side_lights_has(on, (side_light_part)i) ? T(S_MENU_ON_TITLE)
-		                                                             : T(S_MENU_OFF_TITLE), true };
+		ids[i] = ORDER[i];
+		out[i] = (menu_row){ side_lights_part_name(ORDER[i]),
+		                     side_lights_has(on, ORDER[i]) ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE), true };
 	}
 	return LP_COUNT;
 }
 
 int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids)
 {
-	static const char *const groups[2] = { HOMESYS_FAV, HOMESYS_RECENT };
+	static const char *const groups[HS_GROUPS] = { HOMESYS_FAV, HOMESYS_RECENT, HOMESYS_COLL, HOMESYS_SHOT };
+	static const str_id names[HS_GROUPS] = { S_LIBRARY_FAVORITES, S_LIBRARY_RECENTS, S_LIBRARY_COLLECTIONS,
+	                                         S_LIBRARY_SCREENSHOTS };
 	int n = 0, i, on = 0;
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < HS_GROUPS; i++) {
+		if (!u->coll && !strcmp(groups[i], HOMESYS_COLL)) continue;
+		if (!u->shots && !strcmp(groups[i], HOMESYS_SHOT)) continue;
 		ids[n] = groups[i];
-		out[n++] = (menu_row){ T(i ? S_LIBRARY_RECENTS : S_LIBRARY_FAVORITES),
+		out[n++] = (menu_row){ T(names[i]),
 		                       homesys_shown(groups[i]) ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE),
 		                       true };
 	}
@@ -280,17 +286,22 @@ int sys_menu_sgdb_rows(const char *masked, const char *state, menu_row *out,
 	return n;
 }
 
-int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
+int sys_menu_mp4_rows(int kind, bool both, bool no_wifi, sm_mp4_row *out)
 {
 	int n = 0;
 
 	out[n++] = SMM_COUNT;
 	if (both) out[n++] = SMM_SHOW;
 	out[n++] = SMM_SORT;
+	out[n++] = SMM_VIEW;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
+	if (kind == 0 || kind == 3) out[n++] = SMM_LOOK;
+	if (kind == 2 || kind == 3) out[n++] = SMM_REPEAT;
+	out[n++] = SMM_EQ;
 	out[n++] = SMM_LOCK;
 	if ((kind == 0 || kind == 3) && !no_wifi) out[n++] = SMM_ART;
 	out[n++] = SMM_RESCAN;
+	out[n++] = SMM_QUIT;
 	return n;
 }
 
@@ -301,15 +312,14 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 static const unsigned char PM_SOUND[PM_ROWS] = {
 	[PM_AUDIO]      = MENU_SND_RING,
 	[PM_CHANNELS]   = MENU_SND_RING,
+	/* Its presets round, as Audio Channels' choices are; A opens the page */
+	[PM_EQ]         = MENU_SND_RING,
 	[PM_SOUNDS]     = MENU_SND_OWN,
 	[PM_SLEEP]      = MENU_SND_NO_A,
 	[PM_POWER]      = MENU_SND_RING,
 	[PM_CHARGE]     = MENU_SND_RING,
 	[PM_SAVER]      = MENU_SND_NO_A,
 	[PM_APPEARANCE] = MENU_SND_RING,
-	[PM_NIGHT]      = MENU_SND_RING,
-	/* Stops at 1 and 10, as Strength */
-	[PM_NIGHT_WARMTH] = MENU_SND_NO_A,
 	[PM_SHADER]     = MENU_SND_RING,
 	/* Stops at 10% and 100%, heard after by whether it moved, as Auto Off */
 	[PM_STRENGTH]   = MENU_SND_NO_A,
@@ -322,24 +332,42 @@ static const unsigned char PM_SOUND[PM_ROWS] = {
 	/* A pick is heard as reward, or deny with nothing to pick */
 	[PM_RANDOM]     = MENU_SND_OWN,
 };
-/* Core, Game Language, When Slow, Timing, View and Shader step on A as well; Sort By,
+/* Core, Game Language, Super Game Boy, Timing, View and Shader step on A as well; Sort By,
  * Display Mode and Strength do nothing with it. */
 static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_CORE]    = MENU_SND_RING,
 	[SM_DSLANG]  = MENU_SND_RING,
-	[SM_DSSLOW]  = MENU_SND_RING,
+	[SM_SGB]     = MENU_SND_RING,
 	[SM_PACE]    = MENU_SND_RING,
 	[SM_SORT]    = MENU_SND_RING | MENU_SND_NO_A,
 	[SM_VIEW]    = MENU_SND_RING,
 	[SM_DISPLAY] = MENU_SND_RING | MENU_SND_NO_A,
+	[SM_BORDER]  = MENU_SND_RING,
+	[SM_BORDER_COLOR] = MENU_SND_RING,
 	[SM_SHADER]  = MENU_SND_RING,
 	[SM_STRENGTH] = MENU_SND_NO_A,
 	[SM_RANDOM]  = MENU_SND_OWN,
 };
-static unsigned char smm_sound(sm_muse_row r)
+static unsigned char smm_sound(sm_mp4_row r)
 {
-	return r == SMM_SHOW ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_VIEW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
+}
+
+int sys_menu_coll_rows(bool inside, sm_coll_row *out)
+{
+	int n = 0;
+
+	if (inside) {
+		out[n++] = SMC_GAMES;
+		out[n++] = SMC_RANDOM;
+	}
+	out[n++] = SMC_SORT;
+	out[n++] = SMC_VIEW;
+	out[n++] = SMC_RENAME;
+	if (inside) out[n++] = SMC_REMOVE;
+	out[n++] = SMC_DELETE;
+	return n;
 }
 
 int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
@@ -356,6 +384,19 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		snprintf(b->a, sizeof b->a, "%d", u->game_count);
 		snprintf(b->b, sizeof b->b, "%s", u->sys_core ? u->sys_core : "");
 		*heading = u->sys_name;
+		/* Screenshots' two (SM_SHOT_ROWS): its Sort By, Recently Added as
+		 * it ships, and View */
+		if (u->shots) {
+			out[0] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort : T(S_SORT_RECENTLY_ADDED), true };
+			out[1] = (menu_row){ T(S_SYSMENU_VIEW),
+			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID
+			                       : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
+			b->sound[0] = SM_SOUND[SM_SORT];
+			b->sound[1] = SM_SOUND[SM_VIEW];
+			if (u->sm_choice) b->choice[0] = u->sm_choice[SM_SORT];
+			if (u->sm_choice) b->choice[1] = u->sm_choice[SM_VIEW];
+			return SM_SHOT_ROWS;
+		}
 		/* A shelf of favorites gets the two rows that are true of it and
 		 * nothing else - not even the enum's order, since Core sits between
 		 * them and it has none. See SM_FAV_ROWS. */
@@ -364,19 +405,67 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			out[1] = (menu_row){ T(S_SYSMENU_RANDOM_GAME), NULL, u->game_count > 0 };
 			out[2] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort : T(S_SORT_NAME), true };
 			out[3] = (menu_row){ T(S_SYSMENU_VIEW),
-			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
+			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 			b->sound[1] = SM_SOUND[SM_RANDOM];
 			b->sound[2] = SM_SOUND[SM_SORT];
 			b->sound[3] = SM_SOUND[SM_VIEW];
 			if (u->sm_choice) b->choice[2] = u->sm_choice[SM_SORT];
 			if (u->sm_choice) b->choice[3] = u->sm_choice[SM_VIEW];
+			if (u->recents) {
+				out[4] = (menu_row){ T(S_SYSMENU_CARD_PICTURE),
+				                     T(u->recents_screen ? S_SYSMENU_CARD_PICTURE_SCREEN
+				                                         : S_SYSMENU_CARD_PICTURE_COVER), true };
+				b->sound[4] = MENU_SND_RING;
+				if (u->pic_choice) b->choice[4] = *u->pic_choice;
+				return SM_RECENTS_ROWS;
+			}
 			return SM_FAV_ROWS;
 		}
-		if (u->muse) {
-			sm_muse_row ids[SM_MUSE_ROWS];
-			int k, n = sys_menu_muse_rows(u->muse_books ? 1 : u->muse_videos ? 2
-			                              : u->muse_all ? (u->muse_songs ? 3 : 2) : 0,
-			                              u->muse_both, u->no_wifi && !u->online, ids);
+		/* Collections' own rows, under the collection's name: a game's
+		 * system decides its core and its display, as on Favorites */
+		if (u->coll) {
+			sm_coll_row ids[SM_COLL_ROWS];
+			int k, n = sys_menu_coll_rows(u->coll_inside, ids);
+
+			*heading = u->coll_name && u->coll_name[0] ? u->coll_name : u->sys_name;
+			for (k = 0; k < n; k++)
+				switch (ids[k]) {
+				case SMC_GAMES:
+					out[k] = (menu_row){ T(S_SYSMENU_GAMES), b->a, false };
+					break;
+				case SMC_RANDOM:
+					out[k] = (menu_row){ T(S_SYSMENU_RANDOM_GAME), NULL, u->game_count > 0 };
+					b->sound[k] = SM_SOUND[SM_RANDOM];
+					break;
+				case SMC_SORT:
+					out[k] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort : T(S_SORT_ADDED), true };
+					b->sound[k] = SM_SOUND[SM_SORT];
+					if (u->sm_choice) b->choice[k] = u->sm_choice[SM_SORT];
+					break;
+				case SMC_VIEW:
+					out[k] = (menu_row){ T(S_SYSMENU_VIEW),
+					                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID
+					                       : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
+					b->sound[k] = SM_SOUND[SM_VIEW];
+					if (u->sm_choice) b->choice[k] = u->sm_choice[SM_VIEW];
+					break;
+				case SMC_RENAME:
+					out[k] = (menu_row){ T(S_GAMEMENU_RENAME), NULL, true };
+					break;
+				case SMC_REMOVE:
+					out[k] = (menu_row){ T(S_COLLECT_REMOVE), NULL, u->game_count > 0 };
+					break;
+				case SMC_DELETE:
+					out[k] = (menu_row){ T(S_COLLECT_DELETE), NULL, true };
+					break;
+				}
+			return n;
+		}
+		if (u->mp4) {
+			sm_mp4_row ids[SM_MP4_ROWS];
+			int k, n = sys_menu_mp4_rows(u->mp4_books ? 1 : u->mp4_videos ? 2
+			                              : u->mp4_all ? (u->mp4_songs ? 3 : 2) : 0,
+			                              u->mp4_both, u->no_wifi && !u->online, ids);
 
 			for (k = 0; k < n; k++) b->sound[k] = smm_sound(ids[k]);
 			if (u->smm_choice)
@@ -384,37 +473,56 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			for (k = 0; k < n; k++)
 				switch (ids[k]) {
 				case SMM_COUNT:
-					out[k] = (menu_row){ u->muse_books ? T(S_SYSMENU_MUSE_BOOKS)
-					                     : u->muse_videos ? T(S_SYSMENU_MUSE_VIDEOS)
-					                     : u->muse_all ? T(S_SYSMENU_MUSE_TOTAL)
-					                     : T(S_SYSMENU_MUSE_ALBUMS),
+					out[k] = (menu_row){ u->mp4_books ? T(S_SYSMENU_MP4_BOOKS)
+					                     : u->mp4_videos ? T(S_SYSMENU_MP4_VIDEOS)
+					                     : u->mp4_all ? T(S_SYSMENU_MP4_TOTAL)
+					                     : T(S_SYSMENU_MP4_ALBUMS),
 					                     b->a, false };
 					break;
 				case SMM_SHOW:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHOW), u->muse_books ? T(S_SYSMENU_MUSE_AUDIOBOOKS)
-					                     : u->muse_videos ? T(S_SYSMENU_MUSE_VIDEOS)
-					                     : u->muse_all ? T(S_SYSMENU_MUSE_ALL)
-					                     : T(S_SYSMENU_MUSE_MUSIC), true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_SHOW), u->mp4_books ? T(S_SYSMENU_MP4_AUDIOBOOKS)
+					                     : u->mp4_videos ? T(S_SYSMENU_MP4_VIDEOS)
+					                     : u->mp4_all ? T(S_SYSMENU_MP4_ALL)
+					                     : T(S_SYSMENU_MP4_MUSIC), true };
 					break;
 				case SMM_SORT:
 					out[k] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort
-					                     : u->muse_books ? T(S_SYSMENU_MUSE_AUTHOR)
-					                     : u->muse_videos || u->muse_all ? T(S_SYSMENU_MUSE_FOLDER)
-					                     : T(S_SYSMENU_MUSE_ARTIST), true };
+					                     : u->mp4_books ? T(S_SYSMENU_MP4_AUTHOR)
+					                     : u->mp4_videos || u->mp4_all ? T(S_SYSMENU_MP4_FOLDER)
+					                     : T(S_SYSMENU_MP4_ARTIST), true };
+					break;
+				case SMM_VIEW:
+					out[k] = (menu_row){ T(S_SYSMENU_VIEW), T(u->listed ? S_SYSMENU_VIEW_LIST
+					                     : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
 					break;
 				case SMM_SHUFFLE:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHUFFLE), NULL, true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_SHUFFLE), NULL, true };
+					break;
+				case SMM_LOOK:
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_LOOK), u->mp4_look ? u->mp4_look
+					                     : T(S_SYSMENU_LOOK_COVER), true };
+					break;
+				case SMM_REPEAT:
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_REPEAT),
+					                     u->mp4_repeat ? u->mp4_repeat : T(S_MENU_OFF_TITLE), true };
+					break;
+				case SMM_EQ:
+					out[k] = (menu_row){ T(S_SYSMENU_EQUALIZER), u->eq ? u->eq : T(S_MENU_OFF_TITLE), true };
 					break;
 				case SMM_LOCK:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOCK),
-					                     u->muse_playing ? NULL : T(S_SYSMENU_MUSE_LOCK_WHEN),
-					                     u->muse_playing };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_LOCK),
+					                     u->mp4_playing ? NULL : T(S_SYSMENU_MP4_LOCK_WHEN),
+					                     u->mp4_playing };
 					break;
 				case SMM_ART:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_ART), NEEDS_WIFI(fetch), fetch };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_ART), NEEDS_WIFI(fetch), fetch };
 					break;
 				case SMM_RESCAN:
 					out[k] = (menu_row){ T(S_SYSMENU_RESCAN), NULL, true };
+					break;
+				/* X does it from any row, and its glyph says so */
+				case SMM_QUIT:
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_QUIT), MENU_KEY_X, true };
 					break;
 				}
 			return n;
@@ -427,19 +535,24 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		full[SM_CORE]    = (menu_row){ T(S_SYSMENU_CORE),         b->b, u->core_choice };
 		/* The Nintendo DS's game language, a choice stepped like the core */
 		full[SM_DSLANG]  = (menu_row){ T(S_SYSMENU_DSLANG), u->dslang, u->dslang != NULL };
-		/* What its frames do when the game is slow (src/dsslow.h) */
-		full[SM_DSSLOW]  = (menu_row){ T(S_SYSMENU_DSSLOW), u->dsslow, u->dsslow != NULL };
+		/* Off or Its Games, the Game Boys' on mGBA (src/sgbmode.h) */
+		full[SM_SGB]     = (menu_row){ T(S_SYSMENU_SGB), u->sgb, u->sgb != NULL };
 		/* Smooth or Exact, how its games meet the screen (src/pacing.h) */
 		full[SM_PACE]    = (menu_row){ T(S_SYSMENU_PACE), u->pace, u->pace != NULL };
 		full[SM_SORT]    = (menu_row){ T(S_SYSMENU_SORT_BY),
 		                              u->sort ? u->sort : T(S_SORT_NAME), true  };
 		/* The covers in a row, or a list of names (DESIGN.md 11.39) */
 		full[SM_VIEW]    = (menu_row){ T(S_SYSMENU_VIEW),
-		                              T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
+		                              T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 		/* "Display", as the in-game menu's row: "Display Mode" beside the
 		 * longest of the modes' names fitted the panel in no language with
 		 * Latin letters (1.0.6) */
 		full[SM_DISPLAY] = (menu_row){ T(S_GAMEMENU_DISPLAY), u->dmode, true  };
+		/* What fills the room the mode leaves around its games, under it
+		 * (src/border.h) */
+		full[SM_BORDER]  = (menu_row){ T(S_GAMEMENU_BORDER), u->border, u->border != NULL };
+		/* Its frame's color, under it, where the handheld came in several */
+		full[SM_BORDER_COLOR] = (menu_row){ T(S_GAMEMENU_BORDER_COLOR), u->border_color, u->border_color != NULL };
 		/* How the picture is drawn at its last step, Off or a shader: this
 		 * system's, as Display Mode is (src/app.h SHADERS) */
 		full[SM_SHADER]  = (menu_row){ T(S_GAMEMENU_SHADER),
@@ -461,10 +574,11 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		 * the core that will run it. The filter Show promised is on the shelf
 		 * already: Y marks a favorite and Favorites is its own shelf. */
 		/* full[SM_BUTTONS] = (menu_row){ "Button Mapping", NULL,    false }; */
-		/* Just this system. Needs the network like its counterpart in the
-		 * ZyperOS menu, and says so rather than opening a screen that can only
-		 * report the same thing. */
-		full[SM_BOXART]  = (menu_row){ T(S_SYSMENU_BOX_ART), NEEDS_WIFI(fetch), fetch };
+		/* Just this system: Downloads, the same page for this console (my
+		 * pick in the downloads lab: Box Art becomes Downloads). Live with no
+		 * network too, as MENU's row: its counts, Systems and deletes need
+		 * none, and its Download says what it needs. */
+		full[SM_BOXART]  = (menu_row){ T(S_DOWNLOADS_HEADING), u->sys_downloads, true };
 		/* Live now that there is something behind it. It rescans the whole
 		 * card rather than this one folder - the work is three directory reads
 		 * and the shared parts (hiding a system that emptied, rebuilding
@@ -524,6 +638,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	 * and the row still says what was chosen - and, on Auto, what it makes. */
 	aout_channels_label(u->audio_channels, u->audio_mix, b->ch, sizeof b->ch);
 	full[PM_CHANNELS]     = (menu_row){ T(S_SYSMENU_AUDIO_CHANNELS), b->ch, true };
+	/* The shape of the sound, for the output in use: its preset, Off on a
+	 * new card; A opens the page (src/eq.h) */
+	full[PM_EQ]           = (menu_row){ T(S_SYSMENU_EQUALIZER), u->eq ? u->eq : T(S_MENU_OFF_TITLE), true };
 	/* The launcher's own sounds: which of the three voices, or Off. Live on
 	 * every device and with every output; on a Bluetooth headset the sounds
 	 * are not played at all (src/uisound.h), and the row still says which
@@ -536,6 +653,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	 * track (src/bgm_menu.h). */
 	full[PM_MUSIC]        = (menu_row){ T(S_SYSMENU_MENU_MUSIC),
 	                                   u->menu_music ? u->menu_music : T(S_MENU_OFF_TITLE), true };
+	/* How hard the motor runs in every game, the Sound tab's last row: a
+	 * game or its system may have its own (the in-game Controls tab's) */
+	full[PM_RUMBLE]       = (menu_row){ T(S_SYSMENU_RUMBLE),
+	                                   u->rumble ? u->rumble : T(S_RUMBLE_FULL), true };
 	/* Files onto and off the device over Wi-Fi: a small web server on the LAN
 	 * that a phone or a laptop opens. Named for OTA, which is what everyone
 	 * already calls this, and for the other half of the fable - the tortoise
@@ -569,6 +690,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* The language that is on, in its own words: a player who chose one they
 	 * cannot read finds their own name here (src/i18n.h) */
 	full[PM_LANGUAGE]     = (menu_row){ T(S_MENU_LANGUAGE), lang_name(i18n_lang()), true };
+	/* SELECT held and a button, for every game here (src/hotkeys.h): A
+	 * opens the list, its keys drawn as the buttons */
+	full[PM_HOTKEYS]      = (menu_row){ ctl_page_name(CTL_HOTKEYS), NULL, true };
 	/* Press or Hold: what turns the handheld off (src/powerhold.h) */
 	full[PM_POWER]        = (menu_row){ T(S_SYSMENU_POWER_BUTTON),
 	                                   u->power_hold ? T(S_SYSMENU_POWER_HOLD)
@@ -606,21 +730,17 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* Box Art, its sources and Video Snaps, behind one row (DESIGN.md
 	 * 11.19). Live with no network too: its fetch says it needs Wi-Fi, and
 	 * the rest of it does not. */
-	full[PM_SCRAPER]      = (menu_row){ T(S_SYSMENU_SCRAPER), u->scraper, true };
-	full[PM_ACHIEVEMENTS] = (menu_row){ T(S_SYSMENU_CHEEVOS),
-	                                   u->ra_in ? u->ra_name : T(S_SYSMENU_SIGN_IN),
-	                                   true };
-	/* The shader for every system at once; each system's own menu and the
-	 * in-game menu choose one for that system alone (src/app.h SHADERS) */
+	full[PM_SCRAPER]      = (menu_row){ T(S_DOWNLOADS_HEADING), u->scraper, true };
+	/* ZyperOS's own screens' shader (src/screenfx.h); each system's own
+	 * menu and the in-game menu choose one for that system's games */
 	full[PM_SHADER]       = (menu_row){ T(S_GAMEMENU_SHADER),
-	                                   u->shader_all ? u->shader_all : T(S_MENU_OFF_TITLE), true };
-	/* And how strongly, for every system at once, while one draws an old
-	 * screen (src/strength.h) */
+	                                   u->shader_screens ? u->shader_screens : T(S_MENU_OFF_TITLE), true };
+	/* And how strongly, while it is an old screen (src/strength.h) */
 	full[PM_STRENGTH]     = (menu_row){ T(S_GAMEMENU_STRENGTH),
-	                                   u->strength_all ? u->strength_all : "100%", true };
+	                                   u->strength_screens ? u->strength_screens : "100%", true };
 	/* What every button does, per screen. Needs nothing of the device, which
 	 * is the point: it is the page you reach when the thing you have forgotten
-	 * is which button opens Muse. See src/controls.h. */
+	 * is which button opens MP4. See src/controls.h. */
 	full[PM_CONTROLS]     = (menu_row){ T(S_SYSMENU_CONTROLS), NULL, true  };
 	/* The first-launch tutorial again, as often as anyone likes. Needs
 	 * nothing either: it is drawn from shapes, not from the library. */
@@ -639,11 +759,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	full[PM_ABOUT]        = (menu_row){ T(S_SYSMENU_ABOUT), NULL, true  };
 	/* Any game by its name, typed (src/search.h) */
 	full[PM_SEARCH]       = (menu_row){ T(S_SYSMENU_SEARCH), NULL, true  };
-	/* Warmer colors for the night (src/panelgamma.h), how much, and when;
-	 * Night Hours' A opens its two rows */
+	/* Warmer colors for the night (src/panelgamma.h): its value the mode;
+	 * A opens its page, how much and when */
 	full[PM_NIGHT]        = (menu_row){ T(S_SYSMENU_NIGHT_MODE), u->night ? u->night : T(S_MENU_OFF_TITLE), true };
-	full[PM_NIGHT_WARMTH] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), u->night_warmth ? u->night_warmth : "8", true };
-	full[PM_NIGHT_HOURS]  = (menu_row){ T(S_SYSMENU_NIGHT_HOURS), u->night_hours, true };
 	/* The look: its value the accent's name, both themes' chips before it
 	 * (main.c draws them); A opens the page */
 	/* The whole screen's colors (src/panelgamma.h): its value the look;

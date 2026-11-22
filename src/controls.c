@@ -9,6 +9,7 @@
 
 #include "i18n.h"
 #include "padglyph.h"
+#include "hotkeys.h"
 
 /* The handheld's chords, by what they do (dev_role_keys): ctl_set_chords */
 static dev_chords chords;
@@ -30,7 +31,7 @@ static menu_row row_save_off(void)
 	                   false };
 }
 /* X in the in-game menu, from any row: its Quit, whose row draws X's glyph
- * (src/game_menu.h, gm_x_row). MENU then X, a comma for one after the
+ * (src/game_menu.h, gm_x_row), and in MP4's MENU the same (src/sys_menu.h). MENU then X, a comma for one after the
  * other, as a plus is for held together; the value is the row's own name. */
 static menu_row row_quit(void)   { return (menu_row){ "MENU, X", T(S_GAMEMENU_QUIT), false }; }
 static menu_row row_volume(void)
@@ -45,12 +46,80 @@ static menu_row row_brightness(void)
 	return (menu_row){ dev_role_keys(&chords, DEV_ROLE_BRIGHTNESS), T(S_CONTROLS_BRIGHTNESS), false };
 }
 
+/* ---------- the pages in glyphs -------------------------------------------- */
+
+/* The names a key label may carry, as src/ds/button.h knows them, and the
+ * two of the pages' own: the whole d-pad and the volume rocker */
+static const char *const GLYPH_NAMES[] = {
+	"A", "B", "X", "Y", "L1", "R1", "L2", "R2", "L3", "R3", "SELECT", "START", "MENU",
+	"POWER", "F1", "F2", "VOL", "VOL+", "VOL-", "DPAD", "< >", "^ v"
+};
+
+static bool glyph_name(const char *s, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < sizeof GLYPH_NAMES / sizeof GLYPH_NAMES[0]; i++)
+		if (strlen(GLYPH_NAMES[i]) == len && !strncmp(GLYPH_NAMES[i], s, len)) return true;
+	return false;
+}
+
+/* Whether `keys` is names with "+", "/" or ", " between them, four at most,
+ * as ui_button draws a chord: a sign with nothing on one side is part of a
+ * name (VOL+) */
+static bool glyph_chord(const char *keys)
+{
+	const char *p = keys, *start = keys;
+	int parts = 1;
+
+	for (; *p; p++) {
+		size_t skip = 0;
+
+		if ((*p == '+' || *p == '/') && p > start && p[1] && p[1] != '+' && p[1] != '/') skip = 1;
+		else if (*p == ',' && p[1] == ' ' && p > start && p[2]) skip = 2;
+		if (!skip) continue;
+		if (!glyph_name(start, (size_t)(p - start))) return false;
+		parts++;
+		p += skip - 1;
+		start = p + 1;
+	}
+	return parts <= 4 && glyph_name(start, strlen(start));
+}
+
+bool ctl_keys_of(const char *label, char *out, size_t n)
+{
+	static const struct { str_id words; const char *keys; } SAID[] = {
+		{ S_CONTROLS_KEY_LEFT_RIGHT, "< >" }, { S_CONTROLS_KEY_UP_DOWN, "^ v" },
+		{ S_CONTROLS_KEY_DPAD, "DPAD" }, { S_CONTROLS_SELECT_DPAD, "SELECT+DPAD" },
+		{ S_CONTROLS_KEY_VOLUME, "VOL" },
+	};
+	const char *keys = NULL;
+	size_t i;
+
+	if (!label || !label[0] || !strncmp(label, MENU_KEYS_MARK, strlen(MENU_KEYS_MARK))) return false;
+	for (i = 0; i < sizeof SAID / sizeof SAID[0] && !keys; i++)
+		if (!strcmp(label, T(SAID[i].words))) keys = SAID[i].keys;
+	if (!keys && glyph_chord(label)) keys = label;
+	if (!keys || strlen(MENU_KEYS_MARK) + strlen(keys) >= n) return false;
+	snprintf(out, n, "%s%s", MENU_KEYS_MARK, keys);
+	return true;
+}
+
+void ctl_glyph_rows(menu_row *rows, int n, char keys[][CTL_KEYS_MAX])
+{
+	int i;
+
+	for (i = 0; i < n && i < CTL_MAX_ROWS; i++)
+		if (rows[i].label && !ROW_IS_NOTE(rows[i]) && ctl_keys_of(rows[i].label, keys[i], CTL_KEYS_MAX))
+			rows[i].label = keys[i];
+}
+
 static const str_id NAMES[CTL_PAGES] = {
 	[CTL_MOVING]   = S_CONTROLS_PAGE_MOVING,
 	[CTL_SHELF]    = S_CONTROLS_PAGE_SHELF,
 	[CTL_GAME]     = S_CONTROLS_PAGE_GAME,
 	[CTL_HOTKEYS]  = S_CONTROLS_PAGE_HOTKEYS,
-	[CTL_MUSE]     = S_CONTROLS_PAGE_MUSE,
+	[CTL_MP4]     = S_CONTROLS_PAGE_MP4,
 	[CTL_ANYWHERE] = S_CONTROLS_PAGE_ANYWHERE,
 };
 
@@ -100,7 +169,8 @@ static int shelf(menu_row *out)
 	out[n++] = (menu_row){ "B", T(S_CONTROLS_BACK), false };
 	out[n++] = (menu_row){ "X", T(S_CONTROLS_DETAILS), false };
 	out[n++] = (menu_row){ "Y", T(S_CONTROLS_FRESH), false };
-	/* MENU > View, at a press (2026-11-13) */
+	/* MENU > View, at a press (2026-11-13), and on the home MENU > Home
+	 * Screen (2026-11-17): the two rows' names, the home's first */
 	out[n++] = (menu_row){ "START", T(S_CONTROLS_VIEW), false };
 	/* Here rather than on Anywhere, which is full: it works outside a game,
 	 * and in one L2 and R2 are the game's */
@@ -136,22 +206,41 @@ static int game(menu_row *out)
 	return n;
 }
 
-/* The hotkeys: SELECT held and a shoulder (diatom/src/chord.h), in a game
- * whatever the system. The quick slot is the in-game menu's Quick Slot row,
- * one a system. The note is the rule that keeps SELECT a game button: a
- * press with no shoulder after it is the game's. Shared with a game's own
- * Hotkeys page (hotkeys_for). */
+/* The hotkeys the pages say (ctl_set_hotkeys): ZyperOS's own until set */
+static hk_table g_hotkeys;
+static bool g_hotkeys_set;
+
+void ctl_set_hotkeys(const hk_table *t)
+{
+	if (t) g_hotkeys = *t;
+	else hk_default(&g_hotkeys);
+	g_hotkeys_set = true;
+}
+
+/* The hotkeys: SELECT held and one more button (diatom/src/chord.h), in a
+ * game whatever the system, as the player set them (src/hotkeys.h; the
+ * shoulders' four until then), each set one a row in the list's order. The
+ * quick slot is the in-game menu's Quick Slot row, one a system. The note is
+ * the rule that keeps SELECT a game button, a press with nothing after it
+ * the game's, where the page has room: six rows a page. Shared with a
+ * game's own Hotkeys page (hotkeys_for). */
 static int hotkey_rows(menu_row *out, bool states, bool select_note)
 {
-	int n = 0;
+	static const str_id SAID[HK_ACTS] = {
+		S_CONTROLS_QUICK_SAVE, S_CONTROLS_QUICK_LOAD, S_CONTROLS_FASTER, S_CONTROLS_SLOWER,
+		S_HOTKEYS_SHOT, S_HOTKEYS_SHADER, S_HOTKEYS_DISPLAY, S_HOTKEYS_RESET, S_GAMEMENU_QUIT
+	};
+	static char keys[HK_ACTS][24];
+	int n = 0, i;
 
-	if (states) {
-		out[n++] = (menu_row){ "SELECT+R1", T(S_CONTROLS_QUICK_SAVE), false };
-		out[n++] = (menu_row){ "SELECT+L1", T(S_CONTROLS_QUICK_LOAD), false };
+	if (!g_hotkeys_set) ctl_set_hotkeys(NULL);
+	for (i = 0; i < HK_ACTS && n < 6; i++) {
+		if (!states && (i == HK_SAVE || i == HK_LOAD)) continue;
+		hk_chord(&g_hotkeys, (hk_act)i, keys[i], sizeof keys[i]);
+		if (!keys[i][0]) continue;
+		out[n++] = (menu_row){ keys[i], T(SAID[i]), false };
 	}
-	out[n++] = (menu_row){ "SELECT+R2", T(S_CONTROLS_FASTER), false };
-	out[n++] = (menu_row){ "SELECT+L2", T(S_CONTROLS_SLOWER), false };
-	if (select_note) out[n++] = MENU_NOTE(T(S_CONTROLS_NOTE_SELECT));
+	if (select_note && n < 6) out[n++] = MENU_NOTE(T(S_CONTROLS_NOTE_SELECT));
 	return n;
 }
 
@@ -160,7 +249,7 @@ static int hotkeys(menu_row *out)
 	return hotkey_rows(out, true, true);
 }
 
-static int muse(menu_row *out)
+static int mp4(menu_row *out)
 {
 	int n = 0;
 
@@ -176,8 +265,9 @@ static int muse(menu_row *out)
 	 * 2026-09-20 - the rest of that sentence was saying what the screen was
 	 * about to show anyway. "Or speed" since 2026-09-30: on a book, which
 	 * plays in order, Y is its speed instead. */
-	/* "Or view" since MP4 played video (2026-11-05): on a video, Y turns
-	 * between full screen and the view with its controls. */
+	/* "Or repeat" since 2026-11-19: on a video, Y turns MP4's Repeat
+	 * (Off, One, All), as its MENU's row does; it was the view, before the
+	 * controls came and went by themselves. */
 	out[n++] = (menu_row){ "Y",     T(S_CONTROLS_MODE), false };
 	/* B is not here. It goes back in MP4 exactly as it does everywhere else,
 	 * and the shelf's page already says so. */
@@ -187,6 +277,10 @@ static int muse(menu_row *out)
 	 * volume keys on the Pixel 2), which it replaced: one button anyone can
 	 * find instead of three held together. */
 	out[n++] = (menu_row){ "X",     T(S_CONTROLS_LOCK), false };
+	/* MP4's MENU has a Quit row and X does it from any row, as the in-game
+	 * menu's (2026-11-18): said as the In a game page says it. The sixth
+	 * row, which the page holds without scrolling. */
+	out[n++] = row_quit();
 	return n;
 }
 
@@ -215,7 +309,7 @@ int ctl_rows(ctl_page p, menu_row *out)
 	case CTL_SHELF:    n = shelf(out);  break;
 	case CTL_GAME:     n = game(out);        break;
 	case CTL_HOTKEYS:  n = hotkeys(out);     break;
-	case CTL_MUSE:     n = muse(out);        break;
+	case CTL_MP4:     n = mp4(out);        break;
 	case CTL_ANYWHERE: n = anywhere(out);    break;
 	default:           n = moving(out); break;
 	}
@@ -385,8 +479,9 @@ static const ctl_pad PADS[] = {
 	{ "3DO", NULL, { [P_A] = BTN("C"), [P_B] = BTN("B"), [P_Y] = BTN("A"), [P_L1] = BTN("L"),
 	                 [P_R1] = BTN("R"), [P_START] = SAYS(S_CONTROLS_PLAY),
 	                 [P_SELECT] = SAYS(S_CONTROLS_STOP) } },
-	/* YabaSanshiro by position, the south button the Saturn's A; with
-	 * map|SATURN each cap is the button it names, C and Z on L1 and R1 */
+	/* YabaSanshiro by position, the south button the Saturn's A, and C and Z
+	 * on the RetroPad's L and R; with map|SATURN each cap is the button it
+	 * names, C on R1 and Z on L1 (as the standalone and Beetle Saturn) */
 	{ "SATURN", NULL, { [P_A] = BTN("B"), [P_B] = BTN("A"), [P_X] = BTN("Y"), [P_Y] = BTN("X"),
 	                    [P_L1] = BTN("C"), [P_R1] = BTN("Z"), [P_L2] = BTN("L"),
 	                    [P_R2] = BTN("R"), [P_START] = BTN("Start") } },
@@ -1291,6 +1386,11 @@ void ctl_remap_say(const char *tag, const char *ext, rm_choice c, char *out, siz
 
 	if (c.to == RM_NONE) {
 		snprintf(out, n, "%s", T(S_CONTROLS_NOTHING));
+		return;
+	}
+	/* The d-pad's side on a button, whatever the system (ct_choices) */
+	if (RM_IS_STICK(c.to)) {
+		snprintf(out, n, "%s", T(c.to == RM_STICK_TOGGLE ? S_CONTROLS_STICK_TOGGLE : S_CONTROLS_STICK_HOLD));
 		return;
 	}
 	if (!pd || p < 0 || !remap_label(&pd->pad[p])) {

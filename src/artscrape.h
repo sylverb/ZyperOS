@@ -119,6 +119,7 @@ typedef struct {
 	char found_path[512], found_game[128], found_folder[64];
 	int  found_src;
 	bool found_video;
+	bool found_names;    /* names and details came for it (with its video, or alone) */
 	/* The system the run is on (its folder), for the screen's icon */
 	char folder_now[64];
 } art_progress;
@@ -136,6 +137,12 @@ void art_covers_rule(bool (*on)(const char *folder));
  * the player turned it off (1.0.6). Off, the part asks only for the videos
  * a system with videos on is missing. For the runs that follow. */
 void art_names(bool on);
+/* Which systems' games get names: NULL, the default, is the covers rule's
+ * (art_covers_rule) - names only where covers come. The Downloads page hands
+ * its own when a run's covers are out and its names in, so names still come
+ * for a system whose covers switch is on. A system whose cover pass is off
+ * asks about every game, covered or not. For the runs that follow. */
+void art_names_rule(bool (*on)(const char *folder));
 
 /* How many games on these shelves have no cover yet: what MENU > Scraper
  * says it would fetch. One directory read and a stat per game, so for when a
@@ -170,6 +177,10 @@ const char *art_answer(void);
  * real library and compares, the same way the two ROM hashers are checked
  * against each other. */
 void art_norm(const char *in, char *out, size_t outn);
+/* libretro's name for a shelf's games (its nth collection, 0 or 1), as its
+ * thumbnails, its databases and its cheat list file them: "Nintendo - Super
+ * Nintendo Entertainment System"; NULL when it has no more */
+const char *art_lr_collection(const char *folder, int n);
 
 /* How well `cand`'s region and language tags match `want`'s. Higher is better
  * and it may go negative.

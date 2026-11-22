@@ -1,9 +1,10 @@
 """frameskip=late and frameskip=steady at 1x, end to end against the stub core.
 
-A DS game sent with frameskip=late leaves out the drawing of a frame that
-starts late, two in a row at most, so a slow stretch shows frames 16.7 and
+A DS game sent with frameskip=late (a PSP game too, its call two periods
+long when it draws at 30) leaves out the drawing of a frame that starts
+late, two in a row at most, so a slow stretch shows frames 16.7 and
 33.3 ms apart in turn (Mario Kart DS on the Pixel 2: a median 41 fps, uneven,
-2026-11-16). frameskip=steady, the player's When Slow: Steady 30, draws
+2026-11-16). frameskip=steady, a RUN word the launcher no longer sends, draws
 exactly every second frame while frames start late, and every frame again
 once they have started on time for half a second (main.c, STEADY_HOLD).
 
@@ -43,14 +44,15 @@ def check(name, ok, got=None):
 SLOW_FROM, SLOW_TO = 120, 240
 SCHEDULE = f"0:2000,{SLOW_FROM}:25000,{SLOW_TO}:2000"
 
-def run(tag, skip, frames=420, limit=90.0):
+def run(tag, skip, frames=420, limit=90.0, schedule=SCHEDULE, extra=None):
     """One game with frameskip=`skip`, until the stub has run `frames`
     frames (or `limit` seconds). The frames it was told to draw, as a string
-    of 1 and 0, when each started (seconds), and Diatom's output."""
+    of 1 and 0, when each started (seconds), and Diatom's output. `extra`:
+    more of the stub's settings (a PSP game's, below)."""
     sock, out, log = f"{TMP}/{tag}.sock", f"{TMP}/{tag}.out", f"{TMP}/{tag}.shown"
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_RENDER_DRIVER="software",
                SDL_AUDIODRIVER="dummy", STUBCORE_SKIPPABLE="1",
-               STUBCORE_FRAME_US_AT=SCHEDULE, STUBCORE_SHOWN_LOG=log)
+               STUBCORE_FRAME_US_AT=schedule, STUBCORE_SHOWN_LOG=log, **(extra or {}))
     with open(out, "w") as f:
         p = subprocess.Popen([BIN, "--socket", sock, "--save", TMP, "--system", TMP],
                              env=env, stdout=f, stderr=subprocess.STDOUT)
@@ -103,18 +105,19 @@ def drawn(x):
 # with frames that come on time.
 PERIOD = 1 / 59.7275   # the stub's frame rate
 
-def on_time(t, a, b):
+def on_time(t, a, b, span=1):
+    """`span`: periods each frame stands for (a PSP game's two, below)"""
     behind, late, n = 0.0, 0, 0
     for i in range(1, min(b, len(t))):
-        behind = max(0.0, behind + t[i] - t[i - 1] - PERIOD)
+        behind = max(0.0, behind + t[i] - t[i - 1] - span * PERIOD)
         if behind > 4 * PERIOD: behind = 0.0
         if i >= a:
             n += 1
             late += behind > PERIOD / 2
     return n > 20 and late <= n / 20, f"{late} of {n} started late"
 
-def fast_check(name, t, a, b, ok, got):
-    timely, why = on_time(t, a, b)
+def fast_check(name, t, a, b, ok, got, span=1):
+    timely, why = on_time(t, a, b, span)
     if timely: check(name, ok, got)
     else:
         print(f"  --   {name}: not judged, this machine started those frames late ({why})")
@@ -135,6 +138,33 @@ fast_check("steady, fast again: back to every frame drawn, half a second of them
            steady_t, SLOW_TO + 35, len(steady_t), "1" * 30 in tail, steady[SLOW_TO - 5:])
 check("the summary names the mode", "(frameskip=steady)" in steady_out and "(frameskip=late)" in late_out,
       [l for l in (late_out + steady_out).splitlines() if "left undrawn" in l])
+
+# A PSP game's, frameskip|PSP|late (config/systems.cfg): PPSSPP's retro_run
+# runs until the game shows a new picture, so a game that draws at 30 brings
+# two periods of sound with each call, and Diatom paces PPSSPP by its sound
+# (main.c, paced_by_sound). The stub as that core: its library's name, two
+# periods a call (STUBCORE_SPAN), on time at 2 ms a call, then 45 ms a call
+# (more than the 33.5 ms its sound lasts: behind), then 2 ms again. On time,
+# a call of two periods is no late frame: every one drawn, as the game draws
+# today. Behind, frames left out, two in a row at most, as a DS game's.
+PSP_FROM, PSP_TO = 80, 160
+psp, psp_t, psp_out = run("psp", "late", frames=280,
+                          schedule=f"0:2000,{PSP_FROM}:45000,{PSP_TO}:2000",
+                          extra={"STUBCORE_NAME": "PPSSPP", "STUBCORE_SPAN": "2"})
+slow_psp = psp[PSP_FROM + 10:PSP_TO - 5]
+check("PSP: ran past the slow stretch", len(psp) > PSP_TO + 60, len(psp))
+# On time is judged by the work, not the schedule (main.c, sound_debt_us):
+# a sound-paced turn whose push waited for room starts the next one late by
+# the schedule while the game is ahead (46% of these frames, before), so the
+# schedule's gaps say nothing here. A frame left out on time would be the
+# rule failing; one in twenty is allowed for a machine that stalled the stub.
+check("PSP, on time (two periods a call): every frame drawn",
+      drawn(psp[10:PSP_FROM]) >= 0.95, psp[10:PSP_FROM])
+check("PSP, behind: frames left out, never three in a row", "0" in slow_psp and "000" not in slow_psp,
+      slow_psp)
+check("PSP, on time again: every frame drawn", drawn(psp[PSP_TO + 30:]) >= 0.95, psp[PSP_TO + 30:])
+check("PSP: the summary names the mode", "(frameskip=late)" in psp_out,
+      [l for l in psp_out.splitlines() if "left undrawn" in l])
 
 shutil.rmtree(TMP, ignore_errors=True)
 if fails:

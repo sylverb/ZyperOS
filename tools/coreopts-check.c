@@ -75,6 +75,9 @@ static void merge(void)
 	sent(NULL, NULL, "PSP", line, sizeof line);
 	ck(!strstr(line, "ppsspp_") && has(line, "mgba_frameskip=auto"),
 	   "no device's own: every device's alone (the Brick's today)");
+	sent(NULL, NULL, "SATURN", line, sizeof line);
+	ck(has(line, "yabasanshiro_rbg_use_compute_shader=disabled"),
+	   "the Saturn's rotating backgrounds stay on the CPU (the compute shader crashes the core)");
 	sent(NULL, dev_coreopts_pixel2, "N64", line, sizeof line);
 	ck(has(line, "parallel-n64-pak1=rumble") && has(line, "mupen64plus-EnableFBEmulation=False"),
 	   "the N64's on the Pixel 2");

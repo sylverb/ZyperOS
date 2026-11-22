@@ -11,11 +11,15 @@
 /* <SDL.h>, not <SDL2/SDL.h>: sdl2-config and pkg-config both put the SDL2
  * directory on the include path, and this is the form SDL documents. */
 #include <SDL.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
+#include "diatom_deskfb.h"
 #include "diatom_port.h"
 #include "port_clock.h"
 #include "port_power.h"
@@ -38,6 +42,49 @@ static diatom_filter g_tex_filter;
 static SDL_AudioDeviceID g_audio;
 static bool          g_quit;
 static uint32_t      g_buttons;
+static uint32_t      g_pressed;     /* went down during the last poll */
+
+/* DIATOM_DESKFB (diatom_deskfb.h): the frames into a file ZyperOS's desk mode
+ * shows in its own window, the buttons from it */
+static diatom_deskfb *g_fb;
+
+static void deskfb_open(const char *path, int w, int h)
+{
+	size_t bytes = DIATOM_DESKFB_BYTES(w, h);
+	int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+	void *m;
+
+	if (fd < 0 || ftruncate(fd, (off_t)bytes) != 0) {
+		fprintf(stderr, "desktop: no desk frame file %s\n", path);
+		if (fd >= 0) close(fd);
+		return;
+	}
+	m = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	close(fd);
+	if (m == MAP_FAILED) return;
+	g_fb = m;
+	memset(g_fb, 0, sizeof *g_fb);
+	g_fb->w = (uint32_t)w;
+	g_fb->h = (uint32_t)h;
+	g_fb->version = DIATOM_DESKFB_VERSION;
+	__atomic_store_n(&g_fb->magic, DIATOM_DESKFB_MAGIC, __ATOMIC_RELEASE);
+	fprintf(stderr, "desktop: frames to %s, %dx%d\n", path, w, h);
+}
+
+/* What was drawn, into the file, whole frames only */
+static void deskfb_frame(void)
+{
+	uint32_t seq;
+
+	if (!g_fb) return;
+	seq = __atomic_load_n(&g_fb->seq, __ATOMIC_RELAXED);
+	__atomic_store_n(&g_fb->seq, seq | 1u, __ATOMIC_RELEASE);
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+	SDL_RenderReadPixels(g_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, g_fb + 1, (int)g_fb->w * 4);
+	g_fb->polled = g_buttons;
+	g_fb->frames++;
+	__atomic_store_n(&g_fb->seq, (seq | 1u) + 1u, __ATOMIC_RELEASE);
+}
 
 /* ---------- the audio sink ------------------------------------------------ */
 
@@ -152,7 +199,7 @@ void diatom_port_audio_get(char *out, size_t cap)
 
 /* No motor here. DIATOM_RUMBLE_LOG=path is a pretend one for a test: each
  * level the host asks of it, a line "strong weak" in that file, in the order
- * asked (test/rumble.py). From any thread, as the port contract says, so
+ * asked (test/rumble.py), and the time after them with DIATOM_RUMBLE_LOG_US. From any thread, as the port contract says, so
  * under a lock. */
 static pthread_mutex_t g_rumble_mx = PTHREAD_MUTEX_INITIALIZER;
 static FILE           *g_rumble_log;
@@ -175,6 +222,10 @@ bool diatom_port_init(diatom_port_caps *out)
 	 * open below for why silence beats refusing to start. Rolled into one
 	 * SDL_Init, a missing or busy audio device is indistinguishable from a
 	 * missing display and kills both. */
+	/* Behind ZyperOS's desk mode (DIATOM_DESKFB below) this process shows
+	 * nothing of its own: no Dock icon on a Mac, never the keyboard's focus,
+	 * which stays on the launcher's window */
+	if (getenv("DIATOM_DESKFB")) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
 		fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
 		return false;
@@ -193,14 +244,21 @@ bool diatom_port_init(diatom_port_caps *out)
 			g_win_h = h;
 		}
 	}
+	/* In ZyperOS's desk mode the window is never shown: its frames go to
+	 * the launcher's (diatom_deskfb.h), drawn by SDL's software renderer,
+	 * whose pixels read back at the cost of a copy */
+	const char *deskfb = getenv("DIATOM_DESKFB");
+	bool desk = deskfb && *deskfb;
+
 	g_window = SDL_CreateWindow("diatom",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		g_win_w, g_win_h, SDL_WINDOW_SHOWN);
+		g_win_w, g_win_h, desk ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN);
 	if (!g_window) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); return false; }
 
-	g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);
+	g_renderer = SDL_CreateRenderer(g_window, -1, desk ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED);
 	if (!g_renderer) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); return false; }
 	SDL_SetRenderDrawColor(g_renderer, 0, 0, 0, 255);
+	if (desk) deskfb_open(deskfb, g_win_w, g_win_h);
 
 	/* Vsync OFF, deliberately.
 	 *
@@ -327,6 +385,31 @@ void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms)
 	g_ov_until = diatom_port_now_us() + (uint64_t)ms * 1000ull;
 }
 
+/* The Border (diatom_port_border): a texture made once a call, from a copy
+ * (SDL copies the pixels in), stretched under the game, smooth */
+static SDL_Texture *g_bd_tex;
+
+void diatom_port_border(const uint8_t *bgra, int w, int h)
+{
+	if (g_bd_tex && bgra && w > 0 && h > 0) {
+		int tw, th;
+
+		/* The same size again (the blur): the texture that is there */
+		if (SDL_QueryTexture(g_bd_tex, NULL, NULL, &tw, &th) == 0 && tw == w && th == h) {
+			SDL_UpdateTexture(g_bd_tex, NULL, bgra, w * 4);
+			return;
+		}
+	}
+	if (g_bd_tex) { SDL_DestroyTexture(g_bd_tex); g_bd_tex = NULL; }
+	if (!bgra || w <= 0 || h <= 0) return;
+	g_bd_tex = SDL_CreateTexture(g_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
+	if (!g_bd_tex) return;
+	SDL_SetTextureScaleMode(g_bd_tex, SDL_ScaleModeLinear);
+	/* Opaque whatever its alpha: no blending, so it covers */
+	SDL_SetTextureBlendMode(g_bd_tex, SDL_BLENDMODE_NONE);
+	SDL_UpdateTexture(g_bd_tex, NULL, bgra, w * 4);
+}
+
 static void draw_overlay(void)
 {
 	SDL_Rect r;
@@ -392,6 +475,7 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 	if (src && g_texture) SDL_UpdateTexture(g_texture, NULL, src, (int)pitch);
 
 	SDL_RenderClear(g_renderer);
+	if (g_bd_tex) SDL_RenderCopy(g_renderer, g_bd_tex, NULL, NULL);
 	if (g_texture && g_nplanes) {
 		for (i = 0; i < g_nplanes; i++) {
 			sr.x = g_planes[i].src.x; sr.y = g_planes[i].src.y;
@@ -405,7 +489,37 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 		SDL_RenderCopy(g_renderer, g_texture, NULL, &r);
 	}
 	draw_overlay();
+	deskfb_frame();
 	SDL_RenderPresent(g_renderer);
+}
+
+/* DIATOM_AUDIO_LOG=path, for a test: each write the game's sound makes, a
+ * line "frames loudest" (the frames taken, the loudest sample of them), so a
+ * check sees the game's own sound go on as it was, with nothing added to it
+ * (test/shotfeel.py: a screenshot's shutter is the launcher's, beside it).
+ * Written from the frame loop alone. */
+static FILE *g_audio_log;
+static bool  g_audio_log_looked;
+
+static void audio_log(const int16_t *frames, size_t n)
+{
+	int top = 0;
+	size_t i;
+
+	if (!g_audio_log_looked) {
+		const char *e = getenv("DIATOM_AUDIO_LOG");
+
+		g_audio_log_looked = true;
+		if (e && *e) g_audio_log = fopen(e, "w");
+	}
+	if (!g_audio_log) return;
+	for (i = 0; i < 2 * n; i++) {
+		int a = frames[i] < 0 ? -(int)frames[i] : frames[i];
+
+		if (a > top) top = a;
+	}
+	fprintf(g_audio_log, "%zu %d\n", n, top);
+	fflush(g_audio_log);
 }
 
 size_t diatom_port_audio_write(const int16_t *frames, size_t n)
@@ -450,6 +564,7 @@ size_t diatom_port_audio_write(const int16_t *frames, size_t n)
 	if (!n) return 0;
 
 	SDL_QueueAudio(g_audio, frames, (Uint32)(n * AUDIO_FRAME_BYTES));
+	audio_log(frames, n);
 	return n;
 }
 
@@ -459,6 +574,7 @@ size_t diatom_port_audio_queued(void)
 	return SDL_GetQueuedAudioSize(g_audio) / AUDIO_FRAME_BYTES;
 }
 
+/* ZyperOS's one key map (its src/device/keymap.h), the Simulator's too */
 static const struct { SDL_Scancode key; int btn; } keymap[] = {
 	{ SDL_SCANCODE_UP,     DIATOM_BTN_UP     },
 	{ SDL_SCANCODE_DOWN,   DIATOM_BTN_DOWN   },
@@ -470,11 +586,14 @@ static const struct { SDL_Scancode key; int btn; } keymap[] = {
 	{ SDL_SCANCODE_A,      DIATOM_BTN_Y      },
 	{ SDL_SCANCODE_Q,      DIATOM_BTN_L1     },
 	{ SDL_SCANCODE_W,      DIATOM_BTN_R1     },
-	{ SDL_SCANCODE_1,      DIATOM_BTN_L2     },
-	{ SDL_SCANCODE_2,      DIATOM_BTN_R2     },
+	{ SDL_SCANCODE_E,      DIATOM_BTN_L2     },
+	{ SDL_SCANCODE_R,      DIATOM_BTN_R2     },
 	{ SDL_SCANCODE_RSHIFT, DIATOM_BTN_SELECT },
+	{ SDL_SCANCODE_BACKSPACE, DIATOM_BTN_SELECT },
 	{ SDL_SCANCODE_RETURN, DIATOM_BTN_START  },
+	{ SDL_SCANCODE_KP_ENTER, DIATOM_BTN_START },
 	{ SDL_SCANCODE_ESCAPE, DIATOM_BTN_MENU   },
+	{ SDL_SCANCODE_M,      DIATOM_BTN_MENU   },
 };
 
 /* DIATOM_INPUT_SCRIPT: buttons held by script rather than by hand, for a
@@ -484,9 +603,14 @@ static const struct { SDL_Scancode key; int btn; } keymap[] = {
  *
  *     DIATOM_INPUT_SCRIPT='300:start;306:;400:l2;406:;420:r2;426:'
  *
+ * A button with `~` before its name is a tap: it went down and up again
+ * before that poll, so the poll has it pressed (diatom_port_input_pressed)
+ * and never held, as a quick press between two polls of a slow game is;
+ * `500:select+~r1` holds SELECT and taps R1.
+ *
  * A poll is a frame: the core polls once in each. OR'd with the keyboard,
  * so a script and a person can share a window. Read once, at the first poll. */
-static struct { long at; uint32_t held; } g_script[64];
+static struct { long at; uint32_t held, tap; } g_script[64];
 static int  g_script_n = -1;
 static long g_polls;
 
@@ -505,29 +629,38 @@ static void script_load(void)
 	for (step = strtok_r(buf, ";", &save); step && g_script_n < 64;
 	     step = strtok_r(NULL, ";", &save)) {
 		char *colon = strchr(step, ':'), *b, *bs = NULL;
-		uint32_t held = 0;
+		uint32_t held = 0, tap = 0;
 		int k;
 
 		if (!colon) continue;
 		*colon = '\0';
-		for (b = strtok_r(colon + 1, "+", &bs); b; b = strtok_r(NULL, "+", &bs))
+		for (b = strtok_r(colon + 1, "+", &bs); b; b = strtok_r(NULL, "+", &bs)) {
+			const bool t = *b == '~';
+
 			for (k = 0; k < DIATOM_BTN_COUNT; k++)
-				if (!strcmp(b, names[k])) held |= DIATOM_BIT(k);
+				if (!strcmp(b + t, names[k])) *(t ? &tap : &held) |= DIATOM_BIT(k);
+		}
 		g_script[g_script_n].at = strtol(step, NULL, 10);
 		g_script[g_script_n].held = held;
+		g_script[g_script_n].tap = tap;
 		g_script_n++;
 	}
 	fprintf(stderr, "desktop: input script of %d step(s)\n", g_script_n);
 }
 
-static uint32_t script_held(void)
+/* The script's buttons held at this poll, and in *tap those it taps at it */
+static uint32_t script_held(uint32_t *tap)
 {
 	uint32_t held = 0;
 	int i;
 
 	if (g_script_n < 0) script_load();
 	g_polls++;
-	for (i = 0; i < g_script_n && g_script[i].at <= g_polls; i++) held = g_script[i].held;
+	*tap = 0;
+	for (i = 0; i < g_script_n && g_script[i].at <= g_polls; i++) {
+		held = g_script[i].held;
+		*tap = g_script[i].at == g_polls ? g_script[i].tap : 0;
+	}
 	return held;
 }
 
@@ -536,36 +669,61 @@ void diatom_port_input_poll(void)
 	const Uint8 *keys;
 	SDL_Event ev;
 	size_t i;
-	uint32_t s = 0;
+	uint32_t s = 0, down = 0, tap;
+	const uint32_t before = g_buttons;
 
-	while (SDL_PollEvent(&ev))
+	/* A key pressed since the last poll, though let go again before this
+	 * one: the keyboard's state alone would miss it */
+	while (SDL_PollEvent(&ev)) {
 		if (ev.type == SDL_QUIT) g_quit = true;
+		if (ev.type == SDL_KEYDOWN && !ev.key.repeat)
+			for (i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
+				if (ev.key.keysym.scancode == keymap[i].key) down |= DIATOM_BIT(keymap[i].btn);
+	}
 
 	keys = SDL_GetKeyboardState(NULL);
 	for (i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
 		if (keys[keymap[i].key]) s |= DIATOM_BIT(keymap[i].btn);
 
-	g_buttons = s | script_held();
+	g_buttons = s | script_held(&tap) |
+	            (g_fb ? __atomic_load_n(&g_fb->buttons, __ATOMIC_ACQUIRE) : 0);
+	g_pressed = (g_buttons & ~before) | down | tap;
 }
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
+uint32_t diatom_port_input_pressed(void) { return g_pressed; }
 
-bool diatom_port_rumble(uint16_t strong, uint16_t weak)
+/* The pretend motor writes down what a motor of the Pixel 2's kind would
+ * run at: each strength times the scale, rounded (test/rumble.py) */
+static unsigned rumble_times(uint16_t v, float scale)
+{
+	if (scale >= 1.0f) return v;
+	if (scale <= 0.0f) return 0;
+	return (unsigned)((float)v * scale + 0.5f);
+}
+
+bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
 {
 	bool ok;
 
 	pthread_mutex_lock(&g_rumble_mx);
 	ok = g_rumble_log != NULL;
 	if (ok) {
-		fprintf(g_rumble_log, "%u %u\n", (unsigned)strong, (unsigned)weak);
+		fprintf(g_rumble_log, "%u %u", rumble_times(strong, scale), rumble_times(weak, scale));
+		/* DIATOM_RUMBLE_LOG_US: and when, for a check of a buzz's length
+		 * (test/shotfeel.py) */
+		if (getenv("DIATOM_RUMBLE_LOG_US"))
+			fprintf(g_rumble_log, " %llu", (unsigned long long)diatom_port_now_us());
+		fputc('\n', g_rumble_log);
 		fflush(g_rumble_log);
 	}
 	pthread_mutex_unlock(&g_rumble_mx);
 	return ok;
 }
 
-/* Nothing queues here: the poll reads the keyboard as it is now. */
-void     diatom_port_input_reset(void) { }
+/* Nothing queues here: the poll reads the keyboard as it is now, and its
+ * presses are the poll's own, started again at each. */
+void     diatom_port_input_reset(void) { g_pressed = 0; }
 
 bool     diatom_port_should_quit(void) { return g_quit; }
 
@@ -631,12 +789,26 @@ void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 {
 	(void)kind; (void)pos; (void)positions;
 }
+void diatom_port_level_look(const osdbar_look *look) { (void)look; }
+void diatom_port_level_lift(int lift) { (void)lift; }
+bool diatom_port_level_plugged(void) { return false; }
 void diatom_port_level_invalidate(void) { }
 
 /* No device UI drawn over the game on a desktop: the window is for iteration,
  * and the host half of the low-battery state is tested through its answers. */
 void diatom_port_low_battery(bool on, bool blink) { (void)on; (void)blink; }
-void diatom_port_hud(bool on, double fps, double speed) { (void)on; (void)fps; (void)speed; }
+/* No overlay to draw, but the numbers it would say, written down when
+ * DIATOM_HUD_LOG is set, each with the time (Diatom's clock, the now file's
+ * t_us) its window ended, so test/hudspeed.py can read them */
+void diatom_port_hud(bool on, double fps, double speed)
+{
+	static int log = -1;
+
+	if (log < 0) log = getenv("DIATOM_HUD_LOG") != NULL;
+	if (log && on)
+		printf("diatom: hud t=%llu fps=%.2f speed=%.3f\n",
+		       (unsigned long long)diatom_port_now_us(), fps, speed);
+}
 void diatom_port_hud_style(const diatom_hud_words *w) { (void)w; }
 void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)
 {

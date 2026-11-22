@@ -9,7 +9,9 @@
  * 3:1 on the ground, the heart and the light 3:1 on what they are drawn on,
  * and Storage's three parts 3:1 on the ground. And the look as it ships is
  * the tokens, to the byte; a look's words read back as the look; the ones
- * from another release read as it ships; and theme_at follows look_set.
+ * from another release read as it ships; theme_at follows look_set; and
+ * Folder Color gives each system's own color or one accent for every
+ * folder, with every look a number of its own (look_id).
  *
  * Links src/look.c alone, and no SDL. */
 #include "../src/design.h"
@@ -115,6 +117,77 @@ int main(void)
 	l = look_parse("magenta", "sepia", NULL, "round", "maybe");
 	ck(look_is_default(&l) && !l.square && !l.zyper_off,
 	   "words from another release read as it ships");
+
+	/* Folder Color (1.0.6 rc.3): System Colors as it ships, from no word
+	 * and from one of another release; each system's own color through it,
+	 * a system with none too; and an accent for every folder, which is no
+	 * theme of its own (the tokens' tables stay) but is a look of its own
+	 * (a card of another folder color is stale) */
+	ck(LOOK_DEFAULT.folder == 0 && look_folder_parse(NULL) == 0 && look_folder_parse("system") == 0 &&
+	   look_folder_parse("magenta") == 0, "Folder Color ships as System Colors, and reads so from any other word");
+	ck(look_folder_parse("teal") == 3 && !strcmp(look_folder_word(3), "teal") &&
+	   !strcmp(look_folder_word(0), "system") && !strcmp(look_folder_word(LOOK_FOLDERS), "system"),
+	   "Folder Color's words read back as its choice");
+	/* Highlight (the focus lab, 2026-11-19): Bar as it ships, from no word
+	 * and from one of another release; each word back as its choice; and
+	 * no part of the look a card is painted with (look_id keeps) */
+	ck(LOOK_DEFAULT.focus == LOOK_FOCUS_BAR && look_focus_parse(NULL) == LOOK_FOCUS_BAR &&
+	   look_focus_parse("glow") == LOOK_FOCUS_BAR, "Highlight ships as Bar, and reads so from any other word");
+	ck(look_focus_parse("border") == LOOK_FOCUS_BORDER && look_focus_parse("lift") == LOOK_FOCUS_LIFT &&
+	   look_focus_parse("none") == LOOK_FOCUS_NONE && !strcmp(look_focus_word(LOOK_FOCUS_LIFT), "lift") &&
+	   !strcmp(look_focus_word(LOOK_FOCUSES), "bar"), "Highlight's words read back as its choice");
+	l = LOOK_DEFAULT;
+	look_set(&l);
+	{
+		const int before = look_id();
+
+		l.focus = LOOK_FOCUS_NONE;
+		look_set(&l);
+		ck(look_focus() == LOOK_FOCUS_NONE && look_id() == before, "Highlight is set and paints no card again");
+		l.focus = 99;
+		look_set(&l);
+		ck(look_focus() == LOOK_FOCUS_BAR, "a Highlight out of range is Bar");
+	}
+	l = LOOK_DEFAULT;
+	look_set(&l);
+	{
+		const int shipped = look_id();
+		const unsigned teal = (unsigned)DS_ACCENT[2].r << 16 | (unsigned)DS_ACCENT[2].g << 8 | DS_ACCENT[2].b;
+
+		ck(look_folder_rgb(0x6A5ACDu) == 0x6A5ACDu && look_folder_rgb(0xFF000000u) == 0xFF000000u,
+		   "System Colors keep each system's own color, and a system's with none");
+		l.folder = look_folder_parse("teal");
+		look_set(&l);
+		ck(look_folder_rgb(0x6A5ACDu) == teal && look_folder_rgb(0xFF000000u) == teal,
+		   "an accent for every folder, a system with no color too");
+		ck(same(theme_at(DS_LIGHT), &DS_THEME[DS_LIGHT]) && same(theme_at(DS_DARK), &DS_THEME[DS_DARK]),
+		   "a folder color leaves the themes as they ship");
+		ck(look_id() != shipped && look_id() >= 0 && look_id() < LOOK_IDS,
+		   "a folder color is a look of its own, within LOOK_IDS");
+		l.folder = LOOK_FOLDERS + 4;
+		look_set(&l);
+		ck(look_now()->folder == 0 && look_id() == shipped, "a folder color out of range is System Colors");
+	}
+	/* Every look a number of its own, within LOOK_IDS */
+	{
+		static unsigned char seen[LOOK_IDS];
+		int ac, lt, dk, sq, fo, clash = 0;
+
+		memset(seen, 0, sizeof seen);
+		for (ac = 0; ac < DS_ACCENTS; ac++)
+			for (lt = 0; lt < DS_TONES; lt++)
+				for (dk = 0; dk < DS_TONES; dk++)
+					for (sq = 0; sq < 2; sq++)
+						for (fo = 0; fo < LOOK_FOLDERS; fo++) {
+							look x = { ac, { lt, dk }, sq != 0, false, fo, LOOK_FOCUS_BAR };
+							int id;
+
+							look_set(&x);
+							id = look_id();
+							if (id < 0 || id >= LOOK_IDS || seen[id]++) clash++;
+						}
+		ck(!clash, "every look's number is its own and within LOOK_IDS");
+	}
 	l = LOOK_DEFAULT;
 	look_set(&l);
 

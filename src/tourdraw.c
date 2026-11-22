@@ -5,7 +5,7 @@
  * screens the handheld shows. See src/tourdraw.h.
  *
  * The stage's demonstrations are shapes and tokens - a little shelf of
- * system-colored cards, a stand-in game, a menu and Muse whose words are
+ * system-colored cards, a stand-in game, a menu and MP4 whose words are
  * bars - never the player's library, so the tutorial is the same on a card
  * with no games. Text is never under **meta** (DESIGN.md 13): the little
  * shelf's names and the menu's rows are drawn as bars for that reason.
@@ -791,7 +791,7 @@ static void menu_panel(SDL_Renderer *r, float z)
 	g_op = was;
 }
 
-/* Muse's Now Playing (SELECT), faded in `z`. */
+/* MP4's Now Playing (SELECT), faded in `z`. */
 static void now_playing(SDL_Renderer *r, float z, uint32_t now)
 {
 	const ds_theme *t = theme();

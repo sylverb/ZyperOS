@@ -114,6 +114,30 @@ LIBRARY = {
         ('Cauliflower Power.tic', 'Cauliflower Power'),
         ('Dungeon Descent.tic', 'Dungeon Descent')],
 }
+# The 1.0.6 video's card (build(more=True)): fuller shelves, so a Grid has
+# rows to page through, and the SG-1000's shelf, whose games have no art of
+# their own, so each wears the card ZyperOS makes for it
+MORE = {
+    'SNES': [(f'{n} (USA).sfc', f'{n} (USA)') for n in (
+        'Contra III - The Alien Wars', 'EarthBound', 'F-Zero', 'Kirby Super Star', 'Mega Man X', 'Pilotwings',
+        'Secret of Mana', 'Star Fox', 'Super Castlevania IV', 'Super Mario Kart', 'Super Punch-Out!!')],
+    'NES': [(f'{n}.nes', n) for n in (
+        'Battletoads (USA)', 'Castlevania (USA)', 'Contra (USA)', 'Dr. Mario (Japan, USA)', 'Excitebike (Japan, USA)',
+        'Final Fantasy (USA)', 'Mega Man 3 (USA)', 'Ninja Gaiden (USA)', 'Super Mario Bros. (World)', 'Tetris (USA)',
+        'Zelda II - The Adventure of Link (USA)')],
+    'PlayStation': [('Ape Escape (USA).chd', 'Ape Escape (USA)'), ('Final Fantasy Tactics (USA).chd', 'Final Fantasy Tactics (USA)'),
+                    ('Final Fantasy VII (USA).chd', 'Final Fantasy VII (USA) (Disc 1)'),
+                    ('Klonoa - Door to Phantomile (USA).chd', 'Klonoa - Door to Phantomile (USA)'),
+                    ('Resident Evil 2 (USA).chd', 'Resident Evil 2 (USA) (Disc 1)'), ('Silent Hill (USA).chd', 'Silent Hill (USA)'),
+                    ('Vagrant Story (USA).chd', 'Vagrant Story (USA)'), ('Wipeout XL (USA).chd', 'Wipeout XL (USA)')],
+    'Nintendo 64': [(f'{n} (USA).z64', f'{n} (USA)') for n in (
+        'Banjo-Kazooie', 'F-Zero X', 'Paper Mario', 'Pilotwings 64', 'Star Fox 64', 'Super Smash Bros.')],
+    'Genesis': [('Altered Beast (USA, Europe).md', 'Altered Beast (USA, Europe)'), ('Comix Zone (USA).md', 'Comix Zone (USA)'),
+                ('Earthworm Jim (USA).md', 'Earthworm Jim (USA)'), ('Ecco the Dolphin (USA, Europe).md', 'Ecco the Dolphin (USA, Europe)'),
+                ('Golden Axe (World).md', 'Golden Axe (World)'), ('Phantasy Star IV (USA).md', 'Phantasy Star IV (USA)'),
+                ('Sonic The Hedgehog 3 (USA).md', 'Sonic The Hedgehog 3 (USA)'), ('Vectorman (USA, Europe).md', 'Vectorman (USA, Europe)')],
+    'SG-1000': [('Flicky (Japan).sg', None), ("Girl's Garden (Japan).sg", None), ('Lode Runner (Japan).sg', None)],
+}
 LR_REPO = {'PlayStation': 'Sony_-_PlayStation', 'NES': 'Nintendo_-_Nintendo_Entertainment_System',
            'SNES': 'Nintendo_-_Super_Nintendo_Entertainment_System', 'Game Boy': 'Nintendo_-_Game_Boy',
            'Game Boy Advance': 'Nintendo_-_Game_Boy_Advance', 'Genesis': 'Sega_-_Mega_Drive_-_Genesis',
@@ -186,15 +210,16 @@ def art_file(cache, repo, kind, name):
     return path
 
 
-def build(card, cache=ART_CACHE):
+def build(card, cache=ART_CACHE, more=False):
     if card.exists():
         shutil.rmtree(card)
     rs.card_dirs(card)
     # The version System Update starts from (the one before this release)
     (card / 'ZyperOS/VERSION').write_text('1.0.4\n')
-    for folder, games in LIBRARY.items():
+    library = {f: LIBRARY.get(f, []) + (MORE.get(f, []) if more else []) for f in {**LIBRARY, **(MORE if more else {})}}
+    for folder, games in library.items():
         d = card / 'Roms' / folder
-        (d / '.media').mkdir(parents=True)
+        (d / '.media').mkdir(parents=True, exist_ok=True)
         for file, lr in games:
             (d / file).parent.mkdir(parents=True, exist_ok=True)
             (d / file).touch()
@@ -242,6 +267,8 @@ def build(card, cache=ART_CACHE):
     (card / 'ZyperOS/res/bgm').mkdir(parents=True)
     shutil.copyfile(ROOT / 'res/bgm' / track, card / 'ZyperOS/res/bgm' / track)
     shutil.copytree(ROOT / 'res/tour', card / 'ZyperOS/res/tour')
+    # The Shader and Strength lists' pictures, each look as the handheld draws it
+    shutil.copytree(ROOT / 'res/shaderdemo', card / 'ZyperOS/res/shaderdemo')
     up = card / 'userdata/update'
     up.mkdir(parents=True)
     # 1.0.4 offered 1.0.5 (83 MB, the two-slot download's size)

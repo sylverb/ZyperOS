@@ -5,6 +5,7 @@
 #include "aout_route.h"
 #include "app.h"
 #include "artscrape.h"
+#include "dlq.h"
 #include "ds/flex.h"     /* the pages' bodies, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
@@ -26,6 +27,7 @@
 #include "uisound.h"
 #include "usbdrive_screen.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -98,7 +100,6 @@ static int scp_body(ds_flex *F, const ds_page_frame *pf, ds_dir dir, int gap, in
 
 /* What a run leaves free on the card, and when one stops for room */
 #define SCP_RESERVE (200ULL * 1000 * 1000)
-#define SCP_FLOOR   (100ULL * 1000 * 1000)
 /* A run's pace before its own says (the 2026-11-13 logs: about 2 s a
  * ScreenScraper lookup, about 1 s a libretro try), and a video's download
  * over the Pixel 2's Wi-Fi */
@@ -141,6 +142,9 @@ typedef struct scp_view_ {
 	unsigned long long free;         /* the card's room, 0 when it cannot tell */
 	/* the run */
 	systems_cfg cfg;
+	/* Which kinds a run gets (the Downloads page's rows): the page's own
+	 * runs get all three */
+	bool in_cov, in_vid, in_names;
 	art_progress p;
 	unsigned seen;                   /* the arrival last taken */
 	scp_cover ring[SCP_RING];          /* [0] the newest */
@@ -161,8 +165,6 @@ typedef struct scp_view_ {
 	int ask_switch;
 	void (*ask_switch_fn)(struct scp_view_ *v, menu_row *tiles);
 } scp_view;
-
-static scp_view *g_scp;                /* the page open, for the run's rule */
 
 /* Names and Details (Settings, 1.0.6): whether a run asks names, years and
  * synopses for covered games with none (artscrape.c, art_names). On unless
@@ -187,16 +189,106 @@ static void scp_names_set(bool on)
 	db_set_str(db_dev(), "scraper.names", on ? "on" : "off");
 }
 
-/* A run's covers, by the Systems switch; the system of a Box Art always */
-static bool scp_rule(const char *folder)
-{
-	int i;
+/* ---- the run, as a lane of the downloads' queue (src/dlq.h) ---------------
+ * The run is the queue's, not this page's: it goes on when the page closes
+ * (B, "Continue in background") and the page shows it again when it opens.
+ * So what the run reads is kept here rather than in the page: its systems
+ * (art_begin's, and the videos' g_snap_sys), the system a Box Art run is
+ * for, the covers it looks for (what the status corner's ring sweeps), and,
+ * once it has ended, what it did. */
+static systems_cfg g_art_sys;          /* the run's systems */
+static char g_art_only[CFG_STR];       /* a Box Art run's system, or "" */
+static int g_art_total;                /* covers to look for: the ring */
+static art_progress g_art_last;        /* what the last run did, as it ended */
+static unsigned g_scp_seen;            /* the lane's ends this page has shown */
+/* A run that ended behind the screens: the shelves take its names, covers
+ * and snaps on the shelf's next pass (scraper_after_run) */
+static bool g_art_after;
 
-	if (!g_scp) return true;
-	if (g_scp->only[0]) return !strcmp(folder, g_scp->only);
-	for (i = 0; i < g_scp->n; i++)
-		if (!strcmp(g_scp->s[i].folder, folder)) return g_scp->s[i].cov;
+/* A run's covers, by the Systems switch (kept as snaps_covers); the system of
+ * a Box Art always */
+static bool art_lane_rule(const char *folder)
+{
+	if (g_art_only[0]) return !strcmp(folder, g_art_only);
+	return snaps_covers(folder);
+}
+
+/* Covers out of the run (the Downloads page's Covers row) */
+static bool art_lane_none(const char *folder)
+{
+	(void)folder;
+	return false;
+}
+
+static bool art_lane_begin(void)
+{
+	art_begin(&g_art_sys, P_ROMS, NULL);
 	return true;
+}
+
+static int art_lane_step(unsigned now_ms)
+{
+	(void)now_ms;
+	return art_step();
+}
+
+/* MENU > Scraper's value: what is still missing, counted on the systems with
+ * covers on (g_scraper_val). As the page closes, and as a run ends. */
+static void scp_menu_value(const systems_cfg *sys, const char *only)
+{
+	int i, miss = 0;
+
+	if (only && only[0]) return;
+	for (i = 0; i < sys->count; i++) {
+		char dir[LIB_PATH * 2];
+
+		if (!snaps_covers(sys->systems[i].folder)) continue;
+		snprintf(dir, sizeof dir, "%s/%s", P_ROMS, sys->systems[i].folder);
+		miss += art_missing(dir, sys->systems[i].exts, NULL, NULL);
+	}
+	if (miss) snprintf(g_scraper_val, sizeof g_scraper_val, TN(S_SCRAPER_MISSING_N, miss), miss);
+	else snprintf(g_scraper_val, sizeof g_scraper_val, "%s", T(S_SCRAPER_COMPLETE));
+}
+
+static void art_lane_done(dlq_end how)
+{
+	art_status(&g_art_last);
+	if (how == DLQ_ENDED && !g_art_last.problem[0]) plat_side_lights_say(SIDE_LIGHTS_DONE);
+	art_cancel();
+	art_covers_rule(NULL);
+	art_names_rule(NULL);
+	g_snap_run_off = false;
+	g_snap_sys = NULL;
+	scp_menu_value(&g_art_sys, g_art_only);
+	/* The shelf takes it on its next pass, whichever page showed the end */
+	g_art_after = true;
+}
+
+/* The covers part against the plan's count, then the details part against
+ * its own (art_progress.dtotal), as the page's bar counts them */
+static int art_lane_pct(void)
+{
+	art_progress p;
+
+	art_status(&p);
+	if (p.details) return p.dtotal > 0 ? (int)((long long)p.dlooked * 100 / p.dtotal) : 0;
+	return g_art_total > 0 ? (int)((long long)p.looked * 100 / g_art_total) : 0;
+}
+
+/* Its card is set as it starts: P_ROMS is the device's, read at run time */
+static dlq_lane_def ART_LANE = {
+	.name = "box art", .slot = NET_SLOT_ART,
+	.step = art_lane_step, .done = art_lane_done, .pct = art_lane_pct,
+	.every_ms = 8,
+};
+
+void scraper_after_run(app *a)
+{
+	if (!g_art_after) return;
+	g_art_after = false;
+	free_all_textures(a);
+	refresh_game_titles(a);
+	snapshelf_media_changed();
 }
 
 static SDL_Texture *scp_icon(scp_view *v, int i)
@@ -246,6 +338,82 @@ static int scp_bsearch_cmp(const void *k, const void *e)
  * folder and one of its .media), its games with no video by each choice of
  * Videos for (one listing of the .mp4), the room its videos take, and its
  * two switches. When the page opens and after a run, never per frame. */
+/* Before a count's first system: the play times Videos For's Played reads */
+void scraper_count_begin(void)
+{
+	stats_summarize(STATS_ALL, false, (long)time(NULL));
+}
+
+/* One system's count (scraper_screen.h): a's i-th, false for one with no
+ * games to count (a folder of its own, MP4's, an empty one). `box_art`
+ * counts its covers whatever its switch says, as a console's Box Art did. */
+bool scraper_count_sys(app *a, int i, bool box_art, bool ss_in, long long now, scraper_sys_count *s)
+{
+	const system_cfg *sc = &a->sys.systems[i];
+	const game_list *gl;
+	char dir[LIB_PATH * 2], **mp4, **png;
+	int k, nmp4, npng;
+	db_titles titles = { 0 }, miss = { 0 };
+	bool named;
+
+	memset(s, 0, sizeof *s);
+	if (!sc->folder[0] || a->view[i].owner || is_mp4(sc)) return false;
+	gl = sys_games(&a->view[i]);
+	if (!gl->count) return false;
+	s->games = gl->count;
+	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, sc->folder);
+	s->miss = art_missing(dir, sc->exts, NULL, NULL);
+	s->cov = box_art ? true : snaps_covers(sc->folder);
+	s->vid = snaps_get(sc->folder);
+	s->vroom = snaps_bytes(P_ROMS, sc->folder);
+	mp4 = snaps_stems(P_ROMS, sc->folder, &nmp4);
+	png = snaps_cover_stems(P_ROMS, sc->folder, &npng);
+	s->nvideos = nmp4;
+	s->cover_bytes = snaps_cover_bytes(P_ROMS, sc->folder, &s->ncovers, 24);
+	/* The details part's games, as artscrape.c's details_count picks
+	 * them: a cover, no name, and no miss in its 30 days */
+	named = ss_in && ss_system_id(sc->folder);
+	s->ss_named = named;
+	if (named) {
+		db_titles_load(db_lib(), sc->folder, &titles);
+		db_ss_misses_load(db_lib(), sc->folder, now - 30 * 86400LL, now + 86400, &miss);
+	}
+	for (k = 0; k < gl->count; k++) {
+		const game_entry *g = &gl->items[k];
+		const char *stem = g->name, *t;
+		long secs = 0, last = 0;
+		bool name = false;
+		int w;
+
+		if (named && ((npng && bsearch(&stem, png, (size_t)npng, sizeof *png, scp_bsearch_cmp)) ||
+		              es_art_cover(dir, g->file, g->name))) {
+			t = db_titles_find(&titles, g->file);
+			if (t && *t) s->named++;
+			else if (!db_titles_find(&miss, g->file)) name = true;
+		}
+		if (name) s->names++;
+		if (nmp4 && bsearch(&stem, mp4, (size_t)nmp4, sizeof *mp4, scp_bsearch_cmp)) continue;
+		if (es_art_video(dir, g->file, g->name)) continue;
+		for (w = 0; w < SNAPS_FOR_COUNT; w++) {
+			bool in = w == SNAPS_FOR_ALL ||
+			          (w == SNAPS_FOR_FAVORITES && fav_is(sc->tag, g->file)) ||
+			          (w == SNAPS_FOR_PLAYED && stats_lookup(sc->tag, g->file, &secs, &last) &&
+			           (secs > 0 || last > 0));
+
+			if (!in) continue;
+			s->vneed[w]++;
+			if (name) s->both[w]++;
+		}
+	}
+	if (named) {
+		db_titles_free(&titles);
+		db_titles_free(&miss);
+	}
+	snaps_stems_free(mp4, nmp4);
+	snaps_stems_free(png, npng);
+	return true;
+}
+
 static void scp_count(scp_view *v)
 {
 	app *a = v->a;
@@ -258,77 +426,35 @@ static void scp_count(scp_view *v)
 	v->net = net_online();
 	v->ss_in = ss_signed_in();
 	v->free = statvfs(P_ROMS, &vfs) == 0 ? (unsigned long long)vfs.f_bavail * vfs.f_frsize : 0;
-	stats_summarize(STATS_ALL, false, (long)time(NULL));
+	scraper_count_begin();
 	for (i = 0; i < a->sys.count && v->n < CFG_MAX_SYSTEMS; i++) {
 		const system_cfg *sc = &a->sys.systems[i];
-		const game_list *gl;
+		scraper_sys_count c;
 		scp_sys *s;
-		char dir[LIB_PATH * 2], **mp4, **png;
-		int k, nmp4, npng, ncb;
-		db_titles titles = { 0 }, miss = { 0 };
-		bool named;
+		int w;
 
-		if (!sc->folder[0] || a->view[i].owner || is_muse(sc)) continue;
 		if (v->only[0] && strcmp(sc->folder, v->only)) continue;
-		gl = sys_games(&a->view[i]);
-		if (!gl->count) continue;
+		if (!scraper_count_sys(a, i, v->only[0] != '\0', v->ss_in, now, &c)) continue;
 		s = &v->s[v->n++];
 		memset(s, 0, sizeof *s);
 		snprintf(s->folder, sizeof s->folder, "%s", sc->folder);
 		snprintf(s->tag, sizeof s->tag, "%s", sc->tag);
 		snprintf(s->name, sizeof s->name, "%s", sc->name);
 		snprintf(s->key, sizeof s->key, "%s", home_art_key(sc->tag));
-		snprintf(dir, sizeof dir, "%s/%s", P_ROMS, sc->folder);
-		s->miss = art_missing(dir, sc->exts, NULL, NULL);
-		s->cov = v->only[0] ? true : snaps_covers(sc->folder);
-		s->vid = snaps_get(sc->folder);
-		s->vroom = snaps_bytes(P_ROMS, sc->folder);
-		mp4 = snaps_stems(P_ROMS, sc->folder, &nmp4);
-		png = snaps_cover_stems(P_ROMS, sc->folder, &npng);
-		s->nvideos = nmp4;
+		s->miss = c.miss;
+		s->cov = c.cov;
+		s->vid = c.vid;
+		s->vroom = c.vroom;
+		s->nvideos = c.nvideos;
+		s->names = c.names;
+		for (w = 0; w < SNAPS_FOR_COUNT; w++) {
+			s->vneed[w] = c.vneed[w];
+			s->both[w] = c.both[w];
+		}
 		all_bytes += s->vroom;
-		all_videos += nmp4;
-		cover_bytes += snaps_cover_bytes(P_ROMS, sc->folder, &ncb, 24);
-		all_covers += ncb;
-		/* The details part's games, as artscrape.c's details_count picks
-		 * them: a cover, no name, and no miss in its 30 days */
-		named = v->ss_in && ss_system_id(sc->folder);
-		if (named) {
-			db_titles_load(db_lib(), sc->folder, &titles);
-			db_ss_misses_load(db_lib(), sc->folder, now - 30 * 86400LL, now + 86400, &miss);
-		}
-		for (k = 0; k < gl->count; k++) {
-			const game_entry *g = &gl->items[k];
-			const char *stem = g->name, *t;
-			long secs = 0, last = 0;
-			bool name = false;
-			int w;
-
-			if (named && ((npng && bsearch(&stem, png, (size_t)npng, sizeof *png, scp_bsearch_cmp)) ||
-			              es_art_cover(dir, g->file, g->name)) && !db_titles_find(&miss, g->file)) {
-				t = db_titles_find(&titles, g->file);
-				name = !t || !*t;
-			}
-			if (name) s->names++;
-			if (nmp4 && bsearch(&stem, mp4, (size_t)nmp4, sizeof *mp4, scp_bsearch_cmp)) continue;
-			if (es_art_video(dir, g->file, g->name)) continue;
-			for (w = 0; w < SNAPS_FOR_COUNT; w++) {
-				bool in = w == SNAPS_FOR_ALL ||
-				          (w == SNAPS_FOR_FAVORITES && fav_is(sc->tag, g->file)) ||
-				          (w == SNAPS_FOR_PLAYED && stats_lookup(sc->tag, g->file, &secs, &last) &&
-				           (secs > 0 || last > 0));
-
-				if (!in) continue;
-				s->vneed[w]++;
-				if (name) s->both[w]++;
-			}
-		}
-		if (named) {
-			db_titles_free(&titles);
-			db_titles_free(&miss);
-		}
-		snaps_stems_free(mp4, nmp4);
-		snaps_stems_free(png, npng);
+		all_videos += c.nvideos;
+		cover_bytes += c.cover_bytes;
+		all_covers += c.ncovers;
 	}
 	/* A video's size and a cover's as the card's own say, once it has a few */
 	v->mb_video = all_videos >= 5 ? (double)all_bytes / all_videos / 1e6 : SCP_MB_PER_VIDEO;
@@ -384,12 +510,14 @@ static void scp_needs(const scp_view *v, scp_need *o)
 	memset(o, 0, sizeof *o);
 	for (i = 0; i < v->n; i++) {
 		const scp_sys *s = &v->s[i];
-		bool vid = s->vid && v->ss_in;
+		bool vid = s->vid && v->ss_in && v->in_vid;
 
-		if (s->cov) o->covers += s->miss;
+		if (s->cov && v->in_cov) o->covers += s->miss;
 		if (vid) o->videos += s->vneed[k];
 		if (v->ss_in) {
-			int nm = s->cov && scp_names_on() ? s->names : 0;
+			/* Names follow the system's covers switch; with the covers out
+			 * of the run, its games with no cover are asked too */
+			int nm = s->cov && scp_names_on() && v->in_names ? s->names + (v->in_cov ? 0 : s->miss) : 0;
 
 			o->names += nm;
 			o->looks += nm + (vid ? s->vneed[k] - (nm ? s->both[k] : 0) : 0);
@@ -785,7 +913,7 @@ static void scp_run_draw(scp_view *v, unsigned now)
 	char fit[160], cnt[48], eta[48];
 	static ds_flex F;
 	SDL_FRect cell[6], big;
-	const char *K[1] = { "B" }, *L[1] = { T(S_SCRAPER_KEY_STOP) };
+	const char *K[2] = { "B", "Y" }, *L[2] = { T(S_UPDATE_BACK_GOES_ON), T(S_SCRAPER_KEY_STOP) };
 
 	/* Which part: covers (the plan's count), then the details of games
 	 * with a cover (their own count, art_progress.dtotal) */
@@ -859,7 +987,7 @@ static void scp_run_draw(scp_view *v, unsigned now)
 	}
 	scp_time(scp_eta(v, now, looked, total), false, eta, sizeof eta);
 	scp_stats(a, ZYPEROS_SCREEN_W / 2, pf.line_y, v->p.found, v->p.snaps, -1, eta);
-	ds_page_foot(a->r, &pf, K, L, 1, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
+	ds_page_foot(a->r, &pf, K, L, 2, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 }
 
 /* Done: what came, as a wall across the page; the counts as marks; the room
@@ -1109,7 +1237,9 @@ static void scp_start(scp_view *v)
 		const system_cfg *sc = &v->a->sys.systems[i];
 
 		k = scp_find(v, sc->folder);
-		if (k < 0 || !(v->s[k].cov || v->s[k].vid || v->only[0])) continue;
+		if (k < 0 || !(v->only[0] || (v->s[k].cov && (v->in_cov || (v->in_names && scp_names_on()))) ||
+		               (v->s[k].vid && v->in_vid)))
+			continue;
 		if (v->cfg.count < CFG_MAX_SYSTEMS) v->cfg.systems[v->cfg.count++] = *sc;
 	}
 	{
@@ -1125,15 +1255,47 @@ static void scp_start(scp_view *v)
 		v->pace_n0 = 0;
 		v->room_at = 0;
 	}
-	g_scp = v;
-	g_snap_sys = &v->cfg;
-	art_covers_rule(scp_rule);
-	art_names(scp_names_on());
-	/* The one async slot, which an account answer may still hold */
-	sync_abandon();
-	art_begin(&v->cfg, P_ROMS, NULL);
+	g_art_sys = v->cfg;
+	snprintf(g_art_only, sizeof g_art_only, "%s", v->only);
+	for (g_art_total = 0, i = 0; v->in_cov && i < v->n; i++) if (v->s[i].cov || v->only[0]) g_art_total += v->s[i].miss;
+	g_snap_sys = &g_art_sys;
+	/* The kinds this run gets: covers by the Systems switch, or none; names
+	 * by that same switch even with the covers out; videos, or none */
+	art_covers_rule(v->in_cov ? art_lane_rule : art_lane_none);
+	art_names(scp_names_on() && v->in_names);
+	art_names_rule(v->in_cov ? NULL : art_lane_rule);
+	g_snap_run_off = !v->in_vid;
+	/* Its own network slot (src/dlq.h): an account's answer after a game,
+	 * on the screens' slot, goes on beside it */
+	ART_LANE.card = P_ROMS;
+	if (!dlq_start(DLQ_ART, &ART_LANE, art_lane_begin)) {
+		art_covers_rule(NULL);
+		art_names_rule(NULL);
+		g_snap_run_off = false;
+		g_snap_sys = NULL;
+		return;
+	}
 	memset(&v->p, 0, sizeof v->p);
 	v->seen = 0;
+	v->problem[0] = '\0';
+	v->where = SCP_RUN;
+}
+
+/* Back on a run that went on behind the screens: its view from now, its
+ * pace counted again from here */
+static void scp_rejoin(scp_view *v)
+{
+	scp_need need;
+
+	scp_needs(v, &need);
+	v->s_cov = v->ss_in ? SCP_S_SS : SCP_S_LR;
+	v->s_det = SCP_S_SS + (need.looks ? (double)need.videos / need.looks : 0.0) * SCP_S_VIDEO;
+	v->est_looks = need.looks;
+	v->pace_det = false;
+	v->pace_t0 = anim_now();
+	art_status(&v->p);
+	v->pace_n0 = v->p.details ? v->p.dlooked : v->p.looked;
+	v->seen = v->p.found_seq;
 	v->problem[0] = '\0';
 	v->where = SCP_RUN;
 }
@@ -1181,18 +1343,18 @@ static bool scp_take_pictures(scp_view *v)
 	return any;
 }
 
-/* The run is over: by its end, or stopped */
-static void scp_finish(scp_view *v, bool ended)
+/* The run is over - by its end, stopped, or the card nearly full; here or
+ * behind the screens - and the page shows what it did, from what the lane
+ * kept as it ended (art_lane_done) */
+static void scp_finish(scp_view *v)
 {
-	art_status(&v->p);
+	v->p = g_art_last;
 	v->done_found = v->p.found;
 	v->done_videos = v->p.snaps;
 	v->done_missing = v->p.missing;
-	snprintf(v->problem, sizeof v->problem, "%s", v->p.problem);
-	if (ended && !v->p.problem[0]) plat_side_lights_say(SIDE_LIGHTS_DONE);
-	art_cancel();
-	art_covers_rule(NULL);
-	g_snap_sys = NULL;
+	if (dlq_last(DLQ_ART) == DLQ_FULL) snprintf(v->problem, sizeof v->problem, "%s", T(S_SCRAPER_NO_ROOM));
+	else snprintf(v->problem, sizeof v->problem, "%s", v->p.problem);
+	g_scp_seen = dlq_ends(DLQ_ART);
 	free_all_textures(v->a);
 	{
 		int i;
@@ -1263,8 +1425,15 @@ static void scp_page(app *a, const char *only)
 
 	if (!v) return;
 	v->a = a;
+	v->in_cov = v->in_vid = v->in_names = true;
 	if (only) snprintf(v->only, sizeof v->only, "%s", only);
 	scp_count(v);
+	/* A run behind the screens is shown where it is; one that ended while
+	 * the page was closed, as done (src/dlq.h) */
+	if (dlq_running(DLQ_ART)) scp_rejoin(v);
+	else if (dlq_ends(DLQ_ART) != g_scp_seen) scp_finish(v);
+	g_art_after = false;
+	dlq_page(DLQ_ART, true);
 	mt_start();
 	base = panel_base();
 	g_base_page = scp_base;
@@ -1277,57 +1446,48 @@ static void scp_page(app *a, const char *only)
 
 		plat_input_poll(&a->in);
 		scp_test(v, a);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {
-			if (v->where == SCP_RUN) art_cancel();
-			power_off(a);
+			power_off(a);              /* the run with everything else */
 			break;
 		}
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		for (int b = 0; b < IN_COUNT; b++) if (a->in.pressed[b] || a->in.down[b]) dirty = true;
 		if (a->in.pressed[IN_MENU]) {
-			if (v->where == SCP_RUN) scp_finish(v, false);
-			menu_leaving(a);
+			menu_leaving(a);           /* a run goes on behind the screens */
 			break;
 		}
 
 		if (v->where == SCP_RUN) {
-			int r = art_step();
-
-			art_status(&v->p);
-			scp_take_arrival(v);
-			if (scp_take_pictures(v)) dirty = true;
-			if (v->p.found_seq != last.found_seq || v->p.looked != last.looked ||
-			    v->p.dlooked != last.dlooked || v->p.src != last.src || strcmp(v->p.now, last.now))
+			/* The lane steps here once a frame, as the run always did
+			 * here, and behind every screen once the page has closed. The
+			 * card's room is the queue's rule now (DLQ_FLOOR). */
+			dlq_tick();
+			if (!dlq_running(DLQ_ART)) {
+				scp_finish(v);
 				dirty = true;
-			last = v->p;
-			/* The card filling: a look every 2 s, and the run stops with
-			 * SCP_FLOOR still free, which done says */
-			bool full = false;
-
-			if (r == 1 && now - v->room_at >= 2000) {
-				struct statvfs vfs;
-
-				v->room_at = now;
-				full = statvfs(P_ROMS, &vfs) == 0 &&
-				       (unsigned long long)vfs.f_bavail * vfs.f_frsize < SCP_FLOOR;
-			}
-			if (full) {
-				scp_finish(v, false);
-				snprintf(v->problem, sizeof v->problem, "%s", T(S_SCRAPER_NO_ROOM));
-				dirty = true;
-			} else if (r != 1) {
-				scp_finish(v, r == 0);
-				dirty = true;
-			} else if (a->in.pressed[IN_BACK]) {
-				uisound_play(DS_SOUND_BACK);
-				scp_finish(v, false);
-				dirty = true;
+			} else {
+				art_status(&v->p);
+				scp_take_arrival(v);
+				if (scp_take_pictures(v)) dirty = true;
+				if (v->p.found_seq != last.found_seq || v->p.looked != last.looked ||
+				    v->p.dlooked != last.dlooked || v->p.src != last.src || strcmp(v->p.now, last.now))
+					dirty = true;
+				last = v->p;
+				if (a->in.pressed[IN_BACK]) {
+					/* Continue in background: the page closes and the run
+					 * goes on, the status corner's ring showing it */
+					uisound_play(DS_SOUND_BACK);
+					break;
+				}
+				if (a->in.pressed[IN_Y]) {
+					uisound_play(DS_SOUND_BACK);
+					dlq_stop(DLQ_ART);
+					scp_finish(v);
+					dirty = true;
+				}
 			}
 		} else if (a->in.pressed[IN_BACK]) {
 			uisound_play(DS_SOUND_BACK);
@@ -1400,31 +1560,26 @@ static void scp_page(app *a, const char *only)
 		plat_present();
 		ui_frame_rest(8);
 	}
-	if (v->where == SCP_RUN) scp_finish(v, false);
 	/* MENU's Scraper row says what is still missing, counted as the page
-	 * closes on the systems with covers on */
+	 * closes on the systems with covers on (and again as a run that goes on
+	 * behind the screens ends) */
 	if (!v->only[0]) {
-		int i, miss = 0;
+		systems_cfg *on = calloc(1, sizeof *on);
+		int i, k;
 
-		for (i = 0; i < v->n; i++) {
-			char dir[LIB_PATH * 2];
-			int k;
-
-			if (!v->s[i].cov) continue;
+		for (i = 0; on && i < v->n; i++) {
 			for (k = 0; k < a->sys.count && strcmp(a->sys.systems[k].folder, v->s[i].folder); k++) {}
-			if (k == a->sys.count) continue;
-			snprintf(dir, sizeof dir, "%s/%s", P_ROMS, v->s[i].folder);
-			miss += art_missing(dir, a->sys.systems[k].exts, NULL, NULL);
+			if (k < a->sys.count && on->count < CFG_MAX_SYSTEMS) on->systems[on->count++] = a->sys.systems[k];
 		}
-		if (miss) snprintf(g_scraper_val, sizeof g_scraper_val, TN(S_SCRAPER_MISSING_N, miss), miss);
-		else snprintf(g_scraper_val, sizeof g_scraper_val, "%s", T(S_SCRAPER_COMPLETE));
+		if (on) scp_menu_value(on, NULL);
+		free(on);
 	}
+	dlq_page(DLQ_ART, false);
 	mt_forget();
 	mt_stop();
 	mm_close(base, anim_now(), 0, g_menu_closing);
 	g_base_page = NULL;
 	g_base_ctx = NULL;
-	g_scp = NULL;
 	scp_ring_free(v);
 	for (int i = 0; i < v->n; i++) if (v->s[i].icon) SDL_DestroyTexture(v->s[i].icon);
 	free(v);
@@ -1447,6 +1602,115 @@ menu_result scraper_screen(app *a)
 {
 	scraper_page(a, NULL);
 	return MENU_STAY;
+}
+
+/* ---- for the Downloads page (src/dl_screen.h) -----------------------------
+ * The page's own plan and run, with the kinds the Downloads page has in: a
+ * view counted as the page counts it, never drawn. */
+static scp_view *scp_plan_view(app *a, scraper_kinds k)
+{
+	scp_view *v = calloc(1, sizeof *v);
+
+	if (!v) return NULL;
+	v->a = a;
+	v->in_cov = k.covers;
+	v->in_vid = k.videos;
+	v->in_names = k.names;
+	scp_count(v);
+	return v;
+}
+
+static void scp_plan_free(scp_view *v)
+{
+	int i;
+
+	for (i = 0; i < v->n; i++) if (v->s[i].icon) SDL_DestroyTexture(v->s[i].icon);
+	free(v);
+}
+
+void scraper_plan_of(app *a, scraper_kinds k, scraper_counts *out)
+{
+	scp_view *v = scp_plan_view(a, k);
+	scp_need need;
+	int i;
+
+	memset(out, 0, sizeof *out);
+	if (!v) return;
+	scp_needs(v, &need);
+	out->covers = need.covers;
+	out->videos = need.videos;
+	out->names = need.names;
+	out->looks = need.looks;
+	out->bytes = need.bytes;
+	out->secs = need.secs;
+	out->net = v->net;
+	out->ss_in = v->ss_in;
+	out->fits = scp_fits(v, &need);
+	for (i = 0; i < v->n; i++) {
+		if (v->s[i].cov) out->cov_systems++;
+		if (v->s[i].vid) out->vid_systems++;
+	}
+	scp_plan_free(v);
+}
+
+bool scraper_run(app *a, scraper_kinds k)
+{
+	scp_view *v;
+	scp_need need;
+	bool ok;
+
+	if (dlq_running(DLQ_ART)) return true;
+	if (!(v = scp_plan_view(a, k))) return false;
+	scp_needs(v, &need);
+	ok = v->net && scp_fits(v, &need) && (need.covers || need.videos || need.looks);
+	if (ok) scp_start(v);
+	ok = ok && dlq_running(DLQ_ART);
+	scp_plan_free(v);
+	return ok;
+}
+
+/* A run of the Downloads page (scraper_screen.h): scp_start's, with the
+ * page's own counts in place of a plan's */
+bool scraper_start_run(app *a, scraper_kinds k, const systems_cfg *cfg, const char *only, int covers,
+                       bool (*names_rule)(const char *folder))
+{
+	(void)a;
+	if (dlq_running(DLQ_ART)) return true;
+	g_art_sys = *cfg;
+	snprintf(g_art_only, sizeof g_art_only, "%s", only ? only : "");
+	g_art_total = k.covers ? covers : 0;
+	g_snap_sys = &g_art_sys;
+	art_covers_rule(k.covers ? art_lane_rule : art_lane_none);
+	art_names(scp_names_on() && k.names);
+	art_names_rule(names_rule ? names_rule : k.covers ? NULL : art_lane_rule);
+	g_snap_run_off = !k.videos;
+	ART_LANE.card = P_ROMS;
+	if (!dlq_start(DLQ_ART, &ART_LANE, art_lane_begin)) {
+		art_covers_rule(NULL);
+		art_names_rule(NULL);
+		g_snap_run_off = false;
+		g_snap_sys = NULL;
+		return false;
+	}
+	return true;
+}
+
+void scraper_last(art_progress *out)
+{
+	*out = g_art_last;
+}
+
+int scraper_run_total(void)
+{
+	return g_art_total;
+}
+
+bool scraper_names_on(void) { return scp_names_on(); }
+void scraper_names_set(bool on) { scp_names_set(on); }
+
+void scraper_time_text(double secs, char *out, size_t n)
+{
+	scp_time(secs, true, out, n);
 }
 
 /* ---- a shot's page (--scraper-page STATE [T]) ------------------------------
@@ -1497,6 +1761,7 @@ static void scp_fixture(scp_view *v, app *a, int state, int t)
 	memset(v, 0, sizeof *v);
 	v->a = a;
 	v->fixture = true;
+	v->in_cov = v->in_vid = v->in_names = true;
 	v->net = state != 10;
 	v->ss_in = state != 12;     /* videos asked for, no account */
 	v->mb_video = SCP_MB_PER_VIDEO;
@@ -1721,7 +1986,7 @@ static void snaps_read(snaps_ctx *s)
 	for (i = 0; i < a->sys.count && s->nc < CFG_MAX_SYSTEMS; i++) {
 		const system_cfg *sc = &a->sys.systems[i];
 
-		if (!sc->folder[0] || is_muse(sc) || !ss_system_id(sc->folder)) continue;
+		if (!sc->folder[0] || is_mp4(sc) || !ss_system_id(sc->folder)) continue;
 		snprintf(s->folder[s->nc], sizeof s->folder[0], "%s", sc->folder);
 		s->c[s->nc].name = sc->name;
 		s->c[s->nc].on = snaps_console_on(sc->folder);

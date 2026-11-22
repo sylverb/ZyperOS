@@ -88,3 +88,41 @@ Blender:
 ```sh
 sh mk/site.sh
 ```
+
+## The page's handhelds
+
+The landing page shows the handhelds in `site/devices.json`; `mk/site_devices.py`
+builds the page's parts for them, and `make check-site-devices` builds the page
+with made-up ones added. Each handheld here has its `.glb`, its poster and a
+quarter-size thumbnail for the hero's row (`<id>-thumb.png`), all written by
+its `tools/build-<id>-model.py`.
+
+Both scripts light the product the same way: Blender's own studio light
+(`studio.exr`, Poly Haven's studio_small_01, CC0) for its reflections, the
+area lights for clean highlights, and a broad softbox behind the camera that a
+metal face mirrors back. The colours are the makers' own, sampled from their
+product photos: the Pixel 2's green face `#9bba4d` (GKD's six-view, as its
+sellers show it), the Brick's purple `#564f78` (TrimUI's photo on trimui.com).
+On the page, three.js lights the `.glb` with its own studio, and each
+handheld's `model.studio` in `site/devices.json` (reflections, a tone on the
+colours, the softbox, the clear coat) holds its face near that colour.
+
+## TrimUI Brick
+
+`brick.glb`, `brick-poster.png` and `brick-thumb.png` are the TrimUI Brick, built by
+`tools/build-brick-model.py` from the published outline (73.2 x 109.9 mm; 11.8
+deep above the back ledge, 19.9 below) and the key places measured for `src/device/brick_model.c`, the numbers it
+draws the launcher's own Brick with. The product images those were measured on are reference
+only: nothing is traced from them, and none of TrimUI's marks is on the model.
+It is the purple Brick: the shell and keys purple, F1 and F2 light grey, as
+TrimUI's photo shows them. Its shell is plastic, so no metal: a satin finish
+under a clear coat gives it its highlights.
+
+```sh
+blender --background --python-exit-code 1 --python tools/build-brick-model.py -- --render
+```
+
+The poster uses the Pixel 2 poster's pose, studio and scale (8.807 px a
+millimetre), 800 x 1100 for the taller Brick, with `res/readme/brick/systems.png`
+on its screen. Its `Screen` mesh has the same 4:3 UVs; `site/pixel2.js` draws
+the Brick's own captures on it.

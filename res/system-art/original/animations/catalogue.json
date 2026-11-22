@@ -1390,6 +1390,54 @@
       "still_sha256": "48460f84a7e1af9eefcb656c9c946795a9cc6b0cf7e3513d4e0eba4209b529af"
     },
     {
+      "key": "COLLECTIONS",
+      "name": "Collections",
+      "description": "Top cartridge lifts off the stack (a placeholder drawn by script)",
+      "cell": 256,
+      "cols": 2,
+      "rows": 1,
+      "unique": 2,
+      "duration_ms": 800,
+      "kind": "system",
+      "static": false,
+      "placeholder": true,
+      "expected_poses": 2,
+      "motion_bounds": [
+        56,
+        56,
+        160,
+        72
+      ],
+      "frames": [
+        {
+          "tile": 0,
+          "ms": 400
+        },
+        {
+          "tile": 1,
+          "ms": 400
+        }
+      ],
+      "still_time_ms": 0,
+      "decoded_atlas_bytes": 524288,
+      "inputs": [
+        "placeholders/collections-card.py"
+      ],
+      "renderers": [
+        "placeholders/collections-card.py"
+      ],
+      "input_sha256": {
+        "placeholders/collections-card.py": "d40ae9213cdb2adaa9d14dc9d086c1d2fc7cc5b5db0af11b66460d2f3dd2185b"
+      },
+      "renderer_sha256": {
+        "placeholders/collections-card.py": "d40ae9213cdb2adaa9d14dc9d086c1d2fc7cc5b5db0af11b66460d2f3dd2185b"
+      },
+      "atlas": "COLLECTIONS.png",
+      "still": "COLLECTIONS-still.png",
+      "atlas_sha256": "a6a896f381bdbd2af14fb3bf5ebfb35938de46a2d5ddae4b0c08ed41660c32c8",
+      "still_sha256": "3921aa7e2a4f1aa985c7954a4d9fdb9aeec527eda8e0e9e65634ae972c276eb3"
+    },
+    {
       "key": "DC",
       "name": "Sega Dreamcast",
       "description": "Disc lid opens and closes",
@@ -5680,6 +5728,54 @@
       "still": "SAVES-still.png",
       "atlas_sha256": "d7cf3a1a0feeec7245f037a2fd6dad24b6cb337920920bfc4eeb38822c3ba022",
       "still_sha256": "a450f056529f2a65873b58db4dc36b8b3ea41f3d56e135a507617dd415ab23bd"
+    },
+    {
+      "key": "SCREENSHOTS",
+      "name": "Screenshots",
+      "description": "The camera's flash fires (a placeholder drawn by script)",
+      "cell": 256,
+      "cols": 2,
+      "rows": 1,
+      "unique": 2,
+      "duration_ms": 800,
+      "kind": "system",
+      "static": false,
+      "placeholder": true,
+      "expected_poses": 2,
+      "motion_bounds": [
+        8,
+        56,
+        112,
+        88
+      ],
+      "frames": [
+        {
+          "tile": 0,
+          "ms": 400
+        },
+        {
+          "tile": 1,
+          "ms": 400
+        }
+      ],
+      "still_time_ms": 0,
+      "decoded_atlas_bytes": 524288,
+      "inputs": [
+        "placeholders/screenshots-card.py"
+      ],
+      "renderers": [
+        "placeholders/screenshots-card.py"
+      ],
+      "input_sha256": {
+        "placeholders/screenshots-card.py": "d643210ec63d5ae5287721e5a8133cc20a69ee1dfac8027a56dab5679c978a03"
+      },
+      "renderer_sha256": {
+        "placeholders/screenshots-card.py": "d643210ec63d5ae5287721e5a8133cc20a69ee1dfac8027a56dab5679c978a03"
+      },
+      "atlas": "SCREENSHOTS.png",
+      "still": "SCREENSHOTS-still.png",
+      "atlas_sha256": "3b8cd2b6149e480ff1eb03f02503c3f112253b3a4451324c0827fa8f21189f50",
+      "still_sha256": "b00c819d3ba430ecfde22f29a1344246f0a8c7c1761749f767a694b5bd8b9efb"
     },
     {
       "key": "SCUMMVM",

@@ -167,6 +167,8 @@ class BuildTests(unittest.TestCase):
         export(art, "GB", moving, [(0, 40), (1, 70), (0, 110)])
         export(art, "FAVORITES", moving, [(0, 400), (1, 400)])
         export(art, "RECENTS", moving, [(0, 400), (1, 400)])
+        export(art, "COLLECTIONS", moving, [(0, 400), (1, 400)])
+        export(art, "SCREENSHOTS", moving, [(0, 400), (1, 400)])
         export(art, "MUSE", moving, [(0, 400), (1, 400)])
         export(art, "FOLDER_SMALL", [pose()], [(0, 1000)])
         for key in ("ROMS", "MUSIC", "BOOKS", "VIDEOS", "BIOS", "SAVES", "STATES", "BGM"):
@@ -180,10 +182,10 @@ class BuildTests(unittest.TestCase):
         program = r'''
 #include "systemart_data.h"
 #include <string.h>
-_Static_assert(SA_ASSET_COUNT == 13, "every shelf, the folder and the card's folders, nothing else");
+_Static_assert(SA_ASSET_COUNT == 15, "every shelf, the folder and the card's folders, nothing else");
 _Static_assert(SA_CELL == 256 && SA_STILL == 128, "cell and still sizes");
 int main(void) {
-    const sa_asset *a = &SA_ASSETS[5], *f = &SA_ASSETS[4], *b = &SA_ASSETS[0];
+    const sa_asset *a = &SA_ASSETS[6], *f = &SA_ASSETS[5], *b = &SA_ASSETS[0];
     if (strcmp(a->key, "GB") || strcmp(a->atlas, "system-icons/GB.png") ||
         strcmp(a->still, "system-icons/GB-still.png")) return 1;
     if (a->cell != 256 || a->cols != 2 || a->rows != 1 || a->nframes != 3 ||
@@ -193,11 +195,13 @@ int main(void) {
     if (a->rx != 100 || a->ry != 60 || a->rw != 10 || a->rh != 8) return 4;
     if (strcmp(f->key, "FOLDER") || f->rw || f->nframes != 1 || f->duration_ms) return 5;
     if (strcmp(b->key, "BGM") || strcmp(b->still, "system-icons/BGM-still.png") || b->rw) return 6;
-    const sa_asset *m = &SA_ASSETS[7], *mp4 = &SA_ASSETS[6];
+    const sa_asset *m = &SA_ASSETS[8], *mp4 = &SA_ASSETS[7];
     if (strcmp(m->key, "MUSIC") || strcmp(m->still, "system-icons/MUSIC-still.png") ||
         m->rw || m->nframes != 1 || m->duration_ms) return 7;
     if (strcmp(mp4->key, "MUSE") || mp4->nframes != 2) return 8;
-    if (strcmp(SA_ASSETS[8].key, "RECENTS") || SA_ASSETS[8].nframes != 2) return 9;
+    if (strcmp(SA_ASSETS[9].key, "RECENTS") || SA_ASSETS[9].nframes != 2) return 9;
+    if (strcmp(SA_ASSETS[3].key, "COLLECTIONS") || SA_ASSETS[3].nframes != 2) return 10;
+    if (strcmp(SA_ASSETS[12].key, "SCREENSHOTS") || SA_ASSETS[12].nframes != 2) return 11;
     return 0;
 }
 '''

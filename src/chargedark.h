@@ -11,7 +11,7 @@
  * Auto Off does not power a device down on the cable (the charger HOLDS its
  * clock, src/idle.h), so a Pixel 2 left on the shelf to charge kept its panel
  * lit for as long as it was plugged in: the backlight is the larger part of
- * what the shelf draws (Muse's lock measured 470 mA to 300 with it off,
+ * what the shelf draws (MP4's lock measured 470 mA to 300 with it off,
  * 2026-09-30), and on the cable that is power the battery does not get.
  *
  * So after the same time without a button, on the cable, the backlight goes
@@ -22,7 +22,7 @@
  * nothing else. The cable coming out lights it as well, and Auto Off's own
  * countdown starts fresh from there, as it always has on unplugging.
  *
- * The shelf only, where a device is left to charge; Muse's lock already has
+ * The shelf only, where a device is left to charge; MP4's lock already has
  * its own dark, and every other screen still powers down at Auto Off off the
  * cable as before. Music playing holds this clock as it holds Auto Off's.
  * Auto Off at never is never dark.

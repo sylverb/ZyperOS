@@ -28,7 +28,7 @@
  * Drawn in theme `theme_ix`, DS_LIGHT or DS_DARK (DESIGN.md 11.7: a slab of
  * **surface**, its heading **text-dim** and its body **text**), which the
  * caller reads as it asks: a notice is rendered while a game runs, and Auto
- * can have turned the theme at 7:00 or 19:00 since the game started, so the
+ * can have turned the theme at the Night Hours since the game started, so the
  * theme is the one on at this moment and never one this file kept. The
  * launcher's theme_index() is that, ticked through the game (on_game_tick),
  * and it is what THEME_FILE says to Diatom's bar beside the notice. */
@@ -43,6 +43,20 @@ bool notice_render(const char *heading, const char *body, const char *path,
                           * not load, so the slab has the badge's shape
                           * whether the card has the art or not */
 #define NOTICE_ZYPER 2   /* Zyper at the right end, DESIGN.md 11.7 */
+#define NOTICE_PICTURE 4 /* `badge` is a picture, a screenshot: kept in its
+                          * own shape, as tall as the two lines, where a
+                          * badge is made square (my pick in the Controls
+                          * lab, 2026-11-19: the shot itself, small, beside
+                          * "Screenshot saved") */
+#define NOTICE_SLOT 8    /* a square of the picture's size left empty where
+                          * `badge` would go, for another program to fill:
+                          * portkeys puts your PICO-8's screenshot there over
+                          * the program, where this process cannot draw
+                          * (src/portmenu.h, PORT_SHOT_LIGHT). The file gets
+                          * the square's place after its pixels: "SLOT", then
+                          * x, y, the side and the corner's radius as uint16
+                          * little-endian, in the notice's pixels. `badge` is
+                          * not read. */
 
 /* The same slab with an achievement's badge at its left, the lines
  * left-aligned beside it - `badge` a PNG, NULL or one that will not load for

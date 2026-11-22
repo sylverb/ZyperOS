@@ -10,7 +10,7 @@ Everything that builds and runs [the ZyperOS Discord](https://discord.gg/Ust8sE2
 
 ## Zyper's commands
 
-`/install`, `/bios`, `/wifi`, `/transfer`, `/portmaster`, `/update`, `/controls` and `/links` answer the common questions, each with a link to the README section that says it in full (`worker/src/answers.js`: keep them in step with the README). `/version` gives the newest release from GitHub. `/bug` opens a short form; the report goes up as a post in the bug-reports forum, tagged, with a link that opens it as a GitHub issue too.
+`/install`, `/bios`, `/wifi`, `/transfer`, `/portmaster`, `/update`, `/controls` and `/links` answer the common questions, each with a link to the README or guide section that says it in full (`worker/src/answers.js`: keep them in step with them). `/version` gives the newest release from GitHub. `/bug` opens a short form; the report goes up as a post in the bug-reports forum, tagged, with a link that opens it as a GitHub issue too.
 
 ## Running it
 

@@ -6,7 +6,12 @@
  * testing "what the author expected" earned its keep in under a minute.
  *
  * Scope is deliberately the launcher case and nothing more: ONE interesting
- * entry per archive, chosen as the largest file, stored or deflated. Multi-
+ * entry per archive, chosen as the largest file, stored, deflated or LZMA
+ * (7-Zip's zip method 14, through liblzma, which plastron has for the CHD
+ * reader; 1.0.7). Bzip2 (12) and Zstandard (93) are not read: their
+ * libraries are not in the system. The largest entry is the ROM whatever its
+ * method, so a zip whose ROM this cannot read is refused, never another of
+ * its files; the launcher says why before it starts one (src/gamefile.h). Multi-
  * file archives (cue+bin) ship unzipped for the same reason they do on every
  * other firmware: the cue names its bin by path.
  *
@@ -17,9 +22,39 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <lzma.h>
 #include <zlib.h>
 
 #include "diatom.h"
+
+/* A zip's LZMA entry (method 14, APPNOTE 5.8.8): two bytes of the encoder's
+ * version, the properties' size (5), the LZMA1 properties, then the raw
+ * stream, with an end marker or without one. Decoded into `out` until it
+ * holds `usize` bytes: the size the directory gave says where it ends, the
+ * marker or none. */
+static bool lzma_entry(const unsigned char *comp, size_t csize, unsigned char *out, size_t usize)
+{
+	lzma_stream z = LZMA_STREAM_INIT;
+	lzma_filter filters[2] = { { LZMA_FILTER_LZMA1, NULL }, { LZMA_VLI_UNKNOWN, NULL } };
+	size_t props;
+	lzma_ret rc;
+
+	if (csize < 4) return false;
+	props = (size_t)comp[2] | (size_t)comp[3] << 8;
+	if (props != 5 || csize < 4 + props) return false;
+	if (lzma_properties_decode(&filters[0], NULL, comp + 4, props) != LZMA_OK) return false;
+	rc = lzma_raw_decoder(&z, filters);
+	free(filters[0].options);
+	if (rc != LZMA_OK) return false;
+	z.next_in = comp + 4 + props;
+	z.avail_in = csize - 4 - props;
+	z.next_out = out;
+	z.avail_out = usize;
+	do rc = lzma_code(&z, LZMA_FINISH);
+	while (rc == LZMA_OK && z.avail_out > 0 && z.avail_in > 0);
+	lzma_end(&z);
+	return z.total_out == usize && (rc == LZMA_OK || rc == LZMA_STREAM_END || rc == LZMA_BUF_ERROR);
+}
 
 static uint16_t rd16(const unsigned char *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
 static uint32_t rd32(const unsigned char *p)
@@ -92,7 +127,9 @@ bool diatom_zip_load(const char *path, void **out, size_t *out_len,
 
 		if (nlen == 0) continue;                                /* no name to give it */
 		if (usize == 0 || en[nlen - 1] == '/') continue;        /* directory */
-		if ((method != 0 && method != 8)) continue;             /* stored/deflate only */
+		/* The largest entry whatever its method: the ROM, which a zip of
+		 * one game holds beside its readme; one this cannot read is
+		 * refused below rather than another file given in its place */
 		if (usize > best_usize) {
 			best_usize = usize; best_csize = csize;
 			best_method = method; best_lho = lho;
@@ -100,6 +137,12 @@ bool diatom_zip_load(const char *path, void **out, size_t *out_len,
 		}
 	}
 	if (!best_usize) { fclose(f); return false; }
+	if (best_method != 0 && best_method != 8 && best_method != 14) {
+		fprintf(stderr, "diatom: zip: %s is compressed by method %u, which this cannot read\n",
+		        best_name, (unsigned)best_method);
+		fclose(f);
+		return false;
+	}
 
 	/* The local header repeats the name/extra lengths; the data follows it. */
 	fseek(f, (long)best_lho, SEEK_SET);
@@ -125,6 +168,11 @@ bool diatom_zip_load(const char *path, void **out, size_t *out_len,
 				free(comp); free(un); return false;
 			}
 			memcpy(un, comp, best_usize);
+		} else if (best_method == 14) {
+			if (!lzma_entry(comp, best_csize, un, best_usize)) {
+				fprintf(stderr, "diatom: zip: LZMA failed on %s\n", best_name);
+				free(comp); free(un); return false;
+			}
 		} else {
 			z_stream z;
 			int rc;

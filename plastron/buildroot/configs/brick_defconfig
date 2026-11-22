@@ -40,6 +40,8 @@ BR2_PACKAGE_DROPBEAR=y
 # Graphics: Imagination's GLES and EGL, and SDL2 drawing to the framebuffer
 # through them (the pvrfb video driver, see external.mk)
 BR2_PACKAGE_PVR_GE8300=y
+# Flash Drive (package/usbdrive, its Brick build: no libdrm, fb0's page)
+BR2_PACKAGE_USBDRIVE=y
 BR2_PLASTRON_DEVICE="brick"
 # ZyperOS's boot animation from the moment the framebuffer exists until
 # ZyperOS's first frame (splash-fb.c, inittab's first line, /etc/init.d/splash)
@@ -51,7 +53,7 @@ BR2_PACKAGE_BRICK_TOOLS=y
 BR2_PACKAGE_SDL2=y
 BR2_PACKAGE_SDL2_OPENGLES=y
 
-# Sound: ZyperOS, Muse and diatom (through SDL2) talk to ALSA directly
+# Sound: ZyperOS, MP4 and diatom (through SDL2) talk to ALSA directly
 BR2_PACKAGE_ALSA_LIB=y
 
 # Wi-Fi: wpa_supplicant and wpa_cli, which ZyperOS drives (src/wifi.c), over
@@ -79,9 +81,12 @@ BR2_PACKAGE_BLUEZ5_UTILS_DEPRECATED=y
 # Sound to Bluetooth headsets: bluealsa (A2DP source, HFP gateway) and its
 # ALSA plugin, which ZyperOS's .asoundrc names (bt-alsa.sh)
 BR2_PACKAGE_BLUEZ_ALSA=y
+# ZyperOS's equalizer for ports: a LADSPA plugin alsa-lib's ladspa PCM runs
+# (launch.sh, while the equalizer is on)
+BR2_PACKAGE_ZYPEROS_EQ=y
 
 # Libraries ZyperOS and Diatom load, as on the Pixel: SDL2_image with PNG and
-# JPEG, SDL2_ttf, sqlite, zlib, FFmpeg for Muse
+# JPEG, SDL2_ttf, sqlite, zlib, FFmpeg for MP4
 BR2_PACKAGE_SDL2_IMAGE=y
 BR2_PACKAGE_LIBPNG=y
 BR2_PACKAGE_JPEG=y
@@ -91,8 +96,10 @@ BR2_PACKAGE_ZLIB=y
 BR2_PACKAGE_FFMPEG=y
 BR2_PACKAGE_FFMPEG_SWSCALE=y
 # BR2_PACKAGE_FFMPEG_FFMPEG is not set
+# dav1d, for MP4's AV1 videos, as on the Pixel 2 (board/zyperos/zyperos.config)
+BR2_PACKAGE_DAV1D=y
 
-# ZyperOS (the launcher and Muse) and Diatom, built for the Brick from their
+# ZyperOS (the launcher and MP4) and Diatom, built for the Brick from their
 # own repositories
 BR2_PACKAGE_ZYPEROS=y
 BR2_PACKAGE_DIATOM=y

@@ -5,17 +5,17 @@
 #include <stdbool.h>
 
 /* Fifteen systems on 2026-11-03, with the Atari 2600, Atari 7800, Game &
- * Watch and arcade shelves, and Favorites and Muse added at runtime: 17, one
+ * Watch and arcade shelves, and Favorites and MP4 added at runtime: 17, one
  * past the 16 this was. Every one of those adds stops at the cap, so whichever
  * came last would have been left off the shelf with at most a line in the
  * log. 24 leaves room for Ports and the PlayStation and DS shelves on their
  * way. 12 was exact once too.
  *
  * And 24 was exact again on 2026-11-03: Neo Geo, Sega CD, 32X, Neo Geo CD
- * and PICO-8 made 23 rows, 25 with Favorites and Muse, so PICO-8 and Arcade
+ * and PICO-8 made 23 rows, 25 with Favorites and MP4, so PICO-8 and Arcade
  * would have fallen off the end. 32 leaves room for the next few.
  * The next few were thirteen: ROGUE OS's other systems on 2026-11-04 made 37
- * rows, 39 with Favorites and Muse. 48 again leaves room. */
+ * rows, 39 with Favorites and MP4. 48 again leaves room. */
 #define CFG_MAX_SYSTEMS 48
 #define CFG_STR 256
 /* A shelf's disc bios names (the Saturn's and the ColecoVision's are three)
@@ -70,6 +70,15 @@ typedef struct {
 	 * `firmware|name|bytes` line names it. src/biosfile.h says a file of
 	 * another size is not one the core can start. */
 	unsigned bios_bytes[CFG_BIOS_NAMES][CFG_BIOS_SIZES];
+	/* Firmware the files of some types need on a shelf whose other games
+	 * need none: the Famicom Disk System's BIOS, disksys.rom, for an .fds
+	 * image on the NES shelf, where a cartridge runs without it. From a
+	 * `bios|tag|names|extensions` line: the names as disc_bios's, with its
+	 * commas, and the types they are for, as the sys line's extensions.
+	 * Empty when the shelf has none. The sizes as bios_bytes's. */
+	char type_bios[CFG_STR];
+	char type_exts[CFG_STR];
+	unsigned type_bios_bytes[CFG_BIOS_NAMES][CFG_BIOS_SIZES];
 	/* How much clock its games get: "light" or "medium" caps the CPU, the
 	 * memory and the GPU for a system measured to keep its speed under that
 	 * ceiling, empty is full. From a `power|tag|level` line; sent to Diatom
@@ -92,6 +101,11 @@ typedef struct {
 	 * (plat_gpu_frames), and its games refused there with the reason. From
 	 * a `needs|tag|gpu-frames` line. */
 	bool needs_gpu_frames;
+	/* A frame that starts late is run undrawn, at 1x too, where the core can
+	 * leave a frame's drawing out (Diatom's RUN frameskip=late): the PSP's.
+	 * From a `frameskip|tag|late` line; the DS has it with its two screens,
+	 * without a line. Any other word is no line. */
+	bool late_skip;
 	/* The buttons, where this system's core reads the pad its own way: a
 	 * Diatom map (`a:b,b:a`, the SETMAP form), applied after RUN and
 	 * joined with the system's turbo. Empty is the pad as it is. From a
@@ -125,6 +139,13 @@ typedef struct {
 	 * shelf_folder_choose). What a system IS to the tables keyed on
 	 * ZyperOS's names, libretro's and ScreenScraper's, goes by this. */
 	char home[CFG_STR];
+	/* A "run:" core of this shelf that runs files the player brings, which
+	 * ZyperOS never ships (your PICO-8), and those files, under the card,
+	 * comma separated: from a `brings|tag|core|paths` line. The core counts
+	 * as on the card only with each of them there (src/main.c, core_ready).
+	 * Empty for a shelf with none. */
+	char brings_core[CFG_STR];
+	char brings[160];
 } system_cfg;
 
 typedef struct {
@@ -154,13 +175,18 @@ int cfg_name_cmp(const char *a, const char *b);
 void cfg_sort_systems(systems_cfg *s);
 
 /* The RUN keys for a game on `s`, tab separated, into `out`: a two-screen
- * game's (`dual`) screens=2 and frameskip=, `frameskip` the DS shelf's When
- * Slow ("late", or "steady"; NULL is late, src/dsslow.h), then power=,
- * controller= and rumble=, and on a system with a Timing row pace=, `pace`
- * the player's choice ("smooth" or "exact"; NULL or another word is the
- * system's own, src/pacing.h) */
-void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, const char *pace,
-                  char *out, int cap);
+ * game's (`dual`) screens=2 and frameskip=late (a frame that starts late is
+ * run undrawn, so the game keeps its speed: always, since 1.0.6's When Slow
+ * row went, Tarik 2026-11-17), then power=, controller= and rumble=, and on a
+ * system with a Timing row pace=, `pace` the player's choice ("smooth" or
+ * "exact"; NULL or another word is the system's own, src/pacing.h) */
+void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap);
+/* The same with the motor's share given, in percent of what the core asks
+ * (src/rumble.h's rumble_run_pct: the player's Rumble level times the
+ * system's share): rumble= when it is under 100, rumble=0 for Off.
+ * cfg_run_keys is this with the system's share alone. */
+void cfg_run_keys_at(const system_cfg *s, bool dual, const char *pace, int rumble,
+                     char *out, int cap);
 
 /* How many cores `s` lists, and the i-th of them into `out` (false past the
  * end). A system with one core lists one. */

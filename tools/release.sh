@@ -16,7 +16,11 @@
 #                               were built from main as GitHub has it now (or
 #                               from a commit before it that only lacked the
 #                               notes' Tested on lines) and still match their
-#                               SHA256SUMS
+#                               SHA256SUMS. If main has gone on since the
+#                               build (build tooling, say), run it on a branch
+#                               of the built commit whose only change is the
+#                               Tested on lines: that branch is the release,
+#                               and it goes into main after
 #
 # Both --publish forms refuse a release whose notes lack a "Tested on <id>:"
 # line for any device in config/devices (tools/release-devices.sh tested,
@@ -40,6 +44,18 @@
 #                               only reads the latest. Nothing goes to
 #                               Discord's #releases: a kit's testers get it
 #                               in its own thread.
+#
+# A release (not a kit) also carries QEMU's image of it,
+# ZyperOS-v<VERSION>-qemu.tar.xz (plastron's make release-qemu, built after
+# the devices' images, from empty, with no SSH key in it), and
+# ZyperOS-v<VERSION>-qemu-sources.tar, the sources of what only the QEMU
+# image has (px2sim, the kernel's and U-Boot's QEMU configuration; the rest
+# are the Pixel 2's sources tar's, which tools/qemu-sources-check.sh makes
+# sure of), their sha256 in SHA256SUMS: tools/qemu-run.sh fetch downloads the latest release's, so the
+# Simulator runs without plastron's build (docs/qemu.md). --no-qemu leaves
+# it out, and fetch then finds none in that release. Before publishing,
+# ZYPEROS_QEMU_RELEASE_URL=file://$PWD/out/release/v<VERSION>
+# tools/qemu-run.sh fetch takes it as it would the release's.
 #
 # Both --publish forms end by waiting for GitHub to publish the release, then
 # post its notes in the Discord's #releases channel (tools/discord-release.py,
@@ -104,11 +120,13 @@ UPDATE_KEY=${ZYPEROS_UPDATE_KEY:-$HOME/.config/zyperos/update-signing-key.pem}
 PUBLISH=0
 BUILT=0
 KIT=
-usage() { echo "usage: tools/release.sh [--kit IDS] [--publish | --publish-built]" >&2; exit 2; }
+QEMU=1
+usage() { echo "usage: tools/release.sh [--kit IDS] [--no-qemu] [--publish | --publish-built]" >&2; exit 2; }
 while [ $# -gt 0 ]; do
 	case $1 in
 	--publish) PUBLISH=1 ;;
 	--publish-built) PUBLISH=1; BUILT=1 ;;
+	--no-qemu) QEMU=0 ;;
 	--kit) [ $# -ge 2 ] && [ -n "$2" ] || usage; KIT=$2; shift ;;
 	*) usage ;;
 	esac
@@ -127,6 +145,20 @@ if [ -n "$KIT" ]; then
 	RELEASE_FILES=
 	for d in $DEVICES; do RELEASE_FILES="$RELEASE_FILES $(image $d) $(sources $d)"; done
 fi
+# QEMU's image of the release (see the top): none in a kit, which fetch never
+# takes (it reads the latest release)
+qemu_image() { echo "ZyperOS-$TAG-qemu.tar.xz"; }
+qemu_sources() { echo "ZyperOS-$TAG-qemu-sources.tar"; }
+QEMU_FILES="Image sdcard.img u-boot.bin "
+[ -z "$KIT" ] || QEMU=0
+[ $QEMU = 0 ] || RELEASE_FILES="$RELEASE_FILES $(qemu_image) $(qemu_sources)"
+# Its sources and the Pixel 2's together hold every package's (in $OUT)
+qemu_sources_check() {
+	[ -s "$(qemu_sources)" ] || stop "no $(qemu_sources)"
+	[ -s "$(sources pixel2)" ] || stop "the QEMU image's sources go with the Pixel 2's, and there is no $(sources pixel2)"
+	sh "$ROOT/tools/qemu-sources-check.sh" "$(qemu_sources)" "$(sources pixel2)" ||
+		stop "$(qemu_image)'s packages lack sources (tools/qemu-sources-check.sh)"
+}
 
 say() { printf '\n== %s\n' "$*"; }
 stop() { echo "release.sh: $*" >&2; exit 1; }
@@ -137,10 +169,11 @@ publish() {
 	# A draft first, with the image on it: the tag's workflow adds the installer
 	# to this release and publishes it, and refuses a tag with no draft waiting
 	[ $UPDATES = 0 ] || [ -n "$UPDATE_FILES" ] || stop "the update list is not signed"
-	# A kit's commit is on no branch GitHub has: the draft names main, and
-	# the tag, pushed before the workflow publishes it, is what it is made from
+	# A kit's commit, or a branch of the built commit with its Tested on lines,
+	# is on no branch GitHub has: the draft names main, and the tag, pushed
+	# before the workflow publishes it, is what it is made from
 	TARGET=$HEAD
-	[ -z "$KIT" ] || TARGET=main
+	git merge-base --is-ancestor "$HEAD" origin/main 2>/dev/null || TARGET=main
 	gh release create "$TAG" --repo $REPO --draft $PRERELEASE --target "$TARGET" --title "ZyperOS $VERSION" \
 		--notes-file "$ROOT/$NOTES" $RELEASE_FILES $UPDATE_FILES SHA256SUMS
 	cd "$ROOT"
@@ -149,6 +182,8 @@ publish() {
 	echo
 	echo "The draft is up and $TAG is pushed. GitHub now builds ZyperOS Installer and publishes the release:"
 	echo "  https://github.com/$REPO/actions/workflows/release.yml"
+	[ -n "$KIT" ] || [ "$TARGET" = "$HEAD" ] ||
+		echo "$TAG is $(git rev-parse --short HEAD), which main doesn't have yet: push its branch and merge it into main, for its Tested on lines"
 	if [ -n "$KIT" ]; then
 		echo "A test kit: nothing goes to #releases. Its page, for the kit's thread: https://github.com/$REPO/releases/tag/$TAG"
 		return 0
@@ -203,7 +238,9 @@ if [ $PUBLISH = 1 ]; then
 	if [ -n "$KIT" ]; then
 		kit_change
 	else
-		[ "$HEAD" = "$(git rev-parse origin/main)" ] ||
+		# --publish-built checks a branch of the built commit below, once it
+		# knows that commit
+		[ "$HEAD" = "$(git rev-parse origin/main)" ] || [ $BUILT = 1 ] ||
 			stop "a release is made from main as GitHub has it: this is $(git rev-parse --short HEAD), origin/main is $(git rev-parse --short origin/main)"
 	fi
 	[ -f "$NOTES" ] || stop "write the release notes in $NOTES and commit them first"
@@ -216,6 +253,12 @@ if [ $PUBLISH = 1 ]; then
 	! gh release view "$TAG" --repo $REPO >/dev/null 2>&1 || stop "$REPO already has a $TAG release (a draft counts)"
 fi
 [ -d "$VENDOR/cores" ] || stop "no cores in $VENDOR/cores (ZYPEROS_VENDOR)"
+# The small cores ZyperOS builds rather than fetches (mk/build-small-cores.sh):
+# one that systems.cfg names and $VENDOR lacks is built into it now, not left
+# for mk/payload.sh to refuse an hour in; with none missing this only looks.
+# --publish-built builds nothing, so it needs none
+[ $BUILT = 1 ] || ZYPEROS_VENDOR="$VENDOR" sh mk/build-small-cores.sh --missing ||
+	stop "mk/build-small-cores.sh could not build the small cores $VENDOR lacks"
 # The patched cores against their stamps now, not an hour into the build,
 # where mk/payload.sh asks the same (mk/core-stamp.sh)
 sh mk/core-stamp.sh check "$VENDOR" || stop "a patched core in $VENDOR is stale or unstamped"
@@ -270,8 +313,16 @@ if [ $BUILT = 1 ]; then
 		git merge-base --is-ancestor "$BUILT_HEAD" "$HEAD" 2>/dev/null &&
 			[ "$(git diff --name-only "$BUILT_HEAD" "$HEAD")" = "$NOTES" ] &&
 			[ "$(untested "$BUILT_HEAD")" = "$(untested "$HEAD")" ] ||
-			stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM"); since then more changed than $NOTES's Tested on lines, so build again"
-		echo "release.sh: built from $(git rev-parse --short "$BUILT_HEAD"); main since has only $NOTES's Tested on lines"
+			stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM"); since then more changed than $NOTES's Tested on lines, so build again, or run this on a branch of $(git rev-parse --short "$BUILT_HEAD") that adds only them"
+		echo "release.sh: built from $(git rev-parse --short "$BUILT_HEAD"); since then only $NOTES's Tested on lines"
+	fi
+	# Main may have gone on since the build (build tooling, say): the release
+	# is then a branch of the built commit, which must be main's, as GitHub has
+	# it, and the branch goes into main after
+	if [ -z "$KIT" ] && [ "$HEAD" != "$(git rev-parse origin/main)" ]; then
+		git merge-base --is-ancestor "$BUILT_HEAD" origin/main 2>/dev/null ||
+			stop "a release is made from main as GitHub has it: $(git rev-parse --short "$BUILT_HEAD"), which $OUT was built from, is not on origin/main"
+		echo "release.sh: main has gone on to $(git rev-parse --short origin/main); this release is $(git rev-parse --short "$BUILT_HEAD") as built, on its own branch"
 	fi
 	cd "$OUT"
 	shasum -a 256 -c SHA256SUMS > /dev/null || stop "a file in $OUT no longer matches SHA256SUMS"
@@ -287,6 +338,14 @@ if [ $BUILT = 1 ]; then
 			UPDATE_FILES="$UPDATE_FILES $f"
 		done
 	done
+	if [ $QEMU = 1 ]; then
+		for f in $(qemu_image) $(qemu_sources); do
+			awk -v f="$f" '$2 == f { found = 1 } END { exit !found }' SHA256SUMS ||
+				stop "$OUT's SHA256SUMS has no $f (--no-qemu publishes without it)"
+		done
+		xz -t "$(qemu_image)"
+		qemu_sources_check
+	fi
 	publish
 	exit 0
 fi
@@ -333,6 +392,19 @@ for d in $DEVICES; do
 		GET="$GET $1 $2.unsigned $3 $4.unsigned"
 	fi
 done
+# QEMU's image after the devices', never beside them: since Mesa 26 the
+# Pixel 2's build and QEMU's each build the host's LLVM and clang, and the
+# two at once run Docker's 16 GB VM out of memory. Its log beside $OUT
+QEMU_LOG=$ROOT/out/release/$TAG-qemu.log
+if [ $QEMU = 1 ]; then
+	mkdir -p "$ROOT/out/release"
+	say "QEMU's image: plastron's release build, from empty (its log: $QEMU_LOG)"
+	date
+	make -C "$PLASTRON" release-qemu VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR" \
+		> "$QEMU_LOG" 2>&1 ||
+		{ tail -30 "$QEMU_LOG"; stop "QEMU's image did not build (its log: $QEMU_LOG); --no-qemu releases without it"; }
+	GET="$GET $(qemu_image) $(qemu_sources)"
+fi
 rm -rf "$OUT"
 mkdir -p "$OUT"
 docker run --rm -v plastron-work:/work -v "$OUT":/out --user root plastron-builder \
@@ -368,6 +440,14 @@ for d in $DEVICES; do
 		sign_list "$3" "$4"
 	fi
 done
+# QEMU's image: exactly what tools/qemu-run.sh fetch takes
+if [ $QEMU = 1 ]; then
+	[ -s "$(qemu_image)" ] || stop "plastron's release-qemu didn't make $(qemu_image)"
+	xz -t "$(qemu_image)"
+	[ "$(tar -tf "$(qemu_image)" | LC_ALL=C sort | tr '\n' ' ')" = "$QEMU_FILES" ] ||
+		stop "$(qemu_image) holds other files than $QEMU_FILES, which fetch takes"
+	qemu_sources_check
+fi
 shasum -a 256 $RELEASE_FILES $UPDATE_FILES > SHA256SUMS
 printf 'ZyperOS %s (%s), plastron/ included\n' "$VERSION" "$HEAD" > BUILT-FROM
 cat SHA256SUMS
@@ -376,6 +456,7 @@ ls -l
 if [ $PUBLISH = 0 ]; then
 	echo
 	echo "Built in $OUT. Nothing was published: tools/release.sh ${KIT:+--kit \"$KIT\" }--publish does that."
+	[ $QEMU = 0 ] || echo "QEMU's image as fetch takes it: ZYPEROS_QEMU_RELEASE_URL=file://$OUT tools/qemu-run.sh fetch"
 	exit 0
 fi
 publish

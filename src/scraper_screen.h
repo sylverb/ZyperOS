@@ -18,5 +18,54 @@ menu_result snaps_screen(app *a);
 
 /* --rows-report: Video Snaps' rows (menu_rows_print) */
 void snaps_rows_report(app *a);
+/* A run that ended behind the screens (src/dlq.h): the shelves take its
+ * names, covers and snaps, on the shelf's own pass */
+void scraper_after_run(app *a);
+
+/* For the Downloads page (src/dl_screen.h): the kinds a run gets, and what
+ * the page's plan counts with them in - covers to look for, videos to get,
+ * names to look up, the room and the time it takes (the page's own
+ * estimates), the systems whose switch is on, and whether it can run
+ * (a network, the room). scraper_run starts the page's run with them, as
+ * its A does; false when there is nothing to fetch, no network or no room. */
+typedef struct { bool covers, videos, names; } scraper_kinds;
+typedef struct {
+	int covers, videos, names, looks;
+	int cov_systems, vid_systems;
+	double bytes, secs;
+	bool net, ss_in, fits;
+} scraper_counts;
+void scraper_plan_of(app *a, scraper_kinds k, scraper_counts *out);
+bool scraper_run(app *a, scraper_kinds k);
+/* One system's count, as the page counts it (a's i-th system; false for a
+ * system with no games to count): its games, covers missing, video snaps
+ * to get by Videos For, names to look up and names it has, what its videos
+ * take on the card, and its switches. A directory read or two and a look at
+ * the library's titles: the Downloads page counts a system a frame, after
+ * scraper_count_begin. `box_art` counts the covers whatever the switch. */
+#include "artscrape.h"
+#include "snaps.h"
+typedef struct {
+	int  games, miss, names, named, nvideos, ncovers;
+	int  vneed[SNAPS_FOR_COUNT], both[SNAPS_FOR_COUNT];
+	unsigned long long vroom, cover_bytes;   /* cover_bytes: ncovers' bytes, a sample */
+	bool cov, vid, ss_named;
+} scraper_sys_count;
+void scraper_count_begin(void);
+bool scraper_count_sys(app *a, int i, bool box_art, bool ss_in, long long now, scraper_sys_count *out);
+/* The run on `cfg`'s systems (`only` a console's folder, or NULL), with the
+ * kinds `k`; `covers` the covers it looks for (the corner's ring);
+ * `names_rule` which systems get names (NULL: the covers' switch). False
+ * when it could not start. What the last run did, as it ended; the covers
+ * the running one looks for. */
+bool scraper_start_run(app *a, scraper_kinds k, const systems_cfg *cfg, const char *only, int covers,
+                       bool (*names_rule)(const char *folder));
+void scraper_last(art_progress *out);
+int  scraper_run_total(void);
+/* Names and Details (Settings): the same switch as the page's */
+bool scraper_names_on(void);
+void scraper_names_set(bool on);
+/* A time as the page says one: "12 min", "1 h 20 min" */
+void scraper_time_text(double secs, char *out, size_t n);
 
 #endif

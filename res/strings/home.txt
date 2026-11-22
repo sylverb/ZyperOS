@@ -57,6 +57,28 @@ de = Zuletzt
 ja = 最近
 it = Recenti
 
+[home.collections]
+note = The Collections group's name on the home: the player's own lists of games (after Favorites and Recents)
+en = Collections
+zh-Hans = 合集
+es = Colecciones
+pt-BR = Coleções
+fr = Collections
+de = Sammlungen
+ja = コレクション
+it = Raccolte
+
+[home.screenshots]
+note = The Screenshots group's name on the home: the Screenshot hotkey's pictures (after Collections). tight: a Grid tile's name under a 104-unit picture
+en = Screenshots
+zh-Hans = 截图
+es = Capturas
+pt-BR = Capturas
+fr = Captures
+de = Screenshots
+ja = スクショ
+it = Screenshot
+
 [home.system]
 note = A system's name on the home when it has none of its own
 en = System

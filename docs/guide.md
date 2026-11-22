@@ -12,13 +12,13 @@ the reasons behind them.
 - [Controls and menus](#controls-and-menus), [Scraper](#scraper), [Achievements](#achievements), [Screensaver](#screensaver), [Date & Time](#date--time), [Shaders](#shaders) and [in a game](#in-a-game)
 - [Languages](#languages), [Light and dark](#light-and-dark), [Screen Colors and Night Mode](#screen-colors-and-night-mode), [Battery and power](#battery-and-power) and [Rumble](#rumble)
 - [File transfer](#file-transfer), [System Update](#system-update) and [PortMaster](#portmaster)
-- [Changing discs](#changing-discs), [Player 2](#player-2), [Audio](#audio) and [MP4](#mp4)
+- [Changing discs](#changing-discs), [Player 2](#player-2), [Audio](#audio), [Equalizer](#equalizer) and [MP4](#mp4)
 - [The shelf](#the-shelf), [Delete Game](#delete-game), [Storage](#storage), [Ports](#ports) and [Coming from EmulationStation](#coming-from-emulationstation)
 - [Questions](#questions), [How it compares](#how-it-compares) and [Screens](#screens)
 
 ## Installing
 
-ZyperOS 1.0.6 is out for the GKD Pixel 2 and, for the first time, the TrimUI Brick, released in November 2026. [The latest release](https://github.com/tarikbc/ZyperOS/releases/latest) on GitHub has the card images and [ZyperOS Installer](../installer/) for macOS, Windows and Linux. On the Brick, the installer also adds the closed files its graphics and Wi-Fi need, which ZyperOS does not pass on, so install the Brick with the installer, not an image writer. The consoles whose cores draw with the GPU (Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn) are hidden on the Brick for now.
+ZyperOS 1.1.0 is out for the GKD Pixel 2 and the TrimUI Brick, released in November 2026. [The latest release](https://github.com/tarikbc/ZyperOS/releases/latest) on GitHub has the card images and [ZyperOS Installer](../installer/) for macOS, Windows and Linux. On the Brick, the installer also adds the closed files its graphics and Wi-Fi need, which ZyperOS does not pass on, so install the Brick with the installer, not an image writer.
 
 1. **Write the card.** Download ZyperOS Installer for your computer from [the latest release](https://github.com/tarikbc/ZyperOS/releases/latest): the `.zip` for macOS, the `.exe` for Windows, the `.deb` or `.rpm` for Linux. Put the microSD card in the computer, pick the GKD Pixel 2 or the TrimUI Brick, the latest release and the card, then choose **Fresh install**, which erases the card. For the Pixel 2, you can also download the card image, `ZyperOS-v<version>-pixel2.img.xz`, and write it with any program that writes disk images, like Raspberry Pi Imager. The Brick needs the installer, which adds its closed files ([on the TrimUI Brick](#the-trimui-brick)).
 2. **Put the card in the handheld and turn it on.** The first start sets the card up in about a minute, turning the rest of it into space for games, music and saves. Every boot after that comes straight up, and the first one ends with [the tutorial](#the-first-start). If it ever stops partway, the card's PX2BOOT drive has `zyperos-setup.txt`, a record of what it did: send it to me in [an issue](https://github.com/tarikbc/ZyperOS/issues).
@@ -152,8 +152,8 @@ From 1.0.6, ZyperOS runs on a second handheld, the TrimUI Brick (TG3040), drawn 
 
 - **Install it with ZyperOS Installer.** Pick **TrimUI Brick**. The Brick's graphics and Wi-Fi need closed files made for its chips (Imagination's GPU driver and XRadio's Wi-Fi firmware), which ZyperOS does not pass on, so the installer downloads them from where they are published, Creality's Sonic Pad SDK on GitHub, checks each one, and puts them only on your card. An image writer gives the card none of them, so use the installer.
 - **Wi-Fi is built in,** so File Transfer, box art, achievements and System Update need no adapter.
-- **The 3D systems are hidden for now:** Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the GPU. They come once those cores run on the Brick's graphics chip.
-- **Not there yet:** PortMaster's ports, Flash Drive, Screen Colors, the old-screen shaders (CRT, CRT Curved, Scanlines and LCD Grid; Sharp-Shimmerless is there), NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
+- **There since 1.1.0:** the Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the Brick's graphics chip; the old-screen [shaders](#shaders), in games and on ZyperOS's own screens; Border's Blur; [Screen Colors and Night Mode](#screen-colors-and-night-mode); and [Flash Drive](#plugging-into-a-computer), with the question a computer's cable asks.
+- **Not there yet:** PortMaster's ports, your own PICO-8 and Splore (FAKE-08 plays the carts), rumble in games, NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
 - **The Brick Hammer** runs the same card, but nobody has tried one yet. The Brick Pro isn't supported yet.
 
 I don't have a Brick myself: players on [the ZyperOS Discord](https://discord.gg/Ust8sE22Tm) test it for me. If you have one, your logs help a lot (**Download logs** on File Transfer's page, or the card's `.userdata/brick/logs`).
@@ -174,7 +174,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | MSX2 | `Roms/MSX2` | `.rom` `.mx1` `.mx2` `.dsk` `.cas` `.zip` | blueMSX |
 | Atari 7800 | `Roms/Atari 7800` | `.a78` `.bin` `.zip` | ProSystem |
 | Master System | `Roms/Master System` | `.sms` `.zip` | Genesis Plus GX |
-| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA |
+| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA, or Gambatte |
 | Genesis | `Roms/Genesis` | `.md` `.gen` `.bin` `.smd` `.zip` | Genesis Plus GX |
 | TurboGrafx-16 and CD | `Roms/TurboGrafx-16` | `.pce` `.sgx` `.cue` `.ccd` `.chd` `.toc` `.m3u` `.zip` | Beetle PCE Fast |
 | Atari Lynx | `Roms/Atari Lynx` | `.lnx` `.o` `.zip` | Handy |
@@ -191,7 +191,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | Neo Geo CD | `Roms/Neo Geo CD` | `.chd` `.cue` | NeoCD |
 | Nintendo 64 | `Roms/Nintendo 64` | `.n64` `.z64` `.v64` `.zip` | ParallelN64, or Mupen64Plus-Next |
 | Neo Geo Pocket | `Roms/Neo Geo Pocket` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
-| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA |
+| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA, or Gambatte |
 | WonderSwan | `Roms/WonderSwan` | `.ws` `.wsc` `.zip` | Beetle WonderSwan |
 | Neo Geo Pocket Color | `Roms/Neo Geo Pocket Color` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
 | Dreamcast | `Roms/Dreamcast` | `.chd` `.cdi` `.gdi` `.cue` | flycast2021, or Flycast if you add it |
@@ -203,7 +203,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | OpenBOR | `Roms/OpenBOR` | `.pak` | OpenBOR |
 | Nintendo DS | `Roms/Nintendo DS` | `.nds` `.zip` | DSperate |
 | PSP | `Roms/PSP` | `.iso` `.cso` `.chd` `.pbp` | PPSSPP |
-| PICO-8 | `Roms/PICO-8` | `.p8` `.png` | FAKE-08 |
+| PICO-8 | `Roms/PICO-8` | `.p8` `.png` | Your own PICO-8 ([how](#pico-8)), or FAKE-08 |
 | TIC-80 | `Roms/TIC-80` | `.tic` `.png` | TIC-80 |
 | Arcade | `Roms/Arcade` | `.zip` `.7z` | FinalBurn Neo |
 | MAME | `Roms/MAME` | `.zip` | MAME 2003-Plus |
@@ -215,7 +215,7 @@ EmulationStation's folder names work too, as they are: `nds`, `gba`, `psx`, `meg
 
 ### BIOS files
 
-BIOS files go loose in `Bios/`. TurboGrafx-CD games need `syscard3.pce` and PlayStation games `scph5501.bin`. Sega CD games need `bios_CD_U.bin`, and a European or Japanese disc `bios_CD_E.bin` or `bios_CD_J.bin` as well. Neo Geo CD games need the Neo Geo CD BIOS in a folder of its own, `Bios/neocd/neocd.bin`. The 32X needs no BIOS. A multi-disc PlayStation game goes in a folder of its own with an `.m3u` listing its discs; in the game, **MENU > Disc** (on the Game tab, under Quick Slot) changes the disc. Game Boy Advance runs without its BIOS; add `gba_bios.bin` if you want the original boot animation. The Atari 7800 runs without one too; add `7800 BIOS (U).rom` for the Atari logo at start. The Dreamcast, NAOMI and Atomiswave need their BIOS in `Bios/dc/`: `dc_boot.bin`, `naomi.zip` and `awbios.zip`. The 3DO needs `panafz10.bin` and the Lynx `lynxboot.img`; the Atari 5200 and the Pokémon Mini run without theirs (`5200.rom`, `bios.min`). MSX2 games need blueMSX's `Machines` and `Databases` folders in `Bios/`. Saturn games need the Saturn's BIOS, `saturn_bios.bin` (or `sega_101.bin` or `mpr-17933.bin`). ColecoVision games need the ColecoVision's BIOS, `coleco.rom` (or `colecovision.rom` or `os7.u2`): without it the shelf says so under the game. A BIOS file of the wrong size, such as an empty or cut-short copy, is named under the game with the size it should be ("Bios/saturn_bios.bin is 0 bytes; it should be 512 KB"), instead of a black screen. When a good copy under one of its other names is there too, the shelf tells you to delete the bad one. The PSP and the SG-1000 need no BIOS.
+BIOS files go loose in `Bios/`. TurboGrafx-CD games need `syscard3.pce` and PlayStation games `scph5501.bin`. Sega CD games need `bios_CD_U.bin`, and a European or Japanese disc `bios_CD_E.bin` or `bios_CD_J.bin` as well. Neo Geo CD games need the Neo Geo CD BIOS in a folder of its own, `Bios/neocd/neocd.bin`. The 32X needs no BIOS. A multi-disc PlayStation game goes in a folder of its own with an `.m3u` listing its discs; in the game, **MENU > Disc** (on the Game tab, under Quick Slot) changes the disc. Game Boy Advance runs without its BIOS; add `gba_bios.bin` if you want the original boot animation. The Atari 7800 runs without one too; add `7800 BIOS (U).rom` for the Atari logo at start. The Dreamcast, NAOMI and Atomiswave need their BIOS in `Bios/dc/`: `dc_boot.bin`, `naomi.zip` and `awbios.zip`. The 3DO needs `panafz10.bin` and the Lynx `lynxboot.img`; the Atari 5200 and the Pokémon Mini run without theirs (`5200.rom`, `bios.min`). MSX2 games need blueMSX's `Machines` and `Databases` folders in `Bios/`. Saturn games need the Saturn's BIOS, `saturn_bios.bin` (or `sega_101.bin` or `mpr-17933.bin`). ColecoVision games need the ColecoVision's BIOS, `coleco.rom` (or `colecovision.rom` or `os7.u2`): without it the shelf says so under the game. A Famicom Disk System game (an `.fds` file on the NES shelf) needs the Disk System's BIOS, `disksys.rom` (8 KB), while the NES's cartridges need nothing: without it the shelf says "Needs disksys.rom in Bios" under the game. In the game, **L1** turns the disk to its other side while it is out of the drive and **R1** puts it in or takes it out; a pop-up says which disk and side ("Disk 1 · Side B"). The Super Game Boy needs no BIOS (its row is in the Game Boy's menu, below). A BIOS file of the wrong size, such as an empty or cut-short copy, is named under the game with the size it should be ("Bios/saturn_bios.bin is 0 bytes; it should be 512 KB"), instead of a black screen. When a good copy under one of its other names is there too, the shelf tells you to delete the bad one. The PSP and the SG-1000 need no BIOS.
 
 A PC Engine CD will not start without `syscard3.pce`, and ZyperOS says so by name rather than letting the core refuse the disc. HuCards on the same shelf need nothing and are unaffected.
 
@@ -224,6 +224,8 @@ A PC Engine CD will not start without `syscard3.pce`, and ZyperOS says so by nam
 Nintendo DS runs on DSperate, which ZyperOS ships, with ZyperOS's own in-game menu. A game starts with the top screen alone. While it runs, DSperate gives its threads a core each, as its own frontend does, and the CPU stays at its top clock. On my Pixel 2, light scenes hold 60 frames a second, and a busy Mario Kart DS race drops to about 40: the game keeps its speed and sound, and the frames it cannot draw in time are left out. **L1** and **R1** are the DS's L and R. **L2** shows the other screen. **R2** shows the bottom screen and turns the stylus on: the d-pad moves a cursor and **A** touches. **R2** again turns the stylus off and goes back. The in-game menu's Display tab also has **Screens** (Single, Stacked or Top Focus), **Swap Screens** and **Stylus**. A DraStic save (`Saves/<game>.dsv`, from ROGUE OS or another system) is taken over the first time a game runs on DSperate. Encrypted ROM dumps need `bios7.bin`, `bios9.bin` and `firmware.bin` in `Bios/`. A DS game reads its language from the firmware, and a `firmware.bin` carries the language of the console it was dumped from, so ZyperOS tells DSperate which language to use with each game and leaves the file alone. **Game Language** in the console's menu, under **Core**, is **Auto** to start with (the language of **MENU > Language** where the DS has it, English where it doesn't, as Português (Brasil) and 简体中文 are not on a DS) or one of English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文 outright; 简体中文 is for the iQue DS's games, which are the only ones that have it. A game resumes where you left it only in the language it was left in: after a change of **Game Language** it starts fresh, in the new one, with a note that says why, and its battery save keeps your progress. A save state you load yourself keeps the language it was saved in, and **Reset** in the in-game menu starts the game again in the row's language.
 
 ### Arcade and Neo Geo
+
+A cartridge game can be zipped, one game a zip, as No-Intro sets come: ZyperOS unpacks its largest file, the game, whether the zip stores it, or compresses it with Deflate (every zip tool's usual way) or LZMA (7-Zip's option). A zip compressed with bzip2 or Zstandard is not read; the shelf says so under the game, and zipping it again with Deflate fixes it. Its saves are named after the zip, as before.
 
 Arcade games are ROM sets, one `.zip` per game, named the way FinalBurn Neo names it (`ssf2.zip` is Super Street Fighter II). Keep the name and keep the zip whole: the name says which game it is, and the core checks every chip inside. Vertical games such as 1941 are turned upright on their own. **Neo Geo games** are FinalBurn Neo sets too (`mslug.zip` is Metal Slug), and every one needs `neogeo.zip`, the Neo Geo's own BIOS set, in `Bios/` or beside the game.
 
@@ -241,7 +243,7 @@ J2ME games are the `.jar` files of the Java phones. They run on FreeJ2ME-Plus, w
 
 ### OpenBOR
 
-<img align="right" width="320" src="../res/readme/openbor.png" alt="The in-game menu over a paused OpenBOR game: Continue, Controls and Quit">
+<img align="right" width="320" src="../res/readme/openbor.png" alt="The in-game menu over a paused OpenBOR game: the Game tab, with Continue and Quit">
 
 OpenBOR games are modules, one `.pak` file each, run by OpenBOR itself rather than a libretro core. A module that came as a folder has to be packed into a `.pak` first. The Pixel 2 only. Its buttons, and the in-game menu over it, are under [Controls and menus](#controls-and-menus).
 
@@ -249,11 +251,34 @@ OpenBOR games are modules, one `.pak` file each, run by OpenBOR itself rather th
 
 ### Saturn
 
-Saturn games run on YabaSanshiro and need the Saturn's BIOS in `Bios/` (above). The Saturn is the most a Pixel 2 is asked to run: it runs some games, and not at full speed. Flicky's Flock, a homebrew game, ran at about 37 frames a second of 60.
+Saturn games run on YabaSanshiro and need the Saturn's BIOS in `Bios/` (above). The Saturn is the most a Pixel 2 is asked to run: it runs some games, and not at full speed. Flicky's Flock, a homebrew game, ran at about 37 frames a second of 60; Virtua Fighter 2, in its high-resolution mode, at about a third of its speed.
+
+The Saturn pad has six face buttons, A, B and C in a row with X, Y and Z over them, and L and R on top. Each face cap is the Saturn button it names (A, B, X, Y), **R1** is **C**, **L1** is **Z**, and L2 and R2 are the Saturn's L and R, as most Saturn emulators lay them out. In a game played on A, B and C, such as Virtua Fighter 2, the third one is on R1. The Controls tab in the game's menu changes any of them.
 
 ### PICO-8
 
-PICO-8 carts are `.p8` files or `.p8.png` images and run on FAKE-08, an open reimplementation: you don't need Lexaloffle's PICO-8.
+PICO-8 carts are `.p8` files or `.p8.png` images. Copy them into `Roms/PICO-8`. They run on FAKE-08, an open reimplementation, so you don't need Lexaloffle's PICO-8.
+
+**Your own PICO-8.** On the GKD Pixel 2, ZyperOS can also run the PICO-8 you bought from Lexaloffle. It plays every cart as PICO-8 does, and it adds **Splore**, PICO-8's online cart browser. ZyperOS never comes with PICO-8 and never downloads it: it is Lexaloffle's to sell, and you add your own copy. Every PICO-8 purchase includes the **PICO-8 for Raspberry Pi** download, `pico-8_<version>_raspi.zip` (0.2.7 is the newest). Only that zip has `pico8_64`, the build the handheld runs.
+
+There are two ways to add it:
+
+- **With ZyperOS Installer:** choose the zip in the installer's **PICO-8** group. **Update** and **Fresh install** add it with ZyperOS, and **Add PICO-8** adds it alone to a card that already has ZyperOS, with no password and no system write. The installer only reads the zip on your computer and copies two files to your card. It sends nothing anywhere and keeps no copy.
+- **By hand:** copy the zip as it comes, or its two files `pico8_64` and `pico8.dat`, into `Bios/PICO-8` on the card (with File Transfer, Computer Connected, or the card in a computer). At the next start, or after **Rescan**, ZyperOS takes the two files out of the zip and says so. Another zip there, such as the Windows one, gets a message that says it is not the Raspberry Pi zip.
+
+Once your PICO-8 is on the card:
+
+- **Carts open in it.** MENU on the PICO-8 shelf, **Core**, goes back to fake08 and forward again. FAKE-08 keeps save states, Resume and Undo Load; PICO-8 has no save states.
+- **Splore** is the PICO-8 shelf's first entry. It needs Wi-Fi to list and download carts. With Wi-Fi off, ZyperOS asks first: **Turn On Wi-Fi** joins your saved network, and **Open Offline** opens Splore with the carts it downloaded before. Its favourites stay in Splore.
+- **A cart's own saves** (high scores, progress) are one set for both players, in `Saves/cdata`, so you can switch players and keep them. PICO-8's settings and Splore's downloads are in `Saves/PICO-8`.
+- **The picture** follows the shelf's **Display** row, as FAKE-08's does: **Full Screen** fills the screen, **Original Shape** and **Square Pixels** fill its height (480 x 480), **Sharp Pixels** is three times PICO-8's 128 pixels (384 x 384), **Sharp Pixels, Zoomed** and **Fill, Edges Cut** fill its width and cut the top and the bottom, and **Actual Size** is 128 x 128. Until you pick a mode, your PICO-8 plays at **Original Shape**. **MENU** in a cart opens the same menu as in any game, with its **Game**, **Display** and **Controls** tabs (**L1** and **R1**), and only the rows that work over PICO-8. **Display** there is the mode: a new mode starts the cart again (play since its last save is lost), so ZyperOS asks first. **Border**, **Shader**, **Screen Colors** and **On-Screen Stats** are on that tab too, as in a game; **On-Screen Stats** shows the frames a second and the rest of its line over PICO-8, and the low-battery dot shows as over any game.
+- **Its buttons:** the d-pad is PICO-8's arrows, **B** its O button, **A** its X button, and **START** its own pause menu (its **shutdown** ends it). **MENU** opens ZyperOS's menu over it, and **X** there quits at once, from any tab. **MENU+START** held for a second goes back home, even when PICO-8 stops answering. The volume keys and **MENU+VOL** work as in any game, and **POWER** ends PICO-8 before the handheld turns off.
+- **Your own buttons:** the **Controls** tab over it gives each button what you choose, for this cart or every PICO-8 cart, as in any game. PICO-8 takes new buttons only as it starts, so when you go back to the cart with new buttons, ZyperOS asks to start it again: **Start Again** does it now (play since the cart last saved is lost), **Cancel** keeps them for the next start.
+- **Reset:** **MENU**, **Game** tab, **Reset** starts the cart again, after a question.
+- **Hotkeys:** the ones you set (SELECT and a button, in **MENU** > **System** > **Hotkeys** or **Controls** > **Hotkeys**) work over it too: **Screenshot** saves PICO-8's own 128 x 128 picture in `Screenshots/PICO-8`, and **Reset Game**, **Quit**, **Next Shader** and **Next Display** do what they do in a game. Quick Save, Quick Load, Faster and Slower do nothing, as PICO-8 has no save states. As in a game, the cart never sees a hotkey's buttons; SELECT alone still reaches it.
+- **Auto Off** turns the handheld off after its time with no button pressed, as in a game (not on the charger). Play since the cart last saved is lost.
+
+Before your PICO-8 is on the card, Splore shows **Not installed**, and **A** opens a page that says how to add it. The TrimUI Brick gets your own PICO-8 together with its ports ([the Brick](#the-trimui-brick)); until then its PICO-8 shelf plays on FAKE-08.
 
 ### PSP
 
@@ -307,6 +332,7 @@ Dreamcast games run on flycast2021, the 2021 libretro [Flycast](https://github.c
 | **SELECT+L1** (in game) | quick load: the state in the Quick Slot |
 | **SELECT+R2** (in game) | faster: 1.5x, 2x, 3x |
 | **SELECT+L2** (in game) | slower, a step a press, back to normal speed |
+| **SELECT + a button you choose** (in game) | your own hotkeys: Screenshot, Next Shader, Next Display, Reset Game and Quit, none until you set them in **Hotkeys** (below) |
 | **MENU** (inside any menu) | closes the whole menu, however deep in it you are. B goes back one screen |
 | **SELECT** | MP4, the music, audiobook and video player, from anywhere but a running game - the in-game menu included. Again to close it |
 | **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead. With **MENU > Power Button** on **Hold**, POWER has to be held for a second, and a press alone does nothing: a bar at the top of the screen fills while it is held, on the home, in a game and over a port |
@@ -356,8 +382,11 @@ list carries on past its end, while a held button stops at the end.
 few letters of its name, on any system. **Random Game** picks one and starts
 it, from every system in MENU or from one shelf in that system's menu.
 
-**MENU > Controls** lists the buttons on five pages.
-Left and right change the page, and the top right of each says which it is, "2 / 5". The pages cover movement, the shelf, games, MP4, and common controls.
+**MENU > Controls** lists the buttons on six pages, each drawn as your
+handheld prints it (the Pixel 2's round SE and ST keys, the Brick's square and
+play keys), with "+" for buttons held together and "," for one press after the
+other.
+Left and right change the page, and the top right of each says which it is, "2 / 6". The pages cover movement, the shelf, games, hotkeys, MP4, and common controls.
 The shelf always runs horizontally.
 
 **Changing a button.** The in-game menu's **Controls** tab (MENU in a game, then
@@ -401,34 +430,73 @@ need one. **D-pad as Stick**, On or Off for each game, makes the d-pad the
 left stick in Nintendo 64 games (On to start with), Dreamcast, PlayStation and
 PSP games. In a Nintendo 64 or Dreamcast game, SELECT then the d-pad is the
 system's own d-pad (the tab's SELECT row says "C buttons" or "Held: D-pad"). On
-the PSP, R2 in the game still turns it on and off, and the row agrees. A
+the PSP, R2 in the game turns it on and off, and the row agrees. A
 PlayStation game moves with the stick only in the pad's analog mode, which many
 games turn on themselves.
+
+On those four systems any button but SELECT can turn the d-pad too: give it
+**Stick On/Off**, and each press turns the d-pad into the stick and back (a
+pop-up says which, and the game keeps it), or **Stick While Held**, and the
+d-pad is the stick while you hold the button and the d-pad again when you let
+go (with D-pad as Stick on, the other way round). They are the last two of a
+button's choices. The PSP's R2 is Stick On/Off from the start; give it to
+another button, or make R2 something else.
+
+**Two buttons on one game button.** Giving a button what another button
+gives swaps the two, so nothing is lost by accident. To have both, open the
+button's list with A, move to the choice the other button gives, and press
+**Y** instead of A: the foot of the list says what each key does. Both rows
+then show the other button's small glyph after the value, and the handheld
+lights both. Give either row something else to undo it.
 
 **Face Buttons** (Dreamcast, Saturn and Neo Geo Pocket games) swaps all four
 faces at once: **By Letter**, each cap gives the button it names, or **By
 Place**, each cap gives the button in its place on the original pad. It reads
 Mixed after a change to one face.
 
-**Hotkeys**, the tab's last row, opens what you could always read here: what a
-system adds (the Nintendo 64's C buttons, hold SELECT and press X, A, B or Y,
-and which Pak is in; a DS game's two screens and the stylus), then SELECT
-with a shoulder, quick save and load, faster and slower, and under them
-"SELECT alone stays the game's", then the last page, In a game: MENU, MENU then X
-(Quit), volume, brightness and POWER. Left and right change the page, B goes
-back to the tab, and MENU goes back to the game.
+**Hotkeys.** Every hotkey is SELECT held and one more button, and you choose
+which: **MENU > System > Hotkeys** for every game, or the Controls tab's
+**Hotkeys** row in a game, where **Applies To** says This Game, the system or
+Every Game, as Changing a button does. Each row is an action and its buttons:
+**Quick Save** (SELECT+R1 to start with), **Quick Load** (SELECT+L1),
+**Faster** (SELECT+R2), **Slower** (SELECT+L2), and five that do nothing
+until you give them buttons: **Screenshot**, **Next Shader**, **Next
+Display**, **Reset Game** and **Quit**. Press A on a row, hold SELECT, press
+the button you want, and let go. If those buttons already do something else,
+ZyperOS asks whether to swap the two. Reset Game pauses and asks first, since
+a reset loses what you played since your last save. Quit leaves at once, and
+the game resumes where you left it next time. **Reset Hotkeys** puts them
+back. MENU+START, the way home, and POWER never change.
+
+A **screenshot** is the game's own picture, saved as a PNG in
+`Screenshots/<system>/` on the card, named after the game and the time; a
+pop-up shows it small, and the home's **Screenshots** group has it (see
+[Screenshots](#screenshots)). **Next Shader** and **Next Display** turn on the
+system's next shader or display mode and say which.
+
+The Hotkeys list's last row in a game, **All Controls**, opens what you could
+always read here: what a system adds (the Nintendo 64's C buttons, hold
+SELECT and press X, A, B or Y, and which Pak is in; a DS game's two screens
+and the stylus), then your hotkeys, and under them "SELECT alone stays the
+game's", then the last page, In a game: MENU, MENU then X (Quit), volume,
+brightness and POWER. Left and right change the page, B goes back, and MENU
+goes back to the game.
 
 **OpenBOR has the in-game menu too**, though it runs as a program of its
 own rather than a libretro core. MENU stops the game where it is and opens
-the menu over it with three rows: Continue, Controls and Quit. Controls lists
-OpenBOR's buttons (A attacks, B jumps, X is the second attack, Y the special,
-L1 and R1 the third and fourth, START pauses into OpenBOR's own menu, SELECT
-saves a screenshot) and then In a game, where POWER quits and turns the
-handheld off. OpenBOR keeps its own saves and has no save states, so there is
-no Save, Load or Reset. Quit ends the game and goes back to the shelf, and X
-does the same from any row, as in every in-game menu.
+the same menu as in any game, with its **Game**, **Display** and **Controls**
+tabs (**L1** and **R1**), and only the rows that work over OpenBOR. **Game**
+has Continue and Quit. **Display** has **Screen Colors**, as in a game;
+OpenBOR draws its own picture, so it has no Display mode, Shader or Border
+there. **Controls** has **All Controls**, which lists OpenBOR's buttons (A
+attacks, B jumps, X is the second attack, Y the special, L1 and R1 the third
+and fourth, START pauses into OpenBOR's own menu, SELECT saves a screenshot)
+and then In a game, where POWER quits and turns the handheld off. OpenBOR
+keeps its own saves and has no save states, so there is no Save, Load or
+Reset. Quit ends the game and goes back to the shelf, and X does the same
+from any tab, as in every in-game menu.
 The standalone Flycast, when a card has it for the Dreamcast, gets the same
-three rows. Its buttons are set in its own menus, so Controls there has only
+tabs. Its buttons are set in its own menus, so All Controls there has only
 the In a game page.
 
 **About ZyperOS has two pages**, changed with Left/Right. The first shows the
@@ -451,19 +519,21 @@ than any one console:
 | **Bluetooth** | the connected headset, or `Not connected` - pair, connect and forget |
 | **Audio Output** | `Auto` or `Speaker`, and where Auto landed - see **Audio** below |
 | **Audio Channels** | `Auto`, `Stereo`, `Mono`, `Mono left` or `Mono right` - see **Audio** below. `Auto` on a new device and after an upgrade |
+| **Equalizer** | the preset of the output in use, `Off` on a new card; **A** opens its page: the speaker's or the headphones' preset and five bands - see [Equalizer](#equalizer) |
+| **Rumble** | the Pixel 2: `Off`, `Low`, `Medium` or `Full` for every game, each step felt as you choose it - see [Rumble](#rumble). `Full` on a new card |
 | **Wi-Fi File Transfer** | the file server; needs Wi-Fi and says so when there is none. On the Pixel 2 with no network it says `Hotspot`, and makes the handheld its own network for a phone to join - see below. While a computer is on the USB cable it is **USB File Transfer** instead, at `http://zyperos.local`, or always at `10.55.0.2` on the Brick and `10.42.0.1` on the Pixel 2 |
 | **Date & Time** | the clock and the time zone, set with left and right - see below |
 | **Clock** | `12-hour` or `24-hour`, for the clock on the shelf and here. `12-hour` on a new device |
 | **Auto Off** | how long without a button before the device powers itself down. It waits while a long job runs (a scraper run, a System Update download, PortMaster's install, Storage measuring the card, files moving over File Transfer) and counts again from the start when the job ends. On the charger it does not power down; on the shelf the screen goes off instead, and any button (power too) lights it again. On USB File Transfer the screen goes off when nothing is moving, and only dims while files are on their way; a button, a browser coming to the page or files starting to move light it fully, and files keep moving while it is dark |
 | **Screensaver** | `Off`, `30s`, `1m`, `2m`, `5m` or `10m` with nothing pressed on the shelf before the video snaps of random games play over the whole screen, each with its game's name and system. START boots the game on screen; any other button goes back. `1m` on a new device. It never starts in a game, a menu, MP4 or File Transfer, while music plays or a long job runs, or under 20% on battery; on battery it ends by itself after 10 minutes, and Auto Off still powers the device off at its own time. With no video snaps on the card it shows covers instead, and with neither, nothing - see **Screensaver** below |
-| **Side Lights** | the Pixel 2 only: a page of switches for what the side lights show on their own, `Charging Bar`, `Low Battery`, `Volume and Brightness`, `Files and Covers` and `Achievements`, each `On` or `Off`, and the row under the cursor plays its pattern on the lights; the row says how many are on. L2+R2 shows the level in all four. `All on` on a new device |
+| **Side Lights** | the Pixel 2 only: a page of switches for what the side lights show on their own, `Charging Bar`, `Low Battery`, `Volume and Brightness`, `Files and Covers` and `Achievements`, each `On` or `Off`, and the row under the cursor plays its pattern on the lights; the row says how many are on, `All on` only when every part is. L2+R2 shows the level in all four. `5 on` on a new device (Battery Level starts off) |
 | **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
-| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
-| **Appearance** | `Light` or `Dark`. `Light` on a new device and after an upgrade; a handheld that had `Auto` keeps the one it showed when it updated. Night Mode, on the Pixel 2, warms the screen by the hours instead - see [Screen Colors and Night Mode](#screen-colors-and-night-mode) |
-| **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded` and Zyper `On` on a new device and after an upgrade |
+| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last), Collections (once you have one), Screenshots (once you have one) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game and Search; its games stay on Favorites, Recents, Collections and the card. The last system on stays on |
+| **Appearance** | `Light`, `Dark` or `Auto`, which is dark in Night Mode's hours (**Night From** to **Until**, 9:00 PM to 7:00 AM to start) and light the rest of the day. `Light` on a new device. A handheld that had `Auto` in 1.0.5 keeps it, on the hours it had; one that 1.0.6 turned to `Light` or `Dark` keeps that - see [Light and dark](#light-and-dark) |
+| **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Highlight**, **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. **Highlight** is how the game or system in focus is marked on the home and the shelves: `Bar` (it grows a little, a short bar under it), `Border` (a ring in the accent round it), `Lift` (it rises on a soft shadow) or `None` (it grows, nothing else); in each, the others step back a little. Its list shows three of your systems marked that way. Menus keep their highlight bar whatever it says. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded`, `Bar` and Zyper `On` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
 | **Achievements** | the RetroAchievements account, or `Sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
-| **Shader** | `Off`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid` for ZyperOS's own screens: the home, the shelves, the menus and every screen while no game is on. A opens the list, and the choice under the cursor shows on the whole screen until you choose. Each system's games keep their own shader, set in the system's menu or in a game. `Off` on a new device and after an upgrade. Not on the Brick - see **Shaders** below |
+| **Shader** | `Off`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid` for ZyperOS's own screens: the home, the shelves, the menus and every screen while no game is on. A opens the list, and the choice under the cursor shows on the whole screen until you choose. Each system's games keep their own shader, set in the system's menu or in a game. `Off` on a new device and after an upgrade |
 | **Strength** | right under Shader while it is an old screen: `10%` to `100%`, how dark its lines and grid are on ZyperOS's screens. Left and right step it 10% at a time and stop at the ends. `100%` on a new device and after an upgrade |
 | **Controls** | every button and what it does, a page per place |
 | **Show Tutorial** | the tutorial a new handheld starts with, again - see [The first start](#the-first-start) |
@@ -471,47 +541,90 @@ than any one console:
 | **About ZyperOS** | two pages: version, address, charge and uptime; then storage and estimated battery health |
 
 The Pixel 2 has no radio, so the rows that need Wi-Fi show only while a
-USB Wi-Fi adapter is plugged in: Wi-Fi, Achievements and Wi-Fi
-File Transfer here (USB File Transfer stays, with a computer on the cable), Box
-Art in a console's menu, and Album Art in MP4's. Scraper stays: its fetch says
-it needs Wi-Fi, and its video snaps and sources need none. Bluetooth is never
+USB Wi-Fi adapter is plugged in: Wi-Fi and Wi-Fi File Transfer here (USB
+File Transfer stays, with a computer on the cable), and Album Art in MP4's.
+Downloads stays, here and in a console's menu: its download says it needs
+Wi-Fi, and its counts, Systems and accounts need none. Bluetooth is never
 there. A phone's USB tethering is internet too (see **File transfer**):
-while it is on, Achievements, Box Art and Album Art are back, and Scraper's
-fetch works.
+while it is on, Album Art is back, and Downloads' download works.
 
 ### See a choice before you take it
 
-In an option's list, the choice under the cursor shows at once, before you press **A**. The accent and the backgrounds repaint the whole screen, Home Screen and a shelf's View and Sort By redraw what is behind the list, Battery Icon and Time Zone change the corner, Language puts every word in that language, and Night Mode shows its warmth. UI Sounds and Audio Channels play the cursor's own click that way, Menu Music plays the volume and, once you rest on one, the track. In a game, Screens, Quick Slot and a button's jobs show a picture beside the list, and On-Screen Stats shows the stats where they would go. **B** puts back what you had; nothing is saved until **A**.
+In an option's list, the choice under the cursor shows at once, before you press **A**. The accent, the backgrounds, Folder Color, Highlight and the Shader repaint the whole screen, Home Screen and a shelf's View and Sort By redraw what is behind the list, Battery Icon and Time Zone change the corner, Language puts every word in that language, and Night Mode shows its warmth. UI Sounds and Audio Channels play the cursor's own click that way, Menu Music plays the volume and, once you rest on one, the track, and Rumble buzzes each level. In a game, Screens, Quick Slot and a button's jobs show a picture beside the list, and On-Screen Stats shows the stats where they would go. **B** puts back what you had; nothing is saved until **A**.
 
-### Scraper
+### Downloads
 
-MENU > **Scraper** is box art and video snaps in one page. It says first
-what a run will get, then gets it, with each cover on the screen as it
-lands. A console's own menu keeps its **Box Art** row, which opens the same
-page for that console alone.
+MENU > **Downloads** is every download of game data in one place: covers,
+video snaps, names and details, and achievements. It is a page of its own,
+with Zyper beside its heading; under the heading, about how long a download
+takes (`about 12 min`), `Needs Wi-Fi`, or `Everything is here`. The page
+draws at once and says `Counting…` while it looks at the card, a system at a
+time; the next time it opens it shows what it counted and counts again
+behind it.
 
-| On the page | What it is |
+| Row | What it is |
 |---|---|
-| **Covers** | the covers a run will look for, the room they will add (`+131 MB`), and on how many systems |
-| **Videos** | the video snaps it will get, the room they will add (`+525 MB`) and on how many systems; `all off` to start, `needs ScreenScraper` with no account |
-| under the heading | about how long the run will take (`about 35 min`), or `Needs Wi-Fi` |
-| over the keys | the names a run will look up for games that have a cover but no name (`199 names`, gone with **Names and Details** off), then the room: what the run will add and what the card has (`656 MB to fetch · 11.2 GB free`). In red when the run would leave less than 200 MB free; then **A** does not start it, and says `Not enough room on the card` |
-| **A** Fetch | runs it over Wi-Fi: the game it is asking about, its system, the source it asks and how many games it has looked at (`31 / 142`). Each cover found lands big, beside the six before it, and the time left is beside a clock. **B** stops, and so does a card down to its last 100 MB. Then **All done**: the covers found, how many came, how many are still missing, and the room the videos take |
-| **Y** Systems | a tile for each system with two marks, covers and videos, and under them the focused system's covers missing and videos to fetch. **A** turns the system's covers on or off (on to start), **X** its videos (off to start: a snap is a megabyte or three), and **Y** picks **Videos for**: **All Games**, **Favorites** or **Played**, for every system with videos on, each with how many videos and how much to fetch |
-| **START** Settings | **ScreenScraper**, **SteamGridDB**, **Videos** and **Names and Details**, below |
+| **Download** | first, so **A**, **A** from MENU gets everything: every kind that is in it, the servers at the same time. Its value says how much and how long (`186 MB · about 12 min`), `Nothing to fetch`, `Needs Wi-Fi`, or how far a download has got (`Downloading · 41%`); over the keys, what it adds and what the card has (`186 MB to fetch · 11.2 GB free`), in red when the card would keep less than 200 MB, and then **A** says `Not enough room on the card` |
+| **Covers**, **Videos**, **Names and Details**, **Achievements**, **Cheats** | each kind with its mark and what is still missing (`41 missing`, `63 to fetch`, `199 to look up`, `150 to download`, `640 to check`), `Complete`, `Ready offline`, `Off`, `Needs ScreenScraper` or `Sign in first`. **LEFT** and **RIGHT** take a kind in or out of **Download**, and its size and time change at once. Over the keys, where it comes from and its room on the card. **A** opens the kind's own page, below |
+| **Y** Systems | a table: a row per system, a column per kind. A cell says what is missing, a tick when nothing is, or a dash when it is off for that system. **A** switches the cell, **X** deletes its videos or achievement sets (after a question), **Y** opens the system's games |
+| **START** Settings | **ScreenScraper**, **RetroAchievements** and **SteamGridDB**, each with its account; **Video Snaps**; **Names and Details** (`On` or `Off`, the same as its row); and **On the Card**, each kind's room, where **A** deletes every video snap or every achievement set, after a question |
 
-A run gets every system's covers first, then the names, years and synopses
+Every kind is in **Download** to start, but each system's videos stay off
+until you switch them on (a snap is a megabyte or three), and achievements
+need a RetroAchievements sign-in.
+
+**Cheats** come from libretro's cheat list (libretro-database, CC BY-SA 4.0):
+a download reads the list's index once (about 4 MB) and then takes only the
+files of the games on your card, a few KB each, so the game's Cheats list
+has them with no network. Your own `.cht` file in `Cheats/<console>/` is never
+replaced. libretro rebuilds its list every day; **Download** looks for
+changes once a day and takes again only the games whose files changed. On the
+Card deletes the downloaded cheats; your own files stay, and cheats that were
+on turn off.
+
+**A kind's page** has each system's icon over a tick, lit when the system
+lacks nothing (dim when its switch is off), and two tiles: what the card
+has, and what a download adds. **A** downloads that kind alone. Videos' page
+has **X** Videos For: **All Games**, **Favorites** or **Played**, for every
+system with videos on, each with how many and how much. **Achievements**
+opens its own page, below.
+
+**A system's games** (**Y** on Systems) lists them with a mark per kind:
+lit when the card has it, dim when it does not, struck through when
+RetroAchievements has nothing for the game. Under the list, what the game
+under the cursor has and lacks. **A** opens the game's panel: its cover,
+video, names and achievements, each with its value. **A** on the cover or the
+video opens its **Cover and Video** page; **A** on the names or the
+achievements gets them, and **Get What's Missing** gets everything it lacks,
+one after another, each value turning as its file lands.
+
+**The download** shows one stream: the game it is asking about beside Zyper,
+its system, its kind and its source, a bar and how far (`214 / 573`). What
+came last lands big, the six before it move along, each with its kind's mark
+(a set has its count). Over the keys, how many of each kind came and the time
+left, or why it waits: `Waiting for Wi-Fi`, or `RetroAchievements asked for a
+pause · 0:42`. **B** continues in the background; **Y** stops. Then **All
+done** (or **Stopped**, and why): what came, as a wall, the counts, and **A**
+again for what is missing.
+
+A console's own menu has **Downloads** where Box Art was: the same page for
+that console alone, its name as the heading.
+
+### Where covers, names and videos come from
+
+A download gets every system's covers first, then the names, years and synopses
 of games that already have a cover but no name, unless **Names and Details**
 is off: then a run fetches only what is missing, the covers and the videos. It asks ScreenScraper first when it is
 linked, libretro right after each game ScreenScraper does not have, and
 SteamGridDB last. A game ScreenScraper does not know is not asked about
 again for 30 days.
 
-| In Settings | What it is |
+| In Downloads' Settings | What it is |
 |---|---|
-| **ScreenScraper** | `Linked as` its account, `Link`, or `Not in this build`. Its page links the account (user, then password, checked once), says how many requests are left today, and unlinks it. It brings covers with each game's year, genre and synopsis, and the video snaps. A build needs ScreenScraper's developer pair for any of it |
+| **ScreenScraper** | its account, `Link`, or `Not in this build`. Its page links the account (user, then password, checked once), says how many requests are left today, and unlinks it. It brings covers with each game's year, genre and synopsis, and the video snaps. A build needs ScreenScraper's developer pair for any of it |
+| **RetroAchievements** | its account, or `Sign in`. Its page signs in again or signs out, after a question: what you earned stays on your account, and unlocks still waiting are kept for your next sign-in |
 | **SteamGridDB** | the API key as its last four characters (`••••1a2b`), `Key refused`, or `Link`. Its page types a key in, checks it once, and unlinks it; the File Transfer page takes one pasted. Covers the other two do not have |
-| **Videos** | the Video Snaps page, below |
+| **Video Snaps** | the Video Snaps page, below |
 | **Names and Details** | `On` to start: a run also looks up the names, years and synopses of games that have a cover and no name, one ScreenScraper request each. Covers that came by File Transfer or from libretro have none, so on a card full of them that is the long part of a run. `Off` skips it; **A** switches it |
 
 libretro needs no account: covers by file name, and for zipped games by
@@ -531,14 +644,23 @@ it goes back to the cover when the focus moves or a menu opens. Its page:
 A snap is `Roms/<console>/.media/<name>.mp4`, beside its cover, so one put
 there by hand plays too.
 
-**Auto Off waits for a fetch.** While a Scraper run, from MENU or a
-console's Box Art, is fetching covers or video snaps, Auto Off does not count, so a library left to
+**A download goes on behind the menus.** **B** on a download closes the
+page and it goes on: the corner by the battery shows an arrow into a tray in
+a ring that fills as it goes, and MENU's Downloads row says how far. Open
+the page again to see it where it is, or how it ended. While you play a game
+it waits, and it goes on when you leave the game. When it ends well behind
+the screens, Zyper says so on the shelf (`Downloads done`, `41 covers · 150
+achievement sets`). Powering off stops it; the next one starts from what is
+missing.
+
+**Auto Off waits for a download.** While a download, from MENU or a
+console's menu, is fetching, Auto Off does not count, so a library left to
 scrape overnight is not cut short; the count starts again, whole, when the run
 ends. The power button still powers the device off, and so does the battery
 running flat. System Update's download, PortMaster's install, Storage
 measuring the card and files moving over File Transfer wait the same way.
 
-For what neither has, like homebrew, hacks and ports, give it a free [SteamGridDB](https://www.steamgriddb.com) API key (steamgriddb.com, Preferences, API) in **MENU > Scraper**'s Settings, or paste the key on the File Transfer page, which beats typing 32 characters. A run then asks SteamGridDB last, for a portrait cover by the game's name. The key stays on the card's settings and shows only its last four characters.
+For what neither has, like homebrew, hacks and ports, give it a free [SteamGridDB](https://www.steamgriddb.com) API key (steamgriddb.com, Preferences, API) in **MENU > Downloads > Settings**, or paste the key on the File Transfer page, which beats typing 32 characters. A run then asks SteamGridDB last, for a portrait cover by the game's name. The key stays on the card's settings and shows only its last four characters.
 
 **Your own covers.** Some games aren't in any collection, like fan translations. Add your own: a PNG named exactly like the game file, in `Roms/<console>/.media/`. `Black Castle.gb` wants `Black Castle.png`. Around 512 pixels on the long side is plenty.
 
@@ -546,11 +668,11 @@ Covers go over USB or Wi-Fi File Transfer too: drag a console's `.media` folder 
 
 ### Achievements
 
-Sign in under **MENU > Achievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
+Sign in under **MENU > Downloads > Settings > RetroAchievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
 
-While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, Dreamcast, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
+While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
 
-MENU > **Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
+**MENU > Downloads > Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
 
 | On the page | What it is |
 |---|---|
@@ -559,7 +681,7 @@ MENU > **Achievements** gets them for every game at once, ahead of time, so a ga
 | **To Download** | the games never checked, and about how much they will add to the card (`+14 MB`); `all checked` when there are none |
 | under the heading | about how long a download takes (`about 3 min`), `Every game checked`, `Sign in to download`, or `Needs Wi-Fi` |
 | over the keys | what a download will add (with the card's room when it has less than 2 GB free) and how many games RetroAchievements has nothing for (`23 games have none`: a hack, a copy it does not know, or a game with no achievements) |
-| **A** Download | asks RetroAchievements about every game: the game it is asking about, its system and how many games it has looked at (`214 / 553`). Each set that arrives shows with its badges (`Just added: ...`). **B** stops. Then **All done**: the games ready offline and the achievements your account already had for them; or **Stopped**, with why; or **Sign in again** when RetroAchievements refused the account, and **A** signs in |
+| **A** Download | asks RetroAchievements about every game: the game it is asking about, its system and how many games it has looked at (`214 / 553`). Each set that arrives shows with its badges (`Just added: ...`). **B** continues in the background, **Y** stops. Then **All done**: the games ready offline and the achievements your account already had for them; or **Stopped**, with why; or **Sign in again** when RetroAchievements refused the account, and **A** signs in |
 | **Y** Account | signs in again, or as somebody else. Signed out, **A** signs in |
 
 A download asks only what is missing. A game whose achievements are already
@@ -576,7 +698,7 @@ for a Scraper run.
 
 In a game, **MENU** has an **Achievements** tab, one **L1** from Game: the game's list with your count and points on top, each achievement with its badge, its points (or its count while it moves) and, once you have it, the earned color. **A** opens one, and the list goes round. A game with no list says why there: not signed in, never played with Wi-Fi, on their way, none on RetroAchievements, or a system or kind of file ZyperOS cannot identify. The Game tab's Achievements row keeps the count, and **A** on it turns to the tab.
 
-**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
+**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. A Dreamcast game is identified by its `IP.BIN` and the boot program it names, from a `.gdi`, a `.cue`, a `.chd` or a `.cdi` alike. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
 
 <img src="../res/readme/cheevos-waiting.png" width="400" alt="A game's achievements list, its heading saying '3 / 36 · 2 waiting to send': two achievements earned offline, not sent yet">
 
@@ -725,20 +847,76 @@ The system menu opens on a shelf of games and applies to that system alone:
 | | |
 |---|---|
 | **Games** | how many the shelf found |
-| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Dreamcast's) |
+| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Game Boy's and the Game Boy Color's, mGBA or Gambatte; the Nintendo 64's; the Dreamcast's). The next game started runs on it. A game left on the other core starts fresh and says so: a resume point is one core's own. Its battery save is the same file for both; a cartridge with a clock (Pokémon Gold, Silver and Crystal) keeps the clock apart on Gambatte, in a `.rtc` file beside the save, so after a change of core its clock may need setting again. A game's details (X) say which core it starts on while its shelf has two |
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
+| **Super Game Boy** | the Game Boy and Game Boy Color shelves', under Core, on mGBA: `Off` to start with, as before, or `Its Games`, where a game made for the Super Game Boy starts as one, in its own colors and border (no BIOS needed; other games start as before). For this system alone, saved the moment it changes, for the next game started. With its border the picture is 256x224: 2x on the Pixel 2, 3x on the Brick at Sharp Pixels |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
-| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf steps it too, without the menu |
-| **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
+| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
+| **Display** | how the picture fills the screen: Full Screen, Original Shape, Square Pixels, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes. `Square Pixels` (1.1.0) draws every pixel of the game square, whatever shape its core asks for, as tall as the screen (as wide, for a wide game such as the GBA's): an NES or SNES game at 8:7, a Game Gear game at 10:9, a PC Engine game at 16:15, as RetroArch's 1:1 PAR does with integer scaling off. `Sharp Pixels` draws them square too, at a whole number of times their size, so it can leave a border all round |
+| **Border** | under Display, while the display mode leaves room around the system's games, and always on the Game Boys (the Game Boys and other handhelds, a Sharp Pixels picture smaller than the screen): `Off` to start with, black as before; `Blur`, the game's own picture blurred and darker around it; on the Game Boy, Game Boy Color and Game Boy Advance, in any display mode, `Handheld`, a drawing of the handheld's own face around the game at its full size, cut at the screen's edge, and `Handheld, Whole`, the game smaller so the whole screen glass and some of the body show (not for the Advance on the Pixel 2, where the game would be tiny); choosing either turns the system's Display to Sharp Pixels, the size the frames are drawn for; or `Your Own`, the first PNG in `Borders/<the system's folder>/` on the card (or in NextUI's `Overlays/<tag>/`), shown only when there is one. For this system alone; the same row is in a game's Display tab, where it changes the game's at once |
+| **Handheld Color** | under Border while it is a Game Boy Color frame: the handheld's color, `Yellow`, `Red`, `Purple`, `Green`, `Teal` or `Clear Purple` |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
-| **Box Art** | fetch what this system is missing, and nothing else |
+| **Downloads** | MENU > Downloads for this system alone (below): what it is missing, and **Download** gets it |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
-On Favorites and Recents the menu is only Games, Random Game, Sort By and View. The rest is about one
+On Favorites and Recents the menu is only Games, Random Game, Sort By and View; Recents has
+**Card Picture** too: `Cover`, as it starts, or `Last Screen`, each card the screen where you left
+the game (the picture saved with its resume point) with its cover small in the corner. A game with
+no resume point shows its cover. A opens the two as a list with a picture of each. On Collections it
+is the collection's own (see [Collections](#collections)). The rest is about one
 console, and a game there takes its console's Display wherever it was
 started from.
+
+### Collections
+
+A collection is a list of games of your own, from any system: couch games, RPGs to finish, the
+kids' games. Press X on a game and choose **Add to Collection**: a tick shows each collection the
+game is in, A puts it in or takes it out, and **New Collection** names a new one on the keyboard,
+with the game as its first. The row's value says how many collections the game is in.
+
+Once a collection has a game, the home has a **Collections** group after Favorites and Recents.
+Its shelf shows each collection as a folder with its count; A opens it, and B goes back. Inside,
+games of every system mix, each with its system under its name, and each starts on its own
+system's core. MENU on the shelf, headed by the collection's name:
+
+| Row | What it does |
+|---|---|
+| **Games** | in a collection: how many games it has |
+| **Random Game** | in a collection: one of its games, picked and started |
+| **Sort By** | `Added` (the order the games went in, to start with), `Name`, `Last Played` or `System` (the home's order of the systems). One order for every collection |
+| **View** | `Covers`, `Grid` or `List`, as on any shelf |
+| **Rename** | a new name for the collection, on the keyboard |
+| **Remove from Collection** | in a collection: the game under the cursor out of it. The game stays on the card |
+| **Delete Collection** | asks first, the cursor on **Cancel**. The list goes; its games stay on the card |
+
+MENU > Home Systems can hide the group. A game you rename or delete on the handheld follows into
+every list.
+
+On the card, each collection is a text file, `Collections/<name>.txt`, one game a line, as its
+path from the card's root: `/Roms/SNES/Chrono Trigger (USA).sfc`. This is the format MinUI and
+NextUI use, so a list from another handheld, or one you write by hand, shows up after a rescan.
+A line for a game that is not on the card stays in the file and comes back with the game. Lines
+starting with `#` are notes. ZyperOS reads up to 36 collections.
+
+### Screenshots
+
+Once you have taken a screenshot (a Screenshot hotkey, under Hotkeys above),
+the home has a **Screenshots** group after Favorites, Recents and
+Collections. Its shelf holds every shot, the newest first, each with its
+game's cover small in its corner, and under its name the system and when you
+took it. **A** opens a shot on the whole screen: Left and Right step through
+them, L1 and R1 go to the next or the last game's shots, and B goes back. The
+game itself starts from its own shelf. **X** deletes the shot after asking,
+the cursor on **Cancel**; the game stays. MENU on the shelf has
+**Sort By** (`Recently Added` to start with, `Name` or `System`) and **View**,
+as on any shelf. MENU > Home Systems can hide the group.
+
+The shots stay on the card in `Screenshots/<system>/`, where File Transfer
+shows them too. A shot of a game you renamed or deleted stays. OpenBOR's own
+screenshots, which it takes with SELECT into `Saves/openbor/ScreenShots`, are
+on the shelf too, under OpenBOR.
 
 Display is per-system, because a Game Boy and a Genesis do not want the
 same answer. Set here it applies from the next launch; the same row in the
@@ -775,7 +953,9 @@ it, in the shelf's Sort By order. A opens a folder and B goes back up one,
 onto the folder you left. A folder is one game when it holds that game's
 set: an `.m3u`, a PSP game's `EBOOT.PBP`, two or more discs of the one game,
 or a `.cue` (or `.gdi`) with its tracks; or when its one disc image is named
-as the folder is (`God of War/God of War (USA).iso`). A ScummVM game's folder is one game too. Any other folder
+as the folder is (`God of War/God of War (USA).iso`). An `.m3u` loose beside
+its discs is one game too: the discs it lists are not on the shelf, in the
+Grid, in Search Games or in Random Game, and the `.m3u` starts the game. A ScummVM game's folder is one game too. Any other folder
 is a folder of games, also with one game in it, so `PSP/Favorites/Ridge Racer (USA).iso`
 shows as the folder Favorites with Ridge Racer in it. Saves and save states go by the game's file name,
 as they always have, so two copies of one game in two folders share them. In the list (MENU > View >
@@ -800,7 +980,9 @@ screen pixel inside one of the game's pixels is that pixel exactly, and only
 one that falls across two of them mixes the two, by how much of it each
 covers. The picture stays as sharp as it can at that size and a scroll stays
 steady. At a whole number of times (Sharp Pixels, Actual Size) the two are the
-same.
+same. Square Pixels is seldom a whole number of times (a 224-line NES picture on
+the Brick's 768 lines is about 3.4 times), so it looks its best with
+Sharp-Shimmerless.
 
 The other four draw an old screen. `CRT` is Timothy Lottes's CRT shader: a
 dark line between the picture's lines, and one of each three columns of the
@@ -811,9 +993,8 @@ and the corners round, and the picture's edges go into the curve.
 lines, and nothing more; `LCD Grid` has the band around each of its pixels,
 as on a Game Boy's screen. The CRT's lines are most even where the
 picture's height is a whole number of times the game's: Sharp Pixels, Tall draws
-a 224-line SNES game at twice its height. These four are the Pixel 2's,
-whose last step is its GPU's; the Brick draws them as Sharp-Shimmerless, and
-its rows step over them.
+a 224-line SNES game at twice its height. These four end on the
+handheld's GPU, on the Pixel 2 and the Brick alike.
 
 `LCD No Backlight` is for the Game Boy, the Game Boy Color and the Game Boy
 Advance alone, and only their Shader rows offer it. Their screens had no
@@ -842,7 +1023,7 @@ over it, as a white picture through that shader would show them; `CRT
 Curved` curves the whole screen too. While a game is on, its own shader is
 the one you see, its in-game menu included, and a video in the player plays
 as it is. It is `Off` to start with, and with `Off` the screen is drawn
-exactly as before. On the Pixel 2 only, as the old screens are.
+exactly as before. On the Pixel 2 and the Brick alike.
 
 Under each Shader row, while the shader is one of the old screens, a
 **Strength** row says how strongly it is drawn: `100%` is the shader as it
@@ -909,7 +1090,7 @@ right turn it on and off; A opens its page:
 | | |
 |---|---|
 | **On-Screen Stats** | `On` or `Off` |
-| **Shows** | A opens the list of items, each `On` or `Off`: FPS (the frames a second), Speed (only when the game is not at full speed, as `0.5x` or `2x`), CPU Temperature, CPU Load, CPU Clock, Battery and Time. One stays on. `FPS` and `Speed` to start with |
+| **Shows** | A opens the list of items, each `On` or `Off`: FPS (the new pictures the game draws a second, so `30` for a game that draws every second frame), Speed (how fast the game runs against its own speed, only when it is not at full speed, as `0.8x` when the game runs slow or `2x` in fast forward; a game that draws 30 pictures a second at full speed is `1x`, so it shows no speed), CPU Temperature, CPU Load, CPU Clock, Battery and Time. One stays on. `FPS` and `Speed` to start with |
 | **Corner** | `Top Left`, `Top Right`, `Bottom Left` or `Bottom Right`. In a top corner it moves under the volume bar, or left of the low-battery dot, rather than meet them |
 | **Edge Distance** | `Close`, `Normal` or `Far` from the screen's edges |
 | **Background** | `Pill`, a rounded box in the theme's colors, or `Shadow` around the text alone |
@@ -965,11 +1146,43 @@ until you press another button under that SELECT.
 Volume and brightness show the same bar at the top of the screen in the
 launcher, in a game, in the in-game menu and over a port: a pill with a mark
 at its left and a segment for each step. The mark says which of the two it
-is: a speaker with one to three waves, and a cross at silence, for volume, and
-a sun whose rays grow for brightness. The mark and the segments are lime for
-volume and amber for brightness, on a bar in the theme that is on, light or
-dark. Over a game on the Brick, Diatom still draws the old bar: a thin line
-across the top, warm for brightness and cyan for volume.
+is: a speaker whose waves grow with the volume, and a cross at silence, and a
+sun whose rays grow with the brightness. The mark and the segments are lime
+for volume and amber for brightness, on a bar in the theme that is on, light
+or dark.
+
+### Past the top: the boost
+
+Some films and games are quiet even at the top of the volume. At the top,
+**hold VOL+ one second more**, or **press it three more times**, each press
+within a second of the last. The bar's end pushes out and a big red cell
+fills as you hold or press; let go early and it drains back. Full, it opens
+red boost cells past the top, each a little taller than the last, and you
+feel a short buzz (at your Rumble level). Each cell makes the sound 3 dB
+louder, up to six cells, +18 dB; a limiter keeps the loudest moments from
+clipping, so a quiet film gets louder and a loud one only gets flatter. The
+top three cells compress harder, so a game or a cart that is loud already
+gets louder too: cells 1 to 3 sound as clean as ever, and cells 4 to 6 trade
+some of the sound's cleanness for loudness, a little at cell 4 and plainly
+at cell 6. A held key stops at the first cell: press for each next one. **VOL-** empties
+the cells one by one, stops at the top, and the next press folds them away.
+
+The boost works in a game, in MP4 and over a port, and stays as the volume
+does, also after a restart, until you turn it down under the top. MP4's lock
+screen never opens it, so a key held in a pocket cannot. While MP4 plays
+behind the home or a menu, the volume keys there work on its boost exactly as
+in the player: the bar shows the cells, and you open, fill and empty them the
+same way. In a game's menu the keys work on the game's boost the same way, so
+VOL- there empties one cell, as in the game. With music playing behind a
+game, each boost step you make in the game is heard in the music at once.
+With nothing playing, the bar in the other menus is the plain one and the
+menu music is never boosted. Plugging headphones in or out closes it.
+
+Brightness works the same way (**F2** on the Brick, **MENU+VOL+** on the
+Pixel 2), with three cells. The top rung is already the backlight's brightest,
+so the boost cannot make more light: it lifts the dark and middle tones of the
+picture instead, which helps a dark game, and makes a bright scene look a
+little flatter. It costs no speed and no battery.
 
 ## Languages
 
@@ -989,7 +1202,7 @@ ZyperOS speaks English, 简体中文, Español, Português (Brasil), Français, 
 
 ## Light and dark
 
-ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Display > Appearance** chooses `Light` or `Dark`, and the first start asks too. Every screen follows it. The File Transfer page follows the phone or computer it is open on instead. For the night, the Pixel 2 has **Night Mode** on the same tab: it warms the whole screen, always or by the hours you set (9:00 PM to 7:00 AM to start), and never changes the theme.
+ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Display > Appearance** chooses `Light`, `Dark` or `Auto`, and the first start asks Light or Dark too. Auto is dark in Night Mode's hours and light the rest of the day: set the hours with **Night From** and **Until** on the **Night Mode** page (9:00 PM to 7:00 AM to start), whether Night Mode itself is on or not. Auto only follows those hours: Night Mode still decides the warmth on its own, and nothing in Night Mode changes when you pick or leave Auto. At Night From and Until the theme turns together with Night Mode's warmth, in the menus and under a game, and on the Pixel 2 the boot screen follows it. Every screen follows it. The File Transfer page follows the phone or computer it is open on instead. For the night, the Pixel 2 has **Night Mode** on the same tab: it warms the whole screen, always or by the same hours, and never changes the theme.
 
 **MENU > Display > Theme** makes them yours: an accent from ten (lime, green, teal, blue, purple, pink, red, orange, yellow and silver), a background for each theme (warm, neutral or cool grey in light; black, deep blue or dark grey in dark), the folders' color (System Colors, each folder in its system's own, or one of the ten accents for every folder), rounded or square corners, and Zyper on or off. Both themes are drawn small at the top as you change them, and **Reset to Default** puts them back. ZyperOS works out every other color from the two you pick and keeps every word at the contrast it has as it ships.
 
@@ -1037,15 +1250,17 @@ ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Displ
 
 ## Screen Colors and Night Mode
 
-On the GKD Pixel 2.
+On the GKD Pixel 2 and the TrimUI Brick.
 
 ### Screen Colors
 
 **MENU > Display > Screen Colors** sets Temperature (cooler to warmer), Tint, Contrast, Saturation and Gamma, each from -10 to +10, or a ready-made look: Vivid, Intense, Warm, Cool or Muted. The Look list shows each look on the whole screen as you move to it. They change the whole screen, the shelf and every game alike, in the display itself, so no game slows down. Standard, as it ships, leaves every color as the game draws it.
 
+In a game, the in-game menu's **Display** tab has a **Screen Colors** row too: A opens the same page over the paused game, so you can fix colors or contrast while you look at the game behind it. A change is kept for the whole screen, as from MENU, and **B** goes back to the menu.
+
 ### Night Mode
 
-**MENU > Display > Night Mode** opens its page, which warms the whole screen for the night, on top of your Screen Colors: always, or **By Hours** between **Night From** and **Until** (9:00 PM to 7:00 AM as it ships). **Night Warmth** sets how warm, from 1 to 10. It turns on and off at the hour in games and ports too.
+**MENU > Display > Night Mode** opens its page, which warms the whole screen for the night, on top of your Screen Colors: always, or **By Hours** between **Night From** and **Until** (9:00 PM to 7:00 AM as it ships). **Night Warmth** sets how warm, from 1 to 10. It turns on and off at the hour in games and ports too. **Appearance**'s `Auto` turns dark by the same Night From and Until, so with Appearance on Auto the two rows are there to set even while Night Mode is off.
 
 ## Battery and power
 
@@ -1060,6 +1275,22 @@ A battery too low to start says so and charges first; a charger plugged in while
 ## Rumble
 
 Dreamcast games, PlayStation games (as a DualShock) and Game Boy Color rumble cartridges shake the handheld, and Nintendo 64 games get a Rumble Pak. (The Controller Pak is under [In a game](#in-a-game).) The motor stops while the in-game menu is open.
+
+**How strong.** **MENU > Sound > Rumble** is `Off`, `Low`, `Medium` or `Full` for every game: none, 35%, 65% or all of what a game asks the motor for. `Full` on a new card, as ZyperOS always ran it. Each step buzzes the motor once at its level, so you feel it before you leave the row; in its list, the level under the cursor buzzes as you reach it. In a game whose core uses the motor, the in-game menu's Controls tab has a **Rumble** row too, for **This Game** or the whole system, as **Applies To** says: a game without its own level follows its system's, and a system without its own follows MENU's, which its list marks `Default`. A change reaches the paused game at once. A system that shakes harder than the handheld wants keeps its own share under every level: Doom's rumble is 35%, so `Low` there is 12%. The Pixel 2 only for now: the TrimUI Brick's motor waits for its first test on the Brick.
+
+## Cheats
+
+Cheats are RetroArch's `.cht` files: libretro's cheat list, or a file of your own. They are switched on and off per game in the in-game menu.
+
+**Getting them.** **MENU > Downloads** fetches libretro's cheats for the games on your card, only their files, a few KB each (libretro-database, CC BY-SA 4.0). After that they work with no Wi-Fi. A file of your own goes in `Cheats/<System>/` on the card, named as the game without its extension: `Cheats/SNES/Super Metroid (USA).cht` for `Roms/SNES/Super Metroid (USA).sfc`. A card from NextUI moves over as it is: its names (`Super Metroid (USA).sfc.cht`) and its tag folders (`Cheats/SFC/`) count too. Your file is shown first, and a download never replaces it.
+
+**In a game**, the Game tab's **Cheats** row says how many are on (`2 On`, or `None`). A opens the game's list: your file first, then libretro's files, each under its code type (`Game Genie`, `GameShark`). A, left or right turns a cheat on or off at once. **Turn All Off** is the last row. **Y** searches the list with the keyboard, and **X** puts the ones that are on first. A game with no cheats says why: libretro has none for it, or Downloads has not looked yet, and how to add a file by hand.
+
+**Achievements stop while a cheat is on.** From the first cheat you turn on, the game's achievements wait until the game starts again with every cheat off: the Achievements row says `Paused`, and the Achievements tab says why. Turning the cheats off again does not bring them back in the same session, because what a cheat changed in the game stays. Signed in to RetroAchievements, the first cheat in a game with achievements asks first, with the cursor on Cancel. It asks once a game.
+
+**On the shelf**, a game with cheats on says `2 cheats on` under its name, after its play time and achievements. **Starting a game** with cheats on shows a pop-up, `2 cheats on`, so none is forgotten. A game that stopped by itself last time with cheats on asks whether to start without them; **Without Cheats** starts it with none this time and keeps them set for later.
+
+Whether a code works is up to the game's emulator core: a cheat in the list that the core cannot use does nothing. A cheat can also break a game or its save, so save a state before you try one.
 
 ## File transfer
 
@@ -1098,7 +1329,7 @@ names up. Close the screen and the phone stays connected and charging;
 tethering off, and the screen says the cable is unplugged (behind the shelf,
 it closes 10 seconds later). While USB tethering is on, the handheld also
 has the phone's internet: its clock sets itself from it, and **MENU >
-Scraper**, Cover and Video, Box Art, **MENU > Achievements**, System Update
+Downloads**, Cover and Video, System Update
 and PortMaster's install work over it as over Wi-Fi. Close File Transfer
 with **B** and the phone stays connected for them. Over the phone, which may
 be on mobile data, nothing large starts by itself: a System Update download
@@ -1172,6 +1403,7 @@ The page that opens in the browser is the same for Wi-Fi File Transfer, the hand
 
 - **The PIN** goes in four boxes, and the page opens when the fourth digit lands; a paste fills all four. Zyper shuts his eyes while you type. Five wrong PINs and the page waits 30 seconds.
 - **The card's eight folders:** ROMs, Music, Audiobooks, Videos, Menu Music, BIOS, Saves and Save States. Every folder wears ZyperOS's pixel art: each console's folder its own picture from the home screen, on a tile in its color, and the others a cartridge, a vinyl album for Music, a book with headphones, a video tape, a cassette for Menu Music, a chip, a memory card and a floppy disk. Hidden folders such as `.media` stay out of the lists.
+- **Each game wears the cover the shelf shows for it:** its own from `.media`, or the one EmulationStation left beside it ([coming from EmulationStation](#coming-from-emulationstation)).
 - **Upload** by dropping files anywhere on the page, into the folder that is open, or onto a folder's row. A dropped folder keeps the folders inside it, and a console's `.media` folder of covers too. **Upload** and **Upload folder** use the file picker instead. The uploads under the folders say how much is left and about how long it takes, and each file shows its progress.
 - **The card's free space** is under the folders. Files that don't fit are caught before anything is sent, and the page offers to send the ones that fit.
 - **Drag to move:** drag a file or a folder onto a folder's row, or onto a folder above in the path at the top, and it moves there on the card. On a phone, hold a row still for a moment to lift it. A disc set's folder moves whole and a `.cue` takes its tracks with it; a game's covers, saves and save states stay where they are, since they go by its name. If the folder already has something of that name, nothing moves and the page says so.
@@ -1246,8 +1478,9 @@ used.
 
 ### Plugging into a computer
 
-On the Pixel 2 the USB port only charges until you say otherwise: a computer
-sees no device at first. When a computer is plugged in, the shelf asks once
+On the Pixel 2 and the TrimUI Brick the USB port only charges until you say
+otherwise: a computer sees no device at first (on the Brick, for up to 3
+seconds as the cable goes in, while it tells a computer from a charger). When a computer is plugged in, the shelf asks once
 (with MENU open, MENU closes and the question comes at once; during a game,
 it comes when you are back on the shelf),
 with three tiles (left and right to move, A to choose; it starts on Charge
@@ -1350,14 +1583,15 @@ If PortMaster closes with an error, ZyperOS says so when it comes back, with the
 
 <img align="right" width="320" src="../res/readme/ports-controls.png" alt="Controls over a port: the d-pad, A, B, X, L1/R1 and START+SELECT as its README says them">
 
-**MENU** over a port, or over PortMaster, pauses it under the in-game menu: **Continue**, **Controls** and **Quit**, back to the Ports shelf. **X** quits from any row, as in every in-game menu. The game stops where it is and nothing you press in the menu reaches it. **Controls** reads the port's own files: what its README says each button does, the keyboard key each button types for it (its gptokeyb keymap), the buttons that work in every port (**MENU**, **MENU** then **X** to quit, the volume keys, **MENU + VOL** for brightness, **SELECT + START**, PortMaster's own way to end a port, and **POWER**), and, last, what its PortMaster entry says to copy where. Over PortMaster it lists PortMaster's own buttons: **Up/Down** move, **L1/R1** a page, **A** chooses, **B** goes back, **X** filters the list, **Y** uninstalls a port. **Quit** ends the port, its helpers and the runtime it mounted, then the shelf comes back.
+**MENU** over a port, or over PortMaster, pauses it under the same in-game menu as in any game, with its **Game**, **Display** and **Controls** tabs: **Game** has **Continue** and **Quit**, back to the Ports shelf; **Display** has **Screen Colors**; **Controls** has **All Controls**. **X** quits from any tab, as in every in-game menu. The game stops where it is and nothing you press in the menu reaches it. **All Controls** reads the port's own files: what its README says each button does, the keyboard key each button types for it (its gptokeyb keymap), the buttons that work in every port (**MENU**, **MENU** then **X** to quit, the volume keys, **MENU + VOL** for brightness, **SELECT + START**, PortMaster's own way to end a port, and **POWER**), and, last, what its PortMaster entry says to copy where. Over PortMaster it lists PortMaster's own buttons: **Up/Down** move, **L1/R1** a page, **A** chooses, **B** goes back, **X** filters the list, **Y** uninstalls a port. **Quit** ends the port, its helpers and the runtime it mounted, then the shelf comes back.
 
 <br clear="right">
 
 ## Changing discs
 
 A game on more than one disc, a PlayStation game with an `.m3u` in a folder of
-its own, has a **Disc** row in the in-game menu: MENU, the Game tab, just under
+its own or beside its discs (the shelf then shows the `.m3u` alone, not each
+disc), has a **Disc** row in the in-game menu: MENU, the Game tab, just under
 Quick Slot. Its value is the disc in the tray, by the name the emulator gives
 it, or "Disc 2 of 3" when that name is too long for the row. **Left** and
 **Right** (or **A**) pick the next or the last disc, going round: Left on disc 1
@@ -1591,6 +1825,14 @@ to the speaker within a second or two and the game keeps running. It never ends
 a game to report an audio problem. That fallback is the emulator's own - it
 does not wait for the launcher to notice the headset is gone.
 
+## Equalizer
+
+**MENU > Sound > Equalizer** shapes the sound by its low, middle and high notes: the music and videos in MP4, the menu music, games and ports. It is the same row in **MP4's MENU**, so you can open it while a song or a video plays and hear each change as you make it.
+
+The speaker and headphones each keep their own preset, `Off`, `Bass`, `Voice`, `Treble` or `Custom`, so the bass you like on headphones does not make the small speaker strain. The page shows the one in use now (**Speaker** or **Headphones**, which covers the jack, a USB-C adapter and a Bluetooth headset). **A** on it opens the presets, each with a picture of its curve, and you hear the one under the cursor before you choose it. Under it are five bands, `60 Hz`, `250 Hz`, `1 kHz`, `4 kHz` and `12 kHz`, each from -6 to +6 dB: change one and the preset becomes `Custom`, starting from the curve you had. `Off` on a new card, and `Off` is no filter at all, so nothing changes until you choose a preset.
+
+While the page is open, MP4 keeps only a little sound waiting, so a step is heard in under a tenth of a second, and each gain moves over 20 ms, so a step never clicks. A boost that takes a loud song past full scale is bent gently rather than cut. Ports get the equalizer on a system that has its plugin; a port that plays straight to the hardware keeps its own sound.
+
 ## MP4
 
 MP4 plays the music, the audiobooks and the videos on the card. Its card at the end of
@@ -1610,6 +1852,25 @@ something playing that the shelf does not show lands on that kind, on what is
 playing.
 
 **Shuffle All** plays every song on the card in a random order.
+
+**Player Look** changes how Now Playing shows a song: **Cover**, the album's
+cover large, as it always was; **Cassette**, a tape whose reels turn with the
+song through its window, the next song rewinding it, the label in the
+cover's color; **Vinyl**, a record in the cover's color turning at 33⅓ with
+the cover as its label, its rings the album's songs and the tonearm's needle
+on the one playing; **Classic**, a big clock over bars that move with the music,
+and the album's tracks beside it; **Spectrum**, the music as 32 bars across
+the screen under the cover. A on it opens the list, with the
+look under the cursor playing in a small screen beside it; Left and Right
+change it straight away. START on a song's Now Playing changes it too, one
+look at a time. Paused, the bars come to rest. Books and videos keep their
+own screen.
+
+**View** shows the shelf as **Covers**, the covers in a row as it always
+was, as a **Grid** of covers, or as a **List** of names with the cover beside
+it, the way a game shelf's View does. START on the shelf turns between them,
+Covers to Grid to List. On All, each album, book or video is marked with
+what it is in every view.
 
 **Sort By** puts the shelf in order by artist, the way the folders are, or by
 album title, two of the same title going in their artists' order. The jump
@@ -1651,11 +1912,25 @@ Playing Y changes the speed instead of the play mode, and on books Sort By is
 by author or by title and there is no Album Art. A book's cover is the one its files carry, or the picture in its
 folder: one named cover or folder, or the only one there.
 
+**After a power-off.** If the handheld turns off while something plays -
+the battery runs out, you hold POWER down, or you turn it off - MP4 opens by
+itself at the next start, on Now Playing, paused at the same second: the same
+song in the same album (in Shuffle All, the songs after it come in a new
+order), the same book at its place and speed, the same video at its picture.
+Press A to carry on. If a game was running too, the game comes back first,
+with its menu up: press SELECT there for Now Playing, paused at the same
+place. It keeps that place every thirty seconds while it plays,
+and at once when the launcher turns the handheld off, so after a sudden power
+cut it goes back at most half a minute. Something paused when the power went
+stays where it is, and MP4 waits to be opened.
+
 **Videos** go in `Videos/` on the card. A film on its own goes straight in, `Videos/Where the Light Is.mp4`, and is a card of its own; a folder of videos is a series, its files in name order, with seasons as folders inside it if you like: `Videos/Planet Earth/01 From Pole to Pole.mp4`. A picture named like the film, `Where the Light Is.jpg`, is its cover; otherwise MP4 takes one from the video itself. Every video remembers where you stopped.
 
-The Pixel 2 has no hardware video decoder that its Linux can use, so its four cores decode in software. **H.264 in an .mp4 plays smoothly up to 720p**; 854x480 or 640x360 is the size to make for its 640x480 screen, and costs a fraction of the battery. HEVC and VP9 play up to about 480p. 1080p only just keeps up, dropping frames when the picture moves a lot. AV1 does not play. MKV, WebM, MOV and AVI files play too, if the video inside them is one of those.
+The Pixel 2 has no hardware video decoder that its Linux can use, so its four cores decode in software. **H.264 in an .mp4 plays smoothly up to 720p**; 854x480 or 640x360 is the size to make for its 640x480 screen, and costs a fraction of the battery. HEVC and VP9 play up to about 480p. 1080p only just keeps up, dropping frames when the picture moves a lot. AV1 plays up to 1440x1080 at 24 fps, 1280x720 at 60 fps and 1920x1080 at 30 fps; 1920x1080 at 60 fps does not keep up. MKV, WebM, MOV and AVI files play too, if the video inside them is one of those. A video too big to play smoothly says so over its picture, and one whose picture cannot play here says that instead of staying black.
 
 **Y** turns a video between full screen, where the controls show only when you press a button, and a view with its controls always on screen.
+
+**Repeat**, in MP4's menu on Videos and All only, is how videos play on: `Off`, each once and in order; `One`, the video playing again and again; or `All`, its folder round again. It is `Off` on a new card, changes a video already playing, and leaves music's play mode as it is. With `One` or `All` the controls show its mark before the time left, and the screen stays on while the video plays.
 
 **Lock Screen**, for a pocket: press **X** or **SELECT + START** together on
 any MP4 screen while something plays, or pick Lock Screen in MP4's menu. With
@@ -1758,7 +2033,7 @@ Down move a row there, and L1 and R1 a screenful or to the last system. Spotligh
 These labels do not rename any folder. Every layout remembers the same
 selected system.
 
-Appearance selects Light or Dark. Console sprites retain their source
+Appearance selects Light, Dark or Auto. Console sprites retain their source
 colors in both themes. Only the focused system animates. The top bar shows the
 clock at the left, a background song when one is playing or paused, and Wi-Fi
 and the battery at the right. A long song title shortens before the status
@@ -1806,6 +2081,15 @@ only when you look closer. The row's value says what is missing: `No cover` or
   </tr>
 </table>
 </div>
+
+**File**, the last of a game's facts in its details, is the game's file name
+as it is on the card, with the brackets the shelf leaves out of the title:
+"Final Fantasy VII (USA) (Disc 1)", "Mother 3 (English) (v1.3)". It is how you
+tell two copies of a game apart, a region, a revision, a disc or a hack's
+version. A game in a folder of its own shows the folder and the file it starts
+by ("FF7/Final Fantasy VII (USA) (Disc 1)"), and a ScummVM game its folder. A
+game on more than one disc, a set in its own folder or an `.m3u`, has
+**Discs** under it: how many. A name too long for the row slides along it.
 
 **Rename**, above Delete Game, gives the game a new name. A opens the
 keyboard with the game's name as its file has it. START renames. The game's
@@ -1863,7 +2147,7 @@ A file that another game on the card still uses stays: a save two systems' games
 
 </div>
 
-**Unused Art** deletes the covers and video snaps of games that are no longer on the card; a fetch in **MENU > Scraper** can bring them back. **Old Save States** deletes the save states of games none of whose states was written in a year and that you have not played in one. Your saves stay. Each asks first, with the room it gives back, and the cursor on Cancel.
+**Unused Art** deletes the covers and video snaps of games that are no longer on the card; a fetch in **MENU > Downloads** can bring them back. **Old Save States** deletes the save states of games none of whose states was written in a year and that you have not played in one. Your saves stay. Each asks first, with the room it gives back, and the cursor on Cancel.
 
 ### Ports
 
@@ -1877,8 +2161,8 @@ port and PortMaster print, as it changes (the file being downloaded, how far
 along it is), so you can see that it still runs. A window of PortMaster's own, such as its patcher, shows
 over the loading screen. After a minute, the screen says that a first start
 can install for hours, and how to leave: hold **MENU** and **START**. **MENU**
-opens the port's menu over the loading screen, with **Keep Waiting**,
-**Controls** and **Quit**. Everything a port prints is also in File Transfer's
+opens the port's menu over the loading screen, with **Keep Waiting** and
+**Quit** on its Game tab. Everything a port prints is also in File Transfer's
 **Download logs**. On the Pixel 2.
 
 ## Coming from EmulationStation
@@ -1895,23 +2179,28 @@ ZyperOS writes nothing in them but its own covers in `.media/`.
 | ZyperOS folder | ES folders it also reads |
 |---|---|
 | `Nintendo DS` | `nds` |
-| `Game Boy Advance`, `Game Boy Color`, `Game Boy` | `gba`, `gbc`, `gb` |
+| `Game Boy Advance`, `Game Boy Color`, `Game Boy` | `gba`, `gbav`, `gbc`, `gb`, `sgb` |
 | `SNES` | `snes`, `sfc`, `superfamicom` |
 | `NES` | `nes`, `famicom`, `fds` |
-| `Genesis` | `genesis`, `megadrive`, `md` |
-| `PlayStation` | `psx`, `ps1` |
+| `Genesis` | `genesis`, `megadrive`, `md`, `megadrive-japan` |
+| `PlayStation`, `PSP` | `playstation`, `psx`, `ps1`; `psp`, `pspminis` |
 | `Nintendo 64` | `n64` |
-| `TurboGrafx-16` | `pcengine`, `tg16`, `pcenginecd`, `tg16cd`, `tg-cd`, `supergrafx` |
+| `TurboGrafx-16` | `pcengine`, `tg16`, `turbografx`, `pcenginecd`, `tg16cd`, `turbografxcd`, `tg-cd`, `supergrafx`, `sgfx` |
 | `Sega CD`, `32X`, `Master System`, `Game Gear` | `segacd`, `megacd`, `sega32x`, `mastersystem`, `sms`, `gamegear`, `gg` |
 | `Neo Geo`, `Neo Geo CD`, `Neo Geo Pocket (Color)` | `neogeo`, `neocd`, `neogeocd`, `ngp`, `ngpc` |
 | `Arcade`, `MAME` | `fbneo`, `fba`, `cps1`, `cps2`, `cps3`; `mame2003`, `mame2003plus` |
 
-The rest are in `ZyperOS/systems.cfg` on the card, on its `es|` lines (Atari
-2600 is `atari2600`, WonderSwan is `wswan`, and so on). Capitals do not
-count. A shelf reads one folder: its ZyperOS folder while that has a game,
-and otherwise the ES folder with the most games. A new ZyperOS card has
-every ZyperOS folder, empty, so a copied ES folder is read. When both have
-games, the ZyperOS folder is read: move the games into one of them.
+ROCKNIX's and AmberELEC's hacks folders are read too: `nesh`, `snesh`,
+`gbh`, `gbch`, `gbah`, `genh`, `megadriveh` and `gamegearh`, and ArkOS's
+`snes-hacks`. The rest are in `ZyperOS/systems.cfg` on the card, on its
+`es|` lines (Atari 2600 is `atari2600`, WonderSwan is `wswan`, and so on).
+Capitals do not count, so `playstation` is the `PlayStation` folder and
+`wonderswan` the `WonderSwan` one. A shelf reads one folder: its ZyperOS
+folder while that has a game, and otherwise the ES folder with the most
+games. A new ZyperOS card has every ZyperOS folder, empty, so a copied ES
+folder is read. When both have games, the ZyperOS folder is read: move the
+games into one of them. Two ES folders of one system count the same way:
+of `nes` and `nesh`, the one with more games is read.
 
 **What ZyperOS reads, in order.** ZyperOS's own cover and video snap come
 first: `.media/<game>.png` and `.media/<game>.mp4`, from Box Art, the
@@ -1927,7 +2216,8 @@ Scraper or Cover and Video. A game with none uses ES's:
   `downloaded_videos/<game>.mp4`.
 
 A cover with an ES video has the play mark, and the video plays when you rest
-on the game, as a ZyperOS snap does. **Box Art** counts an ES cover as a
+on the game, as a ZyperOS snap does. The File Transfer page shows the same
+cover beside each game. **Box Art** counts an ES cover as a
 cover, so it fetches covers only for games with none. **Cover and Video**
 shows an ES cover as Now, from EmulationStation; a cover you choose there is
 ZyperOS's own, and shows from then on.
@@ -1959,14 +2249,14 @@ no games goes from the home. Ports have no Delete Game.
 Card art comes from, in order:
 
 1. box art in `Roms/<system>/.media/<name>.png`, whether you put it there or
-   MENU > Scraper fetched it. With a ScreenScraper account the fetch asks
+   MENU > Downloads fetched it. With a ScreenScraper account the fetch asks
    ScreenScraper first. It stores the game's name, year, genre and synopsis.
    Without an account, or for a game ScreenScraper does not have, it asks
    libretro: by file name, and where no name matches, by checksum: a zip
    records its ROM's CRC, which names the game in No-Intro's list - the catalog
    libretro files its covers under - so a file still carrying an older name
    finds its box anyway. On the main card that found 29 more, every one the
-   right game. With a SteamGridDB key (MENU > Scraper > SteamGridDB, or pasted on the
+   right game. With a SteamGridDB key (MENU > Downloads > Settings > SteamGridDB, or pasted on the
    File Transfer page), what libretro still has no cover for is asked of
    SteamGridDB last, by name, and taken only when the name is a close match:
    a portrait 600x900 grid in PNG or JPEG. Fetched art is shrunk to the size it is drawn at - libretro

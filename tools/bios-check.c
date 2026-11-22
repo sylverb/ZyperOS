@@ -89,17 +89,23 @@ static void every_name_sized(const systems_cfg *c)
 
 	for (i = 0; i < c->count; i++) {
 		const system_cfg *s = &c->systems[i];
-		const char *p = s->disc_bios;
+		int t;
 
-		for (k = 0; *p; k++) {
-			size_t n = strcspn(p, ",");
-			char what[CFG_STR + 64];
+		/* The disc bios, then the names a type of file needs */
+		for (t = 0; t < 2; t++) {
+			const char *p = t ? s->type_bios : s->disc_bios;
 
-			snprintf(what, sizeof what, "%s: Bios/%.*s has a firmware line (a size)", s->name, (int)n, p);
-			ck(k < CFG_BIOS_NAMES && s->bios_bytes[k][0] > 0, what);
-			named++;
-			p += n;
-			if (*p) p++;
+			for (k = 0; *p; k++) {
+				size_t n = strcspn(p, ",");
+				char what[CFG_STR + 64];
+
+				snprintf(what, sizeof what, "%s: Bios/%.*s has a firmware line (a size)", s->name,
+				         (int)n, p);
+				ck(k < CFG_BIOS_NAMES && (t ? s->type_bios_bytes : s->bios_bytes)[k][0] > 0, what);
+				named++;
+				p += n;
+				if (*p) p++;
+			}
 		}
 	}
 	ck(named >= 12, "the shipped shelves name their firmware");
@@ -108,7 +114,7 @@ static void every_name_sized(const systems_cfg *c)
 int main(void)
 {
 	static systems_cfg c;
-	const system_cfg *sat, *pce, *ncd, *col;
+	const system_cfg *sat, *pce, *ncd, *col, *nes;
 	char sub[600], out[64];
 
 	ck(cfg_load_systems("config/systems.cfg", &c), "config/systems.cfg loads");
@@ -117,19 +123,30 @@ int main(void)
 	pce = find(&c, "TurboGrafx-16");
 	ncd = find(&c, "Neo Geo CD");
 	col = find(&c, "ColecoVision");
-	if (!sat || !pce || !ncd || !col) { printf("  FAIL a shelf is gone from systems.cfg\n"); return 1; }
+	nes = find(&c, "NES");
+	if (!sat || !pce || !ncd || !col || !nes) { printf("  FAIL a shelf is gone from systems.cfg\n"); return 1; }
 	ck(sat->bios_bytes[0][0] == 524288 && sat->bios_bytes[1][0] == 524288 && sat->bios_bytes[2][0] == 524288,
 	   "the Saturn's three names are 512 KB");
 	ck(pce->bios_bytes[0][0] == 262144 && pce->bios_bytes[0][1] == 262656,
 	   "a System Card is 256 KB, or 512 bytes more with a header");
 	ck(col->bios_every && col->bios_bytes[0][0] == 8192, "the ColecoVision's bios line has its size too");
+	ck(!strcmp(nes->type_bios, "disksys.rom") && !strcmp(nes->type_exts, "fds") &&
+	   nes->type_bios_bytes[0][0] == 8192 && !nes->disc_bios[0] && !nes->bios_every,
+	   "the NES's bios line is for .fds images alone, 8 KB");
+	ck(bios_needs(nes, "Zelda no Densetsu (Japan).fds", false), "an .fds image needs firmware");
+	ck(bios_needs(nes, "ZELDA.FDS", false), "in any case");
+	ck(!bios_needs(nes, "Super Mario Bros. (World).nes", false), "a cartridge does not");
+	ck(!bios_needs(nes, "fds", false) && !bios_needs(nes, "fds.d/x.nes", false) &&
+	   !bios_needs(nes, "x.fdsx", false), "nor a name that only has the letters");
+	ck(bios_needs(col, "Zaxxon.col", false) && !bios_needs(pce, "Bonk.pce", false) &&
+	   bios_needs(pce, "Ys.cue", true), "the shelves before it keep their rules");
 
 	if (!mkdtemp(dir)) { perror("mkdtemp"); return 1; }
 	i18n_set(LANG_EN);
 
 	/* none: as before, the first name asked for */
 	expect(sat, BIOS_MISSING, "saturn_bios.bin", 0, "no file is missing, the first name");
-	said(sat, "needs Bios/saturn_bios.bin", "the missing message is the old one");
+	said(sat, "Needs saturn_bios.bin in Bios", "the missing message names the file and the folder");
 
 	/* the report: a 0-byte first name, good or not later */
 	put("saturn_bios.bin", 0);
@@ -174,6 +191,26 @@ int main(void)
 	expect(sat, BIOS_OK, "", 0, "a good second name is what the core reaches first then");
 	put("sega_101.bin", -1);
 	put("mpr-17933.bin", -1);
+
+	/* an .fds image, by its own line; a cartridge on its shelf by none */
+	{
+		bios_result r;
+
+		ck(bios_check_file(nes, "Metroid.fds", false, dir, &r) == BIOS_MISSING &&
+		   !strcmp(r.name, "disksys.rom"), "an .fds image with no disksys.rom is refused");
+		bios_message(&r, sub, sizeof sub);
+		ck(!strcmp(sub, "Needs disksys.rom in Bios"), "and the shelf says \"Needs disksys.rom in Bios\"");
+		ck(bios_check_file(nes, "Metroid.nes", false, dir, &r) == BIOS_OK, "a cartridge starts with none");
+		put("disksys.rom", 8208);
+		ck(bios_check_file(nes, "Metroid.fds", false, dir, &r) == BIOS_WRONG_SIZE,
+		   "a disksys.rom with a 16-byte header is the wrong size");
+		bios_message(&r, sub, sizeof sub);
+		ck(!strcmp(sub, "Bios/disksys.rom is 8208 bytes; it should be 8192 bytes"),
+		   "said in bytes, since 8 KB would read as a good copy's");
+		put("disksys.rom", 8192);
+		ck(bios_check_file(nes, "Metroid.fds", false, dir, &r) == BIOS_OK, "an 8 KB disksys.rom starts it");
+		put("disksys.rom", -1);
+	}
 
 	/* a folder of the name is not the file */
 	snprintf(sub, sizeof sub, "%s/saturn_bios.bin", dir);

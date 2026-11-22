@@ -2,6 +2,7 @@
 #include "gamern_screen.h"
 
 #include "app.h"
+#include "collect.h"
 #include "gamedel.h"
 #include "gamern.h"
 #include "panel.h"
@@ -26,7 +27,7 @@ bool game_rename(app *a, int owner, const game_entry *g, char *said, size_t n)
 	const system_cfg *s = &a->sys.systems[owner];
 	char tag[sizeof s->tag], folder[CFG_STR], core[CFG_STR], exts[CFG_STR];
 	char file[LIB_PATH], name[LIB_NAME], typed[LIB_NAME], clean[LIB_NAME];
-	char card_saves[CFG_STR * 2], card_states[CFG_STR * 2];
+	char card_saves[CFG_STR * 2], card_states[CFG_STR * 2], card_cheats[CFG_STR * 2];
 	gd_card card;
 	gd_game gg;
 	gd_other *others = NULL;
@@ -47,16 +48,16 @@ bool game_rename(app *a, int owner, const game_entry *g, char *said, size_t n)
 	said[0] = '\0';
 
 	/* Every other game of every system, at every depth of its folders
-	 * (sys_games): what one folder of a shelf shows is not all that shares
-	 * a name */
-	for (i = 0; i < a->sys.count; i++)
-		if (!a->view[i].owner && !is_muse(&a->sys.systems[i])) cap += sys_games(&a->view[i])->count;
+	 * (sys_games), the systems off the home too (app.parked): what one
+	 * folder of a shelf shows is not all that shares a name */
+	for (i = 0; i < sys_kept(a); i++)
+		if (!a->view[i].owner && !is_mp4(&a->sys.systems[i])) cap += sys_games(&a->view[i])->count;
 	if (cap > 0 && !(others = malloc((size_t)cap * sizeof *others))) cap = 0;
-	for (i = 0; i < a->sys.count && others; i++) {
+	for (i = 0; i < sys_kept(a) && others; i++) {
 		const system_cfg *o = &a->sys.systems[i];
 		bool hooked = lib_shelf_hooked(o->exts);
 
-		if (a->view[i].owner || is_muse(o) || !o->folder[0]) continue;
+		if (a->view[i].owner || is_mp4(o) || !o->folder[0]) continue;
 		const game_list *gl = sys_games(&a->view[i]);
 
 		for (k = 0; k < gl->count && no < cap; k++) {
@@ -72,7 +73,8 @@ bool game_rename(app *a, int owner, const game_entry *g, char *said, size_t n)
 		snprintf(said, n, "%s", T(S_GAMEMENU_RENAME_FAILED));
 		return false;
 	}
-	card = (gd_card){ P_ROMS, card_saves, card_states };
+	snprintf(card_cheats, sizeof card_cheats, "%s/Cheats", P_CARD);
+	card = (gd_card){ P_ROMS, card_saves, card_states, card_cheats };
 	gg = (gd_game){ folder, tag, core, exts, file, name, g->dir };
 	for (;;) {
 		if (keyboard_prompt(a, T(S_GAMEMENU_RENAME), typed, (int)sizeof typed) != KB_ACCEPT ||
@@ -114,6 +116,8 @@ bool game_rename(app *a, int owner, const game_entry *g, char *said, size_t n)
 	}
 	fprintf(stderr, "rename: %d library rows\n",
 	        gr_follow(folder, tag, file, name, plan->new_file, plan->new_name));
+	/* and its lines in the collections (src/collect.h) */
+	fprintf(stderr, "rename: %d collection%s\n", coll_follow(folder, file, plan->new_file), "s followed");
 	shelf_rename_game(a, tag, file, plan->new_file, plan->new_name);
 	/* On Favorites, the game where its copy went */
 	{

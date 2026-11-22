@@ -9,7 +9,8 @@
  * by each move; undo once on close only when something was shown, so a
  * choice A takes is stepped from the kept one; no show at all from a list
  * with none; and own_sound quiets the list's moves only where a show plays
- * them; a tick on each pass, after the pass's show. */
+ * them; a tick on each pass, after the pass's show; and `at` told the
+ * cursor on every pass, the kept one too, and -1 on close. */
 #include "../src/ds/hover.h"
 
 #include <stdio.h>
@@ -220,6 +221,31 @@ static void ticks_each_pass(void)
 	ck(!strcmp(t.said, "t1ttU"), "tick runs each pass, after the pass's show");
 }
 
+/* `at`: the cursor each pass, a move back onto the kept one too (Rumble's
+ * level felt), and -1 once the list has closed, before end */
+static void at(void *ctx, int k)
+{
+	tape *t = ctx;
+
+	if (t->n < (int)sizeof t->said - 1) t->said[t->n++] = k < 0 ? '-' : (char)('a' + k);
+	t->said[t->n] = '\0';
+}
+
+static void told_the_cursor(void)
+{
+	static const ds_hover TOLD = { .at = at, .end = tick };
+	tape t = { 0 };
+	ds_hover_run r;
+
+	ds_hover_begin(&r, &TOLD, &t, 0, 0, 0);
+	ds_hover_at(&r, 0, 0);
+	ds_hover_at(&r, 1, 16);
+	ds_hover_at(&r, 0, 32);
+	ds_hover_end(&r);
+	ck(!strcmp(t.said, "aba-t"), "at is told the cursor each pass, the kept one too, then -1 before end");
+	ck(!ds_hover_showing(), "and nothing is showing: at shows nothing");
+}
+
 int main(void)
 {
 	shows_once_per_choice();
@@ -232,6 +258,7 @@ int main(void)
 	showing_while_shown();
 	own_sound_heard_back();
 	ends_once();
+	told_the_cursor();
 	if (fails) { printf("\n%d hover check(s) failed\n", fails); return 1; }
 	printf("ok: a list shows each choice once as its cursor comes to it, puts the kept one back with undo, "
 	       "rests before a show where it asks, and undoes on close only what it showed\n");

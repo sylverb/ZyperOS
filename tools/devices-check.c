@@ -2,8 +2,8 @@
 /* The device profiles (src/device/profile.h): every profile filled in, every
  * control it has printed with something, no control twice, and today's
  * answers for the GKD Pixel 2, the TrimUI Brick and the host's `desktop`,
- * which the launcher's pixels depend on (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 1). The chip's temperature
+ * which the launcher's pixels depend on (docs/building.md,
+ * Devices). The chip's temperature
  * from the zones a profile names, on a sysfs made in a scratch folder. Then
  * the choice of a profile by its id, as --device makes it on the host. Built
  * with all three profiles, as the host build is. No SDL. */
@@ -91,6 +91,8 @@ static void pixel2(void)
 	   "pixel2: no brightness keys of its own");
 	ck(label_is(p, IN_ACCEPT, "A") && label_is(p, IN_VOLUP, "VOL+") && label_is(p, IN_L2, "L2"),
 	   "pixel2: A, VOL+ and L2 as printed");
+	ck(p->batt_empty_mv == 3450,
+	   "pixel2: its battery empty under 3.45 V under load, 50 mV over its 3.40 V design minimum (src/battempty.h)");
 }
 
 static void brick(void)
@@ -107,13 +109,28 @@ static void brick(void)
 	ck(p->chords.bright == DEV_BRIGHT_KEYS && !p->chords.menu_on_release &&
 	   !p->chords.lr2_taps && !p->chords.home_chord && !p->chords.battery_chord,
 	   "brick: brightness on its own keys, no chords of the Pixel 2's");
-	ck(p->model == &td_model_brick && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
+	ck(p->model == &td_model_brick && !p->model_borrowed && p->bluetooth && p->gpu_shaders && p->gpu_frames &&
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
-	   "brick: its own model, Bluetooth, CPU shaders, no GPU frames, two speakers, no Player 2, built-in Wi-Fi");
+	   "brick: its own model, Bluetooth, GPU shaders and frames (from 1.1.0), two speakers, no Player 2, built-in Wi-Fi");
+	ck(p->screen_colors, "brick: Screen Colors, on its display's own gamma table");
+	{
+		/* Its core options: some, and none of the Pixel 2's rumble until a
+		 * tester has felt its motor (src/device/brick_coreopts.c) */
+		const dev_default *d = p->coreopts;
+		bool any = false, rumble = false;
+
+		for (; d && d->key; d++) {
+			any = true;
+			if (strstr(d->key, "rumble") || strstr(d->key, "pak1")) rumble = true;
+		}
+		ck(any && !rumble, "brick: its own core options, no rumble in them");
+	}
 	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
 	   "brick: MENU is the word (no vendor mark as an icon)");
 	ck(label_is(p, IN_BRIGHTDN, "F1") && label_is(p, IN_BRIGHTUP, "F2"),
 	   "brick: F1 and F2 are the brightness keys");
+	ck(p->batt_empty_mv == 3400,
+	   "brick: its battery empty under 3.40 V under load, a careful guess until its cutoff is measured");
 }
 
 static void desktop(void)
@@ -126,6 +143,7 @@ static void desktop(void)
 	ck(p->model == &td_model_pixel2 && p->model_borrowed && p->bluetooth && p->gpu_shaders && p->gpu_frames &&
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
 	   "desktop: today's host answers (the Pixel 2's art, borrowed, shaders and GPU frames, the Brick's rest)");
+	ck(p->batt_empty_mv == 0, "desktop: no empty voltage, the host's test level alone");
 }
 
 /* The constant questions the launcher asks the platform, answered from the
@@ -352,7 +370,8 @@ static void builds(void)
 	ck(!strcmp(br->table, "gpt") && br->part_boot == 1 && br->part_root_a == 2 && br->part_root_b == 4 &&
 	   br->part_games == 5, "brick: GPT, boot 1, roots 2 and 4 (the Pixel 2's numbers), state 3, games 5");
 	ck(px->helpers == (DEV_HELPER_PORTKEYS | DEV_HELPER_ZYHOME | DEV_HELPER_UPDATE | DEV_HELPER_P2D |
-	                   DEV_HELPER_PORTS), "pixel2: portkeys, zyhome, System Update, Player 2, ports");
+	                   DEV_HELPER_PORTS | DEV_HELPER_P8FX),
+	   "pixel2: portkeys, zyhome, System Update, Player 2, ports, your PICO-8's shader library");
 	ck(br->helpers == (DEV_HELPER_UPDATE | DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA),
 	   "brick: System Update, btplayer and Bluetooth sound");
 }

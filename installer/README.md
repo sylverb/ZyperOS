@@ -53,11 +53,34 @@ The first time it opens:
    as `make release` in plastron leaves them, is checked against it first. An
    image that isn't ZyperOS's, or is for the other device, is refused.
 3. **Card:** put the card in. It shows up by itself, with what is on it.
-4. **What to do:**
+4. **PICO-8**, if you want it: your own PICO-8, the "PICO-8 for Raspberry
+   Pi" zip you bought from Lexaloffle (`pico-8_<version>_raspi.zip`).
+   Choose it, or drop it on the window. The installer never downloads
+   PICO-8, and keeps no copy of it: it reads the zip on this computer,
+   checks that it is the Raspberry Pi build (it has `pico8_64`, the 64-bit
+   ARM build the handheld runs), and copies `pico8_64`, `pico8.dat`, the
+   zip's `license.txt` and a `version.txt` to this card only, in
+   `Bios/PICO-8` on its ZYPEROS partition. The zips for Windows, Mac and
+   Linux on a PC are refused, as are those too old to have `pico8_64`, and
+   versions 0.2.5d and 0.2.5e, whose `pico8_64` shows a black screen on the
+   handheld; the row says which, and nothing is written until the zip is
+   removed or another is chosen. Each file is written to a temporary name,
+   read back and compared with the zip's, then renamed into place.
+5. **What to do:**
    - **Update** a card that already has ZyperOS (or TortOS) for that
      device: the system part is written, and the games, music, saves and
-     settings stay.
-   - **Fresh install** on any card: it is erased, and ZyperOS goes on.
+     settings stay. Your PICO-8, if chosen, is copied first, while the
+     ZYPEROS partition is still mounted.
+   - **Fresh install** on any card: it is erased, and ZyperOS goes on. A
+     card has no ZYPEROS partition until its first start makes it, so your
+     PICO-8, if chosen, goes in `pico8/` on the image's boot partition, on
+     its way to the card, and the first start moves it to `Bios/PICO-8`. An
+     update of a card that never started does the same. When the boot
+     partition has no room for it, the installer says so and writes
+     nothing.
+   - **Add PICO-8** on a card that has started in the handheld: your
+     PICO-8 only, copied to its ZYPEROS partition. No system is written,
+     and no password is asked.
 
 **The Brick's graphics and Wi-Fi files.** The Brick needs closed files for
 its graphics and its Wi-Fi and Bluetooth: Imagination's PowerVR driver and
@@ -166,7 +189,8 @@ made-up write, to look at the design: serve `ui/` and open it (add
 `?release` for a release to download, the Pixel 2's only, `&brick` for the
 Brick's too, `?nocard` for no card, and
 `?update=available` for a newer installer to update to; `downloading`,
-`ready`, `installing`, `failed` and `page` show the chip's other states).
+`ready`, `installing`, `failed` and `page` show the chip's other states;
+`?zip=windows` makes the PICO-8 row's Choose take a zip it refuses).
 
 ### The installer's own updates
 

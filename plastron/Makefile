@@ -23,26 +23,49 @@ ZYPEROS_VENDOR ?= $(or $(ZYPEROS_MAIN),$(ZYPEROS_SRC))/vendor
 ZYPEROS_SS_ENV ?= $(or $(ZYPEROS_MAIN),$(ZYPEROS_SRC))/.screenscraper.env
 SOURCES := -v $(ZYPEROS_SRC):/zyperos:ro -v $(ZYPEROS_VENDOR):/zyperos-vendor:ro \
 	$(if $(wildcard $(ZYPEROS_SS_ENV)),-v $(ZYPEROS_SS_ENV):/zyperos-ss.env:ro)
+# The developer's SSH key for a development image (board/*/post-build.sh):
+# local/authorized_keys, which git ignores, so a worktree has none of its own.
+# The main checkout's then, so a development build from a worktree is not one
+# nobody can sign in to, on the cable or over Wi-Fi. A release takes the key
+# out whichever it is, and QEMU's image never keeps one.
+DEV_KEYS := $(if $(wildcard $(CURDIR)/local/authorized_keys),,$(wildcard $(ZYPEROS_MAIN)/plastron/local/authorized_keys))
+SOURCES += $(if $(DEV_KEYS),-v $(DEV_KEYS):/plastron-keys/authorized_keys:ro)
 # Which plastron builds, and who: build.sh writes the first beside its output,
 # for the SDK make sdk packs from it, and a build waiting on the same output
 # shows the second (scripts/lock.sh)
 PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null || echo unknown)
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
+# DEV=1, the development setting: the output's builds go through ccache and
+# build again every input that changed, which Buildroot alone does not watch
+# (scripts/build.sh says what it built and what it took as it was). Off
+# unless asked for; an output keeps it once set, and leaves it with DEV=0
+# CLEAN=1. Never for a release. CLEAN=1 empties the kept output first: after
+# a change to the toolchain or the architecture (a development build stops
+# and says so), or when what an image carries must not depend on what was
+# built before it.
+STAMP += -e PLASTRON_CLEAN=$(CLEAN) -e PLASTRON_DEV=$(filter 0 1,$(DEV))
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
+.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-qemu third-party
 
 all: image
 
 builder:
 	docker build -q -t $(IMAGE) docker
 
+# The small cores ZyperOS builds rather than fetches (its
+# mk/build-small-cores.sh): one that its systems.cfg names and ZYPEROS_VENDOR
+# lacks is built there before a card is made, since mk/payload.sh refuses a
+# card without it; with none missing this only looks, Docker never started
+cores:
+	ZYPEROS_VENDOR=$(ZYPEROS_VENDOR) sh $(ZYPEROS_SRC)/mk/build-small-cores.sh --missing
+
 # The volume is created owned by root; the build runs as uid 1000
 volume:
 	docker volume create $(VOLUME) >/dev/null
 	docker run --rm -v $(VOLUME):/work --user root $(IMAGE) chown 1000:1000 /work
 
-image: builder volume
+image: builder volume cores
 	$(DOCKER_RUN) sh /src/scripts/build.sh
 	$(MAKE) copy-out
 
@@ -56,7 +79,7 @@ base: builder volume
 # (scripts/build-qemu-uboot.sh), which QEMU starts and which boots the card's
 # system slots as the Pixel 2's does. ZyperOS's tools/qemu-run.sh boots them,
 # one VM per caller on its own copy of the card.
-qemu: builder volume
+qemu: builder volume cores
 	docker run --rm -t $(STAMP) -e FLAVOR=qemu -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE) sh /src/scripts/build.sh
 	$(DOCKER_RUN) sh /src/scripts/build-qemu-uboot.sh
 	mkdir -p out/qemu
@@ -92,7 +115,7 @@ brick-inputs:
 BRICK_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) \
 	-v $(BRICK_GPU):/brick-gpu:ro -v $(BRICK_XR829):/brick-xr829:ro -v $(VOLUME):/work $(IMAGE)
 # Its kernel and modules come from make brick-kernel, in this volume.
-brick: builder volume brick-inputs
+brick: builder volume brick-inputs cores
 	@docker run --rm -v $(VOLUME):/work $(IMAGE) test -f /work/brick-kernel/images/pvrsrvkm.ko || \
 		{ echo "no Brick kernel modules yet: make brick-kernel first" >&2; exit 1; }
 	$(BRICK_RUN) env FLAVOR=brick sh /src/scripts/build.sh $(BRICK_TARGET)
@@ -181,17 +204,34 @@ third-party:
 	docker run --rm -v $(VOLUME):/work -v $(CURDIR):/src:ro $(IMAGE) python3 /src/scripts/third-party.py \
 		/work/release-output-brick/legal-info/manifest.csv brick > buildroot/board/brick/third-party-packages.md
 
-release-pixel2:
+release-pixel2: cores
 	@mkdir -p out
 	$(DOCKER_RUN) sh /src/scripts/release.sh $(VERSION) pixel2 > out/release-pixel2.log 2>&1 || \
 		{ tail -30 out/release-pixel2.log; exit 1; }
 
 # The Brick's closed files there first, as release has them (its kernel from
 # make brick-kernel: board/brick/post-image.sh stops without it)
-release-brick: brick-inputs
+release-brick: brick-inputs cores
 	@mkdir -p out
 	$(BRICK_RUN) sh /src/scripts/release.sh $(VERSION) brick > out/release-brick.log 2>&1 || \
 		{ tail -30 out/release-brick.log; exit 1; }
+
+# QEMU's image for a release, ZyperOS-v<VERSION>-qemu.tar.xz, and the
+# sources of what only it has, ZyperOS-v<VERSION>-qemu-sources.tar
+# (scripts/release-qemu.sh): built from empty as the devices' release images
+# are, with no SSH key in it, into the volume's release/ beside theirs and
+# out/release-qemu. ZyperOS's tools/release.sh builds it with the devices;
+# its tools/qemu-image.sh builds it alone, to try.
+release-qemu: builder volume
+	@[ -n "$(VERSION)" ] || { echo "no VERSION in $(ZYPEROS_SRC)/Makefile" >&2; exit 1; }
+	@mkdir -p out
+	$(DOCKER_RUN) sh /src/scripts/release-qemu.sh $(VERSION) > out/release-qemu.log 2>&1 || \
+		{ tail -30 out/release-qemu.log; exit 1; }
+	rm -rf out/release-qemu
+	mkdir -p out/release-qemu
+	docker run --rm -v $(VOLUME):/work -v $(CURDIR)/out:/out --user root $(IMAGE) \
+		sh -c 'cp /work/release/ZyperOS-v$(VERSION)-qemu.tar.xz /work/release/ZyperOS-v$(VERSION)-qemu-sources.tar /out/release-qemu/ && chown -R $(shell id -u):$(shell id -g) /out/release-qemu'
+	@ls -l out/release-qemu
 
 OUTPUT ?= output
 CARD ?= sdcard.img
@@ -265,20 +305,47 @@ charge-limit-check:
 
 # The Pixel 2's battery level at a start (board/px2/start-soc-check.c): the
 # voltage at rest and where a start's level comes from, taken out of its
-# kernel patch as they stand (rk817_rest_uv, rk817_start_from and
-# RK817_START_CHARGING_UA), and the OCV table and internal resistance out of
-# its device tree. No Docker, no kernel, no device. Into out/.
+# kernel patch as they stand (rk817_rest_uv and rk817_start_from, with
+# RK817_START_CHARGING_UA and rk817_start_level out of the wear3-charger-start
+# patch), the full charge a start measures out of the wear patch
+# (rk817_learn_fcc), the empty end out of the wear2-empty patch
+# (rk817_empty_due and its RK817_EMPTY_ limits) with ZyperOS's own
+# BATT_EMPTY_PCT beside them, and the OCV table, the internal resistance and
+# the charge's end current out of its device tree. No Docker, no kernel, no
+# device. Into out/.
 START_SOC_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-start-soc.patch
 START_SOC_DTS := buildroot/board/px2/dts/rk3326s-gkd-pixel2.dts
 START_SOC_OUT := out/start-soc-check
+# and the full charge a start measures (rk817_learn_fcc, RK817_LEARN_MAX_SOC)
+WEAR_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-wear.patch
+# and the empty end (rk817_empty_due), which needs the wear patch applied
+# before it: Buildroot applies a folder's patches in LC_ALL=C order of their
+# names, so it must sort after it
+EMPTY_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-wear2-empty.patch
+# and a charger's start (RK817_START_CHARGING_UA as it is now, and
+# rk817_start_level), which needs all three before it
+CHARGER_START_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-wear3-charger-start.patch
+SOC_PATCH_ORDER := $(notdir $(START_SOC_PATCH) $(WEAR_PATCH) $(EMPTY_PATCH) $(CHARGER_START_PATCH))
 start-soc-check:
+	@[ "$$(printf '%s\n' $(SOC_PATCH_ORDER) | LC_ALL=C sort | tr '\n' ' ')" = "$(SOC_PATCH_ORDER) " ] || \
+		{ echo "start-soc-check: the battery's patches must sort in this order, each after what it" \
+		"needs: $(SOC_PATCH_ORDER)" >&2; exit 1; }
 	@mkdir -p $(START_SOC_OUT) && \
-		{ sed -n 's/^+\(#define RK817_START_CHARGING_UA\)/\1/p' $(START_SOC_PATCH) && \
+		{ sed -n 's/^+\(#define RK817_START_CHARGING_UA\)/\1/p' $(CHARGER_START_PATCH) && \
 		  sed -n '/^+enum rk817_start_from {/,/^+};/s/^+//p' $(START_SOC_PATCH) && \
 		  sed -n '/^+static int rk817_rest_uv(/,/^+}/s/^+//p' $(START_SOC_PATCH) && \
-		  sed -n '/^+static enum rk817_start_from rk817_start_from(/,/^+}/s/^+//p' $(START_SOC_PATCH); \
+		  sed -n '/^+static enum rk817_start_from rk817_start_from(/,/^+}/s/^+//p' $(START_SOC_PATCH) && \
+		  sed -n 's/^+\(#define RK817_LEARN_MAX_SOC\)/\1/p' $(WEAR_PATCH) && \
+		  sed -n '/^+static int rk817_learn_fcc(/,/^+}/s/^+//p' $(WEAR_PATCH) && \
+		  sed -n 's/^+\(#define RK817_EMPTY_[A-Z_]*[[:space:]]\)/\1/p' $(EMPTY_PATCH) && \
+		  sed -n '/^+static bool rk817_empty_due(/,/^+}/s/^+//p' $(EMPTY_PATCH) && \
+		  sed -n '/^+static int rk817_start_level(/,/^+}/s/^+//p' $(CHARGER_START_PATCH) && \
+		  sed -n 's/^#define BATT_EMPTY_PCT[[:space:]]/#define ZYPEROS_BATT_EMPTY_PCT /p' \
+			$(ZYPEROS_SRC)/src/status.h; \
 		} > $(START_SOC_OUT)/rule.c && \
 		{ sed -n 's/.*factory-internal-resistance-micro-ohms = <\([0-9]*\)>;.*/#define PX2_R_UOHM \1/p' $(START_SOC_DTS) && \
+		  sed -n 's/.*voltage-min-design-microvolt = <\([0-9]*\)>;.*/#define PX2_VMIN_UV \1/p' $(START_SOC_DTS) && \
+		  sed -n 's/.*charge-term-current-microamp = <\([0-9]*\)>;.*/#define PX2_TERM_UA \1/p' $(START_SOC_DTS) && \
 		  echo 'static const int PX2_OCV[][2] = {' && \
 		  sed -n '/ocv-capacity-table-0/,/;/p' $(START_SOC_DTS) | grep -o '<[0-9]* [0-9]*>' | \
 			sed 's/<\([0-9]*\) \([0-9]*\)>/	{ \1, \2 },/' && \

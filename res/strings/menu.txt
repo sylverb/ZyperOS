@@ -3,15 +3,15 @@
 # decimal mark of a size.
 
 [menu.off]
-note = A status value in a menu row's value column: something is off (the screensaver's value). Lowercase, as every status value. A switch's own value is menu.off_title.
-en = off
+note = A status value in a menu row's value column: something is off (the screensaver's value). Begun with a capital, as every value. A switch's own value is menu.off_title.
+en = Off
 zh-Hans = 关闭
-es = desactivado
-pt-BR = desativado
-fr = désactivé
-de = aus
+es = Desactivado
+pt-BR = Desativado
+fr = Désactivé
+de = Aus
 ja = オフ
-it = disattivo
+it = Disattivo
 
 [menu.on_title]
 note = On, where English writes it as a named choice with a capital: a switch's value (Developer Mode, Wi-Fi and MENU's Wi-Fi row, Bluetooth, Swap Screens, Stylus, the Scraper's snaps), Menu Music, Side Lights' parts
@@ -37,25 +37,25 @@ it = Disattivo
 
 [menu.needs_wifi]
 note = A row's value when it cannot work without a network (glossary: needs Wi-Fi)
-en = needs Wi-Fi
+en = Needs Wi-Fi
 zh-Hans = 需要 Wi-Fi
-es = requiere Wi-Fi
-pt-BR = requer Wi-Fi
+es = Requiere Wi-Fi
+pt-BR = Requer Wi-Fi
 fr = Wi-Fi requis
-de = braucht WLAN
+de = Braucht WLAN
 ja = Wi-Fi が必要
-it = richiede Wi-Fi
+it = Richiede Wi-Fi
 
 [menu.not_connected]
 note = The value of the Wi-Fi and Bluetooth rows with nothing connected
-en = not connected
+en = Not connected
 zh-Hans = 未连接
-es = sin conexión
-pt-BR = não conectado
-fr = non connecté
-de = nicht verbunden
+es = Sin conexión
+pt-BR = Não conectado
+fr = Non connecté
+de = Nicht verbunden
 ja = 未接続
-it = non connesso
+it = Non connesso
 
 [menu.decimal_point]
 note = The decimal mark of a size such as 1.4 GB: one character, . or , as the language writes it

@@ -204,9 +204,9 @@ static void channels(void)
 	ck(aout_channels_for(AOUT_STEREO, AOUT_SPK, true) == AOUT_STEREO,
 	   "Stereo chosen is stereo even on one speaker");
 	aout_channels_label(AOUT_CHANNELS_AUTO, AOUT_MONO, label, sizeof label);
-	ck(!strcmp(label, "auto (mono)"), "Auto's row says the mix it makes");
+	ck(!strcmp(label, "Auto (Mono)"), "Auto's row says the mix it makes");
 	aout_channels_label(AOUT_MONO_LEFT, AOUT_MONO, label, sizeof label);
-	ck(!strcmp(label, "mono left"), "and a choice names itself");
+	ck(!strcmp(label, "Mono left"), "and a choice names itself");
 
 	/* Each program's own destination, from the device it was given. */
 	s = st(AOUT_AUTO, false, BT);
@@ -217,13 +217,13 @@ static void channels(void)
 	ck(aout_dest_of(&s, BT) == AOUT_BT, "a sink's name is the sink");
 	ck(aout_dest_of(&s, AOUT_USB_DEVICE) == AOUT_USB, "the system's usb is the DAC");
 
-	/* Names, both ways. The wire names are Diatom's and Muse's; a stored value
+	/* Names, both ways. The wire names are Diatom's and MP4's; a stored value
 	 * nobody recognizes is stereo, what every output did before. */
 	for (c = 0; c < AOUT_CHANNELS_COUNT; c++)
 		ck(aout_channels_parse(aout_channels_wire((aout_channels)c)) == (aout_channels)c,
 		   "each wire name parses back to itself");
 	ck(!strcmp(aout_channels_wire(AOUT_MONO_LEFT), "left"), "the wire says left");
-	ck(!strcmp(aout_channels_name(AOUT_MONO_LEFT), "mono left"), "the menu says mono left");
+	ck(!strcmp(aout_channels_name(AOUT_MONO_LEFT), "Mono left"), "the menu says mono left");
 	ck(!strcmp(aout_channels_wire(AOUT_CHANNELS_AUTO), "auto"), "the setting says auto");
 	ck(aout_channels_parse("both") == AOUT_STEREO, "an unknown name is stereo");
 	ck(aout_channels_parse(NULL) == AOUT_STEREO, "and so is none");

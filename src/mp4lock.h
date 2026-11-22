@@ -11,7 +11,7 @@
  *
  * mine, 2026-11-05: while locked every button is blocked, POWER included,
  * and one clear gesture unlocks - SELECT and START held together for
- * hold-unlock (MP4_UNLOCK_MS). Muse's pocket lock before it let power and
+ * hold-unlock (MP4_UNLOCK_MS). MP4's pocket lock before it let power and
  * volume through (Eric's call, 2026-09-30: powering off is far more common
  * than pocketing a handheld). A pocket presses power as easily as anything
  * else, so now it does not get through; what cannot be stopped is the power
@@ -51,7 +51,13 @@
  * an MP4 screen locks it, as X does, so one gesture locks and unlocks. SELECT
  * alone still closes MP4, which it did on its press: it now does it as it is
  * let go, since a SELECT pressed a moment before START is the start of the
- * pair (mp4chord below). */
+ * pair (mp4chord below).
+ *
+ * START ALONE TURNS, Tarik's ask of 2026-11-19 ("allow changing with start
+ * as we do on the launcher"): MP4's shelf's View, and Now Playing's Player
+ * Look (DESIGN.md 11.67). As SELECT does, as it is let go and only when
+ * SELECT never joined it: a START pressed a moment before SELECT is the
+ * start of the pair, and locks without turning anything first. */
 
 #define MP4_UNLOCK_MS     ((unsigned)DS_MS_HOLD_UNLOCK)
 #define MP4_SHOW_MS       ((unsigned)DS_MS_HOLD_LOCK_LIT)
@@ -99,19 +105,21 @@ unsigned mp4lock_next(const mp4lock *l);
 /* SELECT on an MP4 screen, unlocked: alone, or the first of the pair. */
 typedef struct {
 	bool select;           /* SELECT pressed alone and still down */
+	bool start;            /* START pressed alone and still down */
 } mp4chord;
 
 typedef enum {
 	MP4C_NONE,
 	MP4C_SELECT,           /* SELECT let go with START never down: close MP4 */
 	MP4C_LOCK,             /* SELECT and START down together: lock */
+	MP4C_START,            /* START let go with SELECT never down: turn */
 } mp4c_said;
 
 /* One pass, with what is down and what was pressed in it. The pair counts
  * when either goes down while the other is down, whichever came first, and
- * once: the SELECT under it then closes nothing as it is let go. A SELECT
- * that was down before the screen's first pass (the one that opened MP4) is
- * not this screen's, and is nothing. */
+ * once: the SELECT or START under it then does nothing as it is let go. A
+ * SELECT or START that was down before the screen's first pass (the one that
+ * opened MP4) is not this screen's, and is nothing. */
 mp4c_said mp4chord_step(mp4chord *c, const bool down[IN_COUNT],
                         const bool pressed[IN_COUNT]);
 

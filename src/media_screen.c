@@ -13,7 +13,7 @@
 #include "mediapage.h"
 #include "mediatex.h"
 #include "menumotion.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "net.h"
 #include "panel.h"
 #include "snaps.h"
@@ -26,6 +26,7 @@
 #include "ds/layout.h"   /* DS_FOOT_Y */
 #include "uisound.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL_image.h>
 #include <stdio.h>
@@ -514,7 +515,7 @@ static void media_watch(media_view *v)
 	app *a = v->a;
 
 	snap_ask("", false);
-	g_snap_force_vol = musec_heard() ? 0 : 100;
+	g_snap_force_vol = mp4c_heard() ? 0 : 100;
 	snap_ask(v->snap, false);
 	g_snap_force_vol = -1;
 	while (!want_quit && a->running) {
@@ -527,10 +528,7 @@ static void media_watch(media_view *v)
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { snap_off(); power_off(a); break; }
 		if (a->in.pressed[IN_BACK] || a->in.pressed[IN_ACCEPT]) { uisound_play(DS_SOUND_BACK); break; }
 		if (a->in.pressed[IN_MENU]) { menu_leaving(a); break; }
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		snapv_update(a->r);
 		tick_theme(a);
 		draw_background(a);
@@ -671,14 +669,11 @@ void media_screen(app *a, int owner, const game_entry *g)
 		int nt;
 
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { mf_end(); snap_off(); power_off(a); break; }
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		/* What the sources and the worker brought since the last frame */
 		if (mf_step()) redraw_now();

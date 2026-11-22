@@ -2,8 +2,8 @@
 #ifndef ZYPEROS_DEVICE_BUILD_H
 #define ZYPEROS_DEVICE_BUILD_H
 
-/* How a handheld is built and laid out (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 5): its architecture and the
+/* How a handheld is built and laid out (docs/building.md,
+ * Devices): its architecture and the
  * build's baseline, the Diatom port it runs, its card's partitions, and the
  * helpers its payload carries beside the launcher. Stated once here, in
  * src/device/<id>_build.c, and read by the build, the card and plastron
@@ -12,7 +12,7 @@
  * launcher never links this: it is the build's, and keeping it out keeps the
  * launcher's own binary the same. No SDL. */
 
-/* The programs a device's payload carries beside the launcher, Muse and
+/* The programs a device's payload carries beside the launcher, MP4 and
  * Diatom (mk/payload.sh), in the order config/device/<id>.mk lists them */
 typedef enum {
 	DEV_HELPER_PORTKEYS = 1u << 0,   /* tools/portkeys.c: a port's keys and MENU */
@@ -22,6 +22,7 @@ typedef enum {
 	DEV_HELPER_PORTS    = 1u << 4,   /* PortMaster and OpenBOR on the card */
 	DEV_HELPER_BTPLAYER = 1u << 5,   /* tools/btplayer.c: a headset's buttons */
 	DEV_HELPER_BTALSA   = 1u << 6,   /* sd/zyperos/bt-alsa.sh: Bluetooth sound */
+	DEV_HELPER_P8FX     = 1u << 7,   /* src/p8fx/: your PICO-8's Shader and Border */
 } dev_helper;
 
 typedef struct {

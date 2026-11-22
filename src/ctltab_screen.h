@@ -7,8 +7,7 @@
  * the tutorial's handheld beside the rows (and a button's choices), lit for
  * the row under the cursor and moving as the design says. main.c hooks it into the in-game menu's
  * build, keys and panel (gm_menu_build, gm_key, menu_style's side).
- * Design: docs/superpowers/specs/2026-11-13-button-remap-design.md,
- * sections 2 to 8. */
+ * Design: DESIGN.md 11.45. */
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -31,6 +30,9 @@ typedef struct {
 	const char *file;        /* the game's file, as the shelf names it */
 	const char *title;       /* its name, for Reset Buttons' question */
 	const char *pak;         /* the Pak row's value (gm_pak_name), NULL for no row */
+	/* The Rumble row: the handheld has a motor and the game's core asked
+	 * for it (PAUSED rumble=1, plat_resident_rumble_asked) */
+	bool        rumble;
 	/* Applies To says the system (every game of it): kept with the in-game
 	 * menu's memory, so it stays with the tab and the row until the game ends */
 	bool       *scope_all;

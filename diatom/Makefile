@@ -22,11 +22,18 @@ CFLAGS  += -Iinclude -Isrc -Ivendor/rcheevos/include -Ivendor/lz4
 CFLAGS  += -MMD -MP
 # zlib for zipped ROMs (src/zip.c), on every port
 LDFLAGS += -lz
+# liblzma, for a zip's LZMA entries (src/zip.c): the system's own, which
+# plastron has for the CHD reader; pkg-config answers for the device's
+# sysroot in a device build, for Homebrew's xz on a Mac
+LZMA_CFLAGS := $(shell $(or $(PKG_CONFIG),pkg-config) --cflags liblzma 2>/dev/null)
+LZMA_LIBS   := $(or $(shell $(or $(PKG_CONFIG),pkg-config) --libs liblzma 2>/dev/null),-llzma)
+CFLAGS  += $(LZMA_CFLAGS)
+LDFLAGS += $(LZMA_LIBS)
 
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
 BUILD := build/$(PORT)
-SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c port/$(PORT).c
+SRC   := src/main.c src/cheevos.c src/cheats.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/corefail.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c src/fdsdisk.c src/sgb.c src/border.c port/$(PORT).c
 # Expanded where it is used, not here: a port's block below adds its own files
 # to SRC (the Pixel 2's bar, port/osdbar.c), and := took the list before they
 # were in it, so they were never built and the link failed.
@@ -98,10 +105,16 @@ ifeq ($(PORT),brick)
   # controls, which need no library.
   PKG_CONFIG ?= pkg-config
   # The level bar, ZyperOS's own drawing of it (port/osdbar.c), and the theme
-  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2
-  SRC += port/osdbar.c port/themefile.c
-  CFLAGS  += $(shell $(PKG_CONFIG) --cflags sdl2)
-  LDFLAGS += $(shell $(PKG_CONFIG) --libs sdl2) -lm -ldl -lpthread
+  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2;
+  # the Screen Colors' table math, which port/panelgamma_sunxi.h puts on the
+  # display (port/panelgamma.c); the FPS readout's drawing (port/hud.c), which
+  # the GPU path's shared drawing links. The GPU path draws with the
+  # PowerVR's EGL and GLES, whose headers and pkg-config files plastron's
+  # pvr-ge8300 package puts in the sysroot.
+  BRICK_PKGS := sdl2 egl glesv2
+  SRC += port/osdbar.c port/themefile.c port/panelgamma.c port/hud.c
+  CFLAGS  += $(shell $(PKG_CONFIG) --cflags $(BRICK_PKGS))
+  LDFLAGS += $(shell $(PKG_CONFIG) --libs $(BRICK_PKGS)) -lm -ldl -lpthread
 endif
 
 ifeq ($(PORT),pixel2)
@@ -155,7 +168,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-displaylock check-rumble-e2e check-player2 check-states check-statereads
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-border check-border-e2e check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-zipmethods check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-rtc check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats check-shotfeel
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -202,6 +215,48 @@ $(CHORD_TEST): test/chord_test.c src/chord.c src/chord.h include/diatom_port.h
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
 	      -Iinclude -Isrc -o $@ test/chord_test.c src/chord.c
 
+# A Famicom Disk System disk, as FCEUmm says what L1 and R1 did
+# (src/fdsdisk.h): the core's own words, each side of a two-disk game, read
+# into what the pop-up says, and every other text left alone. Offline:
+# src/fdsdisk.c alone.
+FDSDISK_TEST := $(BUILD)/fdsdisk-test
+
+check-fdsdisk: $(FDSDISK_TEST)
+	@./$(FDSDISK_TEST)
+
+$(FDSDISK_TEST): test/fdsdisk_test.c src/fdsdisk.c src/fdsdisk.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/fdsdisk_test.c src/fdsdisk.c
+
+# The Super Game Boy per game (src/sgb.h): which cartridge headers start as
+# one under RUN sgb=games (mGBA's own test of the header), a Color only
+# cartridge never, and the two options set for that game alone.
+# Offline: src/sgb.c alone.
+SGB_TEST := $(BUILD)/sgb-test
+
+check-sgb: $(SGB_TEST)
+	@./$(SGB_TEST)
+
+$(SGB_TEST): test/sgb_test.c src/sgb.c src/sgb.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Iinclude -Isrc -o $@ test/sgb_test.c src/sgb.c
+
+# The Border's two makings (src/border.h): the blurred picture from frames of
+# each format, cut to the surface's shape, darkened, opaque; the DTOV file
+# read whole, its alpha opaque, anything else refused. Offline: src/border.c
+# alone. Its drawing, end to end, is check-border-e2e.
+BORDER_TEST := $(BUILD)/border-test
+
+check-border: $(BORDER_TEST)
+	@./$(BORDER_TEST)
+
+$(BORDER_TEST): test/border_test.c src/border.c src/border.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -O2 \
+	      -Isrc -o $@ test/border_test.c src/border.c
+
 # The frame loop's rule for a late turn at 1x (src/pace.h): a debt kept, a
 # stall's dropped, and the rest of one dropped once the sound queue is back at
 # its target. Then a minute of a game against a model of the port's queue (a
@@ -218,6 +273,43 @@ $(PACE_TEST): test/pace_test.c src/pace.c src/pace.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
 	      -Isrc -o $@ test/pace_test.c src/pace.c -lm
+
+# The frames a game emulated, and the pictures it drew, from the calls to
+# retro_run and the sound the core made (src/emumeter.h): Speed is the
+# emulation's, not the pictures'. Offline: src/emumeter.c alone. The frame
+# loop's side, end to end, is check-hudspeed.
+EMUMETER_TEST := $(BUILD)/emumeter-test
+
+check-emumeter: $(EMUMETER_TEST)
+	@./$(EMUMETER_TEST)
+
+$(EMUMETER_TEST): test/emumeter_test.c src/emumeter.c src/emumeter.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/emumeter_test.c src/emumeter.c -lm
+
+# Why a core would not load, in words the launcher can say (src/corefail.h):
+# the file's ELF header and dlerror's text as glibc, musl and macOS write it.
+# Offline: src/corefail.c alone. The real dlopen, end to end, is
+# check-corefail-e2e.
+COREFAIL_TEST := $(BUILD)/corefail-test
+
+check-corefail: $(COREFAIL_TEST)
+	@./$(COREFAIL_TEST)
+
+$(COREFAIL_TEST): test/corefail_test.c src/corefail.c src/corefail.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/corefail_test.c src/corefail.c
+
+# A core that would not load says why, end to end: cores built here (another
+# machine's ELF header, a library that is gone, a function nothing has) refused
+# by the real dlopen, each with its ERROR line's why= and name= (src/corefail.h).
+# On check-stateplane's terms: the stub core, a few seconds, skipped unbuilt.
+check-corefail-e2e:
+	$(FRESH_IF_BUILT)
+	@python3 test/corefail.py
+.PHONY: check-corefail-e2e
 
 # Refreshes missed with the frame ready (src/flipwatch.h): each climbs the
 # clocks one step, the power level, then the CPU and the GPU held at their
@@ -284,7 +376,21 @@ check-bounds: $(BOUNDS_TEST)
 $(BOUNDS_TEST): test/bounds_test.c src/zip.c src/proto.c src/diatom.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g $(BOUNDS_SAN) \
-	      -Iinclude -Isrc -o $@ test/bounds_test.c src/zip.c src/proto.c -lz
+	      -Iinclude -Isrc $(LZMA_CFLAGS) -o $@ test/bounds_test.c src/zip.c src/proto.c -lz $(LZMA_LIBS)
+
+# Zipped games by each method a zip tool offers (src/zip.c): stored, Deflate
+# and LZMA read whole, bzip2 refused rather than its readme handed over.
+# Python's zipfile writes the zips, so it needs no file from anywhere.
+ZIPLOAD := $(BUILD)/zipload
+
+check-zipmethods: $(ZIPLOAD)
+	@python3 test/zipmethods.py $(ZIPLOAD)
+.PHONY: check-zipmethods
+
+$(ZIPLOAD): test/zipload.c src/zip.c src/diatom.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g -Iinclude -Isrc $(LZMA_CFLAGS) \
+	      -o $@ test/zipload.c src/zip.c -lz $(LZMA_LIBS)
 
 # A save state's file (src/statefile.h): packed and read back byte for byte,
 # with its achievement trailer; a version 1 state, unpacked, as every Diatom
@@ -332,6 +438,25 @@ check-proto:
 	$(FRESH_IF_BUILT)
 	@python3 test/proto.py
 
+# The Famicom Disk System's disk messages (a core's SET_MESSAGE in FCEUmm's
+# words reaches the launcher as a DISK line, any other none) and the Super
+# Game Boy per game (RUN sgb=games sets mGBA's model and border for the games
+# made for it, and the next game loads with the launcher's values), end to
+# end against the stub core.
+check-fdssgb:
+	$(FRESH_IF_BUILT)
+	@python3 test/fdssgb.py
+.PHONY: check-fdssgb
+
+# The Border drawn, end to end on the desktop port: a picture under the game
+# where the picture is not (Sharp Pixels on a 640x480 surface), the game on
+# top, the blur from the game's own colors, black with none, and SETBORDER's
+# answers to a launcher (a good file, a bad one, blur, black).
+check-border-e2e:
+	$(FRESH_IF_BUILT)
+	@python3 test/border.py
+.PHONY: check-border-e2e
+
 # The state plane, end to end against the stub core. On the same terms as
 # check-proto: a second of wall time, no core, no ROM, no network.
 #
@@ -359,6 +484,15 @@ check-now:
 	$(FRESH_IF_BUILT)
 	@python3 test/now.py
 .PHONY: check-now
+
+# On-Screen Stats' FPS and Speed end to end (src/emumeter.h): the stub core that
+# repeats every second picture, or whose call is two frames long, is at 1.00x
+# and 30 fps; a slow one is under 1x, and fast forward at its step. On
+# check-stateplane's terms: the stub core, about a minute, skipped unbuilt.
+check-hudspeed:
+	$(FRESH_IF_BUILT)
+	@python3 test/hudspeed.py
+.PHONY: check-hudspeed
 
 # The display lock end to end (src/pace.h): the stub at a GBA's 59.7275 fps
 # with a 60 Hz display runs at 60 and says so; pace=core, no display rate or
@@ -400,19 +534,43 @@ check-statereads:
 # SELECT's hotkeys end to end (src/chord.h): the pad by script, what the stub
 # core read written down, the quick slot's SAVE and LOAD answered while the
 # game runs. On check-stateplane's terms: about eight seconds, skipped unbuilt.
+# Cheats, end to end against the stub core (test/cheats.py): what the core is
+# handed and when, never in a frame, and achievements paused while one is on.
+# Needs build/desktop, as check-proto does, and skips without it.
+check-cheats:
+	@python3 test/cheats.py
+
 check-hotkeys:
 	$(FRESH_IF_BUILT)
 	@python3 test/hotkeys.py
 .PHONY: check-hotkeys
 
+# A screenshot felt and heard as it is taken (test/shotfeel.py): one buzz a
+# shot at RUN rumble='s level and none at 0, HOTKEY key=shot as it is taken
+# and before its SHOT path=, the file the core's frame pixel for pixel, and the
+# game's sound written all through as it was. Skipped unbuilt.
+check-shotfeel:
+	$(FRESH_IF_BUILT)
+	@python3 test/shotfeel.py
+.PHONY: check-shotfeel
+
 # How a core's life ends, end to end (test/coreend.py): PrBoom opened afresh
-# for each game (core.c, one_game_per_load), and a core's own quit
+# for each game (core.c, one_game_per_load), and so is every core ZyperOS did
+# not ship, by the card's index (core_is_shipped), while a shipped one stays
+# open: no extra dlopen or retro_init. And a core's own quit
 # (RETRO_ENVIRONMENT_SHUTDOWN) ending its game as the player's would. On
 # check-stateplane's terms: a few seconds, skipped unbuilt.
 check-coreend:
 	$(FRESH_IF_BUILT)
 	@python3 test/coreend.py
 .PHONY: check-coreend
+
+# A cartridge's clock kept apart from its battery (RETRO_MEMORY_RTC, Gambatte's
+# MBC3): <rom>.rtc written on the way out and read in at the next start
+check-rtc:
+	$(FRESH_IF_BUILT)
+	@python3 test/rtc.py
+.PHONY: check-rtc
 
 # The frame for the launcher's card of a game with no art: written once, a
 # minute into play, never over one already there, and not before the minute
