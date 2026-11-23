@@ -335,8 +335,30 @@ int shelf_move(app *a, sysview *v)
 		v->cursor = to;
 	}
 
-	if (in_repeat(&a->in, back)) { v->cursor = (v->cursor - 1 + n) % n; dir = -1; sb = back; }
-	if (in_repeat(&a->in, fwd))  { v->cursor = (v->cursor + 1) % n; dir = +1; sb = fwd; }
+	/* A step: on the list (Up and Down) and along the grid's rows (Left and
+	 * Right) as every list steps (DESIGN.md 11.3, menu_step_index): a press
+	 * goes round past the ends, a held direction stops at the end with the
+	 * edge sound once, and the next press goes round (my pick in the List
+	 * View lab, 2026-11-23, as the home's Grid has it). The cover row and
+	 * the Video view's band go round held or not, as the home's row does. */
+	{
+		const bool stops = v->listed || v->grid;
+
+		if (in_repeat(&a->in, back)) {
+			int to = stops ? menu_step_index(n, v->cursor, -1, a->in.pressed[back]) : (v->cursor - 1 + n) % n;
+
+			if (to != v->cursor) dir = -1;
+			v->cursor = to;
+			sb = back;
+		}
+		if (in_repeat(&a->in, fwd)) {
+			int to = stops ? menu_step_index(n, v->cursor, +1, a->in.pressed[fwd]) : (v->cursor + 1) % n;
+
+			if (to != v->cursor) dir = +1;
+			v->cursor = to;
+			sb = fwd;
+		}
+	}
 	if (jdn != IN_NONE && in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
 	if (jup != IN_NONE && in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
 	/* L1/R1 jump a screenful, so a long shelf is crossable. Wrapped the long
@@ -387,6 +409,14 @@ void update_games(app *a)
 		for (int b = 0; b < IN_COUNT && !any; b++)
 			any = b != (int)skip && (a->in.pressed[b] || a->in.down[b]);
 		if (any) vv_touch(&v->vm, plat_now_ms());
+	}
+	/* The List view's details over the media (src/snaprest.h): any press,
+	 * or a button held, brings them back up and starts their rest again */
+	if (v->listed) {
+		bool any = false;
+
+		for (int b = 0; b < IN_COUNT && !any; b++) any = a->in.pressed[b] || a->in.down[b];
+		if (any) snaprest_touch(&v->lm.details, plat_now_ms());
 	}
 	/* The Screenshots shelf (DESIGN.md 11.68, src/shots_screen.h): in its
 	 * viewer L1 and R1 go to the next or the last game's shots, read before
