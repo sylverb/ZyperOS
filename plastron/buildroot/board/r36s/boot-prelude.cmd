@@ -19,3 +19,8 @@ setenv zy_args "rootfstype=squashfs ro rootwait console=ttyS2,1500000 console=tt
 if load ${devtype} ${devnum}:${distro_bootpart} ${kernel_addr_r} /r36s-boot.txt; then
 	env import -t ${kernel_addr_r} ${filesize}
 fi
+# zy_panel=N: the overlay overlays/panel-N.dtbo, so a card can hold the
+# overlays of several panels and r36s-boot.txt picks one with a digit
+if test -n "${zy_panel}"; then
+	setenv zy_overlay overlays/panel-${zy_panel}.dtbo
+fi
