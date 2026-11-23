@@ -2214,7 +2214,7 @@ void system_order_load(void)
 	g_order_release = !strcmp(v, "release");
 }
 
-/* MENU > Display > Game Names (DESIGN.md 11.70): "file" for File Name,
+/* MENU > Display > Game Names (DESIGN.md 11.71): "file" for File Name,
  * anything else Short, as it ships. Before the scan, which titles the games
  * by it (src/library.h, lib_names_set). */
 void game_names_load(void)

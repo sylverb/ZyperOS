@@ -1318,7 +1318,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
-| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Game Names (11.70), Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
+| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Game Names (11.71), Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, Equalizer (11.60), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Hotkeys, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -7664,7 +7664,7 @@ A shelf's title stops at the first bracket after a space (src/library.c's
 `lib_title`: "Final Fantasy VII (USA) (Disc 1).chd" is "Final Fantasy VII"),
 and the shelves, Recents, Favorites and the in-game menu stay so under Game
 Names' Short, as it ships; its File Name gives every one of them the brackets
-(11.70). A game's details (X on the shelf) give the brackets back:
+(11.71). A game's details (X on the shelf) give the brackets back:
 
 - **File**, the last of the facts, after Genre and Core and before
   Achievements, in the facts' quiet style: the game's file as it is on the
@@ -7700,7 +7700,7 @@ screenful. `check-titles` holds
 the names and the counts of discs on real folders, `check-menus` the rows'
 order.
 
-### 11.70 Game Names
+### 11.71 Game Names
 *(Asked for on the Discord: DoctorIssa, 2026-11-21, under "Option to show
 (brackets) on filenames", about 900 files told apart by their brackets, a
 version, a region: "is there any chance there is a way we can have a setting

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* MENU > Display > Game Names (DESIGN.md 11.70): Short, as it ships, or
+/* MENU > Display > Game Names (DESIGN.md 11.71): Short, as it ships, or
  * File Name, every game by its file's whole name.
  *
  * 2026-11-23, DoctorIssa on the Discord, ~900 games: the brackets are how

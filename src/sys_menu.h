@@ -118,7 +118,7 @@
  * games, Short as it ships (a downloaded title, or the file's name less its
  * brackets) or File Name (the file's whole name, every bracket in it), with
  * a note under each in its list (src/library.h, lib_names_set; DESIGN.md
- * 11.70). 2026-11-23, asked for on the Discord. */
+ * 11.71). 2026-11-23, asked for on the Discord. */
 /* PM_THEME is Theme, under Appearance: the accent, a background tone for
  * each theme, the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks
  * 2026-11-12. Appearance is Light, Dark or Auto (1.0.6: Auto went, its

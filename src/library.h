@@ -126,7 +126,7 @@ void lib_title(const char *name, char *out, size_t n);
 void lib_display_title(db *d, const char *folder, const char *file,
                        const char *name, char *out, size_t n);
 
-/* MENU > Display > Game Names (DESIGN.md 11.70, 2026-11-23, asked for on
+/* MENU > Display > Game Names (DESIGN.md 11.71, 2026-11-23, asked for on
  * the Discord): Short, as it ships, each game by its downloaded title or its
  * file's name less the brackets (lib_title); or File Name (`file` true),
  * each game by its file's whole name, every bracket in it, less the

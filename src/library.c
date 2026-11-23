@@ -353,7 +353,7 @@ void lib_title(const char *name, char *out, size_t n)
 	title_text(bare, out, n);
 }
 
-/* MENU > Display > Game Names (DESIGN.md 11.70): Short as it ships, or the
+/* MENU > Display > Game Names (DESIGN.md 11.71): Short as it ships, or the
  * file's whole name */
 static bool g_names_file;
 

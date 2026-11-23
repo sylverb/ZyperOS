@@ -1828,7 +1828,7 @@ static void menu_tabs(void)
 	ck(n == 12 && !strcmp(val(&rows[11]), "By Hours"), "and says what it is given");
 	ck(b.sound[10] == 0 && b.sound[11] == 0,
 	   "Screen Colors and Night Mode open their pages, as Theme does: no row of steps");
-	/* Game Names (DESIGN.md 11.70), under Home Systems: Short when nothing
+	/* Game Names (DESIGN.md 11.71), under Home Systems: Short when nothing
 	 * is said, as it ships, and stepped round like System Order */
 	ck(!strcmp(rows[5].label, "Game Names") && !strcmp(val(&rows[5]), "Short") && rows[5].live &&
 	   b.sound[5] == MENU_SND_RING, "Game Names reads Short when nothing is said, and steps round");

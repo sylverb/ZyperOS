@@ -2599,7 +2599,7 @@ build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refres
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
 	      -o $@ tools/title-refresh-check.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
 
-# MENU > Display > Game Names (DESIGN.md 11.70): Short, or the file's whole
+# MENU > Display > Game Names (DESIGN.md 11.71): Short, or the file's whole
 # name over a downloaded one, by the real scan, database and refresh
 check-gamenames: build-native/gamenames-check
 	@./build-native/gamenames-check

@@ -843,7 +843,7 @@ static void menu_choices(app *a, int sys, bool games)
 	}
 	{
 		/* Game Names' two, Short first as it ships, each with what it
-		 * does under the list (DESIGN.md 11.70): two, so A would turn it
+		 * does under the list (DESIGN.md 11.71): two, so A would turn it
 		 * over, but its list opens all the same for the notes */
 		static const char *nnotes[2];
 
@@ -2556,7 +2556,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	/* Game Names: Short or File Name, kept, and every shelf named again at
 	 * once, each cursor on its game (refresh_game_titles), the name orders
 	 * sorted by the new names; Screenshots' too, which names each shot by
-	 * its game (DESIGN.md 11.70). Once per press, never per frame. */
+	 * its game (DESIGN.md 11.71). Once per press, never per frame. */
 	if (sel == PM_NAMES && d) {
 		lib_names_set(!lib_names_file());
 		db_set_str(db_dev(), GAME_NAMES_KEY, lib_names_file() ? "file" : "short");

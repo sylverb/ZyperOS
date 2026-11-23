@@ -1200,7 +1200,7 @@ def set_lib(card, settings, on):
 for _tab in range(6):
     EXTRA.setdefault("menu-tab-%d" % _tab, ("demo", "PS1", ["--menu-tab", str(_tab), "--menu", "0"]))
 EXTRA.setdefault("menu-display-theme", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Theme"]))
-# Game Names' two (DESIGN.md 11.70), each with its note and its example name
+# Game Names' two (DESIGN.md 11.71), each with its note and its example name
 # under the list, in every language: Short and File Name
 for _k in range(2):
     EXTRA.setdefault("menu-game-names-%d" % _k, ("demo", "PS1", ["--menu-tab", "1", "--menu", "5", "--press", "a",
