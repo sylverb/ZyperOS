@@ -63,6 +63,7 @@ typedef enum {
 	CQ_DL_SYS_VIDEOS,        /* Downloads' Systems, X on a Videos cell */
 	CQ_DL_SYS_SETS,          /* ...an Achievements cell */
 	CQ_DL_SYS_CHEATS,        /* ...a Cheats cell */
+	CQ_BT_FORGET,            /* X on a paired headset (MENU > Bluetooth) */
 	CQ_COUNT
 } cq_id;
 

@@ -3,9 +3,10 @@
  * answers, in every language.
  *
  *   - The 38 questions of the confirm panels lab's inventory (2026-11-22),
- *     each named once.
- *   - The answer that loses something marked on exactly the 32 the inventory
- *     says lose something, and on no other.
+ *     and Bluetooth's Forget, which asks since (Tarik's, 2026-11-23), each
+ *     named once.
+ *   - The answer that loses something marked on exactly the 33 that lose
+ *     something (the inventory's 32 and Bluetooth's Forget), and on no other.
  *   - B: the safe answer (the left) everywhere but the four where it leaves
  *     with nothing done: the two whose answers both go on, the USB offer
  *     (whose Keep Asking is kept for good) and PICO-8's new buttons (whose
@@ -42,7 +43,7 @@ static const char *const LOSES[] = {
 	"storage-media-file", "storage-orphan-port", "game-delete", "port-delete", "collection-delete",
 	"screenshot-delete", "media-video-delete", "sgdb-unlink", "ss-unlink", "snaps-delete-all",
 	"reset-buttons-game", "reset-buttons-all", "dl-sign-out", "dl-delete-videos", "dl-delete-cheats",
-	"dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats",
+	"dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats", "bt-forget",
 };
 static const char *const B_NONE[] = { "pico8-restart-buttons", "splore-wifi", "cheats-crash", "usb-offer" };
 
@@ -114,7 +115,7 @@ int main(void)
 	int q, l, loses = 0, bnone = 0;
 	char text[2048], what[256];
 
-	check(CQ_COUNT == 38, "38 questions with two answers", NULL);
+	check(CQ_COUNT == 39, "39 questions with two answers", NULL);
 	for (q = 0; q < CQ_COUNT; q++) {
 		const cq_def *d = cq_of((cq_id)q);
 
@@ -130,7 +131,7 @@ int main(void)
 		loses += !!(d->flags & CQ_LOSES);
 		bnone += !!(d->flags & CQ_B_NONE);
 	}
-	check(loses == 32, "32 questions lose something", NULL);
+	check(loses == 33, "33 questions lose something", NULL);
 	check(bnone == 4, "4 questions where B gives no answer", NULL);
 	keys();
 
@@ -156,7 +157,7 @@ int main(void)
 		}
 	}
 	if (!fails)
-		printf("check-confirm: 38 questions, 32 marked as losing something, B the safe answer or "
+		printf("check-confirm: 39 questions, 33 marked as losing something, B the safe answer or "
 		       "none, the keys, and the words in %d languages\n", LANG_COUNT);
 	return fails ? 1 : 0;
 }

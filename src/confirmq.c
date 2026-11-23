@@ -85,6 +85,8 @@ static const cq_def CQ[CQ_COUNT] = {
 	                     S_DOWNLOADS_DELETE_SETS_BODY, CANCEL, DEL, CQ_LOSES },
 	[CQ_DL_SYS_CHEATS] = { "dl-sys-cheats", S_DOWNLOADS_DELETE_CHEATS_HEADING, S_DOWNLOADS_DELETE_SYS_CHEATS_ASK,
 	                       S_DOWNLOADS_DELETE_CHEATS_BODY, CANCEL, DEL, CQ_LOSES },
+	/* Tarik's, after the lab (2026-11-23): Bluetooth's Forget asks, as Wi-Fi's does */
+	[CQ_BT_FORGET] = { "bt-forget", S_BT_FORGET_HEADING, S_BT_FORGET_ASK, NONE, CANCEL, S_BT_FORGET, CQ_LOSES },
 };
 
 const cq_def *cq_of(cq_id q)
