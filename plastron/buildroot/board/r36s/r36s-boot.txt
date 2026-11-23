@@ -7,9 +7,13 @@
 #zy_dtb=rk3326-gameconsole-r36s.dtb
 #
 # A panel that is not the R36S's first (nothing on the screen, or a wrong
-# picture): its overlay, made as ROCKNIX's guide makes one, at
-# overlays/mipi-panel.dtbo on this partition, which is used when it is
-# there. Another name:
+# picture): its overlay at overlays/mipi-panel.dtbo on this partition, which
+# is used when it is there. plastron/scripts/r36s-panel.py makes it on a
+# computer from the device tree on the card the R36S came with (ZyperOS's
+# docs/devices/r36s.md, "Panels"). Several panels' overlays, as
+# overlays/panel-0.dtbo, panel-1.dtbo ... panel-5.dtbo, and one picked:
+#zy_panel=4
+# Or any other name:
 #zy_overlay=overlays/my-panel.dtbo
 #
 # The kernel's line, for debugging (the serial port is ttyS2 at 1500000):
