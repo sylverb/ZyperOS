@@ -77,6 +77,9 @@ typedef enum {
  * shown again. GR_OK when it changed; GR_SAME when it is the name it has;
  * GR_BAD_NAME (gr_shown_ok); GR_NOT_SAVED. */
 gr_why gr_shown_set(const char *folder, const char *file, const char *name, const char *typed);
+/* The name it shows with no name of the player's, which an empty field
+ * gives back: the stored title, else lib_title of `name` */
+void gr_shown_plain(const char *folder, const char *file, const char *name, char *out, size_t n);
 
 #define GR_MAX 96
 #define GR_ES  24

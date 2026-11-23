@@ -22,6 +22,7 @@
 #include "ds/page.h"
 #include "emptyhome.h"
 #include "gamedel_screen.h"
+#include "gamern.h"
 #include "gameinfo_screen.h"
 #include "ingame_screen.h"
 #include "hudmenu_screen.h"
@@ -488,10 +489,12 @@ const char *shot_kb_title = "Wi-Fi password";
 /* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
  * language, so check-i18n-shots measures it in every one */
 int shot_kb_ss_user;
-/* --kb-rename-shown: Rename's keyboard on a game whose file keeps its name
- * (src/gamern_screen.c), its title and its note, in the shot's language,
- * on the focused game's name unless --keyboard gave a text */
+/* --kb-rename-shown [empty]: Rename's keyboard on a game whose file keeps
+ * its name (src/gamern_screen.c), its title and its note, in the shot's
+ * language, on the focused game's name unless --keyboard gave a text; with
+ * `empty`, the field emptied, the name it would have back in it dimmed */
 int shot_kb_rename_shown;
+int shot_kb_rename_empty;
 
 static const char *kb_title_shown(void)
 {
@@ -1800,9 +1803,17 @@ static void shot_compose_once(app *a)
 	}
 	if (shot_kb) {
 		sysview *v = &a->view[a->sys_cursor];
+		static char plain[LIB_NAME];
 
-		if (shot_kb_rename_shown && !shot_kb_text[0] && v->list.count > 0)
-			shot_kb_text = v->list.items[v->cursor].title;
+		if (shot_kb_rename_shown && v->list.count > 0) {
+			const game_entry *e = &v->list.items[v->cursor];
+
+			gr_shown_plain(a->sys.systems[shelf_owner(a, a->sys_cursor, v->cursor)].folder,
+			               e->file, e->name, plain, sizeof plain);
+			kb_placeholder_next(plain);
+			if (shot_kb_rename_empty) shot_kb_text = "";
+			else if (!shot_kb_text[0]) shot_kb_text = e->title;
+		}
 		if (shot_at >= 0)
 			kb_preview_press(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, (unsigned)shot_at);

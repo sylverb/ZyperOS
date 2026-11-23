@@ -4703,9 +4703,10 @@ renames. The details page stays open on the game, under its new name.
   are what the core or PortMaster runs them by *(2026-11-22, reported on
   Discord: "Ports, Arcade, MAME and Neo Geo are unable to change the game's
   names")*. The same row and keyboard, opened on the name it shows, titled
-  **Rename Shown Name**, its quiet line saying the file keeps its name and
-  an empty field gives the original back, in the place of L1/R1 and MENU's
-  (the panel has no room for a third line). START keeps the name typed in
+  **Rename Shown Name**, its quiet line led by a few words in the hints'
+  ink, "file keeps its name", before L1/R1's and MENU's as on every
+  keyboard; once the field is empty, the name it would have back is in it,
+  dimmed (a placeholder), so the way back needs no words. START keeps the name typed in
   the library (its own table, `user_titles`), and no file moves: its saves,
   states, cover and play time stay as they are. Any title's characters are
   taken, `:` and `/` too. The name every screen shows is the first there
@@ -4716,8 +4717,8 @@ renames. The details page stays open on the game, under its new name.
   empty field, or on the name it would show without one, clears it.
 
 Host shots: `--info-delete` shows the row above Delete Game;
-`--kb-rename-shown` the keyboard for a name shown only, on the focused
-game's name.
+`--kb-rename-shown [empty]` the keyboard for a name shown only, on the
+focused game's name, or emptied with the placeholder.
 
 ### 11.42 Display's Theme, Screen Colors and Night Mode
 

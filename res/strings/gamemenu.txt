@@ -291,15 +291,15 @@ ja = 表示名を変更
 it = Rinomina nome mostrato
 
 [gamemenu.rename_shown_note]
-note = The keyboard's bottom line on that keyboard, in place of its cursor and cancel hints: the game's file is not renamed, and an empty field (START on it) gives back the name it had (the downloaded one, else the file's). tight: one line of 44 characters at most, measured in the menu font
-en = The file keeps its name. Clear for the original.
-zh-Hans = 文件名不变。留空恢复原名。
-es = El archivo no cambia. Vacío para el original.
-pt-BR = O arquivo fica igual. Vazio para o original.
-fr = Le fichier ne change pas. Vide pour l'original.
-de = Die Datei bleibt gleich. Leer für das Original.
-ja = ファイル名はそのまま。空欄で元の名前に。
-it = Il file non cambia. Vuoto per l'originale.
+note = On that keyboard, the words that lead its bottom line, before the cursor and cancel hints and in their style (lower case where the hints are): the game's file is not renamed. The way back (an empty field gives the original name) is shown by the original name dimmed in the empty field, so it needs no words here. tight: beside the two hints on one line, about 220 units in Japanese and 270 in German
+en = file keeps its name
+zh-Hans = 文件名不变
+es = archivo intacto
+pt-BR = arquivo intacto
+fr = fichier inchangé
+de = Datei bleibt
+ja = ファイル不変
+it = file invariato
 
 # ---- the in-game menu -------------------------------------------------------
 

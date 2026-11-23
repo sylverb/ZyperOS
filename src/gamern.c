@@ -130,6 +130,12 @@ bool gr_shown_ok(const char *typed, char *out, size_t n)
 	return !*p || out[0];
 }
 
+void gr_shown_plain(const char *folder, const char *file, const char *name, char *out, size_t n)
+{
+	if (!out || !n) return;
+	if (!db_game_title(db_lib(), folder, file, out, n)) lib_title(name ? name : "", out, n);
+}
+
 gr_why gr_shown_set(const char *folder, const char *file, const char *name, const char *typed)
 {
 	char want[LIB_NAME], plain[LIB_NAME], had[LIB_NAME];
@@ -138,7 +144,7 @@ gr_why gr_shown_set(const char *folder, const char *file, const char *name, cons
 	if (!db_lib() || !folder || !file || !name) return GR_NOT_SAVED;
 	/* What it shows with no name of the player's: an empty name, or that
 	 * name typed again, is that one back */
-	if (!db_game_title(db_lib(), folder, file, plain, sizeof plain)) lib_title(name, plain, sizeof plain);
+	gr_shown_plain(folder, file, name, plain, sizeof plain);
 	if (!strcmp(want, plain)) want[0] = '\0';
 	db_user_title(db_lib(), folder, file, had, sizeof had);
 	if (!strcmp(want, had)) return GR_SAME;

@@ -86,7 +86,8 @@ typedef struct {
 	char field_text[512];
 	SDL_Color field_color;
 	int field_w, field_h;
-	char note[256];     /* kb_note_next's line under the field, or empty */
+	char note[128];     /* kb_note_next's words in the quiet line, or empty */
+	char hint[256];     /* kb_placeholder_next's, in the empty field */
 } kb_state;
 
 /* Neither a retained panel nor the shared UI text cache owns typed text.
@@ -532,6 +533,17 @@ static void kb_draw(SDL_Renderer *r, kb_state *k, const char *title, unsigned no
 
 		ui_round_rect(r, &f, DS_RADIUS_KEY, ui_col(t->edge, 255));
 		ui_round_rect(r, &in, DS_RADIUS_KEY - DS_RULE, ui_col(t->ground, 255));
+		/* The empty field's placeholder (kb_placeholder_next), in
+		 * **text-dim**, the caret before it: what START on nothing gives.
+		 * Data, not a password, so the shared text cache may have it. */
+		if (!k->len && k->hint[0]) {
+			char fit[sizeof k->hint];
+
+			ui_fit_text(fk, k->hint, fit, sizeof fit, room);
+			SDL_RenderSetClipRect(r, &clip);
+			ui_text(r, fk, fit, f.x + FIELD_PAD, ty, -1, ui_col(t->text_dim, 255));
+			SDL_RenderSetClipRect(r, NULL);
+		}
 
 		/* Width of everything left of the cursor, which is both where the
 		 * caret goes and what the scroll is computed from. A WPA key runs to
@@ -624,35 +636,36 @@ static void kb_draw(SDL_Renderer *r, kb_state *k, const char *title, unsigned no
 		}
 	}
 
-	/* A note (kb_note_next) in the quiet line's place, **meta** in
-	 * **text-soft**: what the name typed is for, where that is not what it
-	 * seems (Rename on a game whose file keeps its name). The panel has
-	 * room for no third line under the keys on a 768-unit screen, and the
-	 * two verbs are the keyboard's every other time it opens. Cut with an
-	 * ellipsis, never wider than the keys. */
-	if (k->note[0]) {
-		char fit[sizeof k->note];
-
-		ui_fit_text(fm, k->note, fit, sizeof fit, KB_GRID_W);
-		ui_text(r, fm, fit, panel.x + panel.w / 2, ui_cap_y(fm, g.line_cy), 0,
-		        ui_col(t->text_soft, 255));
-		return;
-	}
-
 	/* One quiet line, **meta** **text-dim**: the two verbs that have no key.
-	 * A has no caption - it is OK everywhere. */
+	 * A has no caption - it is OK everywhere. A note (kb_note_next) leads
+	 * it, words alone in the same ink, a pair's space before the verbs:
+	 * what the name typed changes, where the title cannot say it all
+	 * (Rename on a game whose file keeps its name). The line is never
+	 * wider than the keys; a note too long for its room is cut, which the
+	 * language shots report. */
 	{
 		static const char *btn[2] = { "L1/R1", "MENU" };
 		const char *lbl[2] = { T(S_KEYBOARD_CURSOR), T(S_KEYBOARD_CANCEL) };
 		int wd[2], total = LINE_SEP, x;
 		int cy = g.line_cy;
+		char note[sizeof k->note];
+		int nw = 0;
 
 		for (i = 0; i < 2; i++) {
 			wd[i] = ui_button_width(btn[i], LINE_GLYPH) + ACT_GAP
 			        + ui_text_width(fm, lbl[i]);
 			total += wd[i];
 		}
+		if (k->note[0]) {
+			ui_fit_text(fm, k->note, note, sizeof note, KB_GRID_W - total - LINE_SEP);
+			nw = ui_text_width(fm, note);
+			total += nw + LINE_SEP;
+		}
 		x = panel.x + (panel.w - total) / 2;
+		if (nw) {
+			ui_text(r, fm, note, x, ui_cap_y(fm, cy), -1, ui_col(t->text_dim, 255));
+			x += nw + LINE_SEP;
+		}
 		for (i = 0; i < 2; i++) {
 			glyph_label(r, btn[i], LINE_GLYPH, UI_BUTTON_PLAIN, lbl[i],
 			            ui_col(t->text_dim, 255), x + wd[i] / 2, cy, 0);
@@ -715,17 +728,23 @@ static void kb_draw_pose(SDL_Renderer *r, kb_state *k, const char *title,
 	key_restore(r, &saved);
 }
 
-static char g_note_next[256];
+static char g_note_next[128], g_hint_next[256];
 void kb_note_next(const char *note)
 {
 	snprintf(g_note_next, sizeof g_note_next, "%s", note ? note : "");
 }
 
-/* kb_note_next's line, taken once */
+void kb_placeholder_next(const char *text)
+{
+	snprintf(g_hint_next, sizeof g_hint_next, "%s", text ? text : "");
+}
+
+/* kb_note_next's words and kb_placeholder_next's, taken once */
 static void note_take(kb_state *k)
 {
 	snprintf(k->note, sizeof k->note, "%s", g_note_next);
-	g_note_next[0] = '\0';
+	snprintf(k->hint, sizeof k->hint, "%s", g_hint_next);
+	g_note_next[0] = g_hint_next[0] = '\0';
 }
 
 static void preview(SDL_Renderer *r, const char *title, const char *text,

@@ -25,14 +25,16 @@
  * was renamed; `said` the message either way, empty for none.
  *
  * A game whose file keeps its name (gr_shown_only: an arcade set, a port)
- * has the same keyboard on the name it shows, under its own title and a
- * line that says the file keeps its name: START sets the name every screen
- * shows (gr_shown_set), an empty field the one it had back, and the shelves
- * show it at once (refresh_game_titles). No file is touched. */
+ * has the same keyboard on the name it shows, under its own title, its
+ * quiet line led by a note that the file keeps its name, and the name it
+ * would have back dimmed in the field once that is empty: START sets the
+ * name every screen shows (gr_shown_set), an empty field the one it had
+ * back, and the shelves show it at once (refresh_game_titles). No file is
+ * touched. */
 static bool rename_shown(app *a, int owner, const game_entry *g, char *said, size_t n)
 {
 	const system_cfg *s = &a->sys.systems[owner];
-	char folder[CFG_STR], file[LIB_PATH], name[LIB_NAME], typed[LIB_NAME];
+	char folder[CFG_STR], file[LIB_PATH], name[LIB_NAME], typed[LIB_NAME], plain[LIB_NAME];
 	gr_why why;
 
 	snprintf(folder, sizeof folder, "%s", s->folder);
@@ -40,7 +42,9 @@ static bool rename_shown(app *a, int owner, const game_entry *g, char *said, siz
 	snprintf(name, sizeof name, "%s", g->name);
 	snprintf(typed, sizeof typed, "%s", g->title[0] ? g->title : g->name);
 	said[0] = '\0';
+	gr_shown_plain(folder, file, name, plain, sizeof plain);
 	kb_note_next(T(S_GAMEMENU_RENAME_SHOWN_NOTE));
+	kb_placeholder_next(plain);
 	if (keyboard_prompt(a, T(S_GAMEMENU_RENAME_SHOWN), typed, (int)sizeof typed) != KB_ACCEPT ||
 	    !a->running)
 		return false;
