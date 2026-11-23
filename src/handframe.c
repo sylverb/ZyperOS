@@ -5,6 +5,39 @@
 #include <math.h>
 #include <string.h>
 
+/* Handheld's game, moved the least it takes for the light's ring and
+ * HF_LIGHT_ROOM_MM round it to be on the panel, the game still whole on it.
+ * A Game Boy's light is 8.3 mm left of its screen: in the middle of the
+ * Pixel 2 at 3x a third of it showed at the panel's edge, and on the Brick
+ * at 5x none (Reported on Discord, 2026-11-22: "the Gameboy red light
+ * awkwardly off screen"). Where it cannot be whole the game stays in the
+ * middle. */
+static void light_on(const hf_model *m, int w, int h, int *gx, int *gy, int gw, int gh)
+{
+	const float px = (float)gw / m->lcd_w, py = (float)gh / m->lcd_h;
+	const int lx0 = (int)lroundf((m->light.x0 - HF_LIGHT_ROOM_MM) * px);
+	const int lx1 = (int)lroundf((m->light.x1 + HF_LIGHT_ROOM_MM) * px);
+	const int ly0 = (int)lroundf((m->light.y0 - HF_LIGHT_ROOM_MM) * py);
+	const int ly1 = (int)lroundf((m->light.y1 + HF_LIGHT_ROOM_MM) * py);
+	/* the places the game may take: the light's room and the game on the
+	 * panel, across and down */
+	const int xlo = -lx0 > 0 ? -lx0 : 0, xhi = w - lx1 < w - gw ? w - lx1 : w - gw;
+	const int ylo = -ly0 > 0 ? -ly0 : 0, yhi = h - ly1 < h - gh ? h - ly1 : h - gh;
+
+	/* A light in the lens, beside the screen, as the Game Boy's and the
+	 * Color's are. The Advance's is on the body, past the lens's right
+	 * end, and moving the game 56 px across for it (the Pixel 2) took the lens off
+	 * the panel's other side: it stays where Sharp Pixels puts it */
+	const bool in_lens = m->light.x0 >= m->lens.x0 && m->light.x1 <= m->lens.x1 &&
+	                     m->light.y0 >= m->lens.y0 && m->light.y1 <= m->lens.y1;
+
+	if (!in_lens || m->light.x1 <= m->light.x0 || xlo > xhi || ylo > yhi) return;
+	if (*gx < xlo) *gx = xlo;
+	if (*gx > xhi) *gx = xhi;
+	if (*gy < ylo) *gy = ylo;
+	if (*gy > yhi) *gy = yhi;
+}
+
 bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx, int *gy, int *gw, int *gh)
 {
 	int s;
@@ -33,6 +66,7 @@ bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx
 		 * diatom/src/scale.c's centred() */
 		*gx = (w - *gw) / 2;
 		*gy = (h - *gh) / 2;
+		light_on(m, w, h, gx, gy, *gw, *gh);
 	} else {
 		/* The lens's middle on the panel's, the game where the lens has it,
 		 * then held on the panel */

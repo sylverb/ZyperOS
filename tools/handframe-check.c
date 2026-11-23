@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The handheld frames (src/handframe.h): each placement is where Sharp
- * Pixels puts the game (Handheld) or the largest step smaller where the
+/* The handheld frames (src/handframe.h): each placement is the game at
+ * Sharp Pixels' size where Sharp Pixels puts it, moved the least it takes
+ * for the power light to be whole on the panel (Handheld), or the largest step smaller where the
  * whole lens and some body fit, the lens in the middle (Whole, never under
  * 2x): 2x on the Pixel 2, 3x on the Brick; one game pixel is one LCD dot; straight
  * edges are whole pixels, each side of an edge exactly one color; an arc
@@ -25,6 +26,74 @@ static void ck(int ok, const char *what)
 
 static const uint8_t *at(const uint8_t *px, int w, int x, int y) { return px + ((size_t)y * w + x) * 4; }
 static int is(const uint8_t *p, hf_rgb c) { return p[2] == c.r && p[1] == c.g && p[0] == c.b; }
+
+/* The light's ring in pixels at a placement */
+static void light_px(const hf_model *m, int gx, int gy, int gw, int gh, int *x0, int *y0, int *x1, int *y1)
+{
+	hf_px_rect(m, &m->light, gx, gy, gw, gh, x0, y0, x1, y1);
+}
+
+/* Handheld keeps a light in the lens (the Game Boy's, the Color's) whole on
+ * the panel where the game still fits: the game at Sharp Pixels' place,
+ * moved the least it takes (none where the light is on the panel already),
+ * the light and HF_LIGHT_ROOM_MM round it on it. The Advance's light is on
+ * the body past the lens, and its game stays in the middle, the light off
+ * the panel whole, never cut at its edge. Reported on
+ * Discord, 2026-11-22: a third of a Game Boy's light at the Pixel 2's left
+ * edge, none on the Brick. The Pixel 2's 640x480, the Brick's 1024x768 and
+ * the Smart Pro's 1280x720. */
+static void light_rule(void)
+{
+	static const struct { const char *tag; int w, h, whole; } CASES[] = {
+		{ "GB", 640, 480, 1 }, { "GB", 1024, 768, 1 }, { "GB", 1280, 720, 1 },
+		{ "GBC", 640, 480, 1 }, { "GBC", 1024, 768, 1 }, { "GBC", 1280, 720, 1 },
+		{ "GBA", 640, 480, 0 }, { "GBA", 1024, 768, 0 }, { "GBA", 1280, 720, 0 },
+	};
+	char what[200];
+	size_t i;
+
+	for (i = 0; i < sizeof CASES / sizeof CASES[0]; i++) {
+		const hf_model *m = hf_model_for(CASES[i].tag);
+		const int w = CASES[i].w, h = CASES[i].h;
+		const dmode_rect sp = dmode_fit("integer", m->cols, m->lines, 0, w, h);
+		int sc, gx, gy, gw, gh, x0, y0, x1, y1;
+
+		if (!hf_place(m, HF_CUT, w, h, &sc, &gx, &gy, &gw, &gh)) {
+			ck(0, "Handheld placed");
+			continue;
+		}
+		light_px(m, gx, gy, gw, gh, &x0, &y0, &x1, &y1);
+		snprintf(what, sizeof what, "%s on %dx%d: Handheld at %dx, the game whole on the panel (%d,%d %dx%d)",
+		         CASES[i].tag, w, h, sc, gx, gy, gw, gh);
+		ck(gw == sp.w && gh == sp.h && gx >= 0 && gy >= 0 && gx + gw <= w && gy + gh <= h, what);
+		if (CASES[i].whole) {
+			const float px = (float)gw / m->lcd_w, py = (float)gh / m->lcd_h;
+			const int rx = (int)(HF_LIGHT_ROOM_MM * px), ry = (int)(HF_LIGHT_ROOM_MM * py);
+			snprintf(what, sizeof what, "%s on %dx%d: Handheld shows the whole light, %.0f mm in (%d..%d, %d..%d)",
+			         CASES[i].tag, w, h, HF_LIGHT_ROOM_MM, x0, x1, y0, y1);
+			ck(x0 >= rx && y0 >= ry && x1 <= w - rx && y1 <= h - ry, what);
+			/* the least move: a pixel nearer Sharp Pixels' place and the
+			 * light's room (each side's millimetre place rounded once, as
+			 * hf_place has it) would leave the panel */
+			{
+				const int l0 = (int)lroundf((m->light.x0 - HF_LIGHT_ROOM_MM) * px);
+				const int l1 = (int)lroundf((m->light.x1 + HF_LIGHT_ROOM_MM) * px);
+				const int t0 = (int)lroundf((m->light.y0 - HF_LIGHT_ROOM_MM) * py);
+				const int t1 = (int)lroundf((m->light.y1 + HF_LIGHT_ROOM_MM) * py);
+				const int nx = gx + (gx > sp.x ? -1 : 1), ny = gy + (gy > sp.y ? -1 : 1);
+
+				snprintf(what, sizeof what, "%s on %dx%d: moved %+d,%+d from Sharp Pixels' place, the least it "
+				         "takes", CASES[i].tag, w, h, gx - sp.x, gy - sp.y);
+				ck((gx == sp.x || nx + l0 < 0 || nx + l1 > w) && (gy == sp.y || ny + t0 < 0 || ny + t1 > h),
+				   what);
+			}
+		} else {
+			snprintf(what, sizeof what, "%s on %dx%d: the game where Sharp Pixels puts it at %dx, "
+			         "the light off the panel whole (%d..%d)", CASES[i].tag, w, h, sc, x0, x1);
+			ck(gx == sp.x && gy == sp.y && (x1 <= 0 || x0 >= w || y1 <= 0 || y0 >= h), what);
+		}
+	}
+}
 
 int main(void)
 {
@@ -54,9 +123,8 @@ int main(void)
 			uint8_t *px = malloc((size_t)w * h * 4);
 
 			if (!px) return 1;
-			snprintf(what, sizeof what, "%s on %dx%d: Handheld is where Sharp Pixels puts the game", TAGS[t], w, h);
-			ck(hf_place(m, HF_CUT, w, h, &sc, &gx, &gy, &gw, &gh) && gx == sp.x && gy == sp.y && gw == sp.w &&
-			   gh == sp.h, what);
+			snprintf(what, sizeof what, "%s on %dx%d: Handheld is the game at Sharp Pixels' size", TAGS[t], w, h);
+			ck(hf_place(m, HF_CUT, w, h, &sc, &gx, &gy, &gw, &gh) && gw == sp.w && gh == sp.h, what);
 			snprintf(what, sizeof what, "%s on %dx%d: a game pixel a dot (%.2f px/mm across)", TAGS[t], w, h,
 			         gw / m->lcd_w);
 			ck(fabsf((float)gw / m->lcd_w - (float)sc * m->cols / m->lcd_w) < 0.001f, what);
@@ -129,6 +197,7 @@ int main(void)
 		ck(hf_model_for("GB")->ncolors == 1 && hf_model_for("GBA")->ncolors == 1, "the others in one");
 	}
 	ck(!hf_model_for("GG") && !hf_model_for(NULL), "no frame drawn yet for the other handhelds");
+	light_rule();
 	if (fails) {
 		printf("handframe: %d of %d checks failed\n", fails, checks);
 		return 1;

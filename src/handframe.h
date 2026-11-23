@@ -13,7 +13,10 @@
  *   Handheld          the game at its full Sharp Pixels size (the largest
  *                     whole step that fits: 3x for a Game Boy on the Pixel 2),
  *                     where Sharp Pixels puts it, the frame cut where the
- *                     panel ends
+ *                     panel ends; moved across the least it takes for the
+ *                     power light to be whole on the panel, where the game
+ *                     still fits (a Game Boy's light is left of its screen,
+ *                     and in the middle it was cut, or gone on the Brick)
  *   Handheld, Whole   smaller by whole steps until the whole lens and some
  *                     body fit (2x on the Pixel 2, 3x on the Brick), placed
  *                     so the lens is in the middle of the panel
@@ -76,12 +79,18 @@ typedef struct {
 	hf_part part[HF_PARTS];
 	/* What Handheld, Whole centres on the panel: the lens */
 	hf_rrect lens;
+	/* The power light's ring, which Handheld keeps whole on the panel */
+	hf_rrect light;
 } hf_model;
 
 typedef enum { HF_CUT, HF_WHOLE } hf_kind;
 
 /* Handheld, Whole's least body round the lens on each side, mm */
 #define HF_WHOLE_BODY_MM 1.5f
+
+/* Handheld's least face round the light, mm, so it never touches the
+ * panel's edge */
+#define HF_LIGHT_ROOM_MM 1.0f
 
 /* Where the game goes for `kind` on a surface `w` x `h`: its rect, a whole
  * number of panel pixels a game pixel (`*scale`). False where the game does

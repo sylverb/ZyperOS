@@ -6862,8 +6862,16 @@ logo, a maker's name or printed text: where the real face has a logo or
 words, the plastic is plain.
 
 - **Handheld**: the game at its full Sharp Pixels size, where Sharp Pixels
-  puts it, the frame cut where the panel ends (on the Pixel 2 a Game Boy at
-  3x shows the lens's glass round it and the edge of its light).
+  puts it, the frame cut where the panel ends, and moved across the least it
+  takes for the power light to be whole on the panel with 1 mm of the lens
+  round it, where the game still fits *(Reported on Discord, 2026-11-22: "the
+  Gameboy red light awkwardly off screen". A Game Boy's light is 8.3 mm left
+  of its screen: in the middle of the Pixel 2 at 3x a third of it showed at
+  the panel's edge, and on the Brick at 5x none)*. A Game Boy moves 27 px on
+  the Pixel 2 and 66 on the Brick, a Game Boy Color 42 and 91; the game stays
+  at its full size. Only a light in the lens, beside the screen: the
+  Advance's is on the body past the lens's right end, so its game stays in
+  the middle and its light off the panel whole, never cut at its edge.
 - **Handheld, Whole**: the game smaller by whole steps until the whole lens
   and 1.5 mm of body round it are on the panel, the lens in the middle: 2x
   on the Pixel 2, 3x on the Brick (one step smaller, 4x, still cuts a Game
