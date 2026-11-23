@@ -7730,8 +7730,9 @@ arcade set or a port, #463, when it lands) is over both, in both: it is what
 the player typed, as Rename's name is the file's, and so shown, on every
 other game. Two games of one title told apart (#466, when it lands): under
 File Name two names are the same only where two files are (a .zip and a .pce
-of one dump), so only its last rule, the file, can apply; no region is put
-after a name that has it already.
+of one dump), so only its last rule, the file, can apply, and it puts the
+extension alone after the name ("Bonk (USA) · pce"); no region is put after
+a name that has it already.
 
 **Everywhere a game is named**: Covers, Grid, List and Video, Favorites,
 Recents, Collections and Screenshots, Search, Play Time, the details'
