@@ -1178,6 +1178,11 @@ void refresh_favorites_shelf(app *a)
 		a->sys_cursor = 0;
 		a->screen = SCREEN_SYSTEMS;
 	}
+	/* And every console shelf with Favorites First on (DESIGN.md 11.70): a
+	 * game marked goes up among its favorites, one taken away back among
+	 * the others, at its place in the shelf's order, the cursor with it */
+	for (i = 0; i < a->sys.count; i++)
+		if (a->view[i].fav_first && fav_first_offered(a, i)) sort_shelf_keep(a, i);
 	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 }
 
@@ -2484,6 +2489,9 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 		if (v->th)  memmove(&v->th[k],  &v->th[k + 1],  rest * sizeof *v->th);
 		if (v->cb)  memmove(&v->cb[k],  &v->cb[k + 1],  rest * sizeof *v->cb);
 		v->list.count--;
+		/* Favorites First's two parts (DESIGN.md 11.70) close up with it */
+		if (v->nfav && k >= v->fav_from && k < v->fav_from + v->nfav) v->nfav--;
+		else if (v->nfav && k < v->fav_from) v->fav_from--;
 		/* Its cursor: on the game, it is now on the next one; past the
 		 * end, on the one before */
 		if (v->cursor > k) v->cursor--;
