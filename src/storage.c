@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* MENU > Storage's numbers: src/storage.h says what and why. */
 #include "storage.h"
+#include "dscache.h"
 
 #include "atomic.h"
 #include "gamedel.h"
@@ -1388,6 +1389,14 @@ static bool measure(const job_view *j, st_card *c, bool trust, bool force, bool 
 
 				snprintf(gdir, sizeof gdir, "%s/%s/%.*s", j->p.roms, g->folder, (int)(slash - g->file), g->file);
 				gsig = (gsig * 31u) ^ (unsigned long long)dir_mtime(gdir, trust);
+			} else if (!strcmp(g->tag, "NDS")) {
+				/* A zipped DS game moves with the folder DSperate unpacks
+				 * it to, which its plan holds (src/dscache.h) */
+				char rd[PATH_MAX_ST], dsd[PATH_MAX_ST];
+
+				snprintf(rd, sizeof rd, "%s/%s", j->p.roms, g->folder);
+				if (dsc_dir(rd, g->file, dsd, sizeof dsd))
+					gsig = (gsig * 31u) ^ (unsigned long long)dir_mtime(dsd, trust);
 			}
 			pthread_mutex_lock(&g_mu);
 			slot = smap_slot(&g_games, key, false);

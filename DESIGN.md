@@ -3680,7 +3680,8 @@ listing (src/gamedel.h): the game's file, or its folder for a game in one
 (a multi-disc set, a ScummVM game); the tracks a `.cue`, `.gdi` or `.toc` at
 the top of the folder names, a `.cue`'s `.sbi`, a `.ccd`'s `.img` and
 `.sub`; an arcade set's `.zip`, and on NAOMI and Atomiswave the folder of its
-name holding its CHD; its saves (`Saves/<stem>.srm`, `.sav`, `.dsv`, and the
+name holding its CHD; a zipped DS game's copy DSperate unpacked, in
+`.dsperate/` beside the zip with its tag (src/dscache.h); its saves (`Saves/<stem>.srm`, `.sav`, `.dsv`, and the
 arcade cores' own folders); the six state slots and Auto with their
 pictures; its cover and video snap, the cover Cover and Video put aside (11.34) and
 what a fetch stopped halfway left;
