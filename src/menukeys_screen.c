@@ -14,6 +14,7 @@
 #include "panel.h"
 #include "platform.h"
 #include "shotname.h"
+#include "shots_screen.h"
 #include "ui.h"
 #include "uisound.h"
 #include "zyperdraw.h"
@@ -29,7 +30,7 @@
 #define MK_DB_KEY  "menukeys"
 /* The folder of the launcher's own shots, under Screenshots/ beside the
  * systems' (src/shotname.h), and the "game" its names begin with */
-#define MK_SHOT_FOLDER "ZyperOS"
+#define MK_SHOT_FOLDER SHOT_LAUNCHER_DIR
 /* The notice, as long as a game's screenshot notice is up (main.c, on_hotkey) */
 #define MK_NOTICE_MS 1500
 
@@ -234,6 +235,9 @@ void mk_overlay(SDL_Renderer *r)
 
 	if (g_writing) {
 		if (said == 1) {
+			/* ...and on the Screenshots group, read again on the shelf's
+			 * next pass (main.c) */
+			shots_taken();
 			note_make(r);
 			g_note_until = now + MK_NOTICE_MS;
 			g_writing = false;

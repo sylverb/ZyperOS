@@ -7173,8 +7173,12 @@ Diatom's, and the screenshot is SELECT and a button, above.
   frame's thread to `Screenshots/ZyperOS/ZyperOS 2026-11-22 10.04.31.png`,
   named as the hotkey names a game's. The shutter as it is taken, then a
   game's notice over the screen at the foot: the picture small, "Screenshot
-  saved", "Screenshots/ZyperOS", for 1.5 s. The Screenshots shelf (11.68)
-  is the systems' and does not show them yet.
+  saved", "Screenshots/ZyperOS", for 1.5 s. On the home's Screenshots
+  group (11.68) as a game's: by its time, the newest first, named ZyperOS
+  ("ZyperOS · today 10:04" under it), the group's own lime its color, A
+  opening it whole, X deleting it; the group is read again on the shelf's
+  next pass after it is written *(2026-11-23: "must also show in the home's
+  Screenshots group, like game screenshots do")*.
 - **The lock** is MP4's (11.14): the screen dark, every button blocked but
   the volume keys, a press showing the panel and how to open it, SELECT and
   START held to unlock with the bar filling; over the ground, as no screen is

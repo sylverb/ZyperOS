@@ -8466,6 +8466,9 @@ int main(int argc, char *argv[])
 		 * and brought covers and snaps: the shelves take them here, on the
 		 * shelf's own pass, as the page's close does (scraper_screen.c) */
 		scraper_after_run(&a);
+		/* A screenshot MENU+L1 took (src/menukeys_screen.c) on its group,
+		 * read again here on the shelf's own pass, as after a game */
+		if (shots_take_new()) refresh_shots_shelf(&a);
 
 		/* Back on the shelf, so any menu MENU closed is closed: put the flag
 		 * down before anything here can open another. See menu_leaving. And

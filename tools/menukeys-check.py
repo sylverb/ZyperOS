@@ -5,7 +5,9 @@
 dummy window, over its control socket, on a shelf.
 
 MENU held and L1 pressed saves the screen to Screenshots/ZyperOS on the card,
-a PNG at the drawing's size, and MENU let go after it opens nothing; MENU
+a PNG at the drawing's size, and MENU let go after it opens nothing; the shot
+is on the home's Screenshots group as ZyperOS, opens whole and is deleted
+with X as a game's; MENU
 tapped alone still opens the menu, as it is let go. MENU held and L2 pressed
 locks: SELECT+START held for less than Hold to Unlock keeps it locked, held
 past it unlocks.
@@ -190,6 +192,34 @@ def main():
         ask(sock, 'tap right 40')
         moved = until(lambda: ask(sock, 'state').get('cursor'), lambda c: c == 1, 4.0)
         check(moved == 1, f'and the shelf takes presses again (cursor {moved})')
+
+        # The shot on the home's Screenshots group, as a game's: newest
+        # first, named ZyperOS, opened whole, deleted with X
+        text = logfile.read_text()
+        check('scan: Screenshots      1 screenshot' in text, 'the Screenshots group is read again with the shot on it')
+        ask(sock, 'tap b 40')
+        until(lambda: ask(sock, 'state').get('screen'), lambda x: x == 'systems', 5.0)
+        for _ in range(6):
+            if ask(sock, 'state').get('focus') == 'SHOT':
+                break
+            ask(sock, 'tap left 40')
+            time.sleep(0.4)
+        st = ask(sock, 'state')
+        check(st.get('focus') == 'SHOT', f'the home has the Screenshots group ({st.get("screen")}, {st.get("focus")})')
+        ask(sock, 'tap a 40')
+        st = until(lambda: ask(sock, 'state'), lambda x: x.get('screen') == 'games', 5.0)
+        check(st.get('focus') == 'ZyperOS', f'on it the launcher\'s shot, as ZyperOS ({st.get("focus")})')
+        ask(sock, 'tap a 40')                      # the viewer, the shot whole
+        time.sleep(1.0)
+        if keep:
+            shutil.copy(frames(sock, tmp, 'viewer'), Path(keep) / 'viewer.png')
+        ask(sock, 'tap x 40')                      # Delete Screenshot's question
+        time.sleep(0.8)
+        ask(sock, 'tap up 40')                     # from Cancel to Delete
+        time.sleep(0.4)
+        ask(sock, 'tap a 40')
+        gone = until(lambda: sorted(shots.glob('ZyperOS *.png')), lambda l: not l, 5.0)
+        check(not gone, f'X deletes it from the card ({[g.name for g in gone]})')
     finally:
         try:
             ask(sock, 'quit')
