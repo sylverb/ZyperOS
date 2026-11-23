@@ -1317,10 +1317,10 @@ check-blur: build-native/blur-check
 check-listbox: build-native/listbox-check
 	@./build-native/listbox-check
 
-build-native/listbox-check: tools/listbox-check.c src/listbox.c src/listbox.h src/ds/flex.c src/ds/flex.h FORCE
+build-native/listbox-check: tools/listbox-check.c src/listbox.c src/listbox.h src/look.c src/look.h src/ds/flex.c src/ds/flex.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(pkg-config --cflags sdl2) -Isrc \
-	      -o $@ tools/listbox-check.c src/listbox.c src/ds/flex.c $$(pkg-config --libs sdl2) -lm
+	      -o $@ tools/listbox-check.c src/listbox.c src/look.c src/ds/flex.c $$(pkg-config --libs sdl2) -lm
 
 # The List view's details over the media at rest (src/snaprest.h), on a
 # clock the check moves by hand

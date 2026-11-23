@@ -4600,12 +4600,21 @@ turning View moves only the middle:
   apart and the last 48 over A, in **chrome** **text-soft** (its system
   on Favorites, Played, Achievements, cheats, or a folder's "12 games"),
   firmware it lacks in **warning**. Under them the theme's **ground** fades
-  up from the foot, 80% from the first fact's top down and none 64 above
-  it, across the box, as the Video view's ground fades down over its snap
-  (11.57): the media melts into the page at its foot, and on the bare
-  ground beside a narrow case the fade is the ground itself. **text-soft**
-  rather than **text-dim**, as the art shows through a fifth: over any art
-  it keeps 5.2:1 in Beard and 5.7:1 in Salt & Pepper, where text-dim fell
+  up from the foot, none 64 above the first fact's top and full from there
+  down, across the picture, as the Video view's ground fades down over its
+  snap (11.57): the media melts into the page at its foot. **How full is
+  worked out, not typed**: the least ground under which every line keeps
+  its 4.5:1 (3.2) over any picture, its worst black or white, in the theme,
+  tone and accent that are on (src/listbox.h's gl_ground_alpha). For
+  **text-soft** that is about 75% in both themes (191 of 255 in Beard, 189
+  in Salt & Pepper; text-dim would need 87 to 94%, so the facts are in
+  text-soft). With a firmware line it is as much as **warning** needs, up to
+  the Video view's band's 92%; where that is not enough (Beard's warning is
+  4.53:1 on the bare ground, so no picture may show through it) the line is
+  walked toward **text** in twentieths, no further than it must, as the
+  port's loading band is (11.11): three of them in Beard, none in Salt &
+  Pepper (90% there). check-listbox holds
+  every line at 4.5:1 or more in all 60 looks.
   to 3.3 over black art. A fact wider than the details (400) takes a second
   line where the facts after it still fit in three: the system's line with
   its time (Recents, Screenshots) at its dot, the time under the system, and
@@ -4622,8 +4631,9 @@ turning View moves only the middle:
   sink 24 units in **move** (out), and the whole picture shows. Any press,
   a page or a menu over the list, and the snap going (a move, the dark
   screen) bring them back up in **quick** (out). A game with no snap keeps
-  them up, as the Video view keeps its band (src/snaprest.h,
-  check-snaprest). The rule is the Video view's band's, on its clock.
+  them up, as the Video view keeps its band. It is the Video view's band's
+  rule in the same code: src/snaprest.h drives both (check-snaprest,
+  check-games).
 - Up and Down step, Left and Right jump a letter, L1 and R1 a page: the
   row turned, as the cover row's d-pad turns with it. A press goes round
   past the ends; **a held Up or Down stops at the end** with the edge
@@ -5608,6 +5618,10 @@ when its change lands.
   in Salt & Pepper): Ports' pink moves a twentieth over a dark cover in Beard,
   and Nintendo DS's silver four or five. So the band can differ slightly from
   the system's rail and wash, which do not move.
+- The List view's firmware line over the media (11.39) is **warning**
+  walked three twentieths toward **text** in Beard, as a picture shows
+  through the ground under it and Beard's warning is only 4.53:1 on the bare
+  ground; so it is a darker red there than **warning** elsewhere.
 - Zyper's loop on the loading screen (11.11): the words and the cover stay
   out of his frame, but the still under it is the blurred backdrop, and
   plastron's splash has to copy the still back under his frame before it draws

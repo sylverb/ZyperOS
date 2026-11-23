@@ -214,6 +214,7 @@ static void gl_row(SDL_Renderer *r, const gl_info *in, void *ctx, int i, int y,
  * drawn; and drawn at an alpha, as they go down at rest (gl_details) */
 static bool g_dry;
 static Uint8 g_alpha = 255;
+static ds_rgb g_warning;     /* the firmware line's color over the media (gl_details_ground) */
 
 static void gl_say(const char *s)
 {
@@ -235,9 +236,9 @@ static int gl_fact_in(SDL_Renderer *r, const char *s, int y, SDL_Color c)
 	return y + GL_FACT_STEP;
 }
 
-/* In **text-soft**, a step up from the ground's **text-dim**: over a
- * picture through the ground at GL_GROUND it keeps 5.2:1 or more on any
- * art, in both themes, where text-dim falls to 3.3 over black art in Beard */
+/* In **text-soft**, a step up from the ground's **text-dim**: it needs
+ * the least ground under it to keep 4.5:1 over any picture (about 75%, where
+ * text-dim needs 87 to 94%) */
 static int gl_fact(SDL_Renderer *r, const char *s, int y)
 {
 	return gl_fact_in(r, s, y, UI_TEXT_SOFT);
@@ -340,7 +341,7 @@ static int gl_facts(SDL_Renderer *r, const gl_info *in, int games, int y)
 	                   y + (1 + (in->install || in->howto) + needs + played + later) * GL_FACT_STEP <= last);
 	if (in->install || in->howto) y = gl_fact(r, T(S_PORTMASTER_NOT_INSTALLED), y);
 	/* Firmware it cannot start without, in **warning** */
-	y = gl_fact_lines(r, in->needs, y, ui_col(theme()->warning, 255));
+	y = gl_fact_lines(r, in->needs, y, ui_col(g_warning, 255));
 	/* Played on two lines where they fit: Spanish's "Tiempo de juego: 12 h
 	 * 34 min" is wider than the details */
 	if (played) y = gl_fact_played(r, in->played, y, y + (1 + later) * GL_FACT_STEP <= last);
@@ -355,9 +356,8 @@ static int gl_facts(SDL_Renderer *r, const gl_info *in, int games, int y)
 }
 
 /* The ground over the picture's foot, as the Video view's over the top of
- * its snap (DESIGN.md 11.57): none at `from`, GL_GROUND at `full` and on to
+ * its snap (DESIGN.md 11.57): none at `from`, `alpha` at `full` and on to
  * the box's foot, across the picture */
-#define GL_GROUND 204        /* 80% */
 static void gl_ground(SDL_Renderer *r, SDL_FRect pic, int from, int full, Uint8 alpha)
 {
 	const ds_rgb g = theme()->ground;
@@ -373,6 +373,31 @@ static void gl_ground(SDL_Renderer *r, SDL_FRect pic, int from, int full, Uint8 
 	if (alpha > 0) SDL_RenderGeometry(r, NULL, v, 6, idx, 12);
 }
 
+/* How much ground the details' lines need under them (src/listbox.h): as
+ * much as **text-soft** needs to keep 4.5:1 over any picture, and with a
+ * firmware line in **warning** as much as it needs, up to the Video view's
+ * band's 92%; past that the warning line is walked toward **text** as far
+ * as it must (g_warning). Worked out from the theme that is on, its tone and
+ * all, once a look. */
+#define GL_GROUND_MOST 235   /* 92%, the Video view's band's surface */
+static int gl_details_ground(const gl_info *in, int games)
+{
+	static unsigned gen = ~0u;
+	static int tone = -1, soft, warn;
+	const ds_theme *th = theme();
+
+	if (gen != look_gen() || tone != theme_index()) {
+		gen = look_gen();
+		tone = theme_index();
+		soft = gl_ground_alpha(th->ground, th->text_soft);
+		warn = gl_ground_alpha(th->ground, th->warning);
+		if (warn < soft) warn = soft;
+		if (warn > GL_GROUND_MOST) warn = GL_GROUND_MOST;
+		g_warning = gl_line_on(th->ground, warn, th->warning, th->text);
+	}
+	return !games && in->needs && *in->needs ? warn : soft;
+}
+
 /* The details over the media's foot (my pick in the List View lab,
  * 2026-11-23: "show the details on top of the video in a very subtle way,
  * maybe with a gradient, and collapse the details in 2s so u can see the
@@ -385,17 +410,18 @@ static void gl_ground(SDL_Renderer *r, SDL_FRect pic, int from, int full, Uint8 
 static void gl_details(SDL_Renderer *r, const gl_info *in, int games, float down, SDL_FRect pic)
 {
 	const int dy = (int)lroundf(DS_INSET * down);
-	int lines, y, top;
+	int lines, y, top, ground;
 
 	if (down >= 1) return;
 	gl_details_col(pic, &g_col_x, &g_col_w);
+	ground = gl_details_ground(in, games);
 	g_dry = true;
 	lines = gl_facts(r, in, games, 0) / GL_FACT_STEP;
 	g_dry = false;
 	y = GL_A_Y - GL_A_GAP - (lines - 1) * GL_FACT_STEP;
 	top = lines > 0 ? y - GL_FACT_STEP / 2 : GL_A_Y - DS_HINT_GLYPH_FOCUS / 2;
 	g_alpha = (Uint8)lroundf(255 * (1 - down));
-	gl_ground(r, pic, top - GL_FADE, top, (Uint8)(GL_GROUND * g_alpha / 255));
+	gl_ground(r, pic, top - GL_FADE, top, (Uint8)(ground * g_alpha / 255));
 	if (lines > 0) gl_facts(r, in, games, y + dy);
 	page_hint_fade(r, "A", in->a_word ? in->a_word
 	                       : T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD

@@ -22,6 +22,8 @@
  * the 4:3 canvas and the Smart Pro's. */
 #include <SDL.h>
 
+#include "design.h"     /* ds_rgb */
+
 /* Rows in sight, and a row: meta's 37 and room either side */
 #define GL_ROWS  8
 #define GL_ROW_H 56
@@ -45,5 +47,18 @@ SDL_FRect gl_media_fit(const gl_boxes *b, float w, float h);
  * frame turning from the cover's to the snap's): inset DS_INSET from its
  * left and its right */
 void gl_details_col(SDL_FRect pic, int *x, int *w);
+
+/* THE GROUND UNDER THE DETAILS. The details are text, owed 4.5:1 (DESIGN.md
+ * 3.2), and the picture shows through the ground under them: so the ground
+ * is laid at the least alpha that keeps a line's color at 4.5:1 over any
+ * picture, its worst black or white, in this theme's colors. 0 to 255. */
+#define GL_TEXT_OWED 4.5f
+int gl_ground_alpha(ds_rgb ground, ds_rgb c);
+
+/* A line's color under that ground at `alpha`: `c` itself where it keeps
+ * 4.5:1 over any picture, else walked toward `text` in twentieths until it
+ * does, no further than it must, as the port's loading band is walked
+ * (DESIGN.md 11.11) */
+ds_rgb gl_line_on(ds_rgb ground, int alpha, ds_rgb c, ds_rgb text);
 
 #endif

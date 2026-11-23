@@ -5,6 +5,7 @@
 #include "design.h"
 #include "ds/flex.h"
 #include "ds/layout.h"
+#include "look.h"      /* look_ratio */
 
 #include <math.h>
 
@@ -58,4 +59,45 @@ void gl_details_col(SDL_FRect pic, int *x, int *w)
 
 	*x = l + DS_INSET;
 	*w = r - l - 2 * DS_INSET;
+}
+
+/* The ground at `alpha` over the worst picture for `c`: black, or white,
+ * blended as the renderer does in 8 bits, rounded toward the worse */
+static float worst_ratio(ds_rgb ground, int alpha, ds_rgb c)
+{
+	const ds_rgb black = { (uint8_t)(ground.r * alpha / 255), (uint8_t)(ground.g * alpha / 255),
+	                       (uint8_t)(ground.b * alpha / 255) };
+	const ds_rgb white = { (uint8_t)(255 - (255 - ground.r) * alpha / 255),
+	                       (uint8_t)(255 - (255 - ground.g) * alpha / 255),
+	                       (uint8_t)(255 - (255 - ground.b) * alpha / 255) };
+	const float a = look_ratio(c, black), b = look_ratio(c, white);
+
+	return a < b ? a : b;
+}
+
+int gl_ground_alpha(ds_rgb ground, ds_rgb c)
+{
+	int lo = 0, hi = 255;
+
+	if (worst_ratio(ground, hi, c) < GL_TEXT_OWED) return 255;
+	/* the ratio grows with the alpha: the least that holds */
+	while (lo < hi) {
+		int mid = (lo + hi) / 2;
+
+		if (worst_ratio(ground, mid, c) >= GL_TEXT_OWED) hi = mid;
+		else lo = mid + 1;
+	}
+	return lo;
+}
+
+ds_rgb gl_line_on(ds_rgb ground, int alpha, ds_rgb c, ds_rgb text)
+{
+	for (int n = 0; n <= 20; n++) {
+		const ds_rgb m = { (uint8_t)lroundf(c.r + (text.r - c.r) * n / 20.0f),
+		                   (uint8_t)lroundf(c.g + (text.g - c.g) * n / 20.0f),
+		                   (uint8_t)lroundf(c.b + (text.b - c.b) * n / 20.0f) };
+
+		if (worst_ratio(ground, alpha, m) >= GL_TEXT_OWED) return m;
+	}
+	return text;
 }

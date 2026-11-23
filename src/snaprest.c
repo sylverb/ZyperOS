@@ -6,11 +6,12 @@
 
 void snaprest_reset(snaprest *m, uint32_t now)
 {
-	*m = (snaprest){ .set = true, .from = 0, .to = 0, .t = now, .ms = 0, .touched = now };
+	*m = (snaprest){ .set = true, .from = 0, .to = 0, .t = now, .ms = DS_MS_QUICK, .touched = now };
 }
 
-static float at(const snaprest *m, uint32_t now)
+float snaprest_at(const snaprest *m, uint32_t now)
 {
+	if (!m->set) return 0;
 	if (m->ms == 0 || now - m->t >= m->ms) return m->to;
 	return m->from + (m->to - m->from) * ds_out((float)(now - m->t) / (float)m->ms);
 }
@@ -18,7 +19,7 @@ static float at(const snaprest *m, uint32_t now)
 /* To `to` from wherever it is, over `ms`: a new press retargets */
 static void slide(snaprest *m, float to, uint32_t ms, uint32_t now)
 {
-	float here = at(m, now);
+	float here = snaprest_at(m, now);
 
 	if (m->to == to && here == to) return;
 	m->from = here;
@@ -34,6 +35,12 @@ void snaprest_touch(snaprest *m, uint32_t now)
 	slide(m, 0, DS_MS_QUICK, now);
 }
 
+void snaprest_rest(snaprest *m, uint32_t now)
+{
+	if (!m->set) snaprest_reset(m, now);
+	slide(m, 1, DS_MS_MOVE, now);
+}
+
 float snaprest_step(snaprest *m, bool playing, uint32_t now, uint32_t *wait)
 {
 	uint32_t w = UINT32_MAX;
@@ -47,5 +54,5 @@ float snaprest_step(snaprest *m, bool playing, uint32_t now, uint32_t *wait)
 	if (now - m->t < m->ms) w = 0;
 	else if (playing && m->to == 0) w = m->touched + DS_MS_HOLD_BAND - now;
 	if (wait) *wait = w;
-	return at(m, now);
+	return snaprest_at(m, now);
 }

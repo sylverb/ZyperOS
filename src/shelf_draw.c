@@ -1252,7 +1252,7 @@ static void draw_games(app *a)
 		/* A page or a menu over the view keeps its band up, as a press
 		 * does: the snap holds under it (snapshelf's `covered`) and would
 		 * otherwise rest the band down behind the page */
-		if (!g_home_live) vv_touch(&v->vm, now);
+		if (!g_home_live) snaprest_touch(&v->vm, now);
 		vi = (vv_info){
 			.heading = head, .title = g ? g->title : NULL,
 			.count = v->list.count, .cursor = v->cursor,

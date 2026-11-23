@@ -408,7 +408,7 @@ void update_games(app *a)
 
 		for (int b = 0; b < IN_COUNT && !any; b++)
 			any = b != (int)skip && (a->in.pressed[b] || a->in.down[b]);
-		if (any) vv_touch(&v->vm, plat_now_ms());
+		if (any) snaprest_touch(&v->vm, plat_now_ms());
 	}
 	/* The List view's details over the media (src/snaprest.h): any press,
 	 * or a button held, brings them back up and starts their rest again */

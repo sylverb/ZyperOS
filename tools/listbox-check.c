@@ -17,6 +17,7 @@
 #include "../src/design.h"
 #include "../src/ds/layout.h"
 #include "../src/listbox.h"
+#include "../src/look.h"
 
 static int failures;
 
@@ -104,11 +105,87 @@ static void canvas(const char *name, int screen_w, int media_w, int name_room)
 	      b.a_y - b.a_gap - 2 * 32 - 16);
 }
 
+/* The ratio of `c` over the ground at `alpha` laid on a picture of `art`,
+ * blended in 8 bits as the renderer does */
+static float over(ds_rgb ground, int alpha, ds_rgb art, ds_rgb c)
+{
+	const ds_rgb m = { (uint8_t)((ground.r * alpha + art.r * (255 - alpha)) / 255),
+	                   (uint8_t)((ground.g * alpha + art.g * (255 - alpha)) / 255),
+	                   (uint8_t)((ground.b * alpha + art.b * (255 - alpha)) / 255) };
+
+	return look_ratio(c, m);
+}
+
+/* The least of `c`'s ratios over every gray and every pure and half
+ * channel's picture under the ground at `alpha` */
+static float worst(ds_rgb ground, int alpha, ds_rgb c)
+{
+	float w = 21;
+
+	for (int v = 0; v < 256; v += 5) {
+		ds_rgb arts[] = { { (uint8_t)v, (uint8_t)v, (uint8_t)v }, { (uint8_t)v, 0, 0 }, { 0, (uint8_t)v, 0 },
+		                  { 0, 0, (uint8_t)v }, { (uint8_t)v, (uint8_t)v, 0 }, { 0, (uint8_t)v, (uint8_t)v },
+		                  { (uint8_t)v, 0, (uint8_t)v }, { 255, (uint8_t)v, 0 }, { 0, 255, (uint8_t)v } };
+
+		for (int i = 0; i < (int)(sizeof arts / sizeof arts[0]); i++) {
+			float r = over(ground, alpha, arts[i], c);
+
+			if (r < w) w = r;
+		}
+	}
+	return w;
+}
+
+/* Every theme, tone and accent: text-soft over any picture at the least
+ * ground it asks, 4.5:1, and no more than 80% of ground for it; the
+ * warning line at its ground (up to 92%) in its walked color, 4.5:1 */
+static void contrast(void)
+{
+	static const char *const NAME[DS_THEMES] = { "Beard", "Salt & Pepper" };
+	float least_soft = 21, least_warn = 21;
+	int most_soft = 0, most_warn = 0, steps = 0;
+
+	printf("  the details' lines over any picture, every theme, tone and accent:\n");
+	for (int b = 0; b < DS_THEMES; b++)
+		for (int t = 0; t < DS_TONES; t++)
+			for (int a = 0; a < DS_ACCENTS; a++) {
+				ds_theme th;
+				int soft, warn;
+				ds_rgb w;
+				float rs, rw;
+
+				look_theme(b, DS_TONE[b][t], DS_ACCENT[a], &th);
+				soft = gl_ground_alpha(th.ground, th.text_soft);
+				warn = gl_ground_alpha(th.ground, th.warning);
+				if (warn < soft) warn = soft;
+				if (warn > 235) warn = 235;
+				w = gl_line_on(th.ground, warn, th.warning, th.text);
+				rs = worst(th.ground, soft, th.text_soft);
+				rw = worst(th.ground, warn, w);
+				CHECK(rs >= GL_TEXT_OWED, "%s, tone %d: text-soft %.2f:1 over the worst picture at %d",
+				      NAME[b], t, rs, soft);
+				CHECK(soft <= 204, "%s, tone %d: text-soft asks %d of ground, more than 80%%", NAME[b], t, soft);
+				CHECK(soft == 0 || worst(th.ground, soft - 1, th.text_soft) < GL_TEXT_OWED + .05f,
+				      "%s, tone %d: %d is not the least ground text-soft needs", NAME[b], t, soft);
+				CHECK(rw >= GL_TEXT_OWED, "%s, tone %d: the warning line %.2f:1 over the worst picture at %d",
+				      NAME[b], t, rw, warn);
+				if (rs < least_soft) least_soft = rs;
+				if (rw < least_warn) least_warn = rw;
+				if (soft > most_soft) most_soft = soft;
+				if (warn > most_warn) most_warn = warn;
+				if (w.r != th.warning.r || w.g != th.warning.g || w.b != th.warning.b) steps++;
+			}
+	printf("    text-soft at %.2f:1 or more with at most %d of ground; the warning line at %.2f:1 or more "
+	       "with at most %d, walked toward text in %d of %d looks\n",
+	       least_soft, most_soft, least_warn, most_warn, steps, DS_THEMES * DS_TONES * DS_ACCENTS);
+}
+
 int main(void)
 {
 	printf("listbox: the List view's boxes\n");
 	canvas("the 4:3 canvas (Pixel 2, Brick)", 1024, 448, 320);
 	canvas("the Smart Pro's canvas", 1368, 600, 512);
+	contrast();
 	printf("listbox: %s\n", failures ? "FAILED" : "all passed");
 	return failures ? 1 : 0;
 }

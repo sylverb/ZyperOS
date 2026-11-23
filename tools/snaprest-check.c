@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* What makes way for a video snap at rest (src/snaprest.h): the List
- * view's details over the media (DESIGN.md 11.39).
+/* What makes way for a video snap at rest (src/snaprest.h): the Video
+ * view's band (DESIGN.md 11.57) and the List view's details over the media
+ * (11.39), one implementation.
  *
  *     make check-snaprest
  *
@@ -46,7 +47,9 @@ int main(void)
 
 	printf("  up until the snap plays, however long:\n");
 	snaprest_reset(&m, t0);
-	CHECK(at(false, t0) == 0 && wait == UINT32_MAX, "not up with no snap, or a frame asked");
+	CHECK(at(false, t0) == 0, "not up as it is set");
+	CHECK(at(false, t0 + DS_MS_QUICK) == 0 && wait == UINT32_MAX,
+	      "a frame asked with no snap once quick is over (%u)", wait);
 	CHECK(at(false, t0 + 60000) == 0, "down with no snap after a minute");
 
 	printf("  down after hold-band from the snap's start:\n");
@@ -97,6 +100,15 @@ int main(void)
 	printf("  ...and the next snap's start begins the rest again:\n");
 	CHECK(at(true, t + 5000) == 0 && wait == DS_MS_HOLD_BAND, "the next snap's start did not begin the rest (%u)", wait);
 	CHECK(at(true, t + 5000 + DS_MS_HOLD_BAND - 1) == 0, "down before hold-band from the next snap's start");
+
+	printf("  the Screenshots viewer's A: down at once in move, the next press back up:\n");
+	snaprest_reset(&m, t0);
+	at(true, play);
+	snaprest_rest(&m, play + 100);
+	CHECK(at(true, play + 100 + DS_MS_MOVE) == 1, "not down move after A, short of hold-band");
+	snaprest_touch(&m, play + 1000);
+	CHECK(at(true, play + 1000 + DS_MS_QUICK) == 0, "not back up quick after the next press");
+	CHECK(snaprest_at(&(snaprest){ 0 }, 5000) == 0, "a rest never set is not up");
 
 	printf("snaprest: %s\n", failures ? "FAILED" : "all passed");
 	return failures ? 1 : 0;
