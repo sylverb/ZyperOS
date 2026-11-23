@@ -246,6 +246,9 @@ EXTRA = {
     "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Downloads"]),
     "storage-art": ("demo", "PS1", ["--storage", "art"]),
     "storage-states": ("demo", "PS1", ["--storage", "states"]),
+    "storage-ds": ("demo", "PS1", ["--storage", "ds"]),
+    # ...its row focused, the line under the list saying what it is
+    "storage-ds-row": ("demo", "PS1", ["--storage", "main", "0"]),
     "storage-delete": ("demo", "PS1", ["--storage", "delete"]),
     "storage-done": ("demo", "PS1", ["--storage", "done"]),
     "storage-first": ("demo", "PS1", ["--storage", "first"]),

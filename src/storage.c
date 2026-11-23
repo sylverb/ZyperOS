@@ -398,6 +398,54 @@ static bool walk(const char *abs, bool skip_media, bool trust, bool force, tsum 
 	return true;
 }
 
+/* A folder's node as the walk last listed it, NULL for none */
+static dnode *node_of(const char *abs)
+{
+	void **slot = smap_slot(&g_dirs, rel_of(abs), false);
+
+	return slot ? *slot : NULL;
+}
+
+/* Whether the walk's listing of `d` holds a folder named `name`: a folder
+ * gone since keeps its node in the map until the cache is pruned */
+static bool has_kid(const dnode *d, const char *name)
+{
+	const char *k;
+
+	for (k = d ? d->kids : NULL; k && k < d->kids + d->kids_len; k += strlen(k) + 1)
+		if (!strcmp(k, name)) return true;
+	return false;
+}
+
+/* The .dsperate in `abs` (src/dscache.h), its own files' bytes */
+static unsigned long long ds_own(const char *abs)
+{
+	char p[PATH_MAX_ST];
+	dnode *d;
+
+	if (!has_kid(node_of(abs), DSC_DIR) ||
+	    snprintf(p, sizeof p, "%s/" DSC_DIR, abs) >= (int)sizeof p || !(d = node_of(p)))
+		return 0;
+	return d->own;
+}
+
+/* The DS copies in a system's folder, from the walk's listings: its
+ * .dsperate and each folder of games' */
+static unsigned long long ds_copies_of(const char *abs)
+{
+	dnode *d = node_of(abs);
+	unsigned long long sum = ds_own(abs);
+	char p[PATH_MAX_ST];
+	char *k;
+
+	for (k = d ? d->kids : NULL; k && k < d->kids + d->kids_len; k += strlen(k) + 1) {
+		if (k[0] == '.') continue;
+		if (snprintf(p, sizeof p, "%s/%s", abs, k) >= (int)sizeof p) continue;
+		sum += ds_own(p);
+	}
+	return sum;
+}
+
 static long long dir_mtime(const char *abs, bool trust)
 {
 	struct stat st;
@@ -973,7 +1021,7 @@ void st_totals(st_card *c)
 	int i, k;
 
 	memset(c->cat, 0, sizeof c->cat);
-	c->unused_art = c->old_states = 0;
+	c->unused_art = c->old_states = c->ds_copies = 0;
 	c->unused_covers = c->unused_snaps = c->old_state_games = 0;
 	for (i = 0; i < c->nsys; i++) {
 		c->cat[STC_GAMES] += c->sys[i].games;
@@ -983,6 +1031,7 @@ void st_totals(st_card *c)
 		c->unused_snaps += c->sys[i].unused_snaps;
 		c->old_states += c->sys[i].old_states;
 		c->old_state_games += c->sys[i].old_state_games;
+		c->ds_copies += c->sys[i].ds_copies;
 	}
 	c->cat[STC_SAVES] = c->saves + c->states;
 	c->cat[STC_MEDIA] = c->music + c->videos + c->books + c->bgm;
@@ -1285,6 +1334,7 @@ static bool measure(const job_view *j, st_card *c, bool trust, bool force, bool 
 		snprintf(path, sizeof path, "%s/%s", j->p.roms, s->folder);
 		if (!walk(path, true, trust, force, &t)) return false;
 		s->games = t.bytes;
+		s->ds_copies = ds_copies_of(path);
 		memset(&t, 0, sizeof t);
 		snprintf(path, sizeof path, "%s/%s/.media", j->p.roms, s->folder);
 		if (!walk(path, false, trust, force, &t)) return false;
@@ -1945,4 +1995,67 @@ st_sort st_sort_next(st_sort mode, bool has_last)
 	if (next == ST_SORT_LAST && !has_last) next = ST_SORT_SIZE;
 	if (mode < 0 || mode >= ST_SORTS) next = ST_SORT_SIZE;
 	return next;
+}
+
+/* ---- the DS copies' delete --------------------------------------------------- */
+
+static bool ds_copy_name(const char *n)
+{
+	size_t l = strlen(n);
+
+	return n[0] != '.' &&
+	       ((l > 4 && ends_ci(n, l, ".nds")) || (l > 8 && ends_ci(n, l, ".nds.tag")) ||
+	        (l > 9 && ends_ci(n, l, ".nds.part")));
+}
+
+/* One .dsperate: its copies, tags and leftovers, then itself if empty */
+static unsigned long long ds_clear(const char *dir, int *files)
+{
+	unsigned long long sum = 0;
+	struct dirent *e;
+	struct stat st;
+	DIR *d;
+
+	if (lstat(dir, &st) != 0 || !S_ISDIR(st.st_mode) || !(d = opendir(dir))) return 0;
+	while ((e = readdir(d))) {
+		char p[PATH_MAX_ST];
+
+		if (!ds_copy_name(e->d_name)) continue;
+		if (snprintf(p, sizeof p, "%s/%s", dir, e->d_name) >= (int)sizeof p) continue;
+		if (lstat(p, &st) != 0 || !S_ISREG(st.st_mode) || unlink(p) != 0) continue;
+		sum += alloc_of(&st);
+		if (ends_ci(e->d_name, strlen(e->d_name), ".nds")) (*files)++;
+	}
+	closedir(d);
+	rmdir(dir);
+	return sum;
+}
+
+unsigned long long st_delete_ds_copies(const st_paths *p, const st_systems *s, int *files)
+{
+	unsigned long long sum = 0;
+	int i;
+
+	*files = 0;
+	for (i = 0; i < s->n; i++) {
+		char top[PATH_MAX_ST], dir[PATH_MAX_ST];
+		struct dirent *e;
+		struct stat st;
+		DIR *d;
+
+		if (snprintf(top, sizeof top, "%s/%s", p->roms, s->folders[i]) >= (int)sizeof top) continue;
+		if (lstat(top, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+		if (snprintf(dir, sizeof dir, "%s/" DSC_DIR, top) < (int)sizeof dir) sum += ds_clear(dir, files);
+		if (!(d = opendir(top))) continue;
+		while ((e = readdir(d))) {
+			char sub[PATH_MAX_ST];
+
+			if (e->d_name[0] == '.') continue;
+			if (snprintf(sub, sizeof sub, "%s/%s", top, e->d_name) >= (int)sizeof sub) continue;
+			if (lstat(sub, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+			if (snprintf(dir, sizeof dir, "%s/" DSC_DIR, sub) < (int)sizeof dir) sum += ds_clear(dir, files);
+		}
+		closedir(d);
+	}
+	return sum;
 }

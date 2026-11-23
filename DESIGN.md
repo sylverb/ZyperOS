@@ -3736,7 +3736,7 @@ asks it.
   the list a row less.
 - **The list** from y 266: rows as a menu's (1.5 **menu** lines, the focus an
   **accent** fill that glides in **quick**, the window moving a whole row at
-  a time, never round), five at a time with a rule's room. First at most two
+  a time, never round), five at a time with a rule's room. First at most three
   **recommendations**, a sparkle in **accent-ink** for their mark, the larger
   saving first, shown when one gives back 10 MB or more, a rule under them;
   then everything by size: each system with its home sprite (its games, its
@@ -3835,6 +3835,18 @@ given back.":
 - **Old Save States**: the states of a game none of whose states was written
   in a year and that was not played in one, or is no longer on the card.
   Saves never: "Their saves stay."
+- **Unpacked DS Games**: the copies DSperate unpacked of zipped DS games, in
+  `.dsperate` at the top of a system's folder and in each folder of games
+  in it (src/dscache.h): `<name>.nds`, its `.nds.tag` and a `.nds.part` an
+  unpacking stopped halfway left, the folder too once it is empty; nothing
+  else there, never a link. A cache: each game unpacks again the next time
+  it starts, a few seconds. "Saves and states stay, and each game unpacks
+  again when it starts." Its line: "Copies of zipped DS games, so they start
+  at once. Saves and states stay." *(2026-11-23, asked for on Discord:
+  "Decompressed ROMs are piling up inside .dsperate".)* The copies are kept
+  to 2 GB a folder besides, the least recently played first, by the core as
+  it unpacks one and by the launcher after each DS game; Delete Game takes a
+  game's copy (11.31) and Rename moves it (11.41).
 
 Each lists its folders again and holds each file to its rule at the moment
 it deletes it, so nothing a stale number counted goes.
@@ -4682,7 +4694,11 @@ renames. The details page stays open on the game, under its new name.
   keeps its name); what its format keeps beside it by name (a `.ccd`'s
   `.img` and `.sub`, a `.cue`'s `.sbi`); its saves (`Saves/<name>.srm`,
   `.sav`, `.dsv`, OpenBOR's); the six slots and Auto with their pictures and
-  Auto's DS language; its cover, video snap and Before; its cached
+  Auto's DS language; a zipped DS game's unpacked copy in `.dsperate` and
+  its tag, which then names the new zip, so it is not unpacked again (a
+  copy already under the new name, a game's deleted elsewhere, does not
+  refuse the rename: this one stays for DSperate to sweep); its cover,
+  video snap and Before; its cached
   achievement set; the ES pictures and video named after it, and its
   `gamelist.xml` entry, so the other system still finds it; and its rows in
   the library: details, favorite, play sessions, Pak, where its covers came

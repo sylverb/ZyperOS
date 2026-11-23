@@ -24,10 +24,15 @@
  * unpacked again has too: an image that is gone costs the next launch its
  * unpacking, seconds for a large game, and nothing of the player's.
  *
- * So the launcher holds DSperate's own rule for it, after each DS game:
- * DSC_CAP per .dsperate folder, by DSperate's own count (each image's size)
- * and order (its tag's time, which DSperate touches at every launch), never
- * the game just played. And src/gamedel.c takes a game's image with it.
+ * So the core holds its own frontend's 2 GB now as it unpacks a game
+ * (mk/patches/dsperate-lr-zip-cache.patch), and the launcher holds the same
+ * rule after each DS game: DSC_CAP per .dsperate folder, by DSperate's own
+ * count (each image's size) and order (its tag's time, which DSperate
+ * touches at every launch), never the game just played. The two agree, and
+ * a card a core without the patch filled comes back under the cap after its
+ * next DS game. src/gamedel.c takes a game's image with it, src/gamern.c
+ * moves it and points its tag at the new zip, and MENU > Storage counts it
+ * as its game's and deletes them all as Unpacked DS Games (src/storage.h).
  *
  * Plain C, no SDL: tools/dscache-check.c holds it. */
 #ifndef ZYPEROS_DSCACHE_H

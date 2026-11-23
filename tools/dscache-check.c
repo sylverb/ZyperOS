@@ -15,15 +15,23 @@
  *   - Delete Game: a zipped DS game's image, its tag and a .part go with
  *     it, a neighbour's image stays, .dsperate goes once it is empty, and a
  *     loose .nds or a zip on another shelf takes nothing of .dsperate;
+ *   - Rename: the copy and its tag take the zip's new name, the tag names the
+ *     new zip and nothing else in it changes, and a copy already under the
+ *     new name (a game's deleted elsewhere) does not refuse the rename;
  *   - MENU > Storage: a game's size holds its copy, and follows it when
- *     DSperate unpacks it again, though the shelf's folder did not move.
+ *     DSperate unpacks it again, though the shelf's folder did not move;
+ *     Unpacked DS Games measures every .dsperate, at the top and in a
+ *     folder of games, and deletes the copies, their tags and leftovers in
+ *     one go, and nothing else: a stray file, the zips, saves and states
+ *     stay.
  *
  * Before src/dscache.h, the wrapper set no cap and Delete Game left the
  * image: every zipped DS game ever played stayed at its unpacked size
- * (asked for on Discord, 2026-11-23). Links src/dscache.c, src/storage.c and
- * Delete Game's own files, and not SDL. */
+ * (asked for on Discord, 2026-11-23). Links src/dscache.c, src/storage.c,
+ * Rename's and Delete Game's own files, and not SDL. */
 #include "../src/dscache.h"
 #include "../src/gamedel.h"
+#include "../src/gamern.h"
 #include "../src/storage.h"
 
 #include <ftw.h>
@@ -266,6 +274,106 @@ static void the_delete(void)
 	}
 }
 
+/* ---- Rename ---------------------------------------------------------------- */
+
+static char *slurp(const char *path)
+{
+	static char buf[4096];
+	FILE *f = fopen(path, "rb");
+	size_t n;
+
+	if (!f) return NULL;
+	n = fread(buf, 1, sizeof buf - 1, f);
+	fclose(f);
+	buf[n] = '\0';
+	return buf;
+}
+
+static void the_rename(void)
+{
+	gd_card card = { roms, saves, states, NULL };
+	char d[1200], f[1200], real[1200], tag[2400], *t;
+	gr_plan *p = calloc(1, sizeof *p);
+	gr_done done;
+	FILE *o;
+
+	printf("Rename takes a zipped DS game's copy and its tag with it:\n");
+	snprintf(d, sizeof d, "%s/.dsperate", nds);
+	snprintf(f, sizeof f, "%s/Kirby (USA).zip", nds);
+	put(f, 1000, 0);
+	CHECK(realpath(f, real) != NULL);
+	snprintf(f, sizeof f, "%s/Kirby (USA).nds", d);
+	put(f, 64 * MB, 0);
+	snprintf(tag, sizeof tag, "dsperate zip cache 2\narchive %s\nzip 1000 1700000000\n"
+	         "entry Kirby Super Star Ultra (USA).nds\ncrc 305419896 size 67108864\n", real);
+	snprintf(f, sizeof f, "%s/Kirby (USA).nds.tag", d);
+	o = fopen(f, "wb");
+	fputs(tag, o);
+	fclose(o);
+
+	{
+		gd_game g = { "Nintendo DS", "NDS", "dsperate", "nds|zip", "Kirby (USA).zip", "Kirby (USA)", 0 };
+
+		CHECK(p && gr_plan_make(&card, &g, NULL, 0, "Kirby Super Star", p));
+		if (p && p->why == GR_OK) gr_plan_run(p, &done);
+	}
+	CHECK(done.game_moved && done.failed == 0);
+	CHECK(!image_there(d, "Kirby (USA)", "") && !image_there(d, "Kirby (USA)", ".tag"));
+	CHECK(image_there(d, "Kirby Super Star", "") && image_there(d, "Kirby Super Star", ".tag"));
+	{
+		struct stat st;
+
+		snprintf(f, sizeof f, "%s/Kirby Super Star.nds", d);
+		CHECK(stat(f, &st) == 0 && (unsigned long long)st.st_size == 64 * MB);
+	}
+	/* The tag: its archive is the new zip, by its realpath; the rest as it was */
+	snprintf(f, sizeof f, "%s/Kirby Super Star.zip", nds);
+	CHECK(realpath(f, real) != NULL);
+	snprintf(tag, sizeof tag, "dsperate zip cache 2\narchive %s\nzip 1000 1700000000\n"
+	         "entry Kirby Super Star Ultra (USA).nds\ncrc 305419896 size 67108864\n", real);
+	snprintf(f, sizeof f, "%s/Kirby Super Star.nds.tag", d);
+	t = slurp(f);
+	CHECK(t && !strcmp(t, tag));
+
+	/* A copy already under the new name, left by a game deleted elsewhere:
+	 * the rename goes on, this copy stays for DSperate to sweep */
+	snprintf(f, sizeof f, "%s/Luigi.zip", nds);
+	put(f, 1000, 0);
+	image(d, "Luigi", 16, 100, true);
+	image(d, "Mario", 8, 100, true);
+	{
+		gd_game g = { "Nintendo DS", "NDS", "dsperate", "nds|zip", "Luigi.zip", "Luigi", 0 };
+
+		memset(p, 0, sizeof *p);
+		CHECK(gr_plan_make(&card, &g, NULL, 0, "Mario", p));
+		CHECK(p->why == GR_OK);
+		if (p->why == GR_OK) gr_plan_run(p, &done);
+	}
+	CHECK(done.game_moved && done.failed == 0);
+	snprintf(f, sizeof f, "%s/Mario.zip", nds);
+	CHECK(there(f));
+	CHECK(image_there(d, "Luigi", "") && image_there(d, "Mario", ""));
+	{
+		struct stat st;
+
+		snprintf(f, sizeof f, "%s/Mario.nds", d);
+		CHECK(stat(f, &st) == 0 && (unsigned long long)st.st_size == 8 * MB);
+	}
+
+	/* A loose .nds has no copy to take */
+	snprintf(f, sizeof f, "%s/Loose.nds", nds);
+	put(f, 1000, 0);
+	{
+		gd_game g = { "Nintendo DS", "NDS", "dsperate", "nds|zip", "Loose.nds", "Loose", 0 };
+
+		memset(p, 0, sizeof *p);
+		CHECK(gr_plan_make(&card, &g, NULL, 0, "Tight", p));
+		for (int i = 0; i < p->n; i++) CHECK(!strstr(p->from[i], DSC_DIR));
+		CHECK(p->ds_tag == 0);
+	}
+	free(p);
+}
+
 /* ---- Storage --------------------------------------------------------------- */
 
 /* A file of `bytes` real bytes: Storage counts the clusters a file holds */
@@ -298,6 +406,8 @@ static void the_storage(void)
 	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).zip", nds);
 	put_real(f, 256 * 1024);
 	snprintf(d, sizeof d, "%s/.dsperate", nds);
+	/* What the parts before left there, gone: this part counts its own */
+	nftw(d, rm_one, 16, FTW_DEPTH | FTW_PHYS);
 	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).nds", d);
 	put_real(f, 2 * MB);
 	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).nds.tag", d);
@@ -324,6 +434,57 @@ static void the_storage(void)
 	st_measure_now(&sp, &ss, &g, 1, 2000000000L, true);
 	CHECK(st_game("Nintendo DS", "Chrono Trigger (USA).zip", &gz));
 	CHECK(gz.games >= 4 * MB + 256 * 1024);
+
+	/* Unpacked DS Games: what every .dsperate holds, at the top and in a
+	 * folder of games, measured; then deleted in one go, and only that */
+	printf("MENU > Storage's Unpacked DS Games measures them and deletes them, and only them:\n");
+	{
+		char sub[1200], save[1200], state[1200], note[1200];
+		st_card card;
+		int files = -1;
+		unsigned long long b;
+
+		snprintf(sub, sizeof sub, "%s/RPG/" DSC_DIR, nds);
+		snprintf(f, sizeof f, "%s/RPG/Golden Sun DS.zip", nds);
+		put_real(f, 64 * 1024);
+		snprintf(f, sizeof f, "%s/Golden Sun DS.nds", sub);
+		put_real(f, 1 * MB);
+		snprintf(f, sizeof f, "%s/Golden Sun DS.nds.tag", sub);
+		put_real(f, 100);
+		snprintf(f, sizeof f, "%s/Half.nds.part", d);
+		put_real(f, 512 * 1024);
+		/* What is not a copy, and what must never go */
+		snprintf(note, sizeof note, "%s/readme.txt", d);
+		put_real(note, 100);
+		snprintf(save, sizeof save, "%s/Chrono Trigger (USA).sav", saves);
+		put_real(save, 512 * 1024);
+		snprintf(state, sizeof state, "%s/Nintendo DS/Chrono Trigger (USA).zip.auto.state", states);
+		put_real(state, 1 * MB);
+
+		st_measure_now(&sp, &ss, &g, 1, 2000000000L, true);
+		st_snapshot(&card);
+		/* 4 MB + 1 MB of copies, the .part and the tags: 5.5 MB and a little */
+		CHECK(card.ds_copies >= 5 * MB + 512 * 1024);
+		CHECK(card.ds_copies < 6 * MB + 512 * 1024);
+		CHECK(card.nsys == 1 && card.sys[0].ds_copies == card.ds_copies);
+
+		b = st_delete_ds_copies(&sp, &ss, &files);
+		CHECK(files == 2);
+		CHECK(b >= 5 * MB + 512 * 1024);
+		CHECK(!image_there(d, "Chrono Trigger (USA)", "") && !image_there(d, "Chrono Trigger (USA)", ".tag"));
+		CHECK(!image_there(d, "Half", ".part"));
+		CHECK(!there(sub));
+		CHECK(there(note) && there(d));
+		CHECK(there(save) && there(state));
+		snprintf(f, sizeof f, "%s/Chrono Trigger (USA).zip", nds);
+		CHECK(there(f));
+		snprintf(f, sizeof f, "%s/RPG/Golden Sun DS.zip", nds);
+		CHECK(there(f));
+
+		st_measure_now(&sp, &ss, &g, 1, 2000000000L, true);
+		st_snapshot(&card);
+		CHECK(card.ds_copies < 64 * 1024);
+	}
 	st_reset();
 }
 
@@ -341,6 +502,7 @@ int main(void)
 	the_paths();
 	the_cap();
 	the_delete();
+	the_rename();
 	the_storage();
 
 	nftw(root, rm_one, 16, FTW_DEPTH | FTW_PHYS);
