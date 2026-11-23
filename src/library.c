@@ -353,9 +353,26 @@ void lib_title(const char *name, char *out, size_t n)
 	title_text(bare, out, n);
 }
 
+/* MENU > Display > Game Names (DESIGN.md 11.70): Short as it ships, or the
+ * file's whole name */
+static bool g_names_file;
+
+void lib_names_set(bool file) { g_names_file = file; }
+bool lib_names_file(void) { return g_names_file; }
+
+/* File Name's title: the scan's stem as it is, every bracket in it and the
+ * article where the file has it, in title_text's rules; false for none */
+static bool file_title(const char *name, char *out, size_t n)
+{
+	if (!g_names_file) return false;
+	title_text(name, out, n);
+	return out[0] != '\0';
+}
+
 void lib_display_title(db *d, const char *folder, const char *file,
                        const char *name, char *out, size_t n)
 {
+	if (file_title(name, out, n)) return;
 	if (!db_game_title(d, folder, file, out, n)) lib_title(name, out, n);
 }
 
@@ -477,13 +494,15 @@ void lib_free(game_list *l)
 }
 
 /* lib_refresh_title's answer for a fresh entry, from the folder's titles
- * read at once: the stored title as db_game_title gives it, else the cleaned
- * filename. */
+ * read at once, in lib_display_title's order: the file's whole name under
+ * Game Names' File Name, else the stored title as db_game_title gives it,
+ * else the cleaned filename. */
 static void scan_title(const db_titles *titles, game_entry *e)
 {
 	const char *stored = db_titles_find(titles, e->file);
 	char title[LIB_NAME] = { 0 };
 
+	if (file_title(e->name, title, sizeof title)) stored = NULL;
 	if (stored) title_text(stored, title, sizeof title);
 	if (!title[0]) lib_title(e->name, title, sizeof title);
 	memcpy(e->title, title, sizeof e->title);
