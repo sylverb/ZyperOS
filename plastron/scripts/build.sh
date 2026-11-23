@@ -20,6 +20,7 @@ case $FLAVOR in
 zyperos) OUTPUT=/work/output ;;
 base) OUTPUT=/work/output-base ;;
 brick) OUTPUT=/work/output-brick DEFCONFIG=brick_defconfig ;;
+smartpro) OUTPUT=/work/output-smartpro DEFCONFIG=smartpro_defconfig ;;
 qemu) OUTPUT=/work/output-qemu DEFCONFIG=qemu_defconfig ;;
 r36s) OUTPUT=/work/output-r36s DEFCONFIG=r36s_defconfig ;;
 *) echo "unknown FLAVOR $FLAVOR" >&2; exit 1 ;;
