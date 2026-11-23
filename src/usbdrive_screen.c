@@ -791,40 +791,32 @@ void usb_power_ask(app *a, unsigned plug)
 	replug_on(plug);
 }
 
-int usb_offer_rows(app *a, char lines[USB_OFFER_LINES][LB_LINE], menu_row *rows)
-{
-	int n = ui_balance_lines(ui_font(UI_F_MENU), T(S_XFER_USB_OFFER_SAID), menu_std_width(a),
-	                         USB_OFFER_LINES, lines), i;
-
-	ui_fit_drawn(T(S_XFER_USB_OFFER_SAID));
-	for (i = 0; i < n; i++) rows[i] = MENU_NOTE(lines[i]);
-	rows[n++] = MENU_HR;
-	return n;
-}
-
 void usb_offer_show(app *a)
 {
-	char lines[USB_OFFER_LINES][LB_LINE];
-	menu_row rows[USB_OFFER_LINES + 3];
+	char q[512];
 	usbpower_guard guard;
-	int nq, lv;
-	bool yes;
+	int r;
 
 	g_usb_offer_due = false;
 	if (g_usb_auto || db_has(db_dev(), "usb_auto_offer")) return;
-	nq = usb_offer_rows(a, lines, rows);
-	lv = panel_open();
+	cq_text(CQ_USB_OFFER, q, sizeof q);
 	ask_guard_start(a, &guard);
-	yes = confirm_rows_as(a, T(S_XFER_USB_OFFER), rows, nq, T(S_SYSMENU_USB_AUTO),
-	                      T(S_XFER_USB_OFFER_KEEP), menu_std_width(a), lv, &guard);
+	r = confirm_ask_ex(a, CQ_USB_OFFER, q, NULL, NULL, &guard);
 	g_tiles_hints = true;
-	panel_close(a, lv, !a->running);
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
 	if (!a->running) return;
-	ulog_note(yes ? "offer: Automatic" : "offer: Keep Asking");
-	db_set_str(db_dev(), "usb_auto_offer", yes ? "auto" : "ask");
-	if (yes) usb_auto_save(true);
+	/* B, MENU or POWER: nothing kept, so the offer comes again at the
+	 * next USB Accessory answer; until 1.1.0 B was kept for good as Keep
+	 * Asking (my pick in the confirm panels lab, 2026-11-22: B never takes
+	 * an answer that stays) */
+	if (r == CQ_NONE) {
+		ulog_note("offer: left, nothing kept");
+		return;
+	}
+	ulog_note(r == CQ_RIGHT ? "offer: Automatic" : "offer: Keep Asking");
+	db_set_str(db_dev(), "usb_auto_offer", r == CQ_RIGHT ? "auto" : "ask");
+	if (r == CQ_RIGHT) usb_auto_save(true);
 }
 
 /* usbrole's state, five times a second at most, from wherever the launcher
