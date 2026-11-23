@@ -12,7 +12,7 @@
 # computer from the device tree on the card the R36S came with (ZyperOS's
 # docs/devices/r36s.md, "Panels"). Several panels' overlays, as
 # overlays/panel-0.dtbo, panel-1.dtbo ... panel-5.dtbo, and one picked:
-#zy_panel=4
+zy_panel=4
 # Or any other name:
 #zy_overlay=overlays/my-panel.dtbo
 #
