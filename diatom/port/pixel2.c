@@ -1236,6 +1236,9 @@ void diatom_port_input_poll(void)
 uint32_t diatom_port_input_state(void) { return g_buttons; }
 uint32_t diatom_port_input_pressed(void) { return g_pressed; }
 
+/* No sticks on the GKD Pixel 2 */
+bool diatom_port_input_axes(int16_t axes[4]) { (void)axes; return false; }
+
 /* The force feedback's strength is the motor's: the scale multiplies it,
  * rounded, so Full (1) is the core's own number as it always was */
 static uint16_t rumble_times(uint16_t v, float scale)
