@@ -824,7 +824,7 @@ uint32_t diatom_env_p2_pad(void)
  * Order matches the enum. */
 static const char *const button_names[DIATOM_BTN_COUNT] = {
 	"up", "down", "left", "right", "a", "b", "x", "y",
-	"l1", "r1", "l2", "r2", "select", "start", "menu"
+	"l1", "r1", "l2", "r2", "select", "start", "menu", "l3", "r3"
 };
 
 /* Canonical Diatom buttons -> retropad. Near-identity by design; its purpose is
@@ -849,6 +849,8 @@ static int button_map[DIATOM_BTN_COUNT] = {
 	[DIATOM_BTN_SELECT] = RETRO_DEVICE_ID_JOYPAD_SELECT,
 	[DIATOM_BTN_START]  = RETRO_DEVICE_ID_JOYPAD_START,
 	[DIATOM_BTN_MENU]   = -1,          /* Diatom's own; never reaches a core */
+	[DIATOM_BTN_L3]     = RETRO_DEVICE_ID_JOYPAD_L3,
+	[DIATOM_BTN_R3]     = RETRO_DEVICE_ID_JOYPAD_R3,
 };
 
 static int identity_map[DIATOM_BTN_COUNT];
@@ -1281,16 +1283,23 @@ static int16_t cb_input_state(unsigned port, unsigned device,
 	if (!g_polled) cb_input_poll();
 
 	/* The left stick, from the d-pad (RUN stick=dpad), with the same buttons
-	 * hidden and given as the joypad's below. Centered while the SELECT rule
-	 * gives the d-pad to the game's D-pad, and always for any other stick.
-	 * Under stick=plain the joypad keeps the d-pad as well (below). */
+	 * hidden and given as the joypad's below; centered while the SELECT rule
+	 * gives the d-pad to the game's D-pad. Under stick=plain the joypad keeps
+	 * the d-pad as well (below). And the handheld's own sticks, where it has
+	 * them (diatom_port_input_axes): its left one whenever the d-pad is not
+	 * pushing the stick, its right one always. Without them, centered. */
 	if (port == 0 && device == RETRO_DEVICE_ANALOG) {
-		int16_t x, y;
+		int16_t x = 0, y = 0, axes[4];
+		const bool own = index <= RETRO_DEVICE_INDEX_ANALOG_RIGHT && diatom_port_input_axes(axes);
 
-		if (!g_stick_on || stick_dpad_now() || index != RETRO_DEVICE_INDEX_ANALOG_LEFT)
-			return 0;
-		state = (diatom_port_input_state() & ~(g_suppress | g_hook_hide)) | g_hook_give;
-		stick_axes(state, &x, &y);
+		if (g_stick_on && !stick_dpad_now() && index == RETRO_DEVICE_INDEX_ANALOG_LEFT) {
+			state = (diatom_port_input_state() & ~(g_suppress | g_hook_hide)) | g_hook_give;
+			stick_axes(state, &x, &y);
+		}
+		if (!x && !y && own) {
+			x = axes[index * 2];
+			y = axes[index * 2 + 1];
+		}
 		return id == RETRO_DEVICE_ID_ANALOG_X ? x : id == RETRO_DEVICE_ID_ANALOG_Y ? y : 0;
 	}
 	/* Ports 1 to 3 are the guests' joypads, as p2d wrote them: no map, no

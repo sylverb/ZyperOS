@@ -618,7 +618,7 @@ static void script_load(void)
 {
 	static const char *const names[DIATOM_BTN_COUNT] = {
 		"up", "down", "left", "right", "a", "b", "x", "y",
-		"l1", "r1", "l2", "r2", "select", "start", "menu"
+		"l1", "r1", "l2", "r2", "select", "start", "menu", "l3", "r3"
 	};
 	const char *e = getenv("DIATOM_INPUT_SCRIPT");
 	char buf[2048], *step, *save = NULL;
@@ -692,6 +692,9 @@ void diatom_port_input_poll(void)
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
 uint32_t diatom_port_input_pressed(void) { return g_pressed; }
+
+/* No sticks of a handheld's here */
+bool diatom_port_input_axes(int16_t axes[4]) { (void)axes; return false; }
 
 /* The pretend motor writes down what a motor of the Pixel 2's kind would
  * run at: each strength times the scale, rounded (test/rumble.py) */

@@ -2838,6 +2838,9 @@ void diatom_port_input_poll(void)
 uint32_t diatom_port_input_state(void) { return g_buttons; }
 uint32_t diatom_port_input_pressed(void) { return g_pressed; }
 
+/* No sticks on the TrimUI Brick */
+bool diatom_port_input_axes(int16_t axes[4]) { (void)axes; return false; }
+
 /* No motor yet: GPIO 227 and the bldo3 rail wait for the tester's buzz
  * (the Brick parity plan's item 14), and `scale` will set the voltage */
 bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
