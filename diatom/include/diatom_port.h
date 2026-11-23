@@ -117,6 +117,10 @@ enum {
 	 * the launcher protocol it hands the display over for a menu. A port that
 	 * decided this itself would make that impossible. */
 	DIATOM_BTN_MENU,
+	/* The sticks' clicks, on a handheld with sticks (the R36S's BTN_THUMBL
+	 * and BTN_THUMBR): the RetroPad's L3 and R3. After MENU, so every
+	 * other button keeps its bit. */
+	DIATOM_BTN_L3, DIATOM_BTN_R3,
 	DIATOM_BTN_COUNT
 };
 #define DIATOM_BIT(b) (1u << (b))
@@ -369,6 +373,13 @@ void diatom_port_audio_get(char *out, size_t cap);
 
 void     diatom_port_input_poll(void);
 uint32_t diatom_port_input_state(void);
+
+/* The handheld's own sticks, where it has them: left X and Y, then right X
+ * and Y, in libretro's range (-0x7fff..0x7fff), + right and down, with the
+ * centre and the dead zone the device gives already taken out. Read at the
+ * last poll. False, and nothing written, on a handheld with none: there the
+ * left stick is the d-pad's, where RUN stick= says so (src/stick.h). */
+bool diatom_port_input_axes(int16_t axes[4]);
 
 /* The buttons that went down during the last poll, whether they are held now
  * or were let go again before it ended: a tap that went down and up between
