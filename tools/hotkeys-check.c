@@ -146,6 +146,7 @@ static void scopes(void)
 	/* a system set to Every Game's own keeps no key */
 	hks_put(HKS_SYSTEM, "NES", NULL, &def);
 	ck(!db_has(db_lib(), "hotkeys.NES"), "a scope equal to its fallback keeps no key");
+	fastforward();
 }
 
 int main(void)
@@ -162,7 +163,6 @@ int main(void)
 		return 1;
 	}
 	scopes();
-	fastforward();
 	unlink(dev);
 	unlink(lib);
 	if (fails) {

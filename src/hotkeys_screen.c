@@ -25,13 +25,14 @@
 /* The rows that are no action (the actions are 0 to HK_ACTS - 1) */
 enum { HKR_SCOPE = 100, HKR_HOME, HKR_NOTE, HKR_RESET, HKR_ALL };
 #define HKR_MAX (HK_ACTS + 6)
-/* Fast Forward's speed, under its row (room: HKR_MAX had one spare) */
-enum { HKR_FF_SPEED = 120 };
 
 /* The capture screen's glyphs, as the keyboard's big keys: 11.9's 112 */
 #define HK_CAPTURE_GLYPH 112
 /* ...and the room for them, a glyph and the grid's eight above and below */
 #define HK_CAPTURE_H     (HK_CAPTURE_GLYPH + DS_GRID * 8)
+
+/* Fast Forward's speed, the row under it (HKR_MAX had a row spare for it) */
+enum { HKR_FF_SPEED = 120 };
 
 typedef struct {
 	app              *a;
