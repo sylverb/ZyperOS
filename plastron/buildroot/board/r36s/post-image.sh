@@ -11,6 +11,7 @@ BOARD_DIR=$(dirname "$0")
 
 cp "$BOARD_DIR/../px2/bootloader/u-boot-px2.bin" "$BINARIES_DIR/"
 cp "$BOARD_DIR/r36s-boot.txt" "$BINARIES_DIR/"
+cp "$BOARD_DIR/overlays/panel-4.dtbo" "$BINARIES_DIR/"
 # boot.scr (with the R36S's own tail, board/r36s/boot-slots.cmd),
 # bootstate.txt, genimage, and root B as partition 4
 sh "$BR2_EXTERNAL_PX2_PATH/board/zyperos/post-image-slots.sh" "$BOARD_DIR" "$BOARD_DIR/boot-slots.cmd"
