@@ -5,39 +5,6 @@
 #include <math.h>
 #include <string.h>
 
-/* Handheld's game, moved the least it takes for the light's ring and
- * HF_LIGHT_ROOM_MM round it to be on the panel, the game still whole on it.
- * A Game Boy's light is 8.3 mm left of its screen: in the middle of the
- * Pixel 2 at 3x a third of it showed at the panel's edge, and on the Brick
- * at 5x none (Reported on Discord, 2026-11-22: "the Gameboy red light
- * awkwardly off screen"). Where it cannot be whole the game stays in the
- * middle. */
-static void light_on(const hf_model *m, int w, int h, int *gx, int *gy, int gw, int gh)
-{
-	const float px = (float)gw / m->lcd_w, py = (float)gh / m->lcd_h;
-	const int lx0 = (int)lroundf((m->light.x0 - HF_LIGHT_ROOM_MM) * px);
-	const int lx1 = (int)lroundf((m->light.x1 + HF_LIGHT_ROOM_MM) * px);
-	const int ly0 = (int)lroundf((m->light.y0 - HF_LIGHT_ROOM_MM) * py);
-	const int ly1 = (int)lroundf((m->light.y1 + HF_LIGHT_ROOM_MM) * py);
-	/* the places the game may take: the light's room and the game on the
-	 * panel, across and down */
-	const int xlo = -lx0 > 0 ? -lx0 : 0, xhi = w - lx1 < w - gw ? w - lx1 : w - gw;
-	const int ylo = -ly0 > 0 ? -ly0 : 0, yhi = h - ly1 < h - gh ? h - ly1 : h - gh;
-
-	/* A light in the lens, beside the screen, as the Game Boy's and the
-	 * Color's are. The Advance's is on the body, past the lens's right
-	 * end, and moving the game 56 px across for it (the Pixel 2) took the lens off
-	 * the panel's other side: it stays where Sharp Pixels puts it */
-	const bool in_lens = m->light.x0 >= m->lens.x0 && m->light.x1 <= m->lens.x1 &&
-	                     m->light.y0 >= m->lens.y0 && m->light.y1 <= m->lens.y1;
-
-	if (!in_lens || m->light.x1 <= m->light.x0 || xlo > xhi || ylo > yhi) return;
-	if (*gx < xlo) *gx = xlo;
-	if (*gx > xhi) *gx = xhi;
-	if (*gy < ylo) *gy = ylo;
-	if (*gy > yhi) *gy = yhi;
-}
-
 bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx, int *gy, int *gw, int *gh)
 {
 	int s;
@@ -66,7 +33,6 @@ bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx
 		 * diatom/src/scale.c's centred() */
 		*gx = (w - *gw) / 2;
 		*gy = (h - *gh) / 2;
-		light_on(m, w, h, gx, gy, *gw, *gh);
 	} else {
 		/* The lens's middle on the panel's, the game where the lens has it,
 		 * then held on the panel */
@@ -143,9 +109,44 @@ static hf_rgb paint_of(const hf_model *m, const hf_part *p, int color)
 	return p->color;
 }
 
+/* Whether r is inside the light's ring: a part of the light */
+static bool in_light(const hf_model *m, const hf_rrect *r)
+{
+	const float e = 0.01f;
+
+	return m->light.x1 > m->light.x0 && r->x0 >= m->light.x0 - e && r->x1 <= m->light.x1 + e &&
+	       r->y0 >= m->light.y0 - e && r->y1 <= m->light.y1 + e;
+}
+
+int hf_light_dx(const hf_model *m, int w, int gx, int gy, int gw, int gh)
+{
+	const float px = (float)gw / m->lcd_w;
+	const int room = (int)lroundf(HF_LIGHT_ROOM_MM * px);
+	int x0, y0, x1, y1, dx;
+
+	/* A light in the lens, beside the screen: the Game Boy's and the
+	 * Color's. The Advance's is on the body past the lens's right end. */
+	if (m->light.x1 <= m->light.x0 || m->light.x0 < m->lens.x0 || m->light.x1 > m->lens.x1 ||
+	    m->light.y0 < m->lens.y0 || m->light.y1 > m->lens.y1)
+		return 0;
+	hf_px_rect(m, &m->light, gx, gy, gw, gh, &x0, &y0, &x1, &y1);
+	if (x0 >= room && x1 <= w - room) return 0;
+	if (x1 <= gx) {
+		dx = room - x0;
+		return x1 + dx + room <= gx ? dx : 0;
+	}
+	if (x0 >= gx + gw) {
+		dx = w - room - x1;
+		return x0 + dx - room >= gx + gw ? dx : 0;
+	}
+	return 0;
+}
+
 void hf_render(const hf_model *m, int color, int w, int h, int gx, int gy, int gw, int gh, uint8_t *bgra)
 {
 	const float px = (float)gw / m->lcd_w, py = (float)gh / m->lcd_h;
+	/* The light where the panel shows it whole (hf_light_dx) */
+	const int ldx = hf_light_dx(m, w, gx, gy, gw, gh);
 	int i, x, y;
 
 	if (color < 0 || color >= m->ncolors) color = 0;
@@ -163,6 +164,10 @@ void hf_render(const hf_model *m, int color, int w, int h, int gx, int gy, int g
 		sdf_shape sh;
 
 		hf_px_rect(m, &p->shape, gx, gy, gw, gh, &x0, &y0, &x1, &y1);
+		if (ldx && in_light(m, &p->shape)) {
+			x0 += ldx;
+			x1 += ldx;
+		}
 		if (x1 <= x0 || y1 <= y0) continue;
 		sh.cx = (float)(x0 + x1) / 2.0f;
 		sh.cy = (float)(y0 + y1) / 2.0f;
