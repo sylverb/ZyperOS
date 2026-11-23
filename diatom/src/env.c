@@ -1290,7 +1290,7 @@ static int16_t cb_input_state(unsigned port, unsigned device,
 	 * pushing the stick, its right one always. Without them, centered. */
 	if (port == 0 && device == RETRO_DEVICE_ANALOG) {
 		int16_t x = 0, y = 0, axes[4];
-		const bool own = index <= RETRO_DEVICE_INDEX_ANALOG_RIGHT && diatom_port_input_axes(axes);
+		bool own = index <= RETRO_DEVICE_INDEX_ANALOG_RIGHT && diatom_port_input_axes(axes);
 
 		if (g_stick_on && !stick_dpad_now() && index == RETRO_DEVICE_INDEX_ANALOG_LEFT) {
 			state = (diatom_port_input_state() & ~(g_suppress | g_hook_hide)) | g_hook_give;

@@ -16,6 +16,9 @@ const dev_build device_build_r36s = {
 	.arch = "aarch64",
 	.mcpu = "cortex-a53",
 	.cpu = "cortex-a35",
+	/* Its own platform layer, src/device/r36s.c: the Pixel 2's with the
+	 * R36S's keys */
+	.backend = "r36s",
 	.diatom_port = "r36s",
 	.table = "mbr",
 	.part_boot = 1,
