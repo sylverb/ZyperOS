@@ -575,13 +575,23 @@ static void apart_tags(const game_list *l, apart_one *g, int n)
 		}
 	}
 	if (tags_differ(g, n)) return;
-	/* Its file, as the shelf keeps it */
+	/* Its file, as the shelf keeps it; its extension alone when the title is
+	 * the file's name already ("Bonk (USA) · pce", never "Bonk (USA) · Bonk
+	 * (USA).pce"), as it is where the shelf names games by their files */
 	for (i = 0; i < n; i++) {
 		const game_entry *e = &l->items[g[i].at];
 		const char *own = e->dir && e->dir < strlen(e->file) && e->file[e->dir] == '/'
 		                ? e->file + e->dir + 1 : e->file;
+		const char *base = strrchr(own, '/'), *dot;
+		char shown[LIB_PATH + 1];
 
-		snprintf(g[i].tag, sizeof g[i].tag, "\xc2\xb7 %s", own);
+		base = base ? base + 1 : own;
+		dot = strrchr(base, '.');
+		lib_file_shown(e->file, e->dir, false, shown, sizeof shown);
+		if (dot && dot != base && dot[1] && !strcmp(e->title, shown))
+			snprintf(g[i].tag, sizeof g[i].tag, "\xc2\xb7 %s", dot + 1);
+		else
+			snprintf(g[i].tag, sizeof g[i].tag, "\xc2\xb7 %s", own);
 	}
 	if (tags_differ(g, n)) return;
 	/* Two of one file name in two folders: the whole path */

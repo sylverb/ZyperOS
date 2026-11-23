@@ -163,6 +163,8 @@ bool lib_refresh_title(db *d, const char *folder, game_entry *entry);
  *     (Rev 1)", when those differ;
  *   - else its file, "Bonk's Adventure · Bonk's Adventure (USA).zip"
  *     (Bonk's Adventure (USA).pce beside it).
+ *     Its extension alone where its title is its file's name already
+ *     ("Bonk (USA) · zip").
  *
  * The brackets as the file has them, in title_text's rules. A game with
  * nothing else to tell it by keeps its bare title. Again on a list it has

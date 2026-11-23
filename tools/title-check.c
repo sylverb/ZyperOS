@@ -687,6 +687,13 @@ static void titles_apart(void)
 	lib_titles_apart(&l);
 	CHECK(!strcmp(apart_title(&l, "Bonk (USA).pce"), "Bonk \xc2\xb7 Bonk (USA).pce"));
 	CHECK(!strcmp(apart_title(&l, "Bonk (USA).zip"), "Bonk \xc2\xb7 Bonk (USA).zip"));
+	/* Titles that are the files' names already (Game Names: File Name):
+	 * the extension alone, not the name twice */
+	apart_put(&it[0], "Bonk (USA).pce", 0, "Bonk (USA)");
+	apart_put(&it[1], "Bonk (USA).zip", 0, "Bonk (USA)");
+	lib_titles_apart(&l);
+	CHECK(!strcmp(apart_title(&l, "Bonk (USA).pce"), "Bonk (USA) \xc2\xb7 pce"));
+	CHECK(!strcmp(apart_title(&l, "Bonk (USA).zip"), "Bonk (USA) \xc2\xb7 zip"));
 	apart_put(&it[0], "Hacks/Bonk.pce", 5, "Bonk");
 	apart_put(&it[1], "Mine/Bonk.pce", 4, "Bonk");
 	lib_titles_apart(&l);

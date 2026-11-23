@@ -7715,7 +7715,8 @@ shows (Search, Favorites, Recents, Collections):
 - else **its region and the brackets the others do not all have**, a
   revision, a translation, a disc: "Zelda (USA)", "Zelda (USA) (Rev 1)";
 - else **its file**, after a dot: "Bonk · Bonk (USA).pce", "Bonk · Bonk
-  (USA).zip", and its folders too when only they differ.
+  (USA).zip", and its folders too when only they differ; its extension
+  alone where the title is the file's name already, "Bonk (USA) · pce".
 
 A game with nothing to tell it by keeps its bare title, and a title that
 stops being shared loses its brackets again. Worked out when the shelf is
