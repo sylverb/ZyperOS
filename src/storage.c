@@ -77,6 +77,21 @@ static bool ends_ci(const char *s, size_t n, const char *suf)
 	return n >= k && !strcasecmp(s + n - k, suf);
 }
 
+/* `src` into `out` of `n`, cut if it must be at a whole UTF-8 character: a
+ * title shown on a row, where a cut is drawn as one */
+static void utf8_copy(char *out, size_t n, const char *src)
+{
+	size_t k = strlen(src);
+
+	if (!n) return;
+	if (k >= n) {
+		k = n - 1;
+		while (k && ((unsigned char)src[k] & 0xC0) == 0x80) k--;
+	}
+	memcpy(out, src, k);
+	out[k] = '\0';
+}
+
 size_t st_media_suffix(const char *name, bool *video)
 {
 	/* The longest first: ".png.part" before ".part" would never be asked,
@@ -779,7 +794,8 @@ static void size_game(const st_paths *p, const st_game_in *g, const gd_other *ot
 	snprintf(saves, sizeof saves, "%s/Saves", p->card);
 	snprintf(states, sizeof states, "%s/.zyperos", p->shared);
 	snprintf(romdir, sizeof romdir, "%s/%s", p->roms, g->folder);
-	snprintf(media, sizeof media, "%s/.media", romdir);
+	/* A folder too long for its path has no game here to size */
+	if (snprintf(media, sizeof media, "%s/.media", romdir) >= (int)sizeof media) return;
 	/* No Cheats/ root: a game's cheat files are a few KB, not a size the
 	 * page has a part of its bar for (src/cheats.h) */
 	card = (gd_card){ p->roms, saves, states, NULL };
@@ -792,8 +808,9 @@ static void size_game(const st_paths *p, const st_game_in *g, const gd_other *ot
 		struct stat st;
 		char f[PATH_MAX_ST];
 
-		snprintf(f, sizeof f, "%s/%s", romdir, g->file);
-		if (lstat(f, &st) == 0 && S_ISREG(st.st_mode)) out->games = out->bytes = alloc_of(&st);
+		if (snprintf(f, sizeof f, "%s/%s", romdir, g->file) < (int)sizeof f &&
+		    lstat(f, &st) == 0 && S_ISREG(st.st_mode))
+			out->games = out->bytes = alloc_of(&st);
 		return;
 	}
 	for (i = 0; i < plan->n; i++) {
@@ -1118,11 +1135,11 @@ static void ports_orphans(const job_view *j)
 		tsum t = { 0 };
 
 		if (k[0] == '.' || claimed_by(claimed, nc, k)) continue;
-		snprintf(sub, sizeof sub, "%s/%s", dir, k);
+		if (snprintf(sub, sizeof sub, "%s/%s", dir, k) >= (int)sizeof sub) continue;
 		walk(sub, false, true, false, &t);
 		memset(&found[nf], 0, sizeof found[nf]);
 		snprintf(found[nf].folder, sizeof found[nf].folder, "%s", k);
-		if ((pt = pi_of_folder(ports, np, k))) snprintf(found[nf].title, sizeof found[nf].title, "%s", pt->title);
+		if ((pt = pi_of_folder(ports, np, k))) utf8_copy(found[nf].title, sizeof found[nf].title, pt->title);
 		found[nf].bytes = t.bytes;
 		nf++;
 	}
@@ -1341,8 +1358,9 @@ static bool measure(const job_view *j, st_card *c, bool trust, bool force, bool 
 		s->snaps = t.video;
 		s->covers = t.bytes - t.video;
 		memset(&t, 0, sizeof t);
-		snprintf(path, sizeof path, "%s/%s", states, s->folder);
-		if (!walk(path, false, trust, force, &t)) return false;
+		if (snprintf(path, sizeof path, "%s/%s", states, s->folder) < (int)sizeof path &&
+		    !walk(path, false, trust, force, &t))
+			return false;
 		s->states = t.bytes;
 		if (live && !c->measured) { st_totals(c); publish(c); }
 	}
@@ -1373,8 +1391,9 @@ static bool measure(const job_view *j, st_card *c, bool trust, bool force, bool 
 			s->unused_covers = sc->ucovers;
 			s->unused_snaps = sc->usnaps;
 		}
-		snprintf(path, sizeof path, "%s/%s", states, s->folder);
-		mt = dir_mtime(path, trust);
+		/* A folder too long for its path: no states of its are listed */
+		if (snprintf(path, sizeof path, "%s/%s", states, s->folder) >= (int)sizeof path) path[0] = '\0';
+		mt = path[0] ? dir_mtime(path, trust) : 0;
 		if (!trust && (!sc->have_bases || sc->states_mt != mt || force)) {
 			bases_free(sc);
 			sc->bases = list_bases(path, &sc->nbases);
@@ -1408,8 +1427,8 @@ static bool measure(const job_view *j, st_card *c, bool trust, bool force, bool 
 		sig = (unsigned long long)dir_mtime(path, trust) * 31u;
 		snprintf(path, sizeof path, "%s/%s/.media", j->p.roms, s->folder);
 		sig = (sig ^ (unsigned long long)dir_mtime(path, trust)) * 31u;
-		snprintf(path, sizeof path, "%s/%s", states, s->folder);
-		sig = (sig ^ (unsigned long long)dir_mtime(path, trust)) * 31u;
+		if (snprintf(path, sizeof path, "%s/%s", states, s->folder) < (int)sizeof path)
+			sig = (sig ^ (unsigned long long)dir_mtime(path, trust)) * 31u;
 		sig ^= (unsigned long long)dir_mtime(saves, trust);
 		/* Its games are together in the list, as the shelves give them */
 		for (k = 0; k < j->n; k++)
@@ -1444,8 +1463,8 @@ static bool measure(const job_view *j, st_card *c, bool trust, bool force, bool 
 				 * it to, which its plan holds (src/dscache.h) */
 				char rd[PATH_MAX_ST], dsd[PATH_MAX_ST];
 
-				snprintf(rd, sizeof rd, "%s/%s", j->p.roms, g->folder);
-				if (dsc_dir(rd, g->file, dsd, sizeof dsd))
+				if (snprintf(rd, sizeof rd, "%s/%s", j->p.roms, g->folder) < (int)sizeof rd &&
+				    dsc_dir(rd, g->file, dsd, sizeof dsd))
 					gsig = (gsig * 31u) ^ (unsigned long long)dir_mtime(dsd, trust);
 			}
 			pthread_mutex_lock(&g_mu);

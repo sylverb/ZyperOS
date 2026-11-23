@@ -40,6 +40,15 @@
 #define GB       (1ull << 30)
 #define MB       (1ull << 20)
 
+/* A path into `buf`: whole, or the check stops and says so */
+#define PATHF(buf, ...) do { \
+	int w_ = snprintf((buf), sizeof (buf), __VA_ARGS__); \
+	if (w_ < 0 || (size_t)w_ >= sizeof (buf)) { \
+		printf("  FAIL %s:%d: a path longer than its %zu bytes\n", __FILE__, __LINE__, sizeof (buf)); \
+		exit(2); \
+	} \
+} while (0)
+
 static char sysdir[512], savedir[512];
 static int fails;
 
@@ -158,14 +167,14 @@ static void cached(const char *dir, const char *stem, unsigned long long bytes, 
 	struct timeval tv[2];
 	FILE *f;
 
-	snprintf(zip, sizeof zip, "%s/%s.zip", dir, stem);
+	PATHF(zip, "%s/%s.zip", dir, stem);
 	f = fopen(zip, "wb");
 	if (f) { fputs("not read", f); fclose(f); }
-	snprintf(p, sizeof p, "%s/.dsperate/%s.nds", dir, stem);
+	PATHF(p, "%s/.dsperate/%s.nds", dir, stem);
 	f = fopen(p, "wb");
 	if (!f || ftruncate(fileno(f), (off_t)bytes) != 0) { perror(p); exit(2); }
 	fclose(f);
-	snprintf(p, sizeof p, "%s/.dsperate/%s.nds.tag", dir, stem);
+	PATHF(p, "%s/.dsperate/%s.nds.tag", dir, stem);
 	f = fopen(p, "wb");
 	if (!f) { perror(p); exit(2); }
 	fprintf(f, "dsperate zip cache 2\narchive %s\nzip 8 0\nentry %s.nds\ncrc 0 size %llu\n",
@@ -182,7 +191,7 @@ static bool there(const char *dir, const char *rel)
 	char p[1024];
 	struct stat st;
 
-	snprintf(p, sizeof p, "%s/%s", dir, rel);
+	PATHF(p, "%s/%s", dir, rel);
 	return stat(p, &st) == 0;
 }
 
@@ -207,15 +216,15 @@ int main(int argc, char **argv)
 		fprintf(stderr, "usage: %s core.so workdir\n", argv[0]);
 		return 2;
 	}
-	snprintf(sysdir, sizeof sysdir, "%s/system", argv[2]);
-	snprintf(savedir, sizeof savedir, "%s/saves", argv[2]);
-	snprintf(cache, sizeof cache, "%s/.dsperate", argv[2]);
+	PATHF(sysdir, "%s/system", argv[2]);
+	PATHF(savedir, "%s/saves", argv[2]);
+	PATHF(cache, "%s/.dsperate", argv[2]);
 	mkdir(argv[2], 0755);
 	mkdir(sysdir, 0755);   /* empty: FreeBIOS and a generated firmware */
 	mkdir(savedir, 0755);
 	mkdir(cache, 0755);
 	make_rom(rom);
-	snprintf(zip, sizeof zip, "%s/Count.zip", argv[2]);
+	PATHF(zip, "%s/Count.zip", argv[2]);
 	if (write_zip(zip, "Count.nds", rom, ROM_SIZE)) { perror(zip); return 2; }
 	cached(argv[2], "Oldest", 1 * GB, 300);
 	cached(argv[2], "Older", 1 * GB, 200);
@@ -249,7 +258,7 @@ int main(int argc, char **argv)
 	game.path = zip;
 	if (!retro_load_game(&game)) { printf("  FAIL the core did not load the zip\n"); return 1; }
 
-	snprintf(img, sizeof img, "%s/Count.nds", cache);
+	PATHF(img, "%s/Count.nds", cache);
 	expect(stat(img, &st) == 0 && st.st_size == ROM_SIZE, "the zip's copy is in .dsperate, the ROM's size");
 	expect(!there(cache, "Oldest.nds") && !there(cache, "Oldest.nds.tag"),
 	       "the oldest launch's copy went, with its tag (the cap: 2 GB)");

@@ -480,9 +480,9 @@ bool gd_plan_make(const gd_card *card, const gd_game *g,
 			struct stat st;
 			char dir[GD_PATH];
 
-			snprintf(dir, sizeof dir, "%s/%.*s%s%s", romdir, (int)g->dir, g->file,
-			         g->dir ? "/" : "", stem);
-			if (lstat(dir, &st) == 0 && S_ISDIR(st.st_mode) &&
+			if (snprintf(dir, sizeof dir, "%s/%.*s%s%s", romdir, (int)g->dir, g->file,
+			             g->dir ? "/" : "", stem) < (int)sizeof dir &&
+			    lstat(dir, &st) == 0 && S_ISDIR(st.st_mode) &&
 			    !shares_name(others, nothers, g->folder, stem))
 				plan_add(p, GD_TREE, "%s", dir);
 		}

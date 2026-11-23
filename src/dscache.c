@@ -54,6 +54,7 @@ unsigned long long dsc_trim(const char *dir, unsigned long long cap, const char 
 		if (stat(x->path, &st) != 0 || !S_ISREG(st.st_mode)) continue;
 		x->bytes = (unsigned long long)st.st_size;
 		x->stamp = (long)st.st_mtime;
+		/* Its tag: the path and ".tag", which `tag` has room for */
 		snprintf(tag, sizeof tag, "%s.tag", x->path);
 		if (stat(tag, &st) == 0) x->stamp = (long)st.st_mtime;
 		total += x->bytes;

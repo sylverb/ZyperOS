@@ -495,7 +495,7 @@ static void retag(const char *tag, const char *zip)
 	if (!(at = strstr(buf, "\narchive "))) return;
 	at += strlen("\narchive ");
 	if (!(end = strchr(at, '\n'))) return;
-	if (!realpath(zip, real)) snprintf(real, sizeof real, "%s", zip);
+	if (!realpath(zip, real) && snprintf(real, sizeof real, "%s", zip) >= (int)sizeof real) return;
 	w = snprintf(out, sizeof out, "%.*s%s%s", (int)(at - buf), buf, real, end);
 	if (w < 0 || (size_t)w >= sizeof out ||
 	    snprintf(tmp, sizeof tmp, "%s.zyperos-rn", tag) >= (int)sizeof tmp ||

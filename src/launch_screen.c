@@ -1669,8 +1669,8 @@ void launch(app *a)
 		int went = 0;
 		unsigned long long freed;
 
-		snprintf(romdir, sizeof romdir, "%s/%s", P_ROMS, s->folder);
-		if (dsc_dir(romdir, romfile, dir, sizeof dir) &&
+		if (snprintf(romdir, sizeof romdir, "%s/%s", P_ROMS, s->folder) < (int)sizeof romdir &&
+		    dsc_dir(romdir, romfile, dir, sizeof dir) &&
 		    dsc_image(romdir, romfile, keep, sizeof keep) &&
 		    (freed = dsc_trim(dir, DSC_CAP, keep, &went)) > 0)
 			fprintf(stderr, "dscache: %s: %d unpacked game%s removed, %llu MB given back\n",

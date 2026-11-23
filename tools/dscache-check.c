@@ -48,12 +48,23 @@ static int failures;
 
 #define CHECK(c) do { if (!(c)) { printf("  FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
 #define MB (1ull << 20)
+/* A path, or a tag's text, into `buf`: whole, or the check stops and says
+ * so. A cut path would point the check at another file than the one it
+ * means; the card's own paths are short, so this never happens unless the
+ * scratch folder's name is far longer than mkdtemp's. */
+#define PATHF(buf, ...) do { \
+	int w_ = snprintf((buf), sizeof (buf), __VA_ARGS__); \
+	if (w_ < 0 || (size_t)w_ >= sizeof (buf)) { \
+		printf("  FAIL %s:%d: a path longer than its %zu bytes\n", __FILE__, __LINE__, sizeof (buf)); \
+		exit(1); \
+	} \
+} while (0)
 
 static void mkdirs(const char *path)
 {
 	char p[1200], *s;
 
-	snprintf(p, sizeof p, "%s", path);
+	PATHF(p, "%s", path);
 	for (s = p + 1; *s; s++)
 		if (*s == '/') { *s = '\0'; mkdir(p, 0755); *s = '/'; }
 	mkdir(p, 0755);
@@ -66,7 +77,7 @@ static void put(const char *path, unsigned long long bytes, long when)
 	char dir[1200], *slash;
 	FILE *f;
 
-	snprintf(dir, sizeof dir, "%s", path);
+	PATHF(dir, "%s", path);
 	if ((slash = strrchr(dir, '/'))) { *slash = '\0'; mkdirs(dir); }
 	f = fopen(path, "wb");
 	if (!f) { perror(path); exit(1); }
@@ -92,10 +103,10 @@ static void image(const char *dir, const char *stem, unsigned mb, long when, boo
 {
 	char p[1200];
 
-	snprintf(p, sizeof p, "%s/%s.nds", dir, stem);
+	PATHF(p, "%s/%s.nds", dir, stem);
 	put(p, mb * MB, tagged ? 1 : when);
 	if (tagged) {
-		snprintf(p, sizeof p, "%s/%s.nds.tag", dir, stem);
+		PATHF(p, "%s/%s.nds.tag", dir, stem);
 		put(p, 100, when);
 	}
 }
@@ -104,7 +115,7 @@ static bool image_there(const char *dir, const char *stem, const char *suffix)
 {
 	char p[1200];
 
-	snprintf(p, sizeof p, "%s/%s.nds%s", dir, stem, suffix);
+	PATHF(p, "%s/%s.nds%s", dir, stem, suffix);
 	return there(p);
 }
 
@@ -147,7 +158,7 @@ static void the_cap(void)
 	int went = -1;
 
 	printf("the cap after a DS game:\n");
-	snprintf(dir, sizeof dir, "%s/cap/.dsperate", root);
+	PATHF(dir, "%s/cap/.dsperate", root);
 	/* 2.5 GB, oldest first: Old (no tag, its own time), Mid, Recent, and
 	 * Just, the game just played, whose tag is the oldest of all by its
 	 * time but which is never the one to go */
@@ -155,11 +166,11 @@ static void the_cap(void)
 	image(dir, "Mid", 1024, 200, true);
 	image(dir, "Recent", 512, 300, true);
 	image(dir, "Just", 512, 50, true);
-	snprintf(other, sizeof other, "%s/Half.nds.part", dir);
+	PATHF(other, "%s/Half.nds.part", dir);
 	put(other, 64 * MB, 10);
-	snprintf(other, sizeof other, "%s/notes.txt", dir);
+	PATHF(other, "%s/notes.txt", dir);
 	put(other, 1, 10);
-	snprintf(keep, sizeof keep, "%s/Just.nds", dir);
+	PATHF(keep, "%s/Just.nds", dir);
 
 	freed = dsc_trim(dir, DSC_CAP, keep, &went);
 	/* 2560 MB less Old's 512 is 2048: Old alone goes */
@@ -184,13 +195,13 @@ static void the_cap(void)
 	CHECK(!image_there(dir, "Recent", ""));
 	CHECK(image_there(dir, "Just", "") && image_there(dir, "Just", ".tag"));
 	/* Not an image: a .part (DSperate's own to sweep) and anything else */
-	snprintf(other, sizeof other, "%s/Half.nds.part", dir);
+	PATHF(other, "%s/Half.nds.part", dir);
 	CHECK(there(other));
-	snprintf(other, sizeof other, "%s/notes.txt", dir);
+	PATHF(other, "%s/notes.txt", dir);
 	CHECK(there(other));
 
 	/* No folder, no game: nothing */
-	snprintf(other, sizeof other, "%s/cap/none/.dsperate", root);
+	PATHF(other, "%s/cap/none/.dsperate", root);
 	CHECK(dsc_trim(other, 0, NULL, &went) == 0 && went == 0);
 	CHECK(dsc_trim(NULL, 0, NULL, NULL) == 0);
 }
@@ -222,21 +233,21 @@ static void the_delete(void)
 	};
 
 	printf("Delete Game takes a zipped DS game's unpacked copy:\n");
-	snprintf(d, sizeof d, "%s/.dsperate", nds);
-	snprintf(f, sizeof f, "%s/Pokemon HeartGold (USA).zip", nds);
+	PATHF(d, "%s/.dsperate", nds);
+	PATHF(f, "%s/Pokemon HeartGold (USA).zip", nds);
 	put(f, 1000, 0);
-	snprintf(f, sizeof f, "%s/Mario Kart DS (USA).zip", nds);
+	PATHF(f, "%s/Mario Kart DS (USA).zip", nds);
 	put(f, 1000, 0);
-	snprintf(f, sizeof f, "%s/Zelda.nds", nds);
+	PATHF(f, "%s/Zelda.nds", nds);
 	put(f, 1000, 0);
 	image(d, "Pokemon HeartGold (USA)", 128, 100, true);
-	snprintf(f, sizeof f, "%s/Pokemon HeartGold (USA).nds.part", d);
+	PATHF(f, "%s/Pokemon HeartGold (USA).nds.part", d);
 	put(f, 1000, 0);
 	image(d, "Mario Kart DS (USA)", 32, 100, true);
 	/* A zip of the same name on another shelf: not DSperate's */
-	snprintf(gba, sizeof gba, "%s/Game Boy Advance/Pokemon HeartGold (USA).zip", roms);
+	PATHF(gba, "%s/Game Boy Advance/Pokemon HeartGold (USA).zip", roms);
 	put(gba, 1000, 0);
-	snprintf(f, sizeof f, "%s/Game Boy Advance/.dsperate/Pokemon HeartGold (USA).nds", roms);
+	PATHF(f, "%s/Game Boy Advance/.dsperate/Pokemon HeartGold (USA).nds", roms);
 	put(f, 1000, 0);
 
 	delete_one("NDS", "Nintendo DS", "Pokemon HeartGold (USA).zip", "Pokemon HeartGold (USA)",
@@ -298,15 +309,15 @@ static void the_rename(void)
 	FILE *o;
 
 	printf("Rename takes a zipped DS game's copy and its tag with it:\n");
-	snprintf(d, sizeof d, "%s/.dsperate", nds);
-	snprintf(f, sizeof f, "%s/Kirby (USA).zip", nds);
+	PATHF(d, "%s/.dsperate", nds);
+	PATHF(f, "%s/Kirby (USA).zip", nds);
 	put(f, 1000, 0);
 	CHECK(realpath(f, real) != NULL);
-	snprintf(f, sizeof f, "%s/Kirby (USA).nds", d);
+	PATHF(f, "%s/Kirby (USA).nds", d);
 	put(f, 64 * MB, 0);
-	snprintf(tag, sizeof tag, "dsperate zip cache 2\narchive %s\nzip 1000 1700000000\n"
+	PATHF(tag, "dsperate zip cache 2\narchive %s\nzip 1000 1700000000\n"
 	         "entry Kirby Super Star Ultra (USA).nds\ncrc 305419896 size 67108864\n", real);
-	snprintf(f, sizeof f, "%s/Kirby (USA).nds.tag", d);
+	PATHF(f, "%s/Kirby (USA).nds.tag", d);
 	o = fopen(f, "wb");
 	fputs(tag, o);
 	fclose(o);
@@ -323,21 +334,21 @@ static void the_rename(void)
 	{
 		struct stat st;
 
-		snprintf(f, sizeof f, "%s/Kirby Super Star.nds", d);
+		PATHF(f, "%s/Kirby Super Star.nds", d);
 		CHECK(stat(f, &st) == 0 && (unsigned long long)st.st_size == 64 * MB);
 	}
 	/* The tag: its archive is the new zip, by its realpath; the rest as it was */
-	snprintf(f, sizeof f, "%s/Kirby Super Star.zip", nds);
+	PATHF(f, "%s/Kirby Super Star.zip", nds);
 	CHECK(realpath(f, real) != NULL);
-	snprintf(tag, sizeof tag, "dsperate zip cache 2\narchive %s\nzip 1000 1700000000\n"
+	PATHF(tag, "dsperate zip cache 2\narchive %s\nzip 1000 1700000000\n"
 	         "entry Kirby Super Star Ultra (USA).nds\ncrc 305419896 size 67108864\n", real);
-	snprintf(f, sizeof f, "%s/Kirby Super Star.nds.tag", d);
+	PATHF(f, "%s/Kirby Super Star.nds.tag", d);
 	t = slurp(f);
 	CHECK(t && !strcmp(t, tag));
 
 	/* A copy already under the new name, left by a game deleted elsewhere:
 	 * the rename goes on, this copy stays for DSperate to sweep */
-	snprintf(f, sizeof f, "%s/Luigi.zip", nds);
+	PATHF(f, "%s/Luigi.zip", nds);
 	put(f, 1000, 0);
 	image(d, "Luigi", 16, 100, true);
 	image(d, "Mario", 8, 100, true);
@@ -350,18 +361,18 @@ static void the_rename(void)
 		if (p->why == GR_OK) gr_plan_run(p, &done);
 	}
 	CHECK(done.game_moved && done.failed == 0);
-	snprintf(f, sizeof f, "%s/Mario.zip", nds);
+	PATHF(f, "%s/Mario.zip", nds);
 	CHECK(there(f));
 	CHECK(image_there(d, "Luigi", "") && image_there(d, "Mario", ""));
 	{
 		struct stat st;
 
-		snprintf(f, sizeof f, "%s/Mario.nds", d);
+		PATHF(f, "%s/Mario.nds", d);
 		CHECK(stat(f, &st) == 0 && (unsigned long long)st.st_size == 8 * MB);
 	}
 
 	/* A loose .nds has no copy to take */
-	snprintf(f, sizeof f, "%s/Loose.nds", nds);
+	PATHF(f, "%s/Loose.nds", nds);
 	put(f, 1000, 0);
 	{
 		gd_game g = { "Nintendo DS", "NDS", "dsperate", "nds|zip", "Loose.nds", "Loose", 0 };
@@ -399,18 +410,18 @@ static void the_storage(void)
 	st_game_size gz;
 
 	printf("MENU > Storage counts a zipped DS game's copy as the game's:\n");
-	snprintf(shared, sizeof shared, "%s/shared", root);
-	snprintf(zroot, sizeof zroot, "%s/ZyperOS", root);
+	PATHF(shared, "%s/shared", root);
+	PATHF(zroot, "%s/ZyperOS", root);
 	mkdirs(zroot);
 	sp = (st_paths){ root, roms, shared, zroot, false };
-	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).zip", nds);
+	PATHF(f, "%s/Chrono Trigger (USA).zip", nds);
 	put_real(f, 256 * 1024);
-	snprintf(d, sizeof d, "%s/.dsperate", nds);
+	PATHF(d, "%s/.dsperate", nds);
 	/* What the parts before left there, gone: this part counts its own */
 	nftw(d, rm_one, 16, FTW_DEPTH | FTW_PHYS);
-	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).nds", d);
+	PATHF(f, "%s/Chrono Trigger (USA).nds", d);
 	put_real(f, 2 * MB);
-	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).nds.tag", d);
+	PATHF(f, "%s/Chrono Trigger (USA).nds.tag", d);
 	put_real(f, 100);
 
 	st_reset();
@@ -421,14 +432,14 @@ static void the_storage(void)
 
 	/* Unpacked again, larger: only .dsperate's time moves */
 	sleep(1);
-	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).nds", d);
+	PATHF(f, "%s/Chrono Trigger (USA).nds", d);
 	unlink(f);
-	snprintf(f, sizeof f, "%s/Chrono Trigger (USA).nds.part", d);
+	PATHF(f, "%s/Chrono Trigger (USA).nds.part", d);
 	put_real(f, 4 * MB);
 	{
 		char to[1200];
 
-		snprintf(to, sizeof to, "%s/Chrono Trigger (USA).nds", d);
+		PATHF(to, "%s/Chrono Trigger (USA).nds", d);
 		CHECK(rename(f, to) == 0);
 	}
 	st_measure_now(&sp, &ss, &g, 1, 2000000000L, true);
@@ -444,21 +455,21 @@ static void the_storage(void)
 		int files = -1;
 		unsigned long long b;
 
-		snprintf(sub, sizeof sub, "%s/RPG/" DSC_DIR, nds);
-		snprintf(f, sizeof f, "%s/RPG/Golden Sun DS.zip", nds);
+		PATHF(sub, "%s/RPG/" DSC_DIR, nds);
+		PATHF(f, "%s/RPG/Golden Sun DS.zip", nds);
 		put_real(f, 64 * 1024);
-		snprintf(f, sizeof f, "%s/Golden Sun DS.nds", sub);
+		PATHF(f, "%s/Golden Sun DS.nds", sub);
 		put_real(f, 1 * MB);
-		snprintf(f, sizeof f, "%s/Golden Sun DS.nds.tag", sub);
+		PATHF(f, "%s/Golden Sun DS.nds.tag", sub);
 		put_real(f, 100);
-		snprintf(f, sizeof f, "%s/Half.nds.part", d);
+		PATHF(f, "%s/Half.nds.part", d);
 		put_real(f, 512 * 1024);
 		/* What is not a copy, and what must never go */
-		snprintf(note, sizeof note, "%s/readme.txt", d);
+		PATHF(note, "%s/readme.txt", d);
 		put_real(note, 100);
-		snprintf(save, sizeof save, "%s/Chrono Trigger (USA).sav", saves);
+		PATHF(save, "%s/Chrono Trigger (USA).sav", saves);
 		put_real(save, 512 * 1024);
-		snprintf(state, sizeof state, "%s/Nintendo DS/Chrono Trigger (USA).zip.auto.state", states);
+		PATHF(state, "%s/Nintendo DS/Chrono Trigger (USA).zip.auto.state", states);
 		put_real(state, 1 * MB);
 
 		st_measure_now(&sp, &ss, &g, 1, 2000000000L, true);
@@ -476,9 +487,9 @@ static void the_storage(void)
 		CHECK(!there(sub));
 		CHECK(there(note) && there(d));
 		CHECK(there(save) && there(state));
-		snprintf(f, sizeof f, "%s/Chrono Trigger (USA).zip", nds);
+		PATHF(f, "%s/Chrono Trigger (USA).zip", nds);
 		CHECK(there(f));
-		snprintf(f, sizeof f, "%s/RPG/Golden Sun DS.zip", nds);
+		PATHF(f, "%s/RPG/Golden Sun DS.zip", nds);
 		CHECK(there(f));
 
 		st_measure_now(&sp, &ss, &g, 1, 2000000000L, true);
@@ -491,10 +502,10 @@ static void the_storage(void)
 int main(void)
 {
 	if (!mkdtemp(root)) { perror("mkdtemp"); return 1; }
-	snprintf(roms, sizeof roms, "%s/Roms", root);
-	snprintf(saves, sizeof saves, "%s/Saves", root);
-	snprintf(states, sizeof states, "%s/shared/.zyperos", root);
-	snprintf(nds, sizeof nds, "%s/Nintendo DS", roms);
+	PATHF(roms, "%s/Roms", root);
+	PATHF(saves, "%s/Saves", root);
+	PATHF(states, "%s/shared/.zyperos", root);
+	PATHF(nds, "%s/Nintendo DS", roms);
 	mkdirs(saves);
 	mkdirs(states);
 	mkdirs(nds);
