@@ -986,7 +986,7 @@ same system (Down from the last column over a short row lands on its last
 system), stopping at the top and the foot with the edge sound; **Left** and
 **Right** step, a press going round the ends and a held one stopping at the
 first or the last system with the edge sound once, as a list's does;
-**L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
+**L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last a press goes round to the first and a held one stops (a list's page, 11.3).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
 a tile like any other. When the systems change (one turned off or on in
 Home Systems, 11.48; Favorites or Recents made or emptied; a system's last
@@ -1271,6 +1271,19 @@ for a press and `menu_step_sel` for a hold (src/menu.c), and
 `menu_step_index` for the loops that keep a plain index. *(2026-11-12: I
 want lists to go round, and a held direction to stop at the end. From 1.0.1
 to then they stopped at both.)*
+
+**A list's page goes by the same rule.** Where L1 and R1 page a list - the
+shelf's list (11.39) and grid (11.47), the home's Grid (11.1), the
+achievement list - they go a screenful on, or to the end where less is
+left (the same column on a grid), so a list that fits on one screen gets its
+two ends; from the end itself a press goes round to the other end and a
+**held** one stops there, playing **edge** once, as a held direction does.
+One rule in one place, `gg_page` (src/gridrule.c), with the press or the
+hold. Tabs (MENU's, the in-game menu's) and a row (the home's Spotlight and
+Gallery, the cover row, the Video view's band) are not lists: their L1 and
+R1 go round held or not, as their Left and Right do. *(2026-11-23, with the
+List View lab: before, the shelf's list went round on a hold, the grids went
+to the end and round, and the achievement list never went round.)*
 
 A list that fits its panel sends the focus fill back to the other end in
 **quick**, as any step. A list longer than its panel **goes on**: after its
@@ -4639,7 +4652,9 @@ turning View moves only the middle:
   past the ends; **a held Up or Down stops at the end** with the edge
   sound once, and the next press goes round, as every list's does (11.3)
   and the home's Grid's *(my pick in the List View lab, 2026-11-23; before,
-  a held Down ran from the last game to the first and on)*. The grid's Left
+  a held Down ran from the last game to the first and on)*. L1 and R1 page
+  by the same rule: eight rows on, or to the end, then a press round and a
+  held one stopping (11.3's list page). The grid's Left
   and Right step the same way (11.47); the cover row and the Video view's
   band go round held or not, as the home's row does. check-shelfkeys.
 - The focused game's video snap plays in its cover's place, **asked the
@@ -5481,8 +5496,9 @@ last cover with the edge sound once, as a list's does and the home's Grid's
 grid alike); Up and Down a row, stopping at the top and the
 foot with the edge sound, Down from over a short last row landing on its
 last cover; L1 and R1 a screenful in the same column, or to the last (first)
-cover where less is left, and from the last round to the first, so a grid
-that fits on one screen gets its two ends (`gg_page`). The four directions are
+cover where less is left, and from the last a press round to the first and
+a held one stopping there, so a grid that fits on one screen gets its two
+ends (`gg_page`, a list's page, 11.3). The four directions are
 the grid's, so it has no letter jump. A, B, X, Y, START as on the cover row.
 The covers a press can slide into sight are decoded before it comes: the two
 rows in sight and two rows either side of them stay, counted round the ends

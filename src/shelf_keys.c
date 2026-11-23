@@ -157,7 +157,8 @@ void update_systems(app *a)
 	/* The Grid home (DESIGN.md 11.1): Up and Down a row, to the system
 	 * nearest where the column started (Down then Up comes back), stopping
 	 * at the top and the foot (the edge sound); L1 and R1 a screenful, or to
-	 * the end, then round (gg_page, as the shelf grid's) */
+	 * the end, then a press round and a held one stopping there (gg_page,
+	 * every list page's rule, as the shelf grid's) */
 	if (grid) {
 		gh_geom g = home_grid_geom(n);
 		int page = g.cols * g.win, to = a->sys_cursor;
@@ -180,8 +181,8 @@ void update_systems(app *a)
 			if (step >= 0) to = step;
 			sb = d > 0 ? IN_DOWN : IN_UP;
 		}
-		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1); sb = IN_L1; a->home.grid_ax = -1; }
-		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1); sb = IN_R1; a->home.grid_ax = -1; }
+		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1, a->in.pressed[IN_L1]); sb = IN_L1; a->home.grid_ax = -1; }
+		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1, a->in.pressed[IN_R1]); sb = IN_R1; a->home.grid_ax = -1; }
 		if (to != a->sys_cursor) dir = to > a->sys_cursor ? 1 : -1;
 		a->sys_cursor = to;
 		if (a->sys_cursor == was) dir = 0;
@@ -361,18 +362,25 @@ int shelf_move(app *a, sysview *v)
 	}
 	if (jdn != IN_NONE && in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
 	if (jup != IN_NONE && in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
-	/* L1/R1 jump a screenful, so a long shelf is crossable. Wrapped the long
-	 * way round on purpose: C's % truncates toward zero, so on a shelf of
-	 * three games the obvious `(cursor - CF_WINDOW + n*2) % n` lands on -1 and
-	 * the draw walks off the front of the list.
-	 * The grid's is a page's: on to the end, then round (gg_page). */
-	if (in_repeat(&a->in, IN_L1)) {
-		v->cursor = v->grid ? gg_page(v->cursor, n, page, -1) : ((v->cursor - page) % n + n) % n;
-		sb = IN_L1;
-	}
-	if (in_repeat(&a->in, IN_R1)) {
-		v->cursor = v->grid ? gg_page(v->cursor, n, page, +1) : (v->cursor + page) % n;
-		sb = IN_R1;
+	/* L1/R1 jump a screenful, so a long shelf is crossable. On the list and
+	 * the grid they page as every list does (gg_page, DESIGN.md 11.3): on
+	 * to the end, then a press round and a held one stopping there. The
+	 * cover row and the Video view's band go round, as the home's row does;
+	 * wrapped the long way round on purpose: C's % truncates toward zero,
+	 * so on a shelf of three games the obvious `(cursor - CF_WINDOW + n*2) %
+	 * n` lands on -1 and the draw walks off the front of the list. */
+	{
+		const bool pages = v->listed || v->grid;
+
+		if (in_repeat(&a->in, IN_L1)) {
+			v->cursor = pages ? gg_page(v->cursor, n, page, -1, a->in.pressed[IN_L1])
+			                  : ((v->cursor - page) % n + n) % n;
+			sb = IN_L1;
+		}
+		if (in_repeat(&a->in, IN_R1)) {
+			v->cursor = pages ? gg_page(v->cursor, n, page, +1, a->in.pressed[IN_R1]) : (v->cursor + page) % n;
+			sb = IN_R1;
+		}
 	}
 	if (sb != IN_NONE)
 		step_sound(a, sb, was, v->cursor);

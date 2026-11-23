@@ -10,6 +10,13 @@ the next press goes round (my pick in the List View lab, 2026-11-23, as
 the home's Grid has it). Before, a held Down on the list ran from the last
 game to the first and on without a stop. The cover row and the Video view's
 band go round held or not, as the home's row does.
+
+L1 and R1 page every list by one rule (gg_page, 11.3): a screenful on, or
+to the end, then from the end a press goes round and a held one stops
+there. The shelf's list and grid, the home's Grid and the achievements
+list (a menu list that pages) alike; before, the list went round on a hold,
+the grids went to the end and round, and the achievements list never went
+round.
 build-native/zyperos must be built (make native)."""
 import importlib.util
 import os
@@ -23,8 +30,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = ROOT / 'build-native/zyperos'
-GAMES = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel']
+GAMES = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet',
+         'Kilo', 'Lima', 'Mike', 'November', 'Oscar', 'Papa', 'Quebec', 'Romeo', 'Sierra', 'Tango']
 N = len(GAMES)
+CHEEVOS = 20      # the achievements list's rows; it pages 8 at a time
 
 # The home's check's socket talk, hold and settle: one way of holding a
 # button for both
@@ -42,9 +51,10 @@ def cursor(sock):
     return ask(sock, 'state')['cursor']
 
 
-def run(tmp, view):
-    """A shelf of eight games in `view`, opened from the home; (sock, process, log)"""
-    base = tmp / view
+def run(tmp, view, name=None):
+    """A shelf of N games in `view`, opened from the home; (sock, process, log)"""
+    name = name or view
+    base = tmp / name
     for d in ('ZyperOS', 'Roms', 'userdata', 'shared', 'web'):
         (base / d).mkdir(parents=True)
     sfc = [l for l in (ROOT / 'config/systems.cfg').read_text().splitlines()
@@ -55,6 +65,12 @@ def run(tmp, view):
     folder.mkdir(parents=True)
     for g in GAMES:
         (folder / f'{g}.sfc').touch()
+    # Alpha's achievements (src/cheevos.h's set file), so its details page
+    # has an Achievements row that opens their list
+    (folder / '.cheevos').mkdir()
+    (folder / '.cheevos/Alpha.set').write_text(
+        '#! zyperos-cheevos 2\tgame=1\tconsole=3\ttitle=Alpha\n' +
+        ''.join(f'#:\t{i + 1}\t5\tStep {i + 1}\tA step.\n' for i in range(CHEEVOS)))
     env = dict(os.environ, ZYPEROS_ROOT=str(base / 'ZyperOS'), ZYPEROS_CARD=str(base),
                ZYPEROS_ROMS=str(base / 'Roms'), ZYPEROS_USERDATA=str(base / 'userdata'),
                ZYPEROS_SHARED=str(base / 'shared'), ZYPEROS_WEB=str(base / 'web'),
@@ -64,21 +80,21 @@ def run(tmp, view):
         with sqlite3.connect(base / 'userdata/zyperos.db') as db:
             db.execute("insert or replace into settings(key,value) values('view.SFC',?)", (view,))
     (base / 'ZyperOS/.last').write_text('SFC\nAlpha.sfc\n\n')
-    sock = Path(tempfile.gettempdir()) / f'zyperos-shelfkeys-{os.getpid()}-{view}.sock'
+    sock = Path(tempfile.gettempdir()) / f'zyperos-shelfkeys-{os.getpid()}-{name}.sock'
     env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', ZYPEROS_DESK_FORCE='1',
-               ZYPEROS_DESK_SOCK=str(sock), ZYPEROS_FLAG_DIR=str(tmp / f'{view}-flags'),
-               ZYPEROS_CTL_DIR=str(tmp / f'{view}-ctl'))
-    (tmp / f'{view}-flags').mkdir()
+               ZYPEROS_DESK_SOCK=str(sock), ZYPEROS_FLAG_DIR=str(tmp / f'{name}-flags'),
+               ZYPEROS_CTL_DIR=str(tmp / f'{name}-ctl'))
+    (tmp / f'{name}-flags').mkdir()
     env.pop('ZYPEROS_HEADLESS', None)
-    log = open(tmp / f'{view}.log', 'w')
+    log = open(tmp / f'{name}.log', 'w')
     p = subprocess.Popen([str(BINARY), '--device', 'pixel2'], env=env, stdout=log, stderr=subprocess.STDOUT)
     for _ in range(200):
         if sock.exists() or p.poll() is not None:
             break
         time.sleep(0.05)
     if not sock.exists():
-        check(False, f'{view}: the control socket is up')
-        print((tmp / f'{view}.log').read_text()[-2000:])
+        check(False, f'{name}: the control socket is up')
+        print((tmp / f'{name}.log').read_text()[-2000:])
         p.kill()
         return None
     time.sleep(0.5)
@@ -129,6 +145,86 @@ def stops(tmp, view, fwd, back):
         stop(sock, p, log)
 
 
+def pages(sock, what, n, last_is, look=cursor):
+    """L1 and R1 on a list of `n` at its first entry: a held R1 pages on
+    to the last and stops there; a press there goes round to the first; a
+    held L1 on the first goes round once (the press) and pages back to the
+    first, stopping there"""
+    seen, at = hold(sock, 'r1', lambda v: v[-1] == n - 1)
+    check(at > 0 and seen[0] == 0 and all(b > a for a, b in zip(seen, seen[1:])) and len(seen) == at,
+          f'{what}: a held R1 pages on to the last and stops there ({seen})')
+    tap(sock, 'r1')
+    c = until(lambda: look(sock), lambda c: c != n - 1, 3.0)
+    check(c == 0, f'{what}: a press of R1 on the last goes round to the first ({c})')
+    seen, at = hold(sock, 'l1', lambda v: len(v) > 1 and v[-1] == 0)
+    check(at > 0 and seen[:2] == [0, n - 1] and all(b < a for a, b in zip(seen[1:], seen[2:])) and len(seen) == at,
+          f'{what}: a held L1 on the first goes round once, then pages back to the first and stops ({seen})')
+
+
+def shelf_pages(tmp, view):
+    got = run(tmp, view, view + '-pages')
+    if not got:
+        return
+    sock, p, log = got
+    try:
+        pages(sock, view, N, N - 1)
+    finally:
+        stop(sock, p, log)
+
+
+def cheevo_pages(tmp):
+    """The achievements list, from the shelf: X, its Achievements row, A"""
+    got = run(tmp, 'covers', 'covers-cheevos')
+    if not got:
+        return
+    sock, p, log = got
+    try:
+        tap(sock, 'x')
+        until(lambda: ask(sock, 'state').get('focus'), lambda f: bool(f) and f != 'Alpha', 5.0)
+        for _ in range(12):
+            if ask(sock, 'state').get('focus') == 'Achievements':
+                break
+            tap(sock, 'down')
+            ask(sock, 'wait-frames 3', timeout=30)
+        check(ask(sock, 'state').get('focus') == 'Achievements', 'the details page has an Achievements row')
+        tap(sock, 'a')
+        st = until(lambda: ask(sock, 'state'), lambda s: s.get('focus') == 'Step 1', 5.0)
+        check(st.get('focus') == 'Step 1', f'the achievements list opens on its first ({st.get("focus")})')
+        settle(sock)
+        pages(sock, 'the achievements list', CHEEVOS, CHEEVOS - 1)
+    finally:
+        stop(sock, p, log)
+
+
+def home_pages(tmp):
+    """The home's Grid on 24 systems, a game each"""
+    base = tmp / 'home'
+    env = H.card(base, 24)
+    sock = Path(tempfile.gettempdir()) / f'zyperos-shelfkeys-{os.getpid()}-home.sock'
+    env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', ZYPEROS_DESK_FORCE='1',
+               ZYPEROS_DESK_SOCK=str(sock), ZYPEROS_FLAG_DIR=str(tmp / 'home-flags'),
+               ZYPEROS_CTL_DIR=str(tmp / 'home-ctl'))
+    (tmp / 'home-flags').mkdir()
+    env.pop('ZYPEROS_HEADLESS', None)
+    log = open(tmp / 'home.log', 'w')
+    p = subprocess.Popen([str(BINARY), '--device', 'pixel2'], env=env, stdout=log, stderr=subprocess.STDOUT)
+    try:
+        for _ in range(200):
+            if sock.exists() or p.poll() is not None:
+                break
+            time.sleep(0.05)
+        check(sock.exists(), 'home: the control socket is up')
+        if not sock.exists():
+            return
+        until(lambda: ask(sock, 'state').get('screen'), lambda s: s == 'systems', 10.0)
+        settle(sock)
+        hold(sock, 'left', lambda v: v[-1] == 0, on_frames=0, on_ms=0)    # to the first system
+        settle(sock)
+        pages(sock, "the home's Grid", 24, 23)
+    finally:
+        stop(sock, p, log)
+
+
 def goes_round(tmp, view):
     """The cover row: a held Right goes on past the last game to the first"""
     got = run(tmp, view)
@@ -152,6 +248,10 @@ def main():
         stops(tmp, 'list', 'down', 'up')
         stops(tmp, 'grid', 'right', 'left')
         goes_round(tmp, 'covers')
+        shelf_pages(tmp, 'list')
+        shelf_pages(tmp, 'grid')
+        home_pages(tmp)
+        cheevo_pages(tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f'shelfkeys: {"all passed" if not H.fails else f"{len(H.fails)} failed"}')
