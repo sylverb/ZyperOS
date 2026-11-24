@@ -615,6 +615,7 @@ build links all of them and wears `desktop` unless told:
 
     build-native/zyperos --shot /tmp/tour.png --device pixel2 --tour menu 2000
     build-native/zyperos --shot /tmp/tour.png --device brick --tour menu 2000
+    build-native/zyperos --shot /tmp/tour.png --device r36s --tour menu 2000
 
 `desktop` answers as the host always has, so every shot taken before
 profiles is taken the same. `make check-devices` holds each profile whole and

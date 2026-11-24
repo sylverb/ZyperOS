@@ -5,7 +5,7 @@
 # the offline checks, a host build of the launcher, the cores, and the assets.
 # docs/building.md says how to work on a device.
 
-.PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art check yuvtarget \
+.PHONY: all clean native desk desk-brick desk-r36s handhelds px2-payload vendor boot system-art check yuvtarget \
         landbench design sounds strings cjk-font tour-previews check-prep release check-site-devices check-linux building-doc
 
 all: check
@@ -159,7 +159,7 @@ building-doc:
 	@python3 tools/building-doc.py --write
 
 # Desk mode (docs/building.md, "Work on the UI without a device"): the
-# launcher in a window as the Pixel 2, or as the Brick, on a sample card, a
+# launcher in a window as the Pixel 2, the Brick or the R36S, on a sample card, a
 # game in it on Diatom's desktop build. tools/desk takes more (--zoom, --roms,
 # --lang, --fresh) and drives a running window.
 desk:
@@ -168,7 +168,10 @@ desk:
 desk-brick:
 	@tools/desk run --device brick
 
-# Desk mode in SDL's dummy window, both handhelds, over its control socket
+desk-r36s:
+	@tools/desk run --device r36s
+
+# Desk mode in SDL's dummy window, every handheld, over its control socket
 check-desk: native
 	@python3 tools/desk-check.py
 
@@ -1735,12 +1738,13 @@ strings:
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/smartpro_profile.c \
-                   src/device/desktop_profile.c \
-                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
-                   src/device/pixel2_coreopts.c src/device/brick_coreopts.c
+                   src/device/r36s_profile.c src/device/desktop_profile.c \
+                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c src/device/r36s_model.c \
+                   src/device/pixel2_coreopts.c src/device/brick_coreopts.c src/device/r36s_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
-DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c src/device/smartpro_build.c
+DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c src/device/smartpro_build.c \
+                 src/device/r36s_build.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -2172,7 +2176,7 @@ check-device-compile:
 	@if [ "$$(uname -s)" != Linux ]; then echo "skipped: device files compile on Linux (CI job devices)"; exit 0; fi; \
 	set -e; F="-std=gnu11 -D_GNU_SOURCE -fsyntax-only -Wall -Wextra -Wno-unused-parameter"; \
 	S="$$(pkg-config --cflags sdl2)"; \
-	for d in pixel2 brick smartpro; do \
+	for d in pixel2 brick smartpro r36s; do \
 		b=$$(sed -n 's/^ZYDEV_BACKEND = //p' config/device/$$d.mk); \
 		echo "  launcher: src/device/$$b.c and its hardware report, for $$d"; \
 		$(CC) $$F -Isrc $$S -DZYPEROS_DEVICE_ID=\"$$d\" src/device/$$b.c $$(ls src/device/$${b}_hw.c 2>/dev/null); \
@@ -2192,6 +2196,8 @@ check-device-compile:
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
+	echo "  diatom: port/r36s.c (port/pixel2.c with the R36S's keys)"; \
+	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) diatom/port/r36s.c; \
 	echo "  portkeys: tools/portkeys.c, the Pixel 2's keys, bar and motor over a port, whole"; \
 	$(CC) $$F -Isrc -Idiatom/src -Idiatom/include tools/portkeys.c tools/pkkeys.c tools/pkfeel.c \
 		tools/pkshutter.c src/pcm_out.c; \
@@ -2199,15 +2205,16 @@ check-device-compile:
 
 # The handhelds' models (src/device/td_model.h): every key once, the GKD
 # Pixel 2's places, views and kept boxes as the drawing had them, and the
-# TrimUI Brick's as measured, its shoulders on the back ledge. No SDL.
+# TrimUI Brick's and the R36S's as measured, their shoulders on the back ledge. No SDL.
 check-model: build-native/model-check
 	@./build-native/model-check
 
 build-native/model-check: tools/model-check.c src/device/td_model.h src/device/td_model.c \
-                          src/device/pixel2_model.c src/device/brick_model.c src/tdkey.h FORCE
+                          src/device/pixel2_model.c src/device/brick_model.c src/device/r36s_model.c src/tdkey.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c
+	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
+	      src/device/r36s_model.c
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the
