@@ -623,6 +623,38 @@ window.ZYPER_TOKENS = {
               "peak": 0.06,
               "at": 117
             }
+          ],
+          "tape-key": [
+            {
+              "wave": "noise",
+              "hz": 2600,
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": 140,
+              "ms": 60,
+              "peak": 0.06,
+              "at": 30
+            }
+          ],
+          "tape-wind": [
+            {
+              "wave": "noise",
+              "hz": 1600,
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": 210,
+              "ms": 60,
+              "peak": 0.06,
+              "at": 30
+            }
           ]
         }
       },
@@ -751,6 +783,38 @@ window.ZYPER_TOKENS = {
               "ms": 55,
               "peak": 0.06,
               "at": 117
+            }
+          ],
+          "tape-key": [
+            {
+              "wave": "noise",
+              "hz": 2600,
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": 140,
+              "ms": 60,
+              "peak": 0.06,
+              "at": 30
+            }
+          ],
+          "tape-wind": [
+            {
+              "wave": "noise",
+              "hz": 1600,
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": 210,
+              "ms": 60,
+              "peak": 0.06,
+              "at": 30
             }
           ]
         }
@@ -904,6 +968,38 @@ window.ZYPER_TOKENS = {
               "ms": 55,
               "peak": 0.06,
               "at": 117
+            }
+          ],
+          "tape-key": [
+            {
+              "wave": "noise",
+              "hz": 2600,
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": 140,
+              "ms": 60,
+              "peak": 0.06,
+              "at": 30
+            }
+          ],
+          "tape-wind": [
+            {
+              "wave": "noise",
+              "hz": 1600,
+              "ms": 40,
+              "peak": 0.16,
+              "at": 0
+            },
+            {
+              "wave": "sine",
+              "hz": 210,
+              "ms": 60,
+              "peak": 0.06,
+              "at": 30
             }
           ]
         }
