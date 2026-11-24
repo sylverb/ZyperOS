@@ -641,6 +641,21 @@ EXTRA.setdefault("usb-menu-said", ("demo", "PS1", ["--usb-menu", "said"]))
 # Zyper's one-time offer of Automatic, after a second USB Accessory
 EXTRA.setdefault("usb-offer", ("demo", "PS1", ["--usb-offer"]))
 EXTRA.setdefault("usb-mark", ("demo", "PS1", _USB_WAIT))
+# Every question with two answers (src/confirmq.h, DESIGN.md 11.3), each
+# over the shelf with the inventory's own words (src/shots.c's
+# shot_ask_text): Delete Game and Delete Screenshot with "Castlevania -
+# Symphony of the Night", the longest name the confirm panels lab found hard
+CONFIRM_QUESTIONS = (
+    "wifi-forget", "wifi-forget-joined", "pico8-restart-display", "pico8-restart-buttons",
+    "pico8-reset", "game-reset", "splore-wifi", "cheats-crash", "cheats-first", "hotkeys-swap",
+    "hotkeys-reset-game", "hotkeys-reset-system", "hotkeys-reset-every", "storage-unused-art",
+    "storage-old-states", "storage-system-snaps", "storage-media-folder", "storage-media-file",
+    "storage-orphan-port", "game-delete", "port-delete", "update-rollback", "collection-delete",
+    "screenshot-delete", "media-video-delete", "sgdb-unlink", "ss-unlink", "snaps-delete-all",
+    "reset-buttons-game", "reset-buttons-all", "usb-offer", "dl-sign-out", "dl-delete-videos",
+    "dl-delete-cheats", "dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats", "bt-forget")
+for _q in CONFIRM_QUESTIONS:
+    EXTRA.setdefault("ask-" + _q, ("demo", "PS1", ["--ask", _q]))
 # System Update (DESIGN.md 11.17, 2026-11-11): What's New scrolled to its
 # end, the corner's mark of a download behind the shelf, and Zyper's news
 EXTRA.setdefault("update-notes-end", ("demo", "PS1", ["--update", "--update-scroll", "99"]))
@@ -1541,7 +1556,8 @@ for _name, _flags in (
         # Screenshot's capture with MENU and L1 down
         ("menu-keys", ["--hotkeys", "109"]),
         ("menu-capture", ["--hotkeys", "107", "--hk-capture", "1"]),
-        ("menu-capture-keys", ["--hotkeys", "107", "--hk-capture", "2", "--hk-key", "4"])):
+        ("menu-capture-keys", ["--hotkeys", "107", "--hk-capture", "2", "--hk-key", "4"]),
+        ("menu-swap", ["--hotkeys", "107", "--hk-ask", "1"])):
     EXTRA.setdefault("hotkeys-" + _name, ("demo", "PS1", _flags))
 # NES Player 2 (src/p2.h): its page over a paused NES game in every state
 # (--player2), the code on the hotspot with nobody yet and its address under

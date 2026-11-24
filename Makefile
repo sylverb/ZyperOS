@@ -1264,6 +1264,21 @@ build-native/menumotion-check: tools/menumotion-check.c src/menumotion.c src/men
 # leaving: every row's text copied, the row marks and a rule's NULL kept as
 # they are, Zyper's rig by value, and nothing past MENUSNAP_ROWS rows or
 # MENUSNAP_TEXT bytes. No SDL.
+# Every question with two answers (src/confirmq.h, src/ds/confirm.h): the
+# table, the keys and the words without a screen, then each laid out by the
+# host launcher in every language on the Pixel 2 and the Brick
+check-confirm: build-native/confirm-check
+	@./build-native/confirm-check
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/confirm-fit-check.py
+
+build-native/confirm-check: tools/confirm-check.c src/confirmq.c src/confirmq.h $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/confirm-check.c src/confirmq.c $(I18N_SRC)
+
 check-menusnap: build-native/menusnap-check
 	@./build-native/menusnap-check
 
@@ -1432,6 +1447,22 @@ check-gauge:
 	@mkdir -p build-native && $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -O1 \
 		-o build-native/gauge-check plastron/buildroot/package/gauge/src/check.c \
 		plastron/buildroot/package/gauge/src/lights.c && build-native/gauge-check
+
+# The TrimUI Smart Pro's controls (tools/sppad.h): frames found in its two
+# halves' serial streams however the reads cut them and whatever junk comes
+# first, every press said (one a frame long too), the buttons as the keys the
+# launcher and Diatom read, a stick's centre and range, a silent half. Host
+# compiler only, no device.
+check-sppad:
+	@mkdir -p build-native && $(CC) -std=c11 -Wall -Wextra -Werror -O1 $(MEDIA_SAN) \
+		-o build-native/sppad-check tools/sppad-check.c tools/sppad_frame.c && build-native/sppad-check
+
+# A stick as the d-pad on the launcher's screens (src/stickpad.h): half way
+# holds, under a third lets go, one direction at a time, all the way round.
+# Host compiler only, no device.
+check-stickpad:
+	@mkdir -p build-native && $(CC) -std=c11 -Wall -Wextra -Werror -O1 $(MEDIA_SAN) \
+		-o build-native/stickpad-check tools/stickpad-check.c src/stickpad.c && build-native/stickpad-check
 
 # The GKD Pixel 2's battery level at a start (plastron's kernel patch
 # 9-px2-rk817-start-soc.patch): the voltage at rest, with the current's drop
@@ -1689,12 +1720,13 @@ strings:
 
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
-DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
+DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/smartpro_profile.c \
+                   src/device/desktop_profile.c \
                    src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
                    src/device/pixel2_coreopts.c src/device/brick_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
-DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
+DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c src/device/smartpro_build.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -1735,6 +1767,11 @@ check-datapart:
 # card without them all can't start ZyperOS, and the splash says so
 check-brick-closed:
 	@sh tools/closedcheck-check.sh
+
+# The Smart Pro's plastron board is the Brick's but for its own lines, and its
+# boot loader's memory values are TrimUI's boot0's for it
+check-smartpro-board:
+	@sh tools/smartpro-board-check.sh
 
 # The log pack's hardware report (src/hwreport.c): its lines from a device's
 # facts, and the readers of the kernel's text they come from
@@ -2110,9 +2147,11 @@ build-native/devices-check: tools/devices-check.c src/profile.c src/device/profi
 	      -o $@ tools/devices-check.c src/profile.c src/thermal.c src/ds/button.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
-# job "devices", .github/workflows/check.yml): the launcher's device files,
-# src/profile.c with each device's profile and model, Diatom's two ports, and
-# portkeys whole (check-portkeys-flow compiles its reader and loop alone). Syntax
+# job "devices", .github/workflows/check.yml): the launcher's device files
+# (the Smart Pro's are the Brick's platform layer with its own folder),
+# src/profile.c with each device's profile and model, the Smart Pro's pads
+# reader, Diatom's two ports, and portkeys whole (check-portkeys-flow
+# compiles its reader and loop alone). Syntax
 # only, so it needs the headers and no device. Elsewhere it says it skipped,
 # so it is not in CHECKS (the macOS job would only ever skip it).
 .PHONY: check-device-compile
@@ -2120,9 +2159,10 @@ check-device-compile:
 	@if [ "$$(uname -s)" != Linux ]; then echo "skipped: device files compile on Linux (CI job devices)"; exit 0; fi; \
 	set -e; F="-std=gnu11 -D_GNU_SOURCE -fsyntax-only -Wall -Wextra -Wno-unused-parameter"; \
 	S="$$(pkg-config --cflags sdl2)"; \
-	for d in pixel2 brick; do \
-		echo "  launcher: src/device/$$d.c and its hardware report"; \
-		$(CC) $$F -Isrc $$S src/device/$$d.c $$(ls src/device/$${d}_hw.c 2>/dev/null); \
+	for d in pixel2 brick smartpro; do \
+		b=$$(sed -n 's/^ZYDEV_BACKEND = //p' config/device/$$d.mk); \
+		echo "  launcher: src/device/$$b.c and its hardware report, for $$d"; \
+		$(CC) $$F -Isrc $$S -DZYPEROS_DEVICE_ID=\"$$d\" src/device/$$b.c $$(ls src/device/$${b}_hw.c 2>/dev/null); \
 		echo "  launcher: src/profile.c with src/device/$${d}_profile.c and its model"; \
 		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c \
 			src/device/td_model.c $$(ls src/device/$${d}_model.c 2>/dev/null); \
@@ -2134,6 +2174,8 @@ check-device-compile:
 		diatom/port/panelgamma.c; \
 	echo "  launcher: a test kit's src/device/brick_kit.c and src/device/brick_hw.c (ZYPEROS_KIT_BUILD)"; \
 	$(CC) $$F -DZYPEROS_KIT_BUILD -Isrc $$S src/device/brick_kit.c src/device/brick_hw.c; \
+	echo "  sppad: the Smart Pro's pads reader (tools/sppad.c)"; \
+	$(CC) $$F tools/sppad.c tools/sppad_frame.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
