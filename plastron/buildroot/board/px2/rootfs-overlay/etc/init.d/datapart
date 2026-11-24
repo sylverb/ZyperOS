@@ -30,14 +30,6 @@ esac
 DATA=${PART}3
 DISK=/sys/block/${CARD#/dev/}
 
-# The start's step (ZyperOS's boot steps, plastron's crashlog): a line in the
-# kernel's log, which pstore keeps across a reset, so a start that stops is
-# reported with the step it stopped in, and the step's code for the splash,
-# which says what is going on. Builtins only: no process for it.
-zyboot() {
-	echo "zyboot: stage=$1" 2> /dev/null > /dev/kmsg
-	echo "$1" 2> /dev/null > /tmp/splash-stage
-}
 # The kernel's panic for a task stuck 60 s, which the kernel's line sets for
 # the start (boot-prelude.cmd), off for a long write to the card: a fresh
 # card's format
@@ -46,7 +38,6 @@ hung_panic_off() {
 }
 
 create() {
-	zyboot C2
 	hung_panic_off
 	echo "datapart: first boot, adding $DATA over the rest of the card" > /dev/kmsg
 	# Right after the system, on a 4 MiB boundary (the card's erase blocks):
@@ -98,7 +89,6 @@ repair() {
 	local cpu_max=/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq cpu_was= t0 t1 rest rc
 	flags=$(od -An -tu1 -j106 -N1 $DATA)
 	[ $(( flags & 2 )) -eq 0 ] && return
-	zyboot C3
 	echo "datapart: $DATA was not unmounted cleanly; checking it" > /dev/kmsg
 	if [ -n "$CHECK_CPU_MAX" ] && [ -w $cpu_max ] && read -r cpu_was < $cpu_max; then
 		echo "$CHECK_CPU_MAX" > $cpu_max
@@ -130,7 +120,6 @@ report() {
 }
 
 start() {
-	zyboot C1
 	# The DDR at its top rate and held there, before the card's first work:
 	# the first boot's partition and copy (ZyperOS's, a minute or more), or
 	# the repair after a bad power-off. The DMC driver starts on
