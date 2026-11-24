@@ -91,6 +91,9 @@ void pt_boxes_of(const pt_grid *g, mp4t_id style, pt_boxes *b)
 	b->paper = pt_snap(g, clear ? 24 : CAS_LABEL_X0, ly0, clear ? CAS_W - 24 : CAS_LABEL_X1, ly1);
 	b->cover = pt_snap(g, CAS_COVER_X0, row - cs / 2, CAS_COVER_X0 + cs, row + cs / 2);
 	b->side = pt_snap(g, sx, row - ss / 2, sx + ss, row + ss / 2);
+	/* The cover's frame cell, then a cell of paper, before the side's box,
+	 * however coarse the grid */
+	if (b->side.x < b->cover.x + b->cover.w + 2 * g->u) b->side.x = b->cover.x + b->cover.w + 2 * g->u;
 	b->row_mid = row * (float)g->h / CAS_H;
 	b->under_mid = under * (float)g->h / CAS_H;
 }

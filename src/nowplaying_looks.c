@@ -739,9 +739,10 @@ void npl_tape_said(void)
 /* ---- the tape's place and size ------------------------------------------------------- */
 
 /* The tape fills the screen (my pick in the Tape Styles lab): from a related
- * step under the header to one over the keys, the C-cassette's proportions,
+ * step under the header to the keys' box (whose glyphs sit a section
+ * under its top), the C-cassette's proportions,
  * every edge on the 16-unit grid, so it is whole cells at 8 units and 16
- * alike: 960 x 608 under one row of keys, 880 x 560 over two. In the
+ * alike: 960 x 608 under one row of keys, 864 x 544 over two. In the
  * canvas's middle, on the grid; a wide canvas has ground either side. */
 typedef struct {
 	int x, y, w, h;
@@ -754,7 +755,7 @@ typedef struct {
 static void tape_place(const npl_frame *F, tape_box *t)
 {
 	const device_profile *p = plat_profile();
-	int top = DS_HEADER + DS_RELATED, bottom = F->keys_top - DS_RELATED, room = bottom - top, u;
+	int top = DS_HEADER + DS_RELATED, bottom = F->keys_top, room = bottom - top, u;
 
 	t->h = (room < DS_LOOK_TAPE_H ? room : DS_LOOK_TAPE_H) / TAPE_STEP * TAPE_STEP;
 	t->w = (int)lroundf((float)t->h * CAS_W / CAS_H / TAPE_STEP) * TAPE_STEP;

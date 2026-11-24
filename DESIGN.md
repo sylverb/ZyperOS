@@ -566,7 +566,7 @@ its own says why beside it.
 | **line-clock** | 128 | Classic: the clock's line, as a box |
 | **look-cover** | 192 | Spectrum: the cover beside the names |
 | **look-record** | 448 | Vinyl: the platter, a 12-inch record and its rim, 424 and 12 each side |
-| **look-tape-h** | 608 | Cassette: the full-screen tape at its highest, 960 x 608 (a C-cassette's 100.4 x 63.8 mm on the 16-unit grid); 560 over two rows of keys |
+| **look-tape-h** | 608 | Cassette: the full-screen tape at its highest, 960 x 608 (a C-cassette's 100.4 x 63.8 mm on the 16-unit grid); 544 over two rows of keys |
 <!-- /generated:layout -->
 
 ---
@@ -7252,8 +7252,8 @@ running and its bars moving. Left and Right step it round. Kept as
   the keys on two rows, and their looks are 48 shorter: nothing meets.
 - **Cassette**: a C-cassette at its real proportions, 100.4 x 63.8 mm,
   that fills the screen (my pick in the Tape Styles lab, 2026-11-23): from a
-  related step under the header to one over the keys, **look-tape-h** high
-  at most, 960 x 608 under one row of keys and 880 x 560 over two, every
+  related step under the header to the keys' box, **look-tape-h** high
+  at most, 960 x 608 under one row of keys and 864 x 544 over two, every
   edge on the 16-unit grid, in the canvas's middle (a wide canvas has ground
   either side). No bars and no bar of the song's time: the reels are the
   motion and the time is on the label. Its parts are a drawing in

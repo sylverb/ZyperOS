@@ -358,7 +358,7 @@ LAYOUT = [
     ("line-clock",      128, "Classic: the clock's line, as a box"),
     ("look-cover",      192, "Spectrum: the cover beside the names"),
     ("look-record",     448, "Vinyl: the platter, a 12-inch record and its rim, 424 and 12 each side"),
-    ("look-tape-h",     608, "Cassette: the full-screen tape at its highest, 960 x 608 (a C-cassette's 100.4 x 63.8 mm on the 16-unit grid); 560 over two rows of keys"),
+    ("look-tape-h",     608, "Cassette: the full-screen tape at its highest, 960 x 608 (a C-cassette's 100.4 x 63.8 mm on the 16-unit grid); 544 over two rows of keys"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
