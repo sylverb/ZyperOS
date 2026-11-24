@@ -125,7 +125,7 @@ printf '[    0.558306]  mmcblk0: p1 p2 p3 p4\n[    0.572807] Run /sbin/init as i
 run
 summary_is "the card's check, a reset" W C3 14.200000
 fresh
-printf '[    0.720000] zyboot: stage=L1\n[    1.736000] zyperos: first frame at 1.736 s\n[  181.000000] zyperos: watchdog: the loop stopped 120 s ago; restarting\n[  181.100000] sysrq: Resetting\n' > "$T/pstore/console-ramoops-0"
+printf '[    0.720000] zyboot: stage=L1\n[    1.736000] zyperos: first frame at 1.736 s\n[  121.000000] zyperos: watchdog: the loop has not come round for 60 s: the screen off, a restart at 120 s\n[  181.000000] zyperos: watchdog: the loop has not come round for 120 s: an emergency sync, and a restart\n[  181.050000] sysrq: Emergency Sync\n[  181.100000] sysrq: Resetting\n' > "$T/pstore/console-ramoops-0"
 run
 summary_is "the launcher's watchdog after the home" W H 181.100000
 fresh
@@ -145,6 +145,10 @@ fresh
 printf '[    1.736000] zyperos: first frame at 1.736 s\n[  900.000000] rk817: battery 3%%\n' > "$T/pstore/console-ramoops-0"
 run
 summary_is "a reset after the home with nothing to say" X H 900.000000
+fresh
+printf '[    1.736000] zyperos: first frame at 1.736 s\n[  300.000000] zyperos: watchdog: the loop came round again after 64 s: the screen on\n[  900.000000] rk817: battery 3%%\n' > "$T/pstore/console-ramoops-0"
+run
+summary_is "the launcher's watchdog came back, then a reset" X H 900.000000
 grep -q '^report=crash-.*\.txt$' "$T/lastboot" && ok "the report's name" || bad "no report= in the summary"
 
 [ "$fails" = 0 ] && echo "ok: crashlog keeps a panic's and a reset's report, once, and its summary for the launcher" && exit 0

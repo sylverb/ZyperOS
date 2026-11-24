@@ -21,8 +21,8 @@
 
 #include "slowline.h"
 
-/* One word, the step under way, written whole and renamed into place by
- * datapart and zyperos.init (as the copy's /tmp/splash-copy is) */
+/* One word, the step under way, from datapart and zyperos.init: a plain
+ * echo (no fork at boot), so a read may find it empty for an instant */
 #define SLOW_STAGE_FILE "/tmp/splash-stage"
 #define SLOW_DIR        "/usr/share/splash/slow"
 #define SLOW_GLYPHS     "/usr/share/splash/glyphs.bin"
@@ -87,7 +87,14 @@ static void slowio_stage(char out[4], double now, double *read_at)
 	close(fd);
 	if (n <= 0) return;
 	text[n] = 0;
-	slow_stage_word(text, out);
+	/* The scripts write it with a plain echo, so a read may meet it half
+	 * written: only a whole step it knows replaces the last */
+	{
+		char word[4];
+
+		slow_stage_word(text, word);
+		if (slow_stage_line(word) > 0 || !strcmp(word, "U2")) memcpy(out, word, sizeof word);
+	}
 }
 
 /* SELECT, on every input that has it, read without waiting */

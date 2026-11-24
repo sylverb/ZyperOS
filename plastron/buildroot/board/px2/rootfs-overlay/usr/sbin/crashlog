@@ -14,8 +14,11 @@
 #     stall (21 s). A panic dumps the kernel's last lines into pstore and
 #     reboots 30 s later (panic=30, boot-prelude.cmd), the DDR still powered,
 #     so the start after has the report. A freeze that stops the whole chip
-#     (the DDR or its bus) stops these too; no hardware watchdog (a false
-#     reset under a long card copy is worse, plastron PR #115).
+#     (the DDR or its bus) stops these too: only the chip's own watchdog,
+#     where the image starts it (U-Boot, and plastron's hwdog pets it from
+#     init's first line, never touching the card, so a long card copy is no
+#     false reset as it was in plastron PR #115), resets that, with nothing
+#     said.
 #   - At the start after (this, run by init after the card is mounted), each
 #     dump the kernel kept, and the end of the kernel log before the reset,
 #     go into CRASH_DIR/crash-DATE.txt on the card (ZyperOS's logs folder,
@@ -100,10 +103,11 @@ report=$(mktemp) || exit 0
 # written whole and renamed. From what the kernel kept:
 #   reason  P a panic (the lockup detectors' and an RCU stall's too), T one
 #           of hung_task's, R the card never found (rootwait), W a watchdog
-#           that restarted it: the launcher's (by sysrq, its "zyperos:
-#           watchdog:" lines), or a reset with no panic before the home,
-#           which is the chip's watchdog's (U-Boot starts it, hwdog pets
-#           it); X a reset with nothing of its own to say after the home
+#           that restarted it: the launcher's ("zyperos: watchdog: ... an
+#           emergency sync, and a restart", then sysrq), or a reset with no
+#           panic before the home, which is the chip's watchdog's where the
+#           image starts it (U-Boot, and plastron's hwdog pets it); X a
+#           reset with nothing of its own to say after the home
 #           (the chip's watchdog, a power glitch, its thermal cut)
 #   stage   H once ZyperOS drew its first frame, else the last step the start
 #           said ("zyboot: stage=", from datapart and zyperos.init); before
@@ -131,7 +135,7 @@ if [ -n "$text" ]; then
 		     grep -q -E 'Waiting for root device|Cannot open root device|Unable to mount root' "$text"; then why=R
 		else why=P
 		fi
-	elif grep -q -E 'sysrq: (Resetting|Emergency)|zyperos: watchdog' "$text" || [ "$stage" != H ]; then why=W
+	elif grep -q 'zyperos: watchdog: .*an emergency sync, and a restart' "$text" || [ "$stage" != H ]; then why=W
 	else why=X
 	fi
 	last=$(grep -v '^ *$' "$text" | tail -n 1 | cut -c1-120)
