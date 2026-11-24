@@ -991,11 +991,24 @@ bool pt_ready(SDL_Renderer *r, pt_tex *t, mp4t_id style, const pt_grid *g, const
 	t->back = texture_of(r, &b.B);
 	t->front = texture_of(r, &b.F);
 	build_free(&b);
-	for (k = 0; k < 2; k++) t->packs[k] = packs_sheet(r, t, g, k, clear);
+	/* One sheet serves both reels but on Clear, where each pack carries
+	 * its own reel's tape to its roller */
+	t->packs[0] = packs_sheet(r, t, g, 0, clear);
+	if (clear) t->packs[1] = packs_sheet(r, t, g, 1, true);
+	else memcpy(t->pack[1], t->pack[0], sizeof t->pack[0]);
 	t->hubs = hubs_sheet(r, t, g, m);
-	t->made = t->back && t->front && t->packs[0] && t->packs[1] && t->hubs;
+	t->made = t->back && t->front && t->packs[0] && (t->packs[1] || !clear) && t->hubs;
 	/* Once a style, a grid or an album: what it costs, for the device's log */
-	fprintf(stderr, "mp4: the %s tape drawn in %u ms\n", mp4t_key(style), (unsigned)(SDL_GetTicks() - t0));
+	{
+		SDL_Texture *all[5] = { t->back, t->front, t->packs[0], t->packs[1], t->hubs };
+		long bytes = 0;
+		int w, h;
+
+		for (k = 0; k < 5; k++)
+			if (all[k] && SDL_QueryTexture(all[k], NULL, NULL, &w, &h) == 0) bytes += (long)w * h * 4;
+		fprintf(stderr, "mp4: the %s tape drawn in %u ms, %ld KB of textures\n", mp4t_key(style),
+		        (unsigned)(SDL_GetTicks() - t0), bytes / 1024);
+	}
 	return t->made;
 }
 
@@ -1016,7 +1029,7 @@ void pt_draw(SDL_Renderer *r, const pt_tex *t, const pt_grid *g, int x, int y, f
 		if (i < 0) i = 0;
 		if (i >= t->pack_n) i = t->pack_n - 1;
 		s = &t->pack[k][i];
-		SDL_RenderCopy(r, t->packs[k], &s->src,
+		SDL_RenderCopy(r, t->packs[k] ? t->packs[k] : t->packs[0], &s->src,
 		               &(SDL_Rect){ x + (t->reel_ci[k] + s->ox) * u, y + (t->reel_cj + s->oy) * u, s->src.w * u,
 		                            s->src.h * u });
 	}

@@ -750,14 +750,13 @@ typedef struct {
 } tape_box;
 
 #define TAPE_STEP 16
-#define TAPE_H_MAX 608
 
 static void tape_place(const npl_frame *F, tape_box *t)
 {
 	const device_profile *p = plat_profile();
 	int top = DS_HEADER + DS_RELATED, bottom = F->keys_top - DS_RELATED, room = bottom - top, u;
 
-	t->h = (room < TAPE_H_MAX ? room : TAPE_H_MAX) / TAPE_STEP * TAPE_STEP;
+	t->h = (room < DS_LOOK_TAPE_H ? room : DS_LOOK_TAPE_H) / TAPE_STEP * TAPE_STEP;
 	t->w = (int)lroundf((float)t->h * CAS_W / CAS_H / TAPE_STEP) * TAPE_STEP;
 	t->x = (int)lroundf((float)(ZYPEROS_SCREEN_W - t->w) / 2 / TAPE_STEP) * TAPE_STEP;
 	t->y = (top + (room - t->h) / 2) / TAPE_STEP * TAPE_STEP;
@@ -1020,7 +1019,8 @@ static unsigned tape_said_draw(SDL_Renderer *r, mp4t_id st, unsigned now)
 	  : 1.0f - (float)(t - DS_MS_QUICK - DS_MS_HOLD_SHORT) / DS_MS_FADE_OUT;
 	w = ui_text_width(fs, name) + 2 * 32;
 	x = (ZYPEROS_SCREEN_W - w) / 2;
-	y = 22 - (int)lroundf(rise);
+	/* Over the clock and the battery, clear of the tape's top */
+	y = DS_HEADER + DS_RELATED - h - 2 - (int)lroundf(rise);
 	ui_round_rect(r, &(SDL_Rect){ x, y, w, h }, h / 2, ui_col(th->edge, (Uint8)lroundf(255 * k)));
 	ui_round_rect(r, &(SDL_Rect){ x + 2, y + 2, w - 4, h - 4 }, h / 2 - 2,
 	              ui_col(th->surface, (Uint8)lroundf(237 * k)));
@@ -1055,6 +1055,14 @@ static unsigned cassette(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 	tape_place(F, &t);
 	tape_label_of(&t, st, &L);
 	tape_inks_of(st, &ink);
+	/* Cover Band's number is printed on its band: white on a dark cover's
+	 * color, the label's ink on a light one, so it always reads */
+	if (st == MP4T_BAND) {
+		float lum = (0.2126f * (float)(cover >> 16 & 255) + 0.7152f * (float)(cover >> 8 & 255) +
+		             0.0722f * (float)(cover & 255)) / 255.0f;
+
+		if (lum > 0.55f) ink.print = ink.ink;
+	}
 	if (mp4t_pixel(st)) {
 		if (!pt_ready(r, &g_pt, st, &t.g, album, cover)) return wait;
 		pt_draw(r, &g_pt, &t.g, t.x, t.y, g_tape.f, g_tape.ang);

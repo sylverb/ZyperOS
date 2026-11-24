@@ -230,7 +230,7 @@ window.ZYPER_TOKENS = {
     "line-clock": 128,
     "look-cover": 192,
     "look-record": 448,
-    "look-cassette-w": 592
+    "look-tape-h": 608
   },
   "motion": {
     "press": {

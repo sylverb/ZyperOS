@@ -198,7 +198,16 @@ bool cas_ready(SDL_Renderer *r, cas_tex *t, const ds_theme *th, bool dark, int w
 		t->hub = hub(r, t);
 		t->pack = pack(r, t);
 		/* Once a theme: what it costs, for the device's log */
-		fprintf(stderr, "mp4: the cassette drawn in %u ms\n", (unsigned)(SDL_GetTicks() - t0));
+		{
+			SDL_Texture *all[4] = { t->shell, t->glass, t->hub, t->pack };
+			long bytes = 0;
+			int k, tw, th2;
+
+			for (k = 0; k < 4; k++)
+				if (all[k] && SDL_QueryTexture(all[k], NULL, NULL, &tw, &th2) == 0) bytes += (long)tw * th2 * 4;
+			fprintf(stderr, "mp4: the cassette drawn in %u ms, %ld KB of textures\n",
+			        (unsigned)(SDL_GetTicks() - t0), bytes / 1024);
+		}
 	}
 	return t->shell && t->glass && t->hub && t->pack;
 }

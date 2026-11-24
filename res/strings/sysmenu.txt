@@ -1146,7 +1146,7 @@ it = Fumé
 
 [sysmenu.tape_smoke_note]
 note = Under Tape Style's picture when Smoke is under the cursor: a narrow column, at most five short lines
-en = Clear smoke-grey, as Cassette always was, with a stripe in the cover's color.
+en = Clear smoke-grey, as it always was; a stripe in the cover's color.
 zh-Hans = 透明烟灰色，与以往的磁带一样，带一条封面颜色的条纹。
 es = Gris humo translúcido, como siempre, con una franja del color de la portada.
 pt-BR = Cinza fumê translúcido, como sempre, com uma faixa na cor da capa.
@@ -1302,7 +1302,7 @@ it = Consumata
 note = Under Tape Style's picture when Worn is under the cursor
 en = A tape played for years: yellowed, stained and peeling, in pixel art.
 zh-Hans = 一盘听了多年的磁带：泛黄、有污渍、标签翘起，像素画风。
-es = Una cinta escuchada durante años: amarillenta, manchada y despegada, en pixel art.
+es = Una cinta de años de uso: amarillenta, manchada y despegada. Pixel art.
 pt-BR = Uma fita ouvida por anos: amarelada, manchada e descolando, em pixel art.
 fr = Une cassette écoutée pendant des années : jaunie, tachée, décollée, en pixel art.
 de = Eine jahrelang gehörte Kassette: vergilbt, fleckig, abgelöst, in Pixelgrafik.
