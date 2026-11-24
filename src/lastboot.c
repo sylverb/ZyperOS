@@ -14,7 +14,7 @@
 static char reason_of(const char *v)
 {
 	static const struct { const char *w; char r; } W[] = {
-		{ "watchdog", 'W' }, { "panic", 'P' }, { "lockup", 'P' }, { "rcu", 'P' },
+		{ "watchdog", 'W' }, { "launcher", 'W' }, { "panic", 'P' }, { "lockup", 'P' }, { "rcu", 'P' },
 		{ "oops", 'P' }, { "hung_task", 'T' }, { "rootwait", 'R' }, { "reset", 'X' },
 	};
 	size_t i;

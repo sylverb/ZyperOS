@@ -581,6 +581,10 @@ int main(int argc, char **argv)
 
 	if (argc == 3 && !strcmp(argv[1], "--still"))
 		return still(argv[2]);
+	/* The boot screen's first word in the kernel's log: a console that
+	 * ends before it (crashlog's report after a restart) stopped before
+	 * init had started this */
+	log_to_kernel("splash: started\n");
 
 	light = light_ground = theme_light(why, sizeof why);
 	if (light && access(FRAMES_LIGHT, R_OK) == 0) {

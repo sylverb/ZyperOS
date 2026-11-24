@@ -424,6 +424,11 @@ int main(int argc, char **argv)
 {
 	int missing = argc > 1 && !strcmp(argv[1], "missing");
 
+	/* The boot screen's first word in the kernel's log: a console that
+	 * ends before it (crashlog's report after a restart) stopped before
+	 * init had started this */
+	if (!missing) log_to_kernel("splash: started\n");
+
 	/* First: SIGUSR1 left at its default would end this */
 	struct sigaction on = { .sa_handler = on_zyperos };
 	sigemptyset(&on.sa_mask);

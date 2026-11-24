@@ -44,6 +44,8 @@ int main(void)
 	        "K1W\xc2\xa0\xc2\xb7\xc2\xa0" "0.6\xc2\xa0s");
 	code_is("reason=hung_task\nstage=check\nkernel_time=41\n", "C3T\xc2\xa0\xc2\xb7\xc2\xa0" "41\xc2\xa0s");
 	code_is("reason=lockup\nstage=launcher\nkernel_time=3\n", "L1P\xc2\xa0\xc2\xb7\xc2\xa0" "3.0\xc2\xa0s");
+	code_is("reason=launcher\nstage=H\nkernel_time=181.1\nreport=crash-20261124-101500.txt\n",
+	        "HW\xc2\xa0\xc2\xb7\xc2\xa0" "181\xc2\xa0s");
 	code_is("reason=rootwait\nstage=K1\nkernel_time=20.4\n", "K1R\xc2\xa0\xc2\xb7\xc2\xa0" "20\xc2\xa0s");
 
 	/* Not a summary: no stage, no reason, one it does not know */

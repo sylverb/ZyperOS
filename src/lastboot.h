@@ -29,11 +29,12 @@
  *           U2  ZyperOS copied onto the card (the first start's copy)
  *           L1  the launcher starting, up to its first frame
  *           H   after the home: a freeze while playing
- *   reason  W   a watchdog restarted it
+ *   reason  W   a watchdog restarted it: the launcher's, or the chip's (a
+ *               reset with no panic before the home)
  *           P   a kernel panic (a lockup and an RCU stall panic too)
  *           T   a task stuck (hung_task)
  *           R   the card was not found (rootwait)
- *           X   a reset with no report of its own
+ *           X   a reset after the home with no report of its own
  *
  * The time: one decimal under 10 s, whole seconds from there, "." whatever
  * the language (a code, not a number to read).

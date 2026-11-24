@@ -7855,8 +7855,9 @@ A start that stops in the kernel (a GKD Pixel 2 that stays black after a
 cold start, 1.1.0) or a handheld that freezes while playing is restarted by
 a watchdog or a panic, and plastron's crashlog writes a report at the start
 after: zyperos-crash.txt on PX2BOOT, crash-*.txt in the logs File Transfer's
-Download logs packs, and a summary of it in `/run/zyperos-lastboot.txt`
-(key=value: reason, stage, kernel_time, time, version, device, last), on
+Download logs packs, and a summary of it in `/run/zyperos-lastboot.txt` and
+PX2BOOT's zyperos-lastboot.txt (key=value: reason, stage, kernel_time, time,
+version, device, last, report), on
 the Pixel 2, whose kernel keeps its log across a reset (pstore); the Brick
 and the Smart Pro keep none yet, so there it never shows. The launcher says
 it once (src/lastboot.h):
@@ -7873,9 +7874,10 @@ it once (src/lastboot.h):
   no-break so it never breaks across lines. Stage: K1 the kernel before the
   card was found, K2 after it, before init; C1 to C3 the card (11.20's
   steps); U1 the version switch; U2 the copy; L1 ZyperOS starting; H after
-  the home. Reason: W a watchdog, P a panic (a lockup and an RCU stall panic
-  too), T a task stuck (hung_task), R the card not found (rootwait), X a reset
-  with no report. One decimal under 10 s, whole seconds above. K1W against
+  the home. Reason: W a watchdog (the launcher's, or a reset with no panic
+  before the home, which is the chip's), P a panic (a lockup and an RCU stall
+  panic too), T a task stuck (hung_task), R the card not found (rootwait), X a
+  reset after the home with nothing of its own to say. One decimal under 10 s, whole seconds above. K1W against
   K2W tells the card's probe from what comes after it.
 - **About ZyperOS, page 1**: a **Last Restart** row after Awake for, its
   value the code, for 30 days after it was said, so the code a helper asks
