@@ -83,6 +83,10 @@ the splash plays the one the card's Appearance asks for (ZyperOS's DESIGN.md
 landscape 640x480 they were scaled to, which is how the R36S's panel scans
 (no quarter turn). Written under package/splash/r36s/. The bar then fills
 left to right; splash.c does that when the bar is wider than it is tall.
+The bar and the ground round the line come from each Pixel picture itself.
+It writes package/splash/r36s/SOURCES, the sha256 of each Pixel file it read
+and of each file it made, and --r36s-check (make check-splash-r36s) fails
+when they differ: run --r36s again after the Pixel's art changes.
 
 The Smart Pro's (--smartpro, smartpro/frames.bin) is the Brick's format at its
 framebuffer's 1280x720: the animation at the launcher's own scale there (its
@@ -119,6 +123,9 @@ def main():
         return
     if args and args[0] == "--r36s":
         r36s_landscape()
+        return
+    if args and args[0] == "--r36s-check":
+        r36s_check()
         return
     brick = "--brick" in args
     smartpro = "--smartpro" in args
@@ -316,6 +323,7 @@ def read_first(path):
     if data[:4] != b"TSPC":
         sys.exit("%s: not a first-start picture" % path)
     x, y, w, h, bx0, bx1, by0, by1, count, _pad = struct.unpack_from("<10H", data, 4)
+    read_first.bar = (bx0, bx1, by0, by1)
     at, pics = 24, []
     for _ in range(count):
         length = struct.unpack_from("<I", data, at)[0]
@@ -335,17 +343,16 @@ def r36s_landscape():
             sys.exit("%s: expected 480x640, got %dx%d" % (src, w, h))
         turned = [turn_landscape(f, w, h) for f in frames]
         write_bands(os.path.join(out_dir, name), turned, 640, 480, fps, loop=loop)
-    # first-start.txt's bar, landscape pixels on 640x480
-    bar = (186, 452, 268, 10)
-    grounds = {
-        "dark": bytes((16, 19, 17, 0)),
-        "light": bytes((218, 228, 230, 0)),
-    }
-    for name in sorted(os.listdir(PACKAGE)):
-        if not (name.startswith("first-start") and name.endswith(".bin")):
-            continue
+    for name in r36s_first_starts():
         x, y, w, h, pics = read_first(os.path.join(PACKAGE, name))
-        ground = grounds["light" if "-light" in name else "dark"]
+        # The bar where the Pixel's picture has it, turned back: its rect's
+        # rows y.. on the portrait panel are the landscape screen's columns
+        # from the right, its columns x.. the landscape's rows
+        bx0, bx1, by0, by1 = read_first.bar
+        bar = (640 - y - by1, x + bx0, by1 - by0, bx1 - bx0)
+        # The ground round the line: the picture's own corner, which the
+        # Pixel's rect starts on (dark or light, the theme's)
+        ground = bytes(pics[0][:3]) + b"\0"
         turned = []
         for pic in pics:
             full = bytearray(ground * (480 * 640))
@@ -384,6 +391,54 @@ def r36s_landscape():
             f.write(out)
         print("%s: rect %d,%d %dx%d, bar %d-%d x %d-%d, %d bytes" % (
             os.path.normpath(dest), x0, y0, rw, rh, *local, len(out)))
+    with open(os.path.join(out_dir, "SOURCES"), "w") as f:
+        f.write(r36s_sources())
+    print("%s: the Pixel's files these were made from" % os.path.join(out_dir, "SOURCES"))
+
+
+def r36s_first_starts():
+    return [n for n in sorted(os.listdir(PACKAGE)) if n.startswith("first-start") and n.endswith(".bin")]
+
+
+def r36s_sources():
+    """package/splash/r36s/SOURCES: the sha256 of each of the Pixel's files
+    the R36S's are made from, so a change to the Pixel's art shows them
+    stale (--r36s-check, make check-splash-r36s)"""
+    import hashlib
+    lines = ["# The Pixel 2's files package/splash/r36s/ was made from",
+             "# (scripts/make-splash-frames.py --r36s writes this)"]
+    names = ["frames.bin", "frames-light.bin"] + r36s_first_starts()
+    for name in names:
+        with open(os.path.join(PACKAGE, name), "rb") as f:
+            lines.append("%s  %s" % (hashlib.sha256(f.read()).hexdigest(), name))
+    lines.append("# And what it made from them, package/splash/r36s/")
+    for name in names:
+        try:
+            with open(os.path.join(PACKAGE, "r36s", name), "rb") as f:
+                lines.append("%s  r36s/%s" % (hashlib.sha256(f.read()).hexdigest(), name))
+        except OSError:
+            lines.append("missing  r36s/%s" % name)
+    return "\n".join(lines) + "\n"
+
+
+def r36s_check():
+    """Fails when the R36S's pictures are not the Pixel's of now: a Pixel file
+    changed, added or gone since --r36s made them, or one of the R36S's
+    changed or missing"""
+    out_dir = os.path.join(PACKAGE, "r36s")
+    try:
+        kept = open(os.path.join(out_dir, "SOURCES")).read()
+    except OSError:
+        sys.exit("check-splash-r36s: package/splash/r36s/SOURCES is missing")
+    now = r36s_sources()
+    if kept != now:
+        old = set(kept.splitlines()) - set(now.splitlines())
+        new = set(now.splitlines()) - set(kept.splitlines())
+        for line in sorted(old | new):
+            print("check-splash-r36s: %s %s" % ("was" if line in old else "now", line))
+        sys.exit("check-splash-r36s: the R36S's boot pictures are stale against the Pixel 2's;"
+                 " run python3 plastron/scripts/make-splash-frames.py --r36s")
+    print("check-splash-r36s: the R36S's %d boot pictures are the Pixel 2's of now" % (2 + len(r36s_first_starts())))
 
 
 def write_bands(out_path, frames, w, h, fps, loop=None):
