@@ -1063,6 +1063,7 @@ static void shot_ask_text(cq_id q, const char *item, char *out, size_t n)
 	case CQ_DL_SYS_VIDEOS: cq_text(q, out, n, item ? item : "Game Boy", mb525); break;
 	case CQ_DL_SYS_SETS: cq_text(q, out, n, item ? item : "Game Boy", mb38); break;
 	case CQ_DL_SYS_CHEATS: cq_text(q, out, n, item ? item : "Game Boy"); break;
+	case CQ_BT_FORGET: cq_text(q, out, n, item ? item : "WH-1000XM4 Wireless Headphones"); break;
 	default: cq_text(q, out, n); break;
 	}
 }

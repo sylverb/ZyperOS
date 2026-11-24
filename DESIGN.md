@@ -1291,8 +1291,9 @@ always more.
 **A question with two answers** *(my picks in the confirm panels lab,
 2026-11-22, `~/Documents/ZyperOS/labs/confirm-panels-lab.html`: "Our UI has
 to be flawless and consistent")*. Every question the launcher asks with two
-answers is one panel, 38 of them in one table (`src/confirmq.h`): Delete
-Game, Wi-Fi's Forget, Storage's, Downloads', Reset, the USB offer. A
+answers is one panel, 39 of them in one table (`src/confirmq.h`): Delete
+Game, Wi-Fi's and Bluetooth's Forget, Storage's, Downloads', Reset, the USB
+offer. A
 question with three answers or more stays as it is (11.18, 11.36).
 
 - **The heading is the action** ("Delete Game", "Forget Network", "Reset
@@ -1322,7 +1323,7 @@ question with three answers or more stays as it is (11.18, 11.36).
   one does not, and the two stack the panel's width only when one does not
   fit its half even in **meta**, Up and Down moving them then.
 - **The answer that loses what no press brings back** (files, a password,
-  play since a save, your own buttons: 32 of the 38) has its words in
+  play since a save, your own buttons, a pairing: 33 of the 39) has its words in
   **warning** at rest, the lime fill when focused. A question whose answers
   both go on marks neither.
 - **B's glyph** (11.9, each handheld's own, confirm-glyph 40) is before the
@@ -1394,6 +1395,15 @@ where it was.)*
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Hotkeys, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
+
+**Wi-Fi and Bluetooth forget after asking.** X on a saved network (Wi-Fi)
+or a paired headset (Bluetooth) asks first, a question with two answers
+(above): **Forget Network**, "Forget Casa 5G?" (and "You are connected to
+it and will lose the network." on the one the handheld is on), or **Forget
+Headset**, "Forget WH-1000XM4? Pair it again to use it.", Cancel and
+**Forget**, the cursor on Cancel, Forget in **warning**. *(Bluetooth's forgot
+at once until 1.1.0; Tarik's, 2026-11-23, after the confirm panels lab
+listed it: it asks as Wi-Fi's does.)*
 
 A row added to MENU goes into `pm_row` where its tab's rows are and into
 `sys_menu_tab_of`, whose switch the compiler holds to every row.
