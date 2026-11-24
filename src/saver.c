@@ -150,3 +150,22 @@ int saver_pick(int n, uint32_t r, const saver_recent *recent)
 	}
 	return start;
 }
+
+/* ---- another had the screen ------------------------------------------------ */
+
+bool saver_beat_lost(const saver_beat *b, unsigned now)
+{
+	return b->set && now - b->end >= SAVER_GAP_MS;
+}
+
+void saver_beat_done(saver_beat *b, unsigned now)
+{
+	b->end = now;
+	b->set = true;
+}
+
+void saver_beat_clear(saver_beat *b)
+{
+	b->set = false;
+	b->end = 0;
+}
