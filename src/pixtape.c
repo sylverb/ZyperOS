@@ -328,7 +328,9 @@ static void ink_box(build *b, SDL_Rect r, pc ink, bool solid)
 			              (j == (solid ? j0 : j0 - 1) || j == (solid ? j1 - 1 : j1));
 			bool inside = i >= i0 && i < i1 && j >= j0 && j < j1;
 
-			if (corner) continue;
+			/* A box of four cells or fewer keeps its corners: cut, it
+			 * would be a cross */
+			if (corner && i1 - i0 > 4) continue;
 			if (solid || !inside) put(&b->F, i, j, ink);
 			else clear_cell(&b->F, i, j);
 		}
