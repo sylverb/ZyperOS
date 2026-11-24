@@ -189,6 +189,10 @@ check-videoview: native
 check-saver-art: native
 	@python3 tools/saver-art-check.py
 
+# The screensaver's picture clear of its slabs, read off the launcher's frames
+check-saver-place: native
+	@'$(PYIMG)' tools/saver-place-check.py
+
 # No button read twice by in_repeat in one step (a held one turned round)
 check-inrepeat:
 	@python3 tools/inrepeat-check.py

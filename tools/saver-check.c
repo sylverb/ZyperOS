@@ -17,6 +17,7 @@
  * not, and Auto Off fires at its own time whether the screensaver is up or
  * not, because the screensaver does nothing to Auto Off's clock.
  */
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -272,6 +273,45 @@ int main(void)
 			CHECK(next != picked, "a pool of two alternates");
 			picked = next;
 			saver_recent_add(&r, picked);
+		}
+	}
+
+	/* Where the picture goes (saver_art_place): clear of both slabs by the
+	 * gap, on the screen, in its own shape, in the middle of the width, for
+	 * a tall, a wide and a square cover, a snap, and a slab of each width */
+	{
+		static const int shapes[][2] = { { 300, 420 }, { 420, 236 }, { 320, 320 }, { 640, 480 },
+		                                 { 640, 360 }, { 256, 384 }, { 1, 900 }, { 900, 1 } };
+		static const float game_w[] = { 200, 432, 928 }, keys_w[] = { 300, 380, 520 };
+
+		for (size_t s = 0; s < sizeof shapes / sizeof shapes[0]; s++)
+			for (size_t g = 0; g < 3; g++)
+				for (size_t k = 0; k < 3; k++) {
+					saver_rect game = { 48, 768 - 48 - 134, game_w[g], 134 };
+					saver_rect keys = { 1024 - 48 - keys_w[k], 48, keys_w[k], 112 };
+					saver_rect gg = { game.x - 12, game.y - 12, game.w + 24, game.h + 24 };
+					saver_rect kk = { keys.x - 12, keys.y - 12, keys.w + 24, keys.h + 24 };
+					saver_rect at = saver_art_place(1024, 768, game, keys, 12, shapes[s][0], shapes[s][1],
+					                                s >= 3 && s < 6 ? 8.0f : 1.34f);
+					float want = (float)shapes[s][0] / shapes[s][1];
+
+					CHECK(at.w > 0 && at.h > 0, "a %dx%d picture has a place", shapes[s][0], shapes[s][1]);
+					CHECK(!saver_rect_meet(at, gg) && !saver_rect_meet(at, kk),
+					      "a %dx%d picture clear of the slabs (%.0f,%.0f %.0fx%.0f)",
+					      shapes[s][0], shapes[s][1], at.x, at.y, at.w, at.h);
+					CHECK(at.x >= -0.01f && at.y >= -0.01f && at.x + at.w <= 1024.01f && at.y + at.h <= 768.01f,
+					      "a %dx%d picture on the screen", shapes[s][0], shapes[s][1]);
+					CHECK(at.w <= 0 || fabsf(at.w / at.h - want) < want * 0.01f + 0.01f,
+					      "a %dx%d picture in its own shape", shapes[s][0], shapes[s][1]);
+					CHECK(fabsf(at.x + at.w / 2 - 512) < 0.5f, "a %dx%d picture in the middle",
+					      shapes[s][0], shapes[s][1]);
+				}
+		/* a snap is not blown up past 8 times, a cover past a third more */
+		{
+			saver_rect game = { 48, 586, 400, 134 }, keys = { 650, 48, 326, 112 };
+			saver_rect c = saver_art_place(1024, 768, game, keys, 12, 64, 64, 1.34f);
+
+			CHECK(c.w <= 64 * 1.34f + 0.01f, "a small cover at most a third larger (%.1f)", c.w);
 		}
 	}
 

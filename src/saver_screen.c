@@ -274,15 +274,6 @@ static bool saver_begin(app *a, unsigned now)
 	return true;
 }
 
-/* The picture's rectangle: `w` by `h` as large as `box` takes, centered */
-static SDL_FRect saver_fit(const SDL_Rect *box, int w, int h, float most)
-{
-	float k = fminf((float)box->w / w, (float)box->h / h);
-
-	if (k > most) k = most;
-	return (SDL_FRect){ box->x + (box->w - w * k) / 2, box->y + (box->h - h * k) / 2, w * k, h * k };
-}
-
 /* One frame, `alpha` of the clip faded up. The picture on the ink both
  * themes keep for content (MP4's full view does too), and the game's name and
  * system and the two keys on slabs of the theme's surface at 85%, the notice's
@@ -294,9 +285,31 @@ static void saver_draw(app *a, float alpha)
 	const int margin = 48, padx = 28, pady = 14, gap = 12;
 	TTF_Font *fl = ui_font(UI_F_LABEL), *fm = ui_font(UI_F_META), *fc = page_font(PAGE_CHROME);
 	SDL_Texture *t = NULL;
-	SDL_Rect src = { 0, 0, 0, 0 }, box = { 0, 24, ZYPEROS_SCREEN_W, 552 };
+	SDL_Rect src = { 0, 0, 0, 0 };
 	int w = 0, h = 0;
 	Uint8 al = (Uint8)(255 * (alpha < 0 ? 0 : alpha > 1 ? 1 : alpha) + 0.5f);
+	/* The two slabs' places first: the picture goes where they are not
+	 * (saver_art_place) */
+	const char *back = T(S_SAVER_BACK), *play = T(S_GAMES_PLAY);
+	int hint_w = page_hint_width("START", play, false);
+	int back_w = ui_text_width(fc, back);
+	int rw = (hint_w > back_w ? hint_w : back_w) + 2 * padx;
+	int line_m = ui_font_line(UI_F_META), line_l = ui_font_line(UI_F_LABEL);
+	int sh = pady * 2 + line_m + gap + line_l;           /* the game slab's height */
+	int top = ZYPEROS_SCREEN_H - margin - sh;
+	int maxw = ZYPEROS_SCREEN_W - 2 * margin;
+	int kh = pady * 2 + 40 + 44;                          /* the keys slab's height */
+	int dot = 14, dgap = 14, tw, sw, lw;
+	char fit_t[LIB_NAME], fit_s[CFG_STR];
+	SDL_Rect game_q, keys_q;
+
+	ui_fit_text(fl, g_sv.title, fit_t, sizeof fit_t, maxw - 2 * padx);
+	ui_fit_text(fm, g_sv.sysname, fit_s, sizeof fit_s, maxw - 2 * padx - dot - dgap);
+	tw = ui_text_width(fl, fit_t);
+	sw = dot + dgap + ui_text_width(fm, fit_s);
+	lw = (tw > sw ? tw : sw) + 2 * padx;
+	game_q = (SDL_Rect){ margin, top, lw, sh };
+	keys_q = (SDL_Rect){ ZYPEROS_SCREEN_W - margin - rw, margin, rw, kh };
 
 	SDL_SetRenderDrawColor(r, ink.r, ink.g, ink.b, 255);
 	SDL_RenderClear(r);
@@ -319,20 +332,24 @@ static void saver_draw(app *a, float alpha)
 			}
 			src = (SDL_Rect){ 0, 0, 0, 0 };
 		}
-		if (t && w > 0 && h > 0) {
-			/* The whole screen, in its own shape, never stretched */
-			SDL_FRect d = saver_fit(&(SDL_Rect){ 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H }, w, h, 8.0f);
-
-			SDL_RenderCopyF(r, t, src.w > 0 ? &src : NULL, &d);
-		}
+		/* its own picture, less the texture's padding (snapview.c) */
+		if (src.w > 0 && src.h > 0) { w = src.w; h = src.h; }
 	} else if (g_sv.cover && g_sv.cw > 0 && g_sv.ch > 0) {
-		/* A cover is small: not blown up past a third more, on a ground of
-		 * its own, with the foot's room left under it */
-		SDL_FRect d = saver_fit(&box, g_sv.cw, g_sv.ch, 1.34f);
-
-		SDL_RenderCopyF(r, g_sv.cover, NULL, &d);
+		t = g_sv.cover;
+		w = g_sv.cw;
+		h = g_sv.ch;
 	}
-	(void)t;
+	if (t && w > 0 && h > 0) {
+		/* As large as it goes clear of both slabs, in its own shape, never
+		 * stretched: a snap up to the screen, a cover (small) at most a
+		 * third larger than it is */
+		saver_rect at = saver_art_place(ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+		                                (saver_rect){ game_q.x, game_q.y, game_q.w, game_q.h },
+		                                (saver_rect){ keys_q.x, keys_q.y, keys_q.w, keys_q.h },
+		                                gap, w, h, g_sv.video ? 8.0f : 1.34f);
+
+		SDL_RenderCopyF(r, t, src.w > 0 ? &src : NULL, &(SDL_FRect){ at.x, at.y, at.w, at.h });
+	}
 	/* Fading up from black, and to it */
 	if (al < 255) {
 		SDL_SetRenderDrawColor(r, ink.r, ink.g, ink.b, (Uint8)(255 - al));
@@ -341,41 +358,24 @@ static void saver_draw(app *a, float alpha)
 	if (al > 0) {
 		const SDL_Color text = ui_fade(UI_TEXT, alpha), dim = ui_fade(UI_TEXT_DIM, alpha);
 		const SDL_Color slab = ui_col(theme()->surface, (Uint8)(al * 0.85f + 0.5f));
-		const char *back = T(S_SAVER_BACK), *play = T(S_GAMES_PLAY);
-		int hint_w = page_hint_width("START", play, false);
-		int back_w = ui_text_width(fc, back);
-		int rw = (hint_w > back_w ? hint_w : back_w) + 2 * padx;
-		int line_m = ui_font_line(UI_F_META), line_l = ui_font_line(UI_F_LABEL);
-		int sh = pady * 2 + line_m + gap + line_l;           /* the game slab's height */
-		int top = ZYPEROS_SCREEN_H - margin - sh;
-		int maxw = ZYPEROS_SCREEN_W - 2 * margin;
-		int kh = pady * 2 + 40 + 44;                          /* the keys slab's height */
-		int dot = 14, dgap = 14, tw, sw, lw, x;
 		unsigned mark = ui_sys_mark(g_sv.accent);
-		char fit_t[LIB_NAME], fit_s[CFG_STR];
-		SDL_Rect q;
+		SDL_Rect q = game_q;
+		int x;
 
-		ui_fit_text(fl, g_sv.title, fit_t, sizeof fit_t, maxw - 2 * padx);
-		ui_fit_text(fm, g_sv.sysname, fit_s, sizeof fit_s, maxw - 2 * padx - dot - dgap);
-		tw = ui_text_width(fl, fit_t);
-		sw = dot + dgap + ui_text_width(fm, fit_s);
-		lw = (tw > sw ? tw : sw) + 2 * padx;
 		/* The game, at the foot: its system in the quiet line over its name,
 		 * as a notice says its heading over its body */
-		q = (SDL_Rect){ margin, top, lw, sh };
 		ui_round_rect(r, &q, DS_RADIUS_PANEL < sh / 2 ? DS_RADIUS_PANEL : sh / 2, slab);
 		x = q.x + padx;
 		ui_round_rect(r, &(SDL_Rect){ x, top + pady + line_m / 2 - dot / 2, dot, dot }, dot / 2,
 		              (SDL_Color){ (Uint8)(mark >> 16), (Uint8)(mark >> 8), (Uint8)mark, al });
 		ui_text(r, fm, fit_s, x + dot + dgap, ui_line_y(UI_F_META, top + pady), -1, dim);
 		ui_text(r, fl, fit_t, x, ui_line_y(UI_F_LABEL, top + pady + line_m + gap), -1, text);
-		/* The keys, at the top's right where they cover little: START plays
-		 * it, anything else goes back */
-		q = (SDL_Rect){ ZYPEROS_SCREEN_W - margin - rw, margin, rw, kh };
+		/* The keys, at the top's right: START plays it, anything else goes
+		 * back */
+		q = keys_q;
 		ui_round_rect(r, &q, DS_RADIUS_PANEL < kh / 2 ? DS_RADIUS_PANEL : kh / 2, slab);
 		page_hint_fade(r, "START", play, q.x + padx, q.y + pady + 20, false, false, al);
 		ui_text(r, fc, back, q.x + padx, ui_cap_y(fc, q.y + pady + 20 + 44), -1, dim);
-		(void)line_l;
 	}
 	plat_draw_osd(r);
 	plat_present();
