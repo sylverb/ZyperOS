@@ -525,7 +525,9 @@ static void card_size(const char *card, st_card *c)
 		/* The device under the card's filesystem, and the partitions
 		 * beside it: the boot and the two system slots */
 		struct stat st;
-		char p[160], real[PATH_MAX_ST], buf[32];
+		/* realpath writes up to PATH_MAX whatever the path is: glibc's
+		 * fortified one aborts on a smaller buffer */
+		char p[160], real[PATH_MAX], buf[32];
 		unsigned long long part = 0, disk = 0;
 		FILE *f;
 

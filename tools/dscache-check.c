@@ -35,6 +35,7 @@
 #include "../src/storage.h"
 
 #include <ftw.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -303,7 +304,9 @@ static char *slurp(const char *path)
 static void the_rename(void)
 {
 	gd_card card = { roms, saves, states, NULL };
-	char d[1200], f[1200], real[1200], tag[2400], *t;
+	/* realpath writes up to PATH_MAX, whatever the path: glibc's
+	 * fortified realpath aborts on a smaller buffer */
+	char d[1200], f[1200], real[PATH_MAX], tag[PATH_MAX + 256], *t;
 	gr_plan *p = calloc(1, sizeof *p);
 	gr_done done;
 	FILE *o;
