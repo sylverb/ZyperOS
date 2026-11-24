@@ -96,7 +96,8 @@ def timings(body):
     dt = node_around(body, m.end())
     native = one(own_lines(dt), 'native-mode')
     modes = []
-    for mm in re.finditer(r'\n\s*([\w@-]+)\s*\{', dt[1:]):
+    # A mode node, with its label when dtc -@ kept one ("timing0: original {")
+    for mm in re.finditer(r'\n\s*(?:[\w-]+:\s*)?([\w@,.-]+)\s*\{', dt[1:]):
         sub = node_around(dt, mm.end() + 1)
         get = lambda n: one(sub, n, 0)
         modes.append((mm.group(1), get('phandle'), {
@@ -143,19 +144,26 @@ def main():
     seq = [int(b, 16) for b in m.group(1).split()]
     modes, native = timings(body)
     width, height = one(props, 'width-mm', 52), one(props, 'height-mm', 70)
-    delays = [one(props, n, d) for n, d in (('prepare-delay-ms', 5), ('reset-delay-ms', 1),
-                                            ('init-delay-ms', 25), ('enable-delay-ms', 120))] + [50]
+    # The panel's power-up waits and DSI flags as the overlay that lit
+    # board R36S-V12's panel 4 has them (ZyperOS #478): prepare 20 ms, reset
+    # 150, init 20, enable 120, ready 20, and the DSI clock off between
+    # transfers (MIPI_DSI_CLOCK_NON_CONTINUOUS, 0x400) over the stock tree's
+    # flags. The stock trees' own delay properties are the BSP driver's, which
+    # counts its waits differently, and generic-dsi's would reset for 1 ms.
+    delays = (20, 150, 20, 120, 20)
     fmt = {0: 'rgb888', 1: 'rgb666', 2: 'rgb666_packed', 3: 'rgb565'}.get(one(props, 'dsi,format', 0), 'rgb888')
     lines = ['G size=%d,%d delays=%s format=%s lanes=%d flags=0x%x' % (
         width, height, ','.join(str(d) for d in delays), fmt, one(props, 'dsi,lanes', 4),
-        one(props, 'dsi,flags', 0x3))]
-    # The native mode alone (the first where native-mode names none): the
-    # stock trees' other modes (50 and 75 Hz) keep the 60 Hz clock with
-    # porches that do not give their rates, so they are left out
-    t = next((t for _, ph, t in modes if ph == native), modes[0][2])
+        one(props, 'dsi,flags', 0x3) | 0x400)]
+    # One mode, the one nearest 60 Hz: several stock trees make the native
+    # one 68 to 78 Hz ("original") and keep a 60 Hz one beside it
+    # ("adjust"), which games want; the others' extra modes keep the clock
+    # with porches that do not give their rates
+    rate = lambda t: t['clock'] * 1000.0 / (sum(t['h']) * sum(t['v']))
+    t = min((t for _, _, t in modes), key=lambda t: abs(rate(t) - 60))
+    modes = [(None, None, t)]
     lines.append('M clock=%d horizontal=%s vertical=%s default=1' % (
         t['clock'], ','.join(map(str, t['h'])), ','.join(map(str, t['v']))))
-    modes = [modes[0]]
     lines += init_lines(seq)
     dts = ['/dts-v1/;', '/plugin/;', '',
            '/* An R36S panel, from %s, by plastron/scripts/r36s-panel.py */' % os.path.basename(src),

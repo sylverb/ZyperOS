@@ -10,9 +10,12 @@
 # picture): its overlay at overlays/mipi-panel.dtbo on this partition, which
 # is used when it is there. plastron/scripts/r36s-panel.py makes it on a
 # computer from the device tree on the card the R36S came with (ZyperOS's
-# docs/devices/r36s.md, "Panels"). Several panels' overlays, as
-# overlays/panel-0.dtbo, panel-1.dtbo ... panel-5.dtbo, and one picked:
-zy_panel=4
+# docs/devices/r36s.md, "Panels"). This card holds the known panels'
+# overlays, overlays/panel-0.dtbo ... panel-4.dtbo and panel-4v22.dtbo, and
+# one is picked by its name here (4 lit board R36S-V12's panel). Take the #
+# off and put the panel's name after the =, then try the next one if the
+# screen stays black:
+#zy_panel=4
 # Or any other name:
 #zy_overlay=overlays/my-panel.dtbo
 #
