@@ -184,6 +184,11 @@ check-homekeys: native
 check-videoview: native
 	@'$(PYIMG)' tools/videoview-check.py
 
+# The screensaver's games and pictures, as the shelf finds them (gamelist.xml's
+# images too), in desk mode left alone past its delay
+check-saver-art: native
+	@python3 tools/saver-art-check.py
+
 # No button read twice by in_repeat in one step (a held one turned round)
 check-inrepeat:
 	@python3 tools/inrepeat-check.py

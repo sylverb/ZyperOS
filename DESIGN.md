@@ -4478,6 +4478,15 @@ is and above the foot's slab, on the same ink. A game with no cover is not
 picked. With neither, **nothing**: it does not start, the shelf stays as it
 is, and it does not try again until a button is pressed.
 
+**Its snaps and covers are the shelf's**: a game's own in `.media`, else
+EmulationStation's, by the one lookup the shelf, the details and File
+Transfer's page use (src/esmedia.h's `game_media`, asked for a whole shelf
+at once by `game_media_listed`): a picture or a video gamelist.xml names,
+`./images/...` and `./videos/...`, and EmulationStation's own names in
+`images/`, `videos/`, `media/` and the rest. Until 2026-11-23 it read
+`.media` alone, and a system whose gamelist.xml named its pictures never
+came on (moroboshi69 on the Discord: only his PlayStation did).
+
 **Auto Off and the battery.** It never keeps the device on past Auto Off:
 every pass of the shelf's loop asks idle_due before it asks the
 screensaver, so Auto Off fires at its own time with the screensaver up as

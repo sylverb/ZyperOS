@@ -3,6 +3,7 @@
 
 #include "app.h"
 #include "ctl_channel.h"
+#include "esmedia.h"
 #include "mp4video.h"
 #include "mp4c.h"
 #include "panel.h"
@@ -126,9 +127,13 @@ static char **saver_cover_stems(const char *folder, int *count)
 
 /* The games it may show: those Random Game picks from every system (not MP4's
  * albums, not Favorites' copies, not a Ports shelf with only PortMaster's
- * offer) that have a snap on the card and on for their console with `video`
- * (snap_names_for), else a cover. One listing of each console's .media, here
- * and once, as the screensaver begins. */
+ * offer) that have a snap on the card and on for their console with `video`,
+ * else a cover, as the shelf finds them (src/esmedia.h's game_media_listed:
+ * the game's own in .media, else EmulationStation's, gamelist.xml's
+ * ./images/... too). One listing of each console's .media and its index,
+ * here and once, as the screensaver begins: no file is looked at per game.
+ * Until 2026-11-23 it read .media alone, and a system whose gamelist.xml
+ * named its pictures never came on (moroboshi69 on the Discord). */
 static void saver_pool_build(app *a, bool video)
 {
 	int i, j;
@@ -143,20 +148,23 @@ static void saver_pool_build(app *a, bool video)
 		int n = 0;
 
 		if (is_mp4(s) || a->view[i].owner || pm_only_offer(a, i) || !s->folder[0]) continue;
+		/* EmulationStation's index of the folder, as the shelf's cover
+		 * worker builds it (nothing to read where there is none) */
+		es_build(P_ROMS, s->folder);
 		if (video) {
 			const snap_names *sn = snap_names_for(s->folder);
 
-			if (!sn->on || !sn->n) continue;
+			if (!sn->on) continue;
 			stems = sn->stems;
 			n = sn->n;
 		} else {
 			stems = saver_cover_stems(s->folder, &n);
-			if (!n) continue;
 		}
 		for (j = 0; j < gl->count; j++) {
-			const char *name = gl->items[j].name;
+			const game_entry *g = &gl->items[j];
 
-			if (bsearch(&name, stems, (size_t)n, sizeof *stems, snap_name_cmp) &&
+			if (g->folder) continue;
+			if (game_media_listed(s->folder, g->file, g->name, video ? ES_VIDEO : ES_COVER, stems, n) &&
 			    !saver_pool_add(i, j))
 				break;
 		}
@@ -200,7 +208,6 @@ static bool saver_next(app *a, unsigned now)
 		const system_cfg *s;
 		const game_entry *g;
 		char path[LIB_PATH * 2];
-		struct stat st;
 
 		if (i < 0) return false;
 		saver_recent_add(&g_sv.recent, i);
@@ -208,15 +215,11 @@ static bool saver_next(app *a, unsigned now)
 			continue;
 		s = &a->sys.systems[g_sv.shelf[i]];
 		g = &sys_games(&a->view[g_sv.shelf[i]])->items[g_sv.game[i]];
-		if (g_sv.video) {
-			if (!snaps_path(P_ROMS, s->folder, g->name, path, sizeof path) ||
-			    stat(path, &st) != 0 || st.st_size <= 0)
-				continue;
-		} else {
-			box_art_path(s->folder, g->name, path, sizeof path);
-			if (stat(path, &st) != 0 || st.st_size <= 0) continue;
-			if (!(g_sv.cover = saver_cover_load(a->r, path, &g_sv.cw, &g_sv.ch))) continue;
-		}
+		/* The file as the shelf takes it: its own, else EmulationStation's */
+		if (!game_media(P_ROMS, s->folder, g->file, g->name, g_sv.video ? ES_VIDEO : ES_COVER, true,
+		                path, sizeof path))
+			continue;
+		if (!g_sv.video && !(g_sv.cover = saver_cover_load(a->r, path, &g_sv.cw, &g_sv.ch))) continue;
 		g_sv.at = i;
 		snprintf(g_sv.title, sizeof g_sv.title, "%s", g->title[0] ? g->title : g->name);
 		snprintf(g_sv.sysname, sizeof g_sv.sysname, "%s", s->name);
@@ -401,11 +404,18 @@ void saver_shot(app *a)
 	}
 	g_sv.video = g_shot_saver == 0;
 	if (!g_sv.video && !g_sv.cover) {
-		/* A file given is loaded as saver_next loads a cover */
+		/* A file given is loaded as saver_next loads a cover; with none, a
+		 * cover of the card's, as the screensaver picks one (saver_pool_build,
+		 * saver_next) */
 		if (g_shot_saver_pic &&
 		    (g_sv.cover = saver_cover_load(a->r, g_shot_saver_pic, &g_sv.cw, &g_sv.ch))) {
 			/* loaded as saver_next loads one */
+		} else if (!g_shot_saver_pic && (saver_pool_build(a, false), g_sv.n > 0) &&
+		           saver_next(a, plat_now_ms())) {
+			/* the card's own, its title and system with it */
+			saver_pool_free();
 		} else {
+			saver_pool_free();
 			if (!mp4v_texture(NULL)) mp4v_test_picture(a->r, 640, 480);
 			g_sv.cover = mp4v_texture(NULL);
 			g_sv.cw = 640;
