@@ -3,6 +3,7 @@
 
 #include "blur.h"
 #include "design.h"
+#include "device/profile.h"   /* dev_menu_word */
 #include "ds/layout.h"  /* DS_FOOT_Y */
 #include "home.h"       /* page_font: **support** */
 #include "linebreak.h"
@@ -49,6 +50,19 @@ static const SDL_Point port_still = { 640, 480 };
 bool g_port_loading_later;
 /* The last draw's output box and the line its capitals are centered on, in
  * units, for port_out_write */
+/* The words that say which buttons to hold to go back, the MENU key's as
+ * the handheld prints it (FN on the R36S): into one of a few buffers, as
+ * a layout says the same words more than once */
+static const char *load_hold(str_id id)
+{
+	static char buf[4][224];
+	static int at;
+	char *b = buf[at++ % 4];
+
+	snprintf(b, sizeof buf[0], T(id), dev_menu_word(plat_profile()));
+	return b;
+}
+
 static SDL_Rect g_load_out;
 static int g_load_out_mid;
 
@@ -72,9 +86,9 @@ static int g_load_out_mid;
 #define LOAD_NAME_STEP  64           /* one line of the name to the next */
 #define LOAD_SAY_STEP   48           /* and of the line under it */
 #define LOAD_SAY_A      T(g_port_loading_later ? S_PORTLOAD_STILL : S_PORTLOAD_STARTING)
-#define LOAD_SAY_B      T(g_port_loading_later ? S_PORTLOAD_GO_BACK : S_PORTLOAD_A_MINUTE)
+#define LOAD_SAY_B      (g_port_loading_later ? load_hold(S_PORTLOAD_GO_BACK) : T(S_PORTLOAD_A_MINUTE))
 /* the two on one line */
-#define LOAD_SAY_AB     T(g_port_loading_later ? S_PORTLOAD_STILL_GO_BACK : S_PORTLOAD_STARTING_A_MINUTE)
+#define LOAD_SAY_AB     (g_port_loading_later ? load_hold(S_PORTLOAD_STILL_GO_BACK) : T(S_PORTLOAD_STARTING_A_MINUTE))
 /* Zyper's frame, where splash draws his loop: 120 x 116 panel pixels with its
  * top left at loading.txt's x 315 y 330, which is these units. Neither the
  * words nor the cover go in it: the block of words ends above it, centered
