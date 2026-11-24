@@ -37,6 +37,7 @@
 #include "xfer.h"
 #include "zyperdraw.h"
 #include "levels.h"
+#include "wdog.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -523,10 +524,14 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 	}
 	snprintf(name, nn, "%s.tar.gz", folder);
 	snprintf(path, pn, "/tmp/%s", name);
+	/* tar, waited for as long as it takes (wdog.h) */
+	wdog_hold("Download logs");
 	if (!logpack_build(logs, about, secrets, n, folder, path, err, sizeof err)) {
+		wdog_release();
 		fprintf(stderr, "logs: could not pack them: %s\n", err);
 		return false;
 	}
+	wdog_release();
 	fprintf(stderr, "logs: packed %s, %d names masked\n", name, n);
 	return true;
 }
@@ -1385,8 +1390,10 @@ static bool xs_open(app *a, int way)
 	g_xs.hs = HOTSPOT_OFF;
 	g_logs_app = a;
 	/* The link on, since USB charges only until asked (usblink.h); and a
-	 * fresh one each time this opens, since a computer can drop it while the
-	 * device believes it is still up (plat_cable_reconnect) */
+	 * fresh one when it needs it, since a computer can drop it while the
+	 * device believes it is still up: not whole, or the computer not
+	 * answering over it (plat_cable_reconnect, cablefresh.h). Neither waits
+	 * on the controller for long (hwput.h). */
 	if (cable) {
 		usblink_for_transfer();
 		plat_cable_reconnect();

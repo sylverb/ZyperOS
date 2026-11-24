@@ -13,6 +13,7 @@
  * device_display_release before a game presents, device_display_take when the
  * launcher has the screen back. */
 #include "atomic.h"
+#include "cablefresh.h"
 #include "charging.h"
 #include "charging_rule.h"
 #include "audioout.h"
@@ -21,6 +22,7 @@
 #include "device.h"
 #include "displayback.h"
 #include "fileio.h"
+#include "hwput.h"
 #include "nightkeep.h"
 #include "levels.h"
 #include "panelgamma.h"
@@ -30,6 +32,7 @@
 #include "screenfx_draw.h"
 #include "spawn.h"
 #include "thermal.h"
+#include "wdog.h"
 
 #include <SDL_syswm.h>
 
@@ -108,7 +111,10 @@ int plat_boot_theme(const char *text)
 	if (fd >= 0 && close(fd)) ok = 0;
 	ok = ok && rename(tmp, path) == 0;
 	if (!ok) unlink(tmp);
+	/* The whole card's, after a big transfer as long as it takes (wdog.h) */
+	wdog_hold("the card's sync");
 	sync();
+	wdog_release();
 	umount(BOOT_MOUNT);
 	return ok ? 1 : -1;
 }
@@ -377,6 +383,7 @@ void plat_present(void)
 {
 	Uint8 r, g, b, a;
 
+	wdog_feed();                    /* the loop came round (wdog.h) */
 	SDL_GetRenderDrawColor(ren, &r, &g, &b, &a);
 	plat_overlay_present(ren);
 	if (!video_shown) {
@@ -957,6 +964,7 @@ void plat_input_wait(unsigned ms)
 	/* POWER held in Hold mode: woken for the pill's next segment and the
 	 * hold's end, which no event marks; and the work behind every screen
 	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	wdog_feed();
 	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
@@ -967,6 +975,7 @@ void plat_input_poll(in_state *st)
 {
 	SDL_Event e;
 
+	wdog_feed();
 	memset(st->pressed, 0, sizeof st->pressed);
 	st->power_tap = false;
 	if (plat_terminating()) st->quit_requested = true;
@@ -1616,40 +1625,89 @@ static void cable_netdev_up(void)
 	}
 }
 
+/* The controller's first (and only) UDC, by name; false with none */
+static bool first_udc(char *udc, size_t n)
+{
+	DIR *d = opendir("/sys/class/udc");
+	struct dirent *e;
+
+	udc[0] = '\0';
+	if (!d) return false;
+	while ((e = readdir(d)))
+		if (e->d_name[0] != '.') { snprintf(udc, n, "%s", e->d_name); break; }
+	closedir(d);
+	return udc[0] != '\0';
+}
+
+/* The link as the last job left it, for while a job's child is still in a
+ * write (hwput.h): the gadget's UDC file is not read then, since a read
+ * waits on the same lock as the write that hangs. -1 unknown. */
+static int link_known = -1;
+/* When it was last bound (plat_now_ms), for the fresh link (cablefresh.h) */
+static unsigned link_bound_at;
+
+/* The gadget's UDC through a job (hwput.h): bound with the controller's
+ * name, let go with an empty line (a write of nothing at all is ignored).
+ * True when the writes were made. */
+static bool gadget_write(bool unbind, bool bind)
+{
+	char udc[256] = "", say_bind[300];
+	hwput_step steps[2];
+	int n = 0, r;
+
+	if (bind && !first_udc(udc, sizeof udc)) return false;
+	if (unbind) steps[n++] = (hwput_step){ "usb: the gadget's UDC, unbind", GADGET_UDC, "\n", 0 };
+	if (bind) {
+		snprintf(say_bind, sizeof say_bind, "usb: the gadget's UDC, bind %s", udc);
+		steps[n++] = (hwput_step){ say_bind, GADGET_UDC, udc, 0 };
+	}
+	r = hwput_run(&(hwput_job){ bind ? "the gadget's bind" : "the gadget's unbind", NULL, NULL,
+	                            steps, n }, true);
+	return r == HWPUT_DONE;
+}
+
 bool plat_usb_link(int op)
 {
 	char cur[64] = "";
-	int fd = open(GADGET_UDC, O_RDONLY | O_CLOEXEC);
+	bool bound;
+	int fd;
 
-	if (fd < 0) return false;                  /* no gadget: S40 has not run */
+	if (hwput_busy()) return link_known == 1;
+	if ((fd = open(GADGET_UDC, O_RDONLY | O_CLOEXEC)) < 0) return false;   /* no gadget: S40 has not run */
 	if (read(fd, cur, sizeof cur - 1) < 0) cur[0] = '\0';
 	close(fd);
+	bound = cur[0] != '\0' && cur[0] != '\n';
+	link_known = bound;
 	if (op == 2) {
-		plat_usb_link(0);
-		return plat_usb_link(1);
-	}
-	if (op < 0 || (op == 1) == (cur[0] != '\0' && cur[0] != '\n'))
-		return cur[0] != '\0' && cur[0] != '\n';
-	if (op == 1) {
-		DIR *d = opendir("/sys/class/udc");
-		struct dirent *e;
-		char udc[256] = "";
-
-		if (!d) return false;
-		while ((e = readdir(d)))
-			if (e->d_name[0] != '.') { snprintf(udc, sizeof udc, "%s", e->d_name); break; }
-		closedir(d);
-		if (!udc[0] || (fd = open(GADGET_UDC, O_WRONLY | O_CLOEXEC)) < 0) return false;
-		if (write(fd, udc, strlen(udc)) < 0) { close(fd); return false; }
-		close(fd);
-		fprintf(stderr, "usb: the link to the computer is on (%s)\n", udc);
+		/* Off and on again in one job: the computer sees a new plug */
+		if (!gadget_write(bound, true)) {
+			if (!hwput_busy()) link_known = -1;
+			return false;
+		}
+		link_known = 1;
+		link_bound_at = plat_now_ms();
+		fprintf(stderr, "usb: the link to the computer is on, fresh\n");
 		cable_netdev_up();
 		return true;
 	}
-	if ((fd = open(GADGET_UDC, O_WRONLY | O_CLOEXEC)) < 0) return true;
-	/* An empty line unbinds; a write of nothing at all is ignored */
-	if (write(fd, "\n", 1) < 0) { close(fd); return true; }
-	close(fd);
+	if (op < 0 || (op == 1) == bound) return bound;
+	if (op == 1) {
+		if (!gadget_write(false, true)) {
+			fprintf(stderr, "usb: the link to the computer did not come on\n");
+			return false;
+		}
+		link_known = 1;
+		link_bound_at = plat_now_ms();
+		fprintf(stderr, "usb: the link to the computer is on\n");
+		cable_netdev_up();
+		return true;
+	}
+	if (!gadget_write(true, false)) {
+		/* Left as the controller has it: the next look reads it again */
+		fprintf(stderr, "usb: the link to the computer did not go off\n");
+		return true;
+	}
+	link_known = 0;
 	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
 	return false;
 }
@@ -1713,6 +1771,7 @@ bool plat_cable_sense(link_sense *o)
 	unsigned now = plat_now_ms();
 
 	memset(o, 0, sizeof *o);
+	hwput_reap();
 	o->computer = plat_usb_peer() == USB_PEER_COMPUTER;
 	/* A computer whose port took the sink side gives no power, so the PHY
 	 * sees no computer: usbrole says something waits for power */
@@ -1922,34 +1981,22 @@ bool plat_usb_iphone(void)
 }
 
 /* The USB controller lets go of the cable and takes it again, so the computer
- * sees a new device plugged in. Seen 2026-10-08: the Mac dropped the Pixel as
- * if unplugged while the controller here went on saying "configured" and never
- * offered itself again; a restart was the only way back. A third of a second
- * apart, long enough for the computer to notice it went. */
+ * sees a new device plugged in, when the link needs it (cablefresh.h). Seen
+ * 2026-10-08: the Mac dropped the Pixel as if unplugged while the controller
+ * here went on saying "configured" and never offered itself again; a restart
+ * was the only way back. Made every time File Transfer opened, it hung the
+ * controller once over a link in use (2026-11-21), so only now when the
+ * computer does not answer over it, or it is not whole. */
 void plat_cable_reconnect(void)
 {
-	static const struct timespec gap = { 0, 300 * 1000000L };
-	DIR *d = opendir("/sys/class/udc");
-	struct dirent *e;
+	char udc[256], dir[300];
 
-	if (!d) return;
-	while ((e = readdir(d))) {
-		char path[300];
-		int fd;
-
-		if (e->d_name[0] == '.') continue;
-		snprintf(path, sizeof path, "/sys/class/udc/%s/soft_connect", e->d_name);
-		if ((fd = open(path, O_WRONLY | O_CLOEXEC)) < 0) continue;
-		if (write(fd, "disconnect", 10) < 0) { /* left as it was */ }
-		close(fd);
-		nanosleep(&gap, NULL);
-		if ((fd = open(path, O_WRONLY | O_CLOEXEC)) < 0) continue;
-		if (write(fd, "connect", 7) < 0) { /* the next screen tries again */ }
-		close(fd);
-		fprintf(stderr, "wire: the cable connection made fresh\n");
-		break;
-	}
-	closedir(d);
+	hwput_reap();
+	if (!first_udc(udc, sizeof udc)) return;
+	snprintf(dir, sizeof dir, "/sys/class/udc/%s", udc);
+	cable_fresh(&(cable_fresh_cfg){
+		dir, "usb0", CABLE_PEER, true,
+		link_bound_at && plat_now_ms() - link_bound_at < LINK_FRESH_MS });
 }
 
 /* No mute switch on this device. */

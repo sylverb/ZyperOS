@@ -2276,10 +2276,29 @@ check-resident:
 		echo "check-resident: skipped, no SDL2"; \
 	fi
 
-build-native/resident-check: tools/resident-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
+build-native/resident-check: tools/resident-check.c src/resident.c src/powerhold.c src/wdog.c src/klog.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/resident-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
+	      -o $@ tools/resident-check.c src/resident.c src/powerhold.c src/wdog.c src/klog.c $$(sdl2-config --libs) -lpthread
+
+# The launcher never stops on the USB controller, and says where it would
+# have (tools/usbhang-check.c): the controller's writes in a child with a
+# timeout against a FIFO nobody reads (src/hwput.h), File Transfer's fresh
+# link from fake controller files (src/cablefresh.h), the kept log lines in a
+# stand-in kernel log and what the filter costs (src/klog.h), and the
+# watchdog with short times and a stuck loop (src/wdog.h). USBHANG_BEFORE=1
+# runs 1.1.0's reconnect in place of the fresh link, which it fails.
+USBHANG_SRC := tools/usbhang-check.c src/hwput.c src/klog.c src/cablefresh.c src/linksteps.c src/wdog.c
+check-usbhang: build-native/usbhang-check$(if $(USBHANG_BEFORE),-before)
+	@./build-native/usbhang-check$(if $(USBHANG_BEFORE),-before)
+
+build-native/usbhang-check: $(USBHANG_SRC) src/hwput.h src/klog.h src/cablefresh.h src/linksteps.h src/wdog.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -o $@ $(USBHANG_SRC) -lpthread
+
+build-native/usbhang-check-before: $(USBHANG_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -DUSBHANG_BEFORE -O1 -g -o $@ $(USBHANG_SRC) -lpthread
 
 # spawn_detached (src/spawn.h): a program that outlives the launcher, with
 # real processes - its own pid back, not this process's child, a failed exec
@@ -2295,10 +2314,10 @@ build-native/spawn-check: tools/spawn-check.c src/spawn.c src/spawn.h FORCE
 # The launcher's resident.c, the device stubbed, against a real Diatom: the
 # zone chosen in Date & Time reaches a game's clock (tools/gamezone-check.c).
 # Run by check-diatom, after Diatom's own build.
-build-native/gamezone-check: tools/gamezone-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
+build-native/gamezone-check: tools/gamezone-check.c src/resident.c src/powerhold.c src/wdog.c src/klog.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/gamezone-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
+	      -o $@ tools/gamezone-check.c src/resident.c src/powerhold.c src/wdog.c src/klog.c $$(sdl2-config --libs) -lpthread
 
 build-native/clock-check: tools/clock-check.c src/clock.c src/clock.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native

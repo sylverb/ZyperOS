@@ -3,6 +3,7 @@
  * different devices, the LEDs, the codec, the panel backlight, the battery,
  * and where things live on its card. Everything here is what makes a Brick a
  * Brick; the rest of ZyperOS reaches it through platform.h and device.h. */
+#include "cablefresh.h"
 #include "charging.h"
 #include "charging_rule.h"
 #include "atomic.h"
@@ -11,6 +12,8 @@
 #include "db.h"
 #include "device.h"
 #include "fileio.h"
+#include "hwput.h"
+#include "linksteps.h"
 #include "nightkeep.h"
 #include "levels.h"
 #include "panelgamma.h"
@@ -19,6 +22,7 @@
 #include "screenfx_draw.h"
 #include "stickpad.h"
 #include "thermal.h"
+#include "wdog.h"
 #include "keymap.h"
 #ifdef ZYPEROS_DESK
 #include "desk.h"
@@ -271,6 +275,7 @@ void plat_present(void)
 	static bool shown;
 	Uint8 r, g, b, a;
 
+	wdog_feed();                    /* the loop came round (wdog.h) */
 	plat_overlay_present(ren);
 	plat_screen_finish();
 	if (!shown) {
@@ -685,6 +690,7 @@ void plat_input_wait(unsigned ms)
 	/* POWER held in Hold mode: woken for the pill's next segment and the
 	 * hold's end, which no event marks; and the work behind every screen
 	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	wdog_feed();
 	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) {
 #ifdef ZYPEROS_DESK
@@ -702,6 +708,7 @@ void plat_input_wait(unsigned ms)
 
 void plat_input_poll(in_state *st)
 {
+	wdog_feed();                    /* the loop came round (wdog.h) */
 	memset(st->pressed, 0, sizeof st->pressed);
 	st->power_tap = false;
 	if (plat_terminating()) st->quit_requested = true;
@@ -1077,6 +1084,7 @@ bool plat_usb_audio_present(void) { return false; }
  * cable loses power. plastron gives usb0 this address. Two small reads,
  * asked as menus are built. */
 #define CABLE_ADDR "10.55.0.2"
+#define CABLE_PEER "10.55.0.1"      /* the computer, from udhcpd (usbgadget) */
 #define CABLE_UDC  "/sys/class/udc/5100000.udc-controller"
 
 static bool file_starts(const char *path, const char *word)
@@ -1140,17 +1148,31 @@ static bool gadget_bound(void)
 	return buf[0] != '\0' && buf[0] != '\n';
 }
 
+/* When the link was last bound for usblink (plat_now_ms), for the fresh
+ * link (cablefresh.h) */
+static unsigned link_bound_at;
+
+/* Bound or let go through a job (hwput.h), so the launcher never waits on
+ * the controller for long; while a job's child is still in a write the
+ * gadget's UDC is not read either (a read waits on the same lock), and the
+ * answer is what was last asked */
 static bool gadget_bind(bool on)
 {
+	static bool last;
 	const char *udc = strrchr(CABLE_UDC, '/') + 1;
-	int fd;
+	hwput_step step = { on ? "usb: the gadget's UDC, bind" : "usb: the gadget's UDC, unbind",
+	                    CABLE_GADGET, on ? udc : "\n", 0 };
 
-	if (on == gadget_bound()) return on;
-	if ((fd = open(CABLE_GADGET, O_WRONLY | O_CLOEXEC)) < 0) return false;
-	/* An empty line unbinds; a write of nothing at all is ignored */
-	if (write(fd, on ? udc : "\n", on ? strlen(udc) : 1) < 0) { /* said below */ }
-	close(fd);
-	return gadget_bound();
+	int r;
+
+	if (hwput_busy()) return last;
+	if (on == gadget_bound()) return last = on;
+	r = hwput_run(&(hwput_job){ on ? "the gadget's bind" : "the gadget's unbind", NULL, NULL,
+	                            &step, 1 }, true);
+	/* Not done yet, the child still in its write: as it was, as far as
+	 * anybody here can tell */
+	if (r == HWPUT_TIMEOUT || r == HWPUT_BUSY) return last;
+	return last = gadget_bound();
 }
 
 /* A host on the bus: the controller past "not attached" (reset, addressed,
@@ -1209,7 +1231,10 @@ bool plat_usb_link(int op)
 	}
 	if (op == 1) {
 		link_on = gadget_bind(true);
-		if (link_on) fprintf(stderr, "usb: the link to the computer is on\n");
+		if (link_on) {
+			link_bound_at = plat_now_ms();
+			fprintf(stderr, "usb: the link to the computer is on\n");
+		}
 		return link_on;
 	}
 	link_on = false;
@@ -1229,22 +1254,17 @@ bool plat_phone_link(bool act, char *ifname, size_t in, char *ip, size_t n)
 bool plat_usb_iphone(void) { return false; }
 
 /* The controller lets go of the cable and takes it again, so the computer
- * sees the Brick plugged in afresh: the Pixel 2's computer once dropped it
- * while the controller went on saying "configured" (2026-10-08). A third of a
- * second apart, long enough for the computer to notice it went. */
+ * sees the Brick plugged in afresh, when the link needs it (cablefresh.h):
+ * the Pixel 2's computer once dropped it while the controller went on saying
+ * "configured" (2026-10-08). Its state says nothing here ("configured" from
+ * the first computer on), so only the carrier and the computer's answer
+ * count. */
 void plat_cable_reconnect(void)
 {
-	static const struct timespec gap = { 0, 300 * 1000000L };
-	int fd;
-
-	if ((fd = open(CABLE_UDC "/soft_connect", O_WRONLY | O_CLOEXEC)) < 0) return;
-	if (write(fd, "disconnect", 10) < 0) { /* left as it was */ }
-	close(fd);
-	nanosleep(&gap, NULL);
-	if ((fd = open(CABLE_UDC "/soft_connect", O_WRONLY | O_CLOEXEC)) < 0) return;
-	if (write(fd, "connect", 7) < 0) { /* the next screen tries again */ }
-	close(fd);
-	fprintf(stderr, "wire: the cable connection made fresh\n");
+	hwput_reap();
+	cable_fresh(&(cable_fresh_cfg){
+		CABLE_UDC, "usb0", CABLE_PEER, false,
+		link_bound_at && plat_now_ms() - link_bound_at < LINK_FRESH_MS });
 }
 
 /* The switch, checked wherever the jack is and for the same reason: this is
