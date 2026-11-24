@@ -1263,6 +1263,21 @@ build-native/menumotion-check: tools/menumotion-check.c src/menumotion.c src/men
 # leaving: every row's text copied, the row marks and a rule's NULL kept as
 # they are, Zyper's rig by value, and nothing past MENUSNAP_ROWS rows or
 # MENUSNAP_TEXT bytes. No SDL.
+# Every question with two answers (src/confirmq.h, src/ds/confirm.h): the
+# table, the keys and the words without a screen, then each laid out by the
+# host launcher in every language on the Pixel 2 and the Brick
+check-confirm: build-native/confirm-check
+	@./build-native/confirm-check
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/confirm-fit-check.py
+
+build-native/confirm-check: tools/confirm-check.c src/confirmq.c src/confirmq.h $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/confirm-check.c src/confirmq.c $(I18N_SRC)
+
 check-menusnap: build-native/menusnap-check
 	@./build-native/menusnap-check
 

@@ -2253,7 +2253,11 @@ static menu_result ra_key(app *a, void *ctx, in_button key, int sel)
 		ra_signin_screen(a);
 		return MENU_CHANGED;
 	}
-	if (sel == RA_OUT && confirm_panel(a, T(S_DOWNLOADS_SIGN_OUT_ASK), T(S_DOWNLOADS_SIGN_OUT_BODY), T(S_DOWNLOADS_SIGN_OUT))) {
+	if (sel == RA_OUT) {
+		char q[512];
+
+		cq_text(CQ_RA_SIGN_OUT, q, sizeof q);
+		if (!confirm_ask(a, CQ_RA_SIGN_OUT, q)) return MENU_STAY;
 		ra_sign_out();
 		return MENU_CHANGED;
 	}
@@ -2324,7 +2328,7 @@ static menu_result room_key(app *a, void *ctx, in_button key, int sel)
 {
 	room_ctx *x = ctx;
 	const dl_counts *c = x->c;
-	char body[192], sz[24];
+	char q[512], sz[24];
 	dl_sum s = { 0 };
 
 	if (key != IN_ACCEPT || sel < 0 || sel >= DLK_KINDS) return MENU_STAY;
@@ -2336,23 +2340,24 @@ static menu_result room_key(app *a, void *ctx, in_button key, int sel)
 	if (!s.have && !(sel == DLK_CHEATS && s.none)) return MENU_FAILED;
 	bytes_text((double)s.bytes, sz, sizeof sz);
 	if (sel == DLK_VIDEOS) {
-		snprintf(body, sizeof body, T(S_DOWNLOADS_DELETE_VIDEOS_BODY), sz);
-		if (confirm_panel(a, T(S_DOWNLOADS_DELETE_VIDEOS_ASK), body, T(S_DOWNLOADS_KEY_DELETE))) {
+		cq_text(CQ_DL_DELETE_VIDEOS, q, sizeof q, sz);
+		if (confirm_ask(a, CQ_DL_DELETE_VIDEOS, q)) {
 			for (int i = 0; i < c->n; i++) snaps_delete(P_ROMS, c->s[i].folder);
 			dl_count_stale();
 			dl_count_again(a, c->only);
 			return MENU_CHANGED;
 		}
 	} else if (sel == DLK_CHEATS) {
-		if (confirm_panel(a, T(S_DOWNLOADS_DELETE_CHEATS_ASK), T(S_DOWNLOADS_DELETE_CHEATS_BODY), T(S_DOWNLOADS_KEY_DELETE))) {
+		cq_text(CQ_DL_DELETE_CHEATS, q, sizeof q);
+		if (confirm_ask(a, CQ_DL_DELETE_CHEATS, q)) {
 			cheats_delete_all(&a->sys);
 			dl_count_stale();
 			dl_count_again(a, c->only);
 			return MENU_CHANGED;
 		}
 	} else {
-		snprintf(body, sizeof body, T(S_DOWNLOADS_DELETE_SETS_BODY), sz);
-		if (confirm_panel(a, T(S_DOWNLOADS_DELETE_SETS_ASK), body, T(S_DOWNLOADS_KEY_DELETE))) {
+		cq_text(CQ_DL_DELETE_SETS, q, sizeof q, sz);
+		if (confirm_ask(a, CQ_DL_DELETE_SETS, q)) {
 			delete_sets(c);
 			dl_count_stale();
 			dl_count_again(a, c->only);
@@ -2895,14 +2900,13 @@ static void systems_keys(dl_view *v, dl_frame *f)
 		}
 	} else if (a->in.pressed[IN_X]) {
 		const dl_sys *s = &v->c->s[f->row];
-		char head[160], body[192], sz[24];
+		char q[512], sz[24];
 
 		if (f->col == DLK_VIDEOS && s->vid_have) {
 			uisound_play(DS_SOUND_ACCEPT);
 			bytes_text((double)s->vid_bytes, sz, sizeof sz);
-			snprintf(head, sizeof head, T(S_DOWNLOADS_DELETE_SYS_VIDEOS_ASK), s->name);
-			snprintf(body, sizeof body, T(S_DOWNLOADS_DELETE_VIDEOS_BODY), sz);
-			if (confirm_panel(a, head, body, T(S_DOWNLOADS_KEY_DELETE))) {
+			cq_text(CQ_DL_SYS_VIDEOS, q, sizeof q, s->name, sz);
+			if (confirm_ask(a, CQ_DL_SYS_VIDEOS, q)) {
 				snaps_delete(P_ROMS, s->folder);
 				dl_count_stale();
 				dl_count_again(a, v->only);
@@ -2912,9 +2916,8 @@ static void systems_keys(dl_view *v, dl_frame *f)
 
 			uisound_play(DS_SOUND_ACCEPT);
 			bytes_text(s->ach_ready * DL_MB_SET * 1e6, sz, sizeof sz);
-			snprintf(head, sizeof head, T(S_DOWNLOADS_DELETE_SYS_SETS_ASK), s->name);
-			snprintf(body, sizeof body, T(S_DOWNLOADS_DELETE_SETS_BODY), sz);
-			if (confirm_panel(a, head, body, T(S_DOWNLOADS_KEY_DELETE))) {
+			cq_text(CQ_DL_SYS_SETS, q, sizeof q, s->name, sz);
+			if (confirm_ask(a, CQ_DL_SYS_SETS, q)) {
 				memset(&one, 0, sizeof one);
 				one.s[0] = *s;
 				one.n = 1;
@@ -2924,8 +2927,8 @@ static void systems_keys(dl_view *v, dl_frame *f)
 			}
 		} else if (f->col == DLK_CHEATS && s->cht_have + s->cht_none) {
 			uisound_play(DS_SOUND_ACCEPT);
-			snprintf(head, sizeof head, T(S_DOWNLOADS_DELETE_SYS_CHEATS_ASK), s->name);
-			if (confirm_panel(a, head, T(S_DOWNLOADS_DELETE_CHEATS_BODY), T(S_DOWNLOADS_KEY_DELETE))) {
+			cq_text(CQ_DL_SYS_CHEATS, q, sizeof q, s->name);
+			if (confirm_ask(a, CQ_DL_SYS_CHEATS, q)) {
 				cheats_delete_sys(s->folder);
 				dl_count_stale();
 				dl_count_again(a, v->only);
