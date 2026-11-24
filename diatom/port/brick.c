@@ -1917,11 +1917,12 @@ static void cpu_border(const uint8_t *bgra, int w, int h)
  * picture through it into a page's stand-in on the host.
  *
  * DIATOM_PRESENT=cpu never starts it. DIATOM_PRESENT=gpu, or the card's
- * .userdata/brick/diatom-present saying "gpu", draws every frame with it, so
- * a kit can time the two paths on the same game; the card's file, whatever
- * it says, also puts both paths' present times in the log. */
-
-#define BRICK_PRESENT_FILE "/mnt/SDCARD/.userdata/brick/diatom-present"
+ * diatom-present in this handheld's settings folder (.userdata/brick, or
+ * .userdata/smartpro on a Smart Pro: present_file.h) saying "gpu", draws
+ * every frame with it, so a kit can time the two paths on the same game; the
+ * card's file, whatever it says, also puts both paths' present times in the
+ * log. */
+#include "present_file.h"
 
 /* Allwinner's fb driver's own command (drivers/video/fbdev/sunxi/disp2/disp/
  * dev_fb.c): the whole of fb0's memory as one dma-buf */
@@ -2308,10 +2309,11 @@ static bool gl_drew_last(void)
 static void gl_init(void)
 {
 	const char *want = getenv("DIATOM_PRESENT");
-	char line[16] = "";
+	char line[16] = "", path[512];
 	FILE *f;
 
-	if (!want && (f = fopen(BRICK_PRESENT_FILE, "r"))) {
+	present_file_paths(NULL, 0, path, sizeof path);
+	if (!want && (f = fopen(path, "r"))) {
 		if (fgets(line, sizeof line, f)) line[strcspn(line, " \r\n")] = '\0';
 		fclose(f);
 		want = line;
