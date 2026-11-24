@@ -1940,9 +1940,7 @@ static menu_result ss_page_key(app *a, void *ctx, in_button key, int sel)
 	if (sel < 0 || sel >= n) return MENU_STAY;
 	if (ids[sel] == SSP_ACCOUNT) {
 		r = ss_signin_screen(a);
-	} else if (ids[sel] == SSP_UNLINK &&
-	           confirm_panel(a, "ScreenScraper", T(S_SCRAPER_UNLINK_ACCOUNT_ASK),
-	                         T(S_SCRAPER_UNLINK))) {
+	} else if (ids[sel] == SSP_UNLINK && confirm_ask(a, CQ_SS_UNLINK, T(S_SCRAPER_UNLINK_ACCOUNT_ASK))) {
 		/* The password is wiped from memory and from the device's settings */
 		ss_creds_clear();
 		ss_creds_save();
@@ -2065,14 +2063,14 @@ static menu_result snaps_key(app *a, void *ctx, in_button key, int sel)
 		}
 		break;
 	case SN_DELETE: {
-		char sz[24], msg[160];
+		char sz[24], msg[512];
 		unsigned long long gone = 0;
 		int i;
 
 		if (key != IN_ACCEPT) return MENU_STAY;
 		sys_menu_bytes(s->total, sz, sizeof sz);
-		snprintf(msg, sizeof msg, T(S_SNAPS_DELETE_ASK), sz);
-		if (!confirm_panel(a, T(S_SNAPS_HEADING), msg, T(S_SNAPS_DELETE))) return MENU_STAY;
+		cq_text(CQ_SNAPS_DELETE_ALL, msg, sizeof msg, sz);
+		if (!confirm_ask(a, CQ_SNAPS_DELETE_ALL, msg)) return MENU_STAY;
 		for (i = 0; i < s->nc; i++) gone += snaps_delete(P_ROMS, s->folder[i]);
 		snaps_read(s);
 		sys_menu_bytes(gone, sz, sizeof sz);
