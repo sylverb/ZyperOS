@@ -750,7 +750,7 @@ typedef struct {
 	pt_grid g;
 } tape_box;
 
-#define TAPE_STEP 16
+#define TAPE_STEP (2 * DS_GRID)
 
 static void tape_place(const npl_frame *F, tape_box *t)
 {
