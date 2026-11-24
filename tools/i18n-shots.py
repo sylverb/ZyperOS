@@ -385,7 +385,7 @@ EXTRA = {
                                                    "Tape Style", "--press", "a", "--pick-at", str(_k)])
        for _k, _l in enumerate(("smoke", "pinstripe", "band", "ferric", "metal", "clear", "red", "worn"))},
     # its Repeat row on One, the value no other shot has
-    "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
+    "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "Repeat", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
     "mp4-menu-eq": ("media", "MUSE", ["--screen", "games", "--menu", "Equalizer"]),
     # its Album Art row, under the fold since Repeat and Equalizer (opened, it
