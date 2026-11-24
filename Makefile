@@ -987,6 +987,11 @@ check-launch-start:
 check-crashlog:
 	@sh tools/crashlog-check.sh
 
+# plastron's hwdog, the hardware watchdog's petter (package/hwdog), against
+# stand-in files for the device and the kernel's log (tools/hwdog-check.sh)
+check-hwdog:
+	@sh tools/hwdog-check.sh
+
 # The display's gamma table, emptied (src/panelgamma.h): the launcher's and
 # Diatom's code against a stand-in display, with Linux's request numbers
 check-panelgamma: build-native/panelgamma-check

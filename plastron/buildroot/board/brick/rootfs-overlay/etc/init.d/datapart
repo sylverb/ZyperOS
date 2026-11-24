@@ -33,9 +33,17 @@ clock_once() {
 repair() {
 	state=$(od -An -tu1 -j106 -N1 $1)
 	[ $(( state & 2 )) -eq 0 ] && return
+	zyboot C3
 	echo "datapart: $1 was not unmounted cleanly; checking it" > /dev/kmsg
 	fsck.exfat -p $1 > /dev/null 2>&1
 	echo "datapart: fsck.exfat finished with status $?" > /dev/kmsg
+}
+
+# The start's step, as the Pixel 2's datapart says it: a line in the kernel's
+# log and the step's code for the splash. Builtins only.
+zyboot() {
+	echo "zyboot: stage=$1" 2> /dev/null > /dev/kmsg
+	echo "$1" 2> /dev/null > /tmp/splash-stage
 }
 
 # A card partition's device, by its GPT name
@@ -91,9 +99,11 @@ games_create() {
 }
 
 start() {
+	zyboot C1
 	mkdir -p $SDCARD
 	games=$(part zyperos)
 	if [ -z "$games" ]; then
+		zyboot C2
 		clock_once
 		games=$(games_create)
 	fi
