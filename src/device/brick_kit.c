@@ -202,7 +202,7 @@ static bool hc_power(bool on)
 {
 	char path[64], before[32], after[32], n[8];
 	const char *to;
-	bool ok, exported;
+	bool ok, exported, unexport = false;
 
 	snprintf(n, sizeof n, "%d", HC_LED5V);
 	snprintf(path, sizeof path, "/sys/class/gpio/gpio%d/direction", HC_LED5V);
@@ -212,18 +212,12 @@ static bool hc_power(bool on)
 		snprintf(hc_power_was, sizeof hc_power_was, "%s", before);
 		if (!exported) hc_put("/sys/class/gpio/export", n);
 		to = "high";
-	} else if (!hc_power_was[0]) {
+	} else if (!(to = kw_power_end(hc_power_was, !strcmp(plat_profile()->id, "smartpro"), &unexport))) {
 		return true;   /* not turned on by the walk: nothing to put back */
-	} else if (!strncmp(hc_power_was, "out, 1", 6)) {
-		to = "high";
-	} else if (!strncmp(hc_power_was, "in", 2)) {
-		to = "in";
-	} else {
-		to = "low";    /* was low, or not driven at all (the Brick's) */
 	}
 	ok = hc_put(path, to) == 0;
 	/* A pin the walk exported goes back unexported, as it found it */
-	if (!on && !strcmp(hc_power_was, "not exported")) hc_put("/sys/class/gpio/unexport", n);
+	if (unexport) hc_put("/sys/class/gpio/unexport", n);
 	hc_gpio_state(HC_LED5V, after, sizeof after);
 	fprintf(stderr, "hwcheck: lights: 5 V %s: gpio%d (PD11) was %s, now %s%s\n",
 	        on ? "on" : "back as it was", HC_LED5V, before, after, ok ? "" : ": refused");
