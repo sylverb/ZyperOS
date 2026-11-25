@@ -3370,7 +3370,7 @@ static void on_cheevo_unlocked(int id)
 
 		/* With its badge, when the card has it (src/rabadge.h) */
 		p[0] = '\0';
-		if (c) rb_path(chv_source(), c->badge, p, sizeof p);
+		if (c) rb_file(chv_source(), c->badge, p, sizeof p);
 		notice_queue(NQ_UNLOCK, id, 4000, head,
 		             c && c->title[0] ? c->title : T(S_CHEEVOS_UNLOCKED), p[0] ? p : NULL, 0, 0);
 	}
@@ -3403,7 +3403,7 @@ static void on_cheevo_progress(int id, const char *text, int value, int target)
 		         text, strchr(text, '/') + 1);
 	else
 		snprintf(count, sizeof count, "%s", text);
-	rb_path(chv_source(), c->badge, p, sizeof p);
+	rb_file(chv_source(), c->badge, p, sizeof p);
 	notice_queue(NQ_PROGRESS, id, 2500, c->title[0] ? c->title : T(S_CHEEVOS_PROGRESS), count,
 	             p[0] ? p : NULL, value, target);
 }
