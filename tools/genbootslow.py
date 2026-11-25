@@ -11,8 +11,8 @@ A start reaches ZyperOS's home in 1.4 to 2 s on a GKD Pixel 2 (its kernel's
 log, seven starts) and about 2.2 s on a TrimUI Brick. One that takes longer
 says so (DESIGN.md 11.20, "Slower than usual"): from 5 s the step under way
 at the foot, with its code ("Checking the card · C3"); from 20 s "Taking
-longer than usual" over Zyper and, under the step, what to do if it never
-ends ("Stuck? Hold POWER for 10 s, then turn it on."). The splash has no
+longer than usual" over Zyper and, under it, what to do if it never ends
+("Stuck? Hold POWER for 10 s, then turn it on."). The splash has no
 fonts, so each line is drawn here, in every language (res/strings' boot.slow,
 boot.stage_*, boot.stuck), as the first start's line is (tools/genfirststart.py):
 at the launcher's 1024-unit sizes (label 55 for the first line, meta 37 for
@@ -37,6 +37,10 @@ Format, little-endian ("TSPN"), read by the splash's slowline.h:
 The ids: 0 the first line (boot.slow), 1 to 5 the steps (mount, format,
 check, switch, launch), each its words and then its code; 6 the help
 (boot.stuck).
+
+Beside them, each handheld's glyphs.bin: the tester's view's ASCII letters
+(tools/genclosed.py's format), TESTER units tall, drawn at the handheld's own
+pixel size, so the view looks the same on every panel.
 """
 import os
 import struct
@@ -48,6 +52,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import i18n             # noqa: E402
+import genclosed        # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "plastron", "buildroot", "package", "splash", "slow")
@@ -59,6 +64,8 @@ SCALES = {"px2": 0.625, "brick": 1.0, "smartpro": 720 / 768}
 STAGES = (("C1", "boot.stage_mount"), ("C2", "boot.stage_format"), ("C3", "boot.stage_check"),
           ("U1", "boot.stage_switch"), ("L1", "boot.stage_launch"))
 DOT = " · "
+# The tester's view's letters, in units: the Pixel 2's 22 px (glyphs.bin's)
+TESTER = 35.2
 
 
 def strings(code):
@@ -116,7 +123,8 @@ def encode(code, scale):
 
 
 def names():
-    return [os.path.join(dev, code + ".bin") for dev in SCALES for code in i18n.CODES]
+    return [os.path.join(dev, code + ".bin") for dev in SCALES for code in i18n.CODES] + \
+        [os.path.join(dev, "glyphs.bin") for dev in SCALES]
 
 
 def write(out):
@@ -125,6 +133,8 @@ def write(out):
         for code in i18n.CODES:
             with open(os.path.join(out, dev, code + ".bin"), "wb") as f:
                 f.write(encode(code, scale))
+        with open(os.path.join(out, dev, "glyphs.bin"), "wb") as f:
+            f.write(genclosed.glyphs(int(round(TESTER * scale))))
 
 
 def widest():
@@ -149,8 +159,8 @@ def main():
             print("check-genbootslow: not what tools/genbootslow.py draws: %s (run it)" % ", ".join(bad))
             return 1
         w = widest()
-        print("check-genbootslow: the slow start's lines in %d languages for the Pixel 2, the Brick and the Smart Pro, as drawn;"
-              " the widest %d of %d units (%s)" % (len(w), max(w.values()), LINE_MAX, max(w, key=w.get)))
+        print("check-genbootslow: the slow start's lines in %d languages for the Pixel 2, the Brick and the Smart Pro, and the"
+              " tester's letters, as drawn; the widest %d of %d units (%s)" % (len(w), max(w.values()), LINE_MAX, max(w, key=w.get)))
         return 0
     write(OUT)
     print("genbootslow: %d files in %s" % (len(names()), os.path.relpath(OUT, ROOT)))

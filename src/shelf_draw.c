@@ -2014,6 +2014,8 @@ void heatpop_draw(app *a, unsigned now)
 		if (g_heatpop.line1[0]) {
 			n1 = ui_balance_lines(f1, HEATPOP_LINE1, room, 2, a1);
 			n2 = ui_balance_lines(f2, HEATPOP_LINE2, room, 3, a2);
+			ui_fit_cut(HEATPOP_LINE1, a1, n1);
+			ui_fit_cut(HEATPOP_LINE2, a2, n2);
 			for (k = 0, w1 = 0; k < n1; k++) if (ui_text_width(f1, a1[k]) > w1) w1 = ui_text_width(f1, a1[k]);
 			for (k = 0, w2 = 0; k < n2; k++) if (ui_text_width(f2, a2[k]) > w2) w2 = ui_text_width(f2, a2[k]);
 		} else {

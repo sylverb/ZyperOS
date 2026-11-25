@@ -181,6 +181,27 @@ static int rows_cover(const slow_run *r, const uint32_t *a, const uint32_t *b, i
 	return 1;
 }
 
+/* The topmost landscape row of the screen's upper third that is not as
+ * `base` has it, and how unlike it the most: where a line over Zyper is,
+ * and how much of it is in. H for none. */
+static unsigned top_ink(const slow_run *r, const uint32_t *base, const uint32_t *buf, int *most)
+{
+	unsigned top = r->H;
+
+	*most = 0;
+	for (unsigned y = 0; y < r->H / 3; y++)
+		for (unsigned x = 0; x < r->W; x++) {
+			size_t i = r->turned ? (size_t)(r->W - 1 - x) * r->stride + y : (size_t)y * r->stride + x;
+			int d = (int)(buf[i] & 0xff) - (int)(base[i] & 0xff);
+
+			if (buf[i] == base[i]) continue;
+			if (y < top) top = y;
+			if (d < 0) d = -d;
+			if (d > *most) *most = d;
+		}
+	return top;
+}
+
 int main(int argc, char **argv)
 {
 	const char *shots = argc == 3 && !strcmp(argv[1], "--shots") ? argv[2] : NULL;
@@ -229,7 +250,11 @@ int main(int argc, char **argv)
 		const handheld *hh = &HANDHELDS[h];
 		frames fr;
 		size_t gn;
-		uint8_t *gf = slurp(PKG "glyphs.bin", &gn);
+		char gpath[128];
+		uint8_t *gf;
+
+		snprintf(gpath, sizeof gpath, PKG "slow/%s/glyphs.bin", hh->dir);
+		gf = slurp(gpath, &gn);
 
 		if (frames_open(&fr, hh->frames)) { CHECK(0, "%s: no frames at %s", hh->name, hh->frames); continue; }
 		for (int li = 0; li < NLANG; li++) {
@@ -246,7 +271,7 @@ int main(int argc, char **argv)
 			free(f);
 			r.have = 1;
 			r.have_g = gf && slow_glyphs_load(gf, gn, &r.g) == 0;
-			CHECK(r.have_g, "glyphs.bin does not read");
+			CHECK(r.have_g, "%s does not read", gpath);
 			for (int id = 0; id < SLOW_LINES; id++)
 				CHECK(r.set.line[id].have, "%s %s: no line %d", hh->name, LANGS[li], id);
 			for (int id = 1; id <= 5; id++)
@@ -282,10 +307,20 @@ int main(int argc, char **argv)
 				lo = hi = 0;
 				c = slow_frame(&r, buf, 4.0, "C3", 0, kl, 3, "C3  4.0 s  183 frames", &lo, &hi);
 				CHECK(!c && !memcmp(buf, base, bytes), "%s %s: drawn at 4 s", hh->name, LANGS[li]);
+				/* The step arrives in quick: nothing of it at its first
+				 * frame, some by half way, all of it after */
 				memcpy(prev, buf, bytes);
 				lo = hi = 0;
 				c = slow_frame(&r, buf, 6.0, "C3", 0, kl, 3, "", &lo, &hi);
+				CHECK(c && !memcmp(buf, base, bytes), "%s %s: the step whole on its first frame", hh->name, LANGS[li]);
+				lo = hi = 0;
+				c = slow_frame(&r, buf, 6.0 + SLOW_QUICK_S / 4, "C3", 0, kl, 3, "", &lo, &hi);
 				CHECK(c && memcmp(buf, base, bytes) && rows_cover(&r, prev, buf, lo, hi),
+				      "%s %s: the step not coming in, or its rows", hh->name, LANGS[li]);
+				memcpy(prev, buf, bytes);
+				lo = hi = 0;
+				c = slow_frame(&r, buf, 6.0 + SLOW_QUICK_S, "C3", 0, kl, 3, "", &lo, &hi);
+				CHECK(c && memcmp(buf, prev, bytes) && rows_cover(&r, prev, buf, lo, hi),
 				      "%s %s: the step at 6 s, or its rows", hh->name, LANGS[li]);
 				if (shots && (h != 1 || li == 0)) {
 					snprintf(path, sizeof path, "%s/%s-%s-06s.ppm", shots, hh->name, LANGS[li]);
@@ -296,9 +331,33 @@ int main(int argc, char **argv)
 				lo = hi = 0;
 				c = slow_frame(&r, buf, 6.5, "C3", 0, kl, 3, "", &lo, &hi);
 				CHECK(!c && !memcmp(prev, buf, bytes), "%s %s: the same step drew again", hh->name, LANGS[li]);
-				lo = hi = 0;
-				c = slow_frame(&r, buf, 21.0, "L1", 0, kl, 3, "", &lo, &hi);
-				CHECK(c && rows_cover(&r, prev, buf, lo, hi), "%s %s: 21 s's rows", hh->name, LANGS[li]);
+				/* The first line and the help arrive in quick, coming down
+				 * SLOW_DROP_Y as they come in: higher and fainter half way */
+				{
+					unsigned t_half, t_all;
+					int m_half, m_all;
+
+					lo = hi = 0;
+					c = slow_frame(&r, buf, 21.0, "L1", 0, kl, 3, "", &lo, &hi);
+					CHECK(c && rows_cover(&r, prev, buf, lo, hi), "%s %s: 21 s's rows", hh->name, LANGS[li]);
+					memcpy(prev, buf, bytes);
+					lo = hi = 0;
+					c = slow_frame(&r, buf, 21.0 + SLOW_QUICK_S / 4, "L1", 0, kl, 3, "", &lo, &hi);
+					CHECK(c && rows_cover(&r, prev, buf, lo, hi), "%s %s: 21 s's rows coming in", hh->name, LANGS[li]);
+					t_half = top_ink(&r, base, buf, &m_half);
+					memcpy(prev, buf, bytes);
+					lo = hi = 0;
+					c = slow_frame(&r, buf, 21.0 + SLOW_QUICK_S, "L1", 0, kl, 3, "", &lo, &hi);
+					CHECK(c && rows_cover(&r, prev, buf, lo, hi), "%s %s: 21 s's rows come in", hh->name, LANGS[li]);
+					t_all = top_ink(&r, base, buf, &m_all);
+					CHECK(t_half < t_all && m_half < m_all && t_all < r.H,
+					      "%s %s: the first line did not come down and in (top %u then %u, ink %d then %d)",
+					      hh->name, LANGS[li], t_half, t_all, m_half, m_all);
+					memcpy(prev, buf, bytes);
+					lo = hi = 0;
+					c = slow_frame(&r, buf, 21.5, "L1", 0, kl, 3, "", &lo, &hi);
+					CHECK(!c && !memcmp(prev, buf, bytes), "%s %s: the lines in moved again", hh->name, LANGS[li]);
+				}
 				if (shots) {
 					snprintf(path, sizeof path, "%s/%s-%s-21s.ppm", shots, hh->name, LANGS[li]);
 					ppm(path, &r, buf);
@@ -348,7 +407,7 @@ int main(int argc, char **argv)
 	}
 	if (fails) { printf("bootslow-check: %d failed\n", fails); return 1; }
 	printf("bootslow-check: %d handheld and language sets: nothing before 5 s, the step from 5 s, the first line and the"
-	       " help from 20 s, clear of every frame, taken away to the pixel, the tester's view, the copy's help over its"
+	       " help from 20 s, each arriving in quick, clear of every frame, taken away to the pixel, the tester's view, the copy's help over its"
 	       " line only, the beat\n", total);
 	return 0;
 }

@@ -28,7 +28,8 @@ define SPLASH_INSTALL_FIRST_START
 	$(INSTALL) -m 0644 $(SPLASH_PICTURES)/closed-missing*.bin $(SPLASH_PKGDIR)/glyphs.bin \
 		$(TARGET_DIR)/usr/share/splash/
 endef
-# A slow start's lines (src/slowline.h), each language's, at the panel's scale
+# A slow start's lines (src/slowline.h), each language's, and the tester's
+# view's letters (glyphs.bin), at the panel's scale
 SPLASH_SLOW = $(if $(filter smartpro,$(PLASTRON_DEVICE)),smartpro,brick)
 else
 SPLASH_DEPENDENCIES = libdrm zlib host-pkgconf
@@ -47,7 +48,7 @@ define SPLASH_INSTALL_FIRST_START
 endef
 # A slow start's lines (src/slowline.h), each language's, at the panel's
 # scale: the Pixel 2's 640x480, which the R36S's is too; and the letters of
-# the tester's view (glyphs.bin, ZyperOS's tools/genclosed.py)
+# the tester's view (glyphs.bin, ZyperOS's tools/genbootslow.py)
 SPLASH_SLOW = px2
 endif
 

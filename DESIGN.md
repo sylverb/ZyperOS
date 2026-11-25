@@ -3125,6 +3125,9 @@ animation, in the theme and the language of the copy's line, in two steps:
   then turn it on." (the tutorial's "Frozen screen? Hold POWER for 10 s." in
   other words). It promises no restart: whether a watchdog will restart a
   start that hangs is not the screen's to say.
+- **Arriving**: each line comes in over **quick** on **out**, from nothing;
+  the first line and the help coming down 14 as they do, the step in place.
+  A step that follows another is simply the next.
 
 *(Tarik's pick put the help under the step at the foot. Measured on the frames
 and the drawn lines: the animation is from 157 to 658 on every handheld, and a
@@ -3141,9 +3144,11 @@ new.
   the help, in the line's **text-soft**, and the bar stays. launch.sh is
   copied last, so turning it off there and on again copies again.
 - **The tester's view**: SELECT held 2 s on the boot screen shows the
-  kernel's latest lines at the foot, wrapped, on a dark band, and under them
-  the step, the time and the frames shown, in the splash's ASCII letters
-  (glyphs.bin); let go and the screen is as it was, to the pixel.
+  kernel's latest lines on a dark band from under Zyper (481) to the foot,
+  over the wordmark and the step, wrapped at spaces, and under them the
+  step, the time and the frames shown, in the splash's ASCII letters at 35
+  units on every handheld (each one's glyphs.bin); the first line and the
+  help stay. Let go and the screen is as it was, to the pixel.
 - **The beat**: every 2 s from the start, a line in the kernel's log,
   "splash: 12.0 s, 663 frames, stage=L1", until ZyperOS draws. After a
   watchdog's restart the console the kernel kept ends with it: a start whose

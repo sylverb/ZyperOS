@@ -25,6 +25,9 @@
  * echo (no fork at boot), so a read may find it empty for an instant */
 #define SLOW_STAGE_FILE "/tmp/splash-stage"
 #define SLOW_DIR        "/usr/share/splash/slow"
+/* The tester's view's letters at this handheld's scale (tools/genbootslow.py),
+ * else the start's line's */
+#define SLOW_TESTER_GLYPHS SLOW_DIR "/glyphs.bin"
 #define SLOW_GLYPHS     "/usr/share/splash/glyphs.bin"
 
 /* A whole small file into a fresh buffer: its size, 0 for none */
@@ -68,7 +71,7 @@ static int slowio_load(slow_run *r, const char *lang)
 	r->have = slow_load(f, n, &r->set) == 0;
 	free(f);
 	/* The letters stay in their buffer: slow_glyphs points into it */
-	if ((n = slowio_slurp(SLOW_GLYPHS, &f)))
+	if ((n = slowio_slurp(SLOW_TESTER_GLYPHS, &f)) || (n = slowio_slurp(SLOW_GLYPHS, &f)))
 		r->have_g = slow_glyphs_load(f, n, &r->g) == 0;
 	return r->have ? 0 : -1;
 }

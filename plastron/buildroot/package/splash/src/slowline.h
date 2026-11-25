@@ -67,6 +67,8 @@
 #define SLOW_BEAT_S   2.0       /* a line in the kernel's log this often */
 #define SLOW_TESTER_S 2.0       /* SELECT held this long shows the kernel's lines (the tester's view) */
 
+#define SLOW_QUICK_S  0.12      /* a line arriving: DESIGN.md 8's quick, on its out curve */
+#define SLOW_DROP_Y   14        /* the first line and the help come down this far as they arrive, units */
 #define SLOW_TOP_Y    80        /* the first line's baseline, units: 51 over it is 29 */
 #define SLOW_HELP_Y   136       /* the help's: 11 under it is 147, Zyper from 157 */
 #define SLOW_LINE_Y   706       /* the step's: the first start's line's */
@@ -203,11 +205,12 @@ static inline void slow_set_px(uint32_t *buf, unsigned stride, unsigned W, unsig
  * pixel it inks written as the ground mixed with its segment's ink, by
  * coverage, the rest left as it is (the box's corners may reach the
  * wordmark's foot; the letters never do). `erase` writes the ground there
- * instead, which takes the line away again. Its box in landscape pixels into
- * *x0, *y0 (its top left). */
+ * instead, which takes the line away again. `alpha` (0 to 256) is how much
+ * of it is in, as it arrives. Its box in landscape pixels into *x0, *y0 (its
+ * top left). */
 static inline void slow_put(const slow_line *l, uint32_t *buf, unsigned stride, unsigned W, unsigned H,
                             int turned, int cx, int by, uint32_t ground, uint32_t ink, uint32_t dim,
-                            int erase, int *x0, int *y0)
+                            int erase, unsigned alpha, int *x0, int *y0)
 {
 	int x = cx - (int)l->w / 2, y = by - (int)l->ascent;
 
@@ -222,7 +225,7 @@ static inline void slow_put(const slow_line *l, uint32_t *buf, unsigned stride, 
 				unsigned a = s->cov[(size_t)r * s->w + i];
 
 				if (a) slow_set_px(buf, stride, W, H, turned, x + (int)i, y + (int)r,
-				                   erase ? ground : slow_mix(ground, c, a));
+				                   erase ? ground : slow_mix(ground, c, a * alpha >> 8));
 			}
 		x += (int)s->w;
 	}
@@ -272,8 +275,12 @@ static inline void slow_stage_word(const char *text, char out[4])
  * tools/genclosed.py) on a dark band; let go, and the boot screen is as it
  * was. A tester with a handheld that is slow to start reads where it is with
  * no computer. Kernel lines are English and ASCII: no pictures a language.
+ * The band is from SLOW_TESTER_TOP_Y to the foot on every handheld: all of
+ * Zyper shows over it and none of the wordmark, never a cut letter of it.
+ * As many rows as fit: the foot's last, the kernel's newest over it.
  */
-#define SLOW_TESTER_ROWS 5      /* kernel lines shown, wrapped rows counted */
+#define SLOW_TESTER_TOP_Y 481   /* the band's top, units: Zyper ends at 458, the wordmark starts at 505 */
+#define SLOW_TESTER_MAXROWS 12  /* kernel rows shown at most, wrapped rows counted */
 
 typedef struct {
 	const uint8_t *at[128];
@@ -354,42 +361,55 @@ static inline int slow_kmsg_line(const char *rec, char *out, size_t n)
 	return 0;
 }
 
-/* The view: a band of the foot, `rows` of the kernel's lines wrapped to its
- * width (the newest last; only the last SLOW_TESTER_ROWS rows), and `foot`
- * under them, brighter. The band's landscape top into *top. */
+/* The view: a band from landscape `y0` to the foot, `foot` on its last row,
+ * brighter, and over it the kernel's `lines` wrapped to its width, the newest
+ * last, as many rows as fit */
 static inline void slow_tester(const slow_glyphs *g, char lines[][160], int nlines, const char *foot,
                                uint32_t *buf, unsigned stride, unsigned W, unsigned H, int turned,
-                               uint32_t band, uint32_t ink, uint32_t bright, int *top)
+                               uint32_t band, uint32_t ink, uint32_t bright, int y0)
 {
 	int margin = (int)(W / 32), maxw = (int)W - 2 * margin, pitch = (int)g->h + 2;
-	int rows = SLOW_TESTER_ROWS + 1, y0 = (int)H - margin / 2 - rows * pitch - margin / 2;
+	int fit = ((int)H - y0 - margin) / pitch - 1, foot_y = (int)H - margin / 2 - pitch;
 	const char *seg[64];
 	size_t len[64];
 	int nseg = 0;
 
-	/* Wrap: each line in rows of whole letters as wide as the band */
+	if (fit > SLOW_TESTER_MAXROWS) fit = SLOW_TESTER_MAXROWS;
+	if (fit < 0) fit = 0;
+	/* Wrap: each line in rows as wide as the band, at a space when the row
+	 * has one, its next row from the word after it; a word longer than a
+	 * row is cut where the row ends */
 	for (int i = 0; i < nlines && nseg < 64; i++) {
 		const char *t = lines[i];
 		size_t rest = strlen(t);
 
 		while (rest && nseg < 64) {
-			size_t take = 0;
+			size_t take = 0, cut;
 
 			while (take < rest && (int)slow_text_w(g, t, take + 1) <= maxw) take++;
 			if (!take) take = 1;
+			cut = take;
+			if (take < rest) {
+				size_t sp = take;
+
+				while (sp > 0 && t[sp] != ' ') sp--;
+				if (sp > 0) {
+					cut = sp;
+					while (sp < rest && t[sp] == ' ') sp++;
+					take = sp;
+				}
+			}
 			seg[nseg] = t;
-			len[nseg++] = take;
+			len[nseg++] = cut;
 			t += take;
 			rest -= take;
 		}
 	}
 	slow_clear(buf, stride, W, H, turned, 0, y0, W, H - (unsigned)y0, band);
-	if (top) *top = y0;
-	int first = nseg > SLOW_TESTER_ROWS ? nseg - SLOW_TESTER_ROWS : 0;
+	int first = nseg > fit ? nseg - fit : 0;
 	for (int i = first; i < nseg; i++)
-		slow_text(g, seg[i], len[i], buf, stride, W, H, turned, margin, y0 + margin / 2 + (i - first) * pitch, band, ink);
-	slow_text(g, foot, strlen(foot), buf, stride, W, H, turned, margin, y0 + margin / 2 + SLOW_TESTER_ROWS * pitch,
-	          band, bright);
+		slow_text(g, seg[i], len[i], buf, stride, W, H, turned, margin, foot_y - (nseg - i) * pitch, band, ink);
+	slow_text(g, foot, strlen(foot), buf, stride, W, H, turned, margin, foot_y, band, bright);
 }
 
 /*
@@ -409,6 +429,13 @@ typedef struct {
 	uint32_t    ground, soft, dim, band, bright;
 	/* What is drawn: each line's id and baseline (landscape), -1 for none */
 	int         id[3], cx[3], by[3];
+	unsigned    alpha[3];       /* how much of each was in when drawn */
+	/* What is wanted, drawn or not (the tester's view hides the step), and
+	 * when each slot's line arrived: a line that comes where there was none
+	 * fades in over SLOW_QUICK_S, the first line and the help coming down
+	 * SLOW_DROP_Y as they do (the boot notice lab's picks) */
+	int         want[3];
+	double      at[3];
 	int         keep;           /* the buffer keeps what is drawn: unchanged lines are not drawn again */
 	int         tester;         /* the tester's view up */
 	int         tester_y;
@@ -431,7 +458,7 @@ static inline void slow_run_init(slow_run *r, unsigned W, unsigned H, unsigned s
 	 * inks of Salt & Pepper whatever the theme (a tester's screen) */
 	r->band = 0xff0b0c0a;
 	r->bright = 0xffe6e4da;
-	for (int i = 0; i < 3; i++) r->id[i] = -1;
+	for (int i = 0; i < 3; i++) r->id[i] = r->want[i] = -1;
 }
 
 /* The buffer's rows a landscape box covers, merged into [*lo, *hi) */
@@ -463,6 +490,18 @@ static inline void slow_want(const slow_run *r, double t, const char *stage, int
 	by[2] = slow_px(&r->set, SLOW_HELP_Y);
 }
 
+/* How far a line that arrived at `at` is in at `t`: 0 to 1 on the out
+ * curve (1 - (1 - p)^5) */
+static inline double slow_in(double at, double t)
+{
+	double p = (t - at) / SLOW_QUICK_S, q;
+
+	if (p >= 1.0) return 1.0;
+	if (p <= 0.0) return 0.0;
+	q = 1.0 - p;
+	return 1.0 - q * q * q * q * q;
+}
+
 /* One frame at `t`: the lines for `stage`, or the tester's view while
  * `tester` (SELECT held long enough) with the kernel's `lines` and `foot`.
  * Drawn into `buf` every frame (the animation's bands may have written over
@@ -472,10 +511,22 @@ static inline int slow_frame(slow_run *r, uint32_t *buf, double t, const char *s
                              char lines[][160], int nlines, const char *foot, int *lo, int *hi)
 {
 	int id[3], by[3], changed = 0, cx = (int)r->W / 2;
+	unsigned alpha[3];
 
 	if (!r->have) return 0;
 	slow_want(r, t, stage, id, by);
 	if (tester && !r->have_g) tester = 0;
+	/* Arriving: a slot's line where there was none starts now; one that
+	 * changes in place (the next step) is simply the next */
+	for (int i = 0; i < 3; i++) {
+		double in;
+
+		if (id[i] >= 0 && r->want[i] < 0) r->at[i] = t;
+		r->want[i] = id[i];
+		in = id[i] >= 0 ? slow_in(r->at[i], t) : 1.0;
+		alpha[i] = (unsigned)(in * 256.0 + 0.5);
+		if (i != 1) by[i] -= slow_px(&r->set, SLOW_DROP_Y) - (int)(slow_px(&r->set, SLOW_DROP_Y) * in + 0.5);
+	}
 	/* The tester's view goes: the frame's own pixels back under its band */
 	if (!tester && r->tester) {
 		for (unsigned y = (unsigned)r->tester_y; y < r->H; y++)
@@ -488,8 +539,9 @@ static inline int slow_frame(slow_run *r, uint32_t *buf, double t, const char *s
 		changed = 1;
 		for (int i = 0; i < 3; i++) r->id[i] = -1;   /* drawn again below */
 	}
-	/* The tester's view is all there is at the foot */
-	if (tester) id[1] = id[2] = -1;
+	/* The tester's view is all there is at the foot: the step is its last
+	 * row. The first line and the help, over Zyper, stay */
+	if (tester) id[1] = -1;
 	/* Lines that go or move: taken away first, before the tester's band
 	 * keeps what is under it */
 	for (int i = 0; i < 3; i++) {
@@ -497,7 +549,7 @@ static inline int slow_frame(slow_run *r, uint32_t *buf, double t, const char *s
 		const slow_line *l = &r->set.line[r->id[i]];
 		int x0, y0;
 
-		slow_put(l, buf, r->stride, r->W, r->H, r->turned, r->cx[i], r->by[i], r->ground, 0, 0, 1, &x0, &y0);
+		slow_put(l, buf, r->stride, r->W, r->H, r->turned, r->cx[i], r->by[i], r->ground, 0, 0, 1, 256, &x0, &y0);
 		slow_rows(r, x0, y0, (int)l->w, (int)l->h, lo, hi);
 		r->id[i] = -1;
 		changed = 1;
@@ -508,10 +560,9 @@ static inline int slow_frame(slow_run *r, uint32_t *buf, double t, const char *s
 
 		snprintf(sig, sizeof sig, "%d:%s:%.40s", nlines, nlines ? lines[nlines - 1] + 1 : "", foot);
 		if (!r->tester) {
-			int pitch = (int)r->g.h + 2, margin = (int)r->W / 32;
-
-			r->tester_y = (int)r->H - margin / 2 - (SLOW_TESTER_ROWS + 1) * pitch - margin / 2;
+			r->tester_y = slow_px(&r->set, SLOW_TESTER_TOP_Y);
 			if (r->tester_y < 0) r->tester_y = 0;
+			if (r->tester_y > (int)r->H) r->tester_y = (int)r->H;
 			free(r->under);
 			r->under = malloc((size_t)r->W * (r->H - (unsigned)r->tester_y) * 4);
 			if (!r->under) return changed;
@@ -521,8 +572,9 @@ static inline int slow_frame(slow_run *r, uint32_t *buf, double t, const char *s
 						? buf[(size_t)(r->W - 1 - x) * r->stride + y] : buf[(size_t)y * r->stride + x];
 			r->tester = 1;
 		}
+		top = r->tester_y;
 		slow_tester(&r->g, lines, nlines, foot, buf, r->stride, r->W, r->H, r->turned,
-		            r->band, 0xffc3c3ba, r->bright, &top);
+		            r->band, 0xffc3c3ba, r->bright, top);
 		if (strcmp(sig, r->tester_sig)) {
 			snprintf(r->tester_sig, sizeof r->tester_sig, "%s", sig);
 			slow_rows(r, 0, top, (int)r->W, (int)r->H - top, lo, hi);
@@ -530,19 +582,21 @@ static inline int slow_frame(slow_run *r, uint32_t *buf, double t, const char *s
 		}
 	}
 	for (int i = 0; i < 3; i++) {
-		if (id[i] < 0 || (r->keep && r->id[i] == id[i] && r->by[i] == by[i])) continue;
+		if (id[i] < 0 || (r->keep && r->id[i] == id[i] && r->by[i] == by[i] && r->alpha[i] == alpha[i]))
+			continue;
 		const slow_line *l = &r->set.line[id[i]];
 		int x0, y0;
 
 		slow_put(l, buf, r->stride, r->W, r->H, r->turned, cx, by[i], r->ground,
-		         i == 2 ? r->dim : r->soft, r->dim, 0, &x0, &y0);
-		if (r->id[i] != id[i]) {
+		         i == 2 ? r->dim : r->soft, r->dim, 0, alpha[i], &x0, &y0);
+		if (r->id[i] != id[i] || r->alpha[i] != alpha[i]) {
 			slow_rows(r, x0, y0, (int)l->w, (int)l->h, lo, hi);
 			changed = 1;
 		}
 		r->id[i] = id[i];
 		r->cx[i] = cx;
 		r->by[i] = by[i];
+		r->alpha[i] = alpha[i];
 	}
 	return changed;
 }
@@ -564,7 +618,7 @@ static inline void slow_copy_stuck(slow_run *r, uint32_t *buf, int *lo, int *hi)
 	if (!r->have || !l->have) return;
 	slow_clear(buf, r->stride, r->W, r->H, r->turned, 0, y0, r->W, (unsigned)(y1 - y0), r->ground);
 	slow_put(l, buf, r->stride, r->W, r->H, r->turned, (int)r->W / 2, slow_px(&r->set, SLOW_LINE_Y),
-	         r->ground, r->soft, r->dim, 0, NULL, NULL);
+	         r->ground, r->soft, r->dim, 0, 256, NULL, NULL);
 	slow_rows(r, 0, y0, (int)r->W, y1 - y0, lo, hi);
 }
 
