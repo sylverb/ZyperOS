@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""check-saver-place: the screensaver's picture never goes under its two
-slabs (DESIGN.md 11.37, src/saver.h's saver_art_place), read off the real
-launcher's frames.
+"""check-saver-place: the screensaver's cover never goes under its two slabs,
+and its snap plays over the whole screen (DESIGN.md 11.37, src/saver.h's
+saver_art_place and saver_fit), read off the real launcher's frames.
 
 2026-11-23: a tall cover ran under "Play / Any other button goes back" at
-the top right, and a snap played under both slabs.
+the top right. A snap keeps the whole screen, the slabs over it, as it did.
 
-Each picture is one flat color the launcher draws nowhere else. A picture
+Each picture is one flat color the launcher draws nowhere else. A cover
 nothing covers is a whole rectangle of it, so every pixel inside the box
 round that color's pixels (less a pixel at each edge, where scaling blends
-it) is that color; a slab over it leaves its own pixels in the box. Tall,
-wide and square covers (as the screensaver picks one, from gamelist.xml's
-image) and 4:3, 16:9 and tall snaps (--saver-pic), on the Pixel 2, the Brick
-and the Smart Pro, in English; the tall cover and the 4:3 snap in every
-language and both themes on each, with a long name in the game's slab.
-build-native/zyperos must be built (make native)."""
+it) is that color; a slab over it leaves its own pixels in the box. A snap's
+box is the whole screen's width or height, in its own shape, in the middle,
+within a pixel. Tall, wide and square covers (as the screensaver picks one,
+from gamelist.xml's image) and 4:3, 16:9 and tall snaps (--saver-pic), on
+the Pixel 2, the Brick and the Smart Pro, in English; the tall cover and the
+4:3 snap in every language and both themes on each, with a long name in the
+game's slab. build-native/zyperos must be built (make native)."""
 import os
 import subprocess
 import sys
@@ -63,12 +64,16 @@ def shoot(base, out, args):
     return r.returncode == 0 and out.is_file()
 
 
-def clear(png):
-    """True when the picture's color is a whole rectangle: nothing over it"""
+def art_box(png):
+    """The frame, its pixels off the picture's color, and the box round them"""
     im = Image.open(png).convert('RGB')
     off = ImageChops.difference(im, Image.new('RGB', im.size, ART)).convert('L')
-    art = off.point(lambda v: 255 if v == 0 else 0)
-    box = art.getbbox()
+    return im, off, off.point(lambda v: 255 if v == 0 else 0).getbbox()
+
+
+def clear(png):
+    """True when the picture's color is a whole rectangle: nothing over it"""
+    _, off, box = art_box(png)
     if not box:
         return False, 'no picture drawn'
     x0, y0, x1, y1 = box[0] + 1, box[1] + 1, box[2] - 1, box[3] - 1
@@ -77,6 +82,22 @@ def clear(png):
     if covered:
         return False, f'{covered} pixels of its box ({x0},{y0})-({x1},{y1}) under something'
     return True, f'({x0},{y0})-({x1},{y1})'
+
+
+def whole(png, size):
+    """True when a `size` snap fills the frame's width or height, in its own
+    shape, in the middle: saver_fit on the whole screen"""
+    im, _, box = art_box(png)
+    if not box:
+        return False, 'no picture drawn'
+    fw, fh = im.size
+    k = min(fw / size[0], fh / size[1])  # never near saver_fit's 8 times here
+    w, h = size[0] * k, size[1] * k
+    want = ((fw - w) / 2, (fh - h) / 2, (fw + w) / 2, (fh + h) / 2)
+    if any(abs(a - b) > 1.5 for a, b in zip(box, want)):
+        return False, ('its box ({},{})-({},{}), the whole screen\'s ({:.0f},{:.0f})-({:.0f},{:.0f})'
+                       .format(*box, *want))
+    return True, '({},{})-({},{})'.format(*box)
 
 
 def main():
@@ -117,16 +138,18 @@ def main():
                 fails.append(what + ': no shot')
                 print(f'  FAIL {what}: no shot')
                 continue
-            ok, why = clear(out)
+            ok, why = clear(out) if shape in COVERS else whole(out, SNAPS[shape])
             n += 1
             if not ok:
                 fails.append(f'{what}: {why}')
                 print(f'  FAIL {what}: {why}')
     if fails:
-        print(f'check-saver-place: {len(fails)} of {n} frames with the picture under a slab')
+        print(f'check-saver-place: {len(fails)} of {n} frames with a cover under a slab '
+              'or a snap off the whole screen')
         return 1
-    print(f'ok: the screensaver\'s picture clear of both slabs in {n} frames '
-          '(tall, wide, square covers; 4:3, 16:9, tall snaps; three handhelds, 8 languages, both themes)')
+    print(f'ok: the screensaver\'s covers clear of both slabs and its snaps over the whole screen '
+          f'in {n} frames (tall, wide, square covers; 4:3, 16:9, tall snaps; three handhelds, '
+          '8 languages, both themes)')
     return 0
 
 

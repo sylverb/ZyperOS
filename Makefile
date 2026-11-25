@@ -189,7 +189,7 @@ check-videoview: native
 check-saver-art: native
 	@python3 tools/saver-art-check.py
 
-# The screensaver's picture clear of its slabs, read off the launcher's frames
+# The screensaver's cover clear of its slabs, its snap over the whole screen, off its frames
 check-saver-place: native
 	@'$(PYIMG)' tools/saver-place-check.py
 

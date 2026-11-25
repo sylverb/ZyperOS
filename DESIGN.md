@@ -4455,11 +4455,8 @@ not start (src/saver.h).
 draws this, so every other thing the shelf does keeps working: the power
 button, Auto Off, the dark screen on the cable, a computer plugged in,
 px2-open's commands. The picture on **ink**, which both themes keep for
-content (MP4's full view, 11.14), as large as it goes in the middle of
-the screen's width **without going under either slab** (below), 12 clear
-of each, in its own shape, never stretched (src/saver.h's
-`saver_art_place`: the band between the slabs, or the column between them
-when that is larger), fading up from black over **SAVER_IN_MS**
+content (MP4's full view, 11.14), as large as the screen takes it, in its
+own shape, never stretched, fading up from black over **SAVER_IN_MS**
 (400 ms, **out**), shown for 15 s (it loops when it is shorter) and fading
 to black over 300 ms (**fade**, linear) before the next. The next is picked
 at random from every game on the systems row's menu that has a snap on the
@@ -4478,11 +4475,16 @@ shelf's word) over "Any other button goes back" in **chrome** **text-dim**.
 
 **With no snap on the card** it shows the games' covers instead, one at a
 time, each for 8 s, the cover in its own shape at most a third larger than it
-is, placed as a snap is, on the same ink. *(2026-11-23: a tall cover ran
-under the keys' slab, and a snap under both; `check-saver-place` reads every
-frame's picture whole, three handhelds, eight languages, both themes.)* A game with no cover is not
-picked. With neither, **nothing**: it does not start, the shelf stays as it
-is, and it does not try again until a button is pressed.
+is, on the same ink, as large as it goes in the middle of the screen's
+width **without going under either slab**, 12 clear of each (src/saver.h's
+`saver_art_place`: the band between the slabs, or the column between them
+when that is larger). A snap still plays over the whole screen, the slabs
+over it; only a cover keeps clear of them. *(2026-11-23: a tall cover ran
+under the keys' slab; `check-saver-place` reads every frame's cover whole and
+every snap over the whole screen, three handhelds, eight languages, both
+themes.)* A game with no cover is not picked. With neither, **nothing**: it
+does not start, the shelf stays as it is, and it does not try again until a
+button is pressed.
 
 **Its snaps and covers are the shelf's**: a game's own in `.media`, else
 EmulationStation's, by the one lookup the shelf, the details and File

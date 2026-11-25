@@ -288,7 +288,7 @@ static void saver_draw(app *a, float alpha)
 	SDL_Rect src = { 0, 0, 0, 0 };
 	int w = 0, h = 0;
 	Uint8 al = (Uint8)(255 * (alpha < 0 ? 0 : alpha > 1 ? 1 : alpha) + 0.5f);
-	/* The two slabs' places first: the picture goes where they are not
+	/* The two slabs' places first: a cover goes where they are not
 	 * (saver_art_place) */
 	const char *back = T(S_SAVER_BACK), *play = T(S_GAMES_PLAY);
 	int hint_w = page_hint_width("START", play, false);
@@ -332,23 +332,22 @@ static void saver_draw(app *a, float alpha)
 			}
 			src = (SDL_Rect){ 0, 0, 0, 0 };
 		}
-		/* its own picture, less the texture's padding (snapview.c) */
-		if (src.w > 0 && src.h > 0) { w = src.w; h = src.h; }
+		if (t && w > 0 && h > 0) {
+			/* The whole screen, in its own shape, never stretched, the
+			 * slabs over it */
+			saver_rect at = saver_fit((saver_rect){ 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H }, w, h, 8.0f);
+
+			SDL_RenderCopyF(r, t, src.w > 0 ? &src : NULL, &(SDL_FRect){ at.x, at.y, at.w, at.h });
+		}
 	} else if (g_sv.cover && g_sv.cw > 0 && g_sv.ch > 0) {
-		t = g_sv.cover;
-		w = g_sv.cw;
-		h = g_sv.ch;
-	}
-	if (t && w > 0 && h > 0) {
-		/* As large as it goes clear of both slabs, in its own shape, never
-		 * stretched: a snap up to the screen, a cover (small) at most a
-		 * third larger than it is */
+		/* A cover is small: not blown up past a third more, on a ground of
+		 * its own, as large as it goes clear of both slabs */
 		saver_rect at = saver_art_place(ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
 		                                (saver_rect){ game_q.x, game_q.y, game_q.w, game_q.h },
 		                                (saver_rect){ keys_q.x, keys_q.y, keys_q.w, keys_q.h },
-		                                gap, w, h, g_sv.video ? 8.0f : 1.34f);
+		                                gap, g_sv.cw, g_sv.ch, 1.34f);
 
-		SDL_RenderCopyF(r, t, src.w > 0 ? &src : NULL, &(SDL_FRect){ at.x, at.y, at.w, at.h });
+		SDL_RenderCopyF(r, g_sv.cover, NULL, &(SDL_FRect){ at.x, at.y, at.w, at.h });
 	}
 	/* Fading up from black, and to it */
 	if (al < 255) {

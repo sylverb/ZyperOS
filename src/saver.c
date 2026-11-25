@@ -153,7 +153,7 @@ int saver_pick(int n, uint32_t r, const saver_recent *recent)
 
 /* ---- where the picture goes (saver.h) ------------------------------------------ */
 
-static saver_rect fit_in(saver_rect box, int w, int h, float most)
+saver_rect saver_fit(saver_rect box, int w, int h, float most)
 {
 	float k;
 
@@ -170,8 +170,8 @@ saver_rect saver_art_place(float sw, float sh, saver_rect game, saver_rect keys,
 	float keys_left = keys.x - gap, game_right = game.x + game.w + gap;
 	/* half the column's width: as far as both slabs leave it, from the middle */
 	float half = sw / 2 - game_right < keys_left - sw / 2 ? sw / 2 - game_right : keys_left - sw / 2;
-	saver_rect band = fit_in((saver_rect){ 0, keys_bot, sw, game_top - keys_bot }, w, h, most);
-	saver_rect column = fit_in((saver_rect){ sw / 2 - half, 0, 2 * half, sh }, w, h, most);
+	saver_rect band = saver_fit((saver_rect){ 0, keys_bot, sw, game_top - keys_bot }, w, h, most);
+	saver_rect column = saver_fit((saver_rect){ sw / 2 - half, 0, 2 * half, sh }, w, h, most);
 
 	/* by area, with a whole pixel of room to call the column larger */
 	return column.w * column.h > band.w * band.h + 1.0f ? column : band;
