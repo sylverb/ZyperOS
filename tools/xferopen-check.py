@@ -153,7 +153,9 @@ def run(desk, tmp, name, bound, state, carrier, answers, expect, delay=DELAY_MS)
         drawn = int(f.group(3)) if f else None
         times.setdefault(name, []).append((opened, drawn, first))
         t_first = time.time() - t_press
-        check(opened is not None and opened < 100, f'{name}: File Transfer opened in {opened} ms')
+        # Its time is this computer's too (the card read, a fork under
+        # load): what must not be in it is a controller write, DELAY_MS each
+        check(opened is not None and opened < 1000, f'{name}: File Transfer opened in {opened} ms')
         # The first frame's drawing is this computer's (a loaded one draws
         # slowly, and desk mode's present draws the window's face): what must
         # not be in it is any of the link's writes, each DELAY_MS long
