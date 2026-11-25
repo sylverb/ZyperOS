@@ -202,6 +202,8 @@ static bool packed(const char *name)
 	        !strcmp(name + strlen(name) - 4, ".txt"));
 }
 
+const char *logpack_system_logs[LOGPACK_SYSTEM_LOGS] = { "/tmp/sppad.log", NULL };
+
 bool logpack_build(const char *logs_dir, const char *about,
                    const char *const *secrets, int n,
                    const char *folder, const char *out, char *err, size_t en)
@@ -227,6 +229,16 @@ bool logpack_build(const char *logs_dir, const char *about,
 			                strncmp(e->d_name, "wifi.log", 8) ? 0 : LOGPACK_WIFI_TAIL)) logs++;
 		}
 		closedir(d);
+	}
+	{
+		int i;
+
+		for (i = 0; i < LOGPACK_SYSTEM_LOGS && logpack_system_logs[i]; i++) {
+			const char *name = strrchr(logpack_system_logs[i], '/');
+
+			snprintf(path, sizeof path, "%s/%s", dir, name ? name + 1 : logpack_system_logs[i]);
+			if (copy_masked(logpack_system_logs[i], path, secrets, n, LOGPACK_WIFI_TAIL)) logs++;
+		}
 	}
 	snprintf(path, sizeof path, "%s/about.txt", dir);
 	if ((f = fopen(path, "w"))) {

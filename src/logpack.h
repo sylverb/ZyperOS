@@ -42,6 +42,14 @@ void logpack_mask_line(char *line, size_t cap, const char *const *secrets, int n
 /* The most of each wifi.log a pack takes: its last 256 KB, from a whole line */
 #define LOGPACK_WIFI_TAIL (256L * 1024)
 
+/* The system's own logs outside the logs folder, each packed under its own
+ * name where it exists, its last LOGPACK_WIFI_TAIL: the Smart Pro's
+ * controllers' reader (tools/sppad.c, started by plastron's init.d/brick
+ * with its log in /tmp), whose lines say each half's state and its sticks'
+ * raw readings. A list, so tools/logpack-check.c can point it elsewhere. */
+#define LOGPACK_SYSTEM_LOGS 4
+extern const char *logpack_system_logs[LOGPACK_SYSTEM_LOGS];
+
 /* Pack `logs_dir`'s zyperos.log files and `about` into `out` (a .tar.gz), with
  * everything inside one folder named `folder`. The staging happens under
  * /tmp and is removed again. False with a reason in `err` when it could not. */
