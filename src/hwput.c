@@ -18,6 +18,10 @@ static unsigned g_timeout = HWPUT_TIMEOUT_MS;
 
 void hwput_set_timeout(unsigned ms) { g_timeout = ms ? ms : HWPUT_TIMEOUT_MS; }
 
+static unsigned g_test_delay;
+
+void hwput_test_delay(unsigned ms) { g_test_delay = ms; }
+
 static unsigned mono_ms(void)
 {
 	struct timespec ts;
@@ -32,8 +36,17 @@ static unsigned    g_t0;
 static const char *g_what = "";
 static bool        g_late_said;
 static int         g_last = -1;
+static bool        g_untaken;
 
 int hwput_last(void) { return g_last; }
+
+int hwput_take(void)
+{
+	hwput_reap();
+	if (!g_untaken) return -1;
+	g_untaken = false;
+	return g_last;
+}
 
 /* What the child's exit says: 0 done, 1 skipped, 2 + k a write that failed
  * at step k */
@@ -52,6 +65,7 @@ static void ended(int status)
 	unsigned took = mono_ms() - g_t0;
 
 	g_last = result_of(status);
+	g_untaken = true;
 	/* A late one is said again when it ends: the controller came back */
 	if (g_late_said)
 		fprintf(stderr, "usb: the controller answered after all (%s, %u.%u s)\n", g_what,
@@ -73,6 +87,8 @@ void hwput_reap(void)
 	}
 	if (r < 0 && errno == ECHILD) {          /* somebody else reaped it */
 		g_pid = 0;
+		g_last = HWPUT_FAILED;
+		g_untaken = true;
 		g_late_said = false;
 		return;
 	}
@@ -123,6 +139,11 @@ static int child_run(const hwput_job *job)
 		if (s->say) klog_raw(s->say);
 		if (!s->path || !s->text) continue;      /* a line only */
 		len = strlen(s->text);
+		if (g_test_delay) {
+			struct timespec d = { (time_t)(g_test_delay / 1000), (long)(g_test_delay % 1000) * 1000000L };
+
+			while (nanosleep(&d, &d) < 0 && errno == EINTR) { }
+		}
 		if ((fd = open(s->path, O_WRONLY | O_CLOEXEC)) < 0) {
 			err = errno;
 		} else {
@@ -174,6 +195,7 @@ int hwput_run(const hwput_job *job, bool wait)
 	g_what = job->what;
 	g_late_said = false;
 	g_last = -1;
+	g_untaken = false;
 	if (!wait) return HWPUT_STARTED;
 	/* A write is a few ms when the controller is well: looked at often at
 	 * first, then every 10 ms */
@@ -183,6 +205,7 @@ int hwput_run(const hwput_job *job, bool wait)
 
 		if (r == pid) {
 			ended(status);
+			g_untaken = false;            /* its caller has it */
 			return g_last;
 		}
 		if (r < 0 && errno != EINTR) {

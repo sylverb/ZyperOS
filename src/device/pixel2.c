@@ -13,7 +13,7 @@
  * device_display_release before a game presents, device_display_take when the
  * launcher has the screen back. */
 #include "atomic.h"
-#include "cablefresh.h"
+#include "gadget.h"
 #include "charging.h"
 #include "charging_rule.h"
 #include "audioout.h"
@@ -1529,6 +1529,8 @@ bool plat_cable_link(char *addr, size_t n)
  * charger detection marks a computer's port SDP or CDP and a wall charger
  * DCP, with or without the gadget bound, and USB-HOST is the ID pin of a host
  * cable. Every extcon's "state" is read, lines like "SDP=1". */
+static void link_setup(void);
+
 usb_peer plat_usb_peer(void)
 {
 	DIR *d;
@@ -1536,6 +1538,11 @@ usb_peer plat_usb_peer(void)
 	bool host = false, data = false, dcp = false;
 	char in[8] = "";
 	int fd;
+
+	/* The link's work, at every look at the port: a job that ended said,
+	 * what was asked started (gadget.h) */
+	link_setup();
+	gadget_pump();
 
 	/* No power coming in is nothing on the port, whatever the extcon still
 	 * says: the RK817's input answers on its own interrupt, at once, where
@@ -1574,6 +1581,8 @@ usb_peer plat_usb_peer(void)
  * writing its name into UDC, and let go by writing nothing. S40usbgadget
  * binds it at boot only in Developer Mode (usblink.h). */
 #define GADGET_UDC "/sys/kernel/config/usb_gadget/px2/UDC"
+/* The computer's address on the link, the one udhcpd gives (udhcpd.conf) */
+#define CABLE_PEER "10.42.0.2"
 
 static bool dhcpd_running(void);
 
@@ -1585,6 +1594,31 @@ static bool dhcpd_running(void);
  * told the computer it was connected (a Mac's en8 "inactive", the steps'
  * "no driver" hint). Only what is missing is done: an address already there
  * is left alone, never flushed. */
+/* Whether cable_netdev_up has work: usb0 down, or up with no address. Two
+ * small reads, for the main thread (the work is the network thread's). */
+static bool netdev_missing(void)
+{
+	char buf[32];
+	unsigned long flags = 0;
+	struct ifreq ifr;
+	int fd;
+	ssize_t got;
+	bool has;
+
+	if ((fd = open("/sys/class/net/usb0/flags", O_RDONLY | O_CLOEXEC)) < 0) return false;
+	got = read(fd, buf, sizeof buf - 1);
+	close(fd);
+	if (got > 0) { buf[got] = '\0'; flags = strtoul(buf, NULL, 16); }
+	if (!(flags & 1)) return true;             /* IFF_UP */
+	if ((fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0)) < 0) return false;
+	memset(&ifr, 0, sizeof ifr);
+	snprintf(ifr.ifr_name, sizeof ifr.ifr_name, "usb0");
+	ifr.ifr_addr.sa_family = AF_INET;
+	has = ioctl(fd, SIOCGIFADDR, &ifr) == 0;
+	close(fd);
+	return !has;
+}
+
 static void cable_netdev_up(void)
 {
 	char buf[32];
@@ -1625,91 +1659,88 @@ static void cable_netdev_up(void)
 	}
 }
 
-/* The controller's first (and only) UDC, by name; false with none */
-static bool first_udc(char *udc, size_t n)
-{
-	DIR *d = opendir("/sys/class/udc");
-	struct dirent *e;
+/* The cable's network, brought up off the main thread: cable_netdev_up's ip
+ * and udhcpd (spawn_capture, up to 3 s each) after a new bind and whenever
+ * plat_cable_sense finds something missing, and udhcpd started again when it
+ * died. A thread that takes each ask once; asks while it works are one more
+ * turn, not one each. */
+enum { NET_UP = 1, NET_DHCPD = 2 };
+static pthread_mutex_t net_mx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  net_cv = PTHREAD_COND_INITIALIZER;
+static unsigned        net_asked;
+static bool            net_thread;
 
-	udc[0] = '\0';
-	if (!d) return false;
-	while ((e = readdir(d)))
-		if (e->d_name[0] != '.') { snprintf(udc, n, "%s", e->d_name); break; }
-	closedir(d);
-	return udc[0] != '\0';
+static void dhcpd_again(void)
+{
+	if (!dhcpd_running() && access("/etc/udhcpd.conf", R_OK) == 0) {
+		char *argv[] = { "/usr/sbin/udhcpd", "/etc/udhcpd.conf", NULL };
+
+		fprintf(stderr, "usb: udhcpd was not running, started again (%d)\n",
+		        spawn_capture(argv, NULL, 0, 3));
+	}
 }
 
-/* The link as the last job left it, for while a job's child is still in a
- * write (hwput.h): the gadget's UDC file is not read then, since a read
- * waits on the same lock as the write that hangs. -1 unknown. */
-static int link_known = -1;
-/* When it was last bound (plat_now_ms), for the fresh link (cablefresh.h) */
-static unsigned link_bound_at;
-
-/* The gadget's UDC through a job (hwput.h): bound with the controller's
- * name, let go with an empty line (a write of nothing at all is ignored).
- * True when the writes were made. */
-static bool gadget_write(bool unbind, bool bind)
+static void *net_run(void *arg)
 {
-	char udc[256] = "", say_bind[300];
-	hwput_step steps[2];
-	int n = 0, r;
+	(void)arg;
+	pthread_mutex_lock(&net_mx);
+	for (;;) {
+		unsigned what;
 
-	if (bind && !first_udc(udc, sizeof udc)) return false;
-	if (unbind) steps[n++] = (hwput_step){ "usb: the gadget's UDC, unbind", GADGET_UDC, "\n", 0 };
-	if (bind) {
-		snprintf(say_bind, sizeof say_bind, "usb: the gadget's UDC, bind %s", udc);
-		steps[n++] = (hwput_step){ say_bind, GADGET_UDC, udc, 0 };
+		while (!net_asked) pthread_cond_wait(&net_cv, &net_mx);
+		what = net_asked;
+		net_asked = 0;
+		pthread_mutex_unlock(&net_mx);
+		if (what & NET_UP) cable_netdev_up();
+		if (what & NET_DHCPD) dhcpd_again();
+		pthread_mutex_lock(&net_mx);
 	}
-	r = hwput_run(&(hwput_job){ bind ? "the gadget's bind" : "the gadget's unbind", NULL, NULL,
-	                            steps, n }, true);
-	return r == HWPUT_DONE;
+	return NULL;
+}
+
+static void net_ask(unsigned what)
+{
+	pthread_mutex_lock(&net_mx);
+	if (!net_thread) {
+		pthread_t t;
+
+		net_thread = pthread_create(&t, NULL, net_run, NULL) == 0;
+		if (net_thread) pthread_detach(t);
+	}
+	net_asked |= what;
+	pthread_cond_signal(&net_cv);
+	pthread_mutex_unlock(&net_mx);
+	if (!net_thread) {                       /* no thread: here, as before */
+		if (what & NET_UP) cable_netdev_up();
+		if (what & NET_DHCPD) dhcpd_again();
+	}
+}
+
+static void after_bind(void) { net_ask(NET_UP); }
+
+/* The gadget's link (gadget.h): asked for and never waited on; its writes
+ * in hwput's child */
+static void link_setup(void)
+{
+	static bool done;
+
+	if (done) return;
+	done = true;
+	gadget_init(&(gadget_cfg){ NULL, "/sys/class/udc", GADGET_UDC, NULL, "usb0", CABLE_PEER, true,
+	                           after_bind, plat_now_ms });
 }
 
 bool plat_usb_link(int op)
 {
-	char cur[64] = "";
-	bool bound;
-	int fd;
+	link_setup();
+	return gadget_link(op);
+}
 
-	if (hwput_busy()) return link_known == 1;
-	if ((fd = open(GADGET_UDC, O_RDONLY | O_CLOEXEC)) < 0) return false;   /* no gadget: S40 has not run */
-	if (read(fd, cur, sizeof cur - 1) < 0) cur[0] = '\0';
-	close(fd);
-	bound = cur[0] != '\0' && cur[0] != '\n';
-	link_known = bound;
-	if (op == 2) {
-		/* Off and on again in one job: the computer sees a new plug */
-		if (!gadget_write(bound, true)) {
-			if (!hwput_busy()) link_known = -1;
-			return false;
-		}
-		link_known = 1;
-		link_bound_at = plat_now_ms();
-		fprintf(stderr, "usb: the link to the computer is on, fresh\n");
-		cable_netdev_up();
-		return true;
-	}
-	if (op < 0 || (op == 1) == bound) return bound;
-	if (op == 1) {
-		if (!gadget_write(false, true)) {
-			fprintf(stderr, "usb: the link to the computer did not come on\n");
-			return false;
-		}
-		link_known = 1;
-		link_bound_at = plat_now_ms();
-		fprintf(stderr, "usb: the link to the computer is on\n");
-		cable_netdev_up();
-		return true;
-	}
-	if (!gadget_write(true, false)) {
-		/* Left as the controller has it: the next look reads it again */
-		fprintf(stderr, "usb: the link to the computer did not go off\n");
-		return true;
-	}
-	link_known = 0;
-	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
-	return false;
+int plat_usb_configured(void)
+{
+	link_setup();
+	gadget_pump();
+	return gadget_configured();
 }
 
 /* File Transfer's steps over the cable (linksteps.h), from the device's own
@@ -1720,7 +1751,6 @@ bool plat_usb_link(int op)
  * the computer's side of the link has a fixed MAC address, so it is the same
  * one every plug), and a datagram to it makes the kernel ask for it by ARP:
  * a computer that took the address answers, whatever its firewall says. */
-#define CABLE_PEER "10.42.0.2"
 
 /* udhcpd, which S40usbgadget starts at boot, is the computer's only way to
  * an address: one that died leaves every computer on the cable without one
@@ -1771,7 +1801,6 @@ bool plat_cable_sense(link_sense *o)
 	unsigned now = plat_now_ms();
 
 	memset(o, 0, sizeof *o);
-	hwput_reap();
 	o->computer = plat_usb_peer() == USB_PEER_COMPUTER;
 	/* A computer whose port took the sink side gives no power, so the PHY
 	 * sees no computer: usbrole says something waits for power */
@@ -1794,7 +1823,7 @@ bool plat_cable_sense(link_sense *o)
 	 * left down: brought up here too, every 2 s at most */
 	if (o->configured && (!netdev_at || now - netdev_at >= 2000u)) {
 		netdev_at = now ? now : 1;
-		cable_netdev_up();
+		if (netdev_missing()) net_ask(NET_UP);
 	}
 	o->carrier = o->configured &&
 	             read_small("/sys/class/net/usb0/carrier", buf, sizeof buf) && buf[0] == '1';
@@ -1804,12 +1833,7 @@ bool plat_cable_sense(link_sense *o)
 	/* No address yet: udhcpd started again if it is gone, every 5 s at most */
 	if (!o->address && (!dhcpd_at || now - dhcpd_at >= 5000u)) {
 		dhcpd_at = now ? now : 1;
-		if (!dhcpd_running() && access("/etc/udhcpd.conf", R_OK) == 0) {
-			char *argv[] = { "/usr/sbin/udhcpd", "/etc/udhcpd.conf", NULL };
-
-			fprintf(stderr, "usb: udhcpd was not running, started again (%d)\n",
-			        spawn_capture(argv, NULL, 0, 3));
-		}
+		net_ask(NET_DHCPD);
 	}
 	if (!o->address && (!asked_at || now - asked_at >= 1000u)) {
 		int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -1989,14 +2013,8 @@ bool plat_usb_iphone(void)
  * computer does not answer over it, or it is not whole. */
 void plat_cable_reconnect(void)
 {
-	char udc[256], dir[300];
-
-	hwput_reap();
-	if (!first_udc(udc, sizeof udc)) return;
-	snprintf(dir, sizeof dir, "/sys/class/udc/%s", udc);
-	cable_fresh(&(cable_fresh_cfg){
-		dir, "usb0", CABLE_PEER, true,
-		link_bound_at && plat_now_ms() - link_bound_at < LINK_FRESH_MS });
+	link_setup();
+	gadget_fresh();
 }
 
 /* No mute switch on this device. */

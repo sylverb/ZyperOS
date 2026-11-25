@@ -77,7 +77,16 @@ void hwput_reap(void);
 /* For the check: another timeout than HWPUT_TIMEOUT_MS */
 void hwput_set_timeout(unsigned ms);
 
+/* For desk mode's stand-in cable (src/device/deskcable.c): the child waits
+ * this long before each write, as a slow controller does */
+void hwput_test_delay(unsigned ms);
+
 /* For the check: the last job's result once its child ended (-1 before) */
 int hwput_last(void);
+
+/* The result of a job whose child ended since this was last asked, once
+ * (HWPUT_DONE, HWPUT_SKIPPED or HWPUT_FAILED), or -1: for a caller that did
+ * not wait (gadget.h) to act on its end. Reaps first. */
+int hwput_take(void);
 
 #endif

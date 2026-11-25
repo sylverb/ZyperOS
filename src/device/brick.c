@@ -3,7 +3,7 @@
  * different devices, the LEDs, the codec, the panel backlight, the battery,
  * and where things live on its card. Everything here is what makes a Brick a
  * Brick; the rest of ZyperOS reaches it through platform.h and device.h. */
-#include "cablefresh.h"
+#include "gadget.h"
 #include "charging.h"
 #include "charging_rule.h"
 #include "atomic.h"
@@ -12,7 +12,6 @@
 #include "db.h"
 #include "device.h"
 #include "fileio.h"
-#include "hwput.h"
 #include "linksteps.h"
 #include "nightkeep.h"
 #include "levels.h"
@@ -26,6 +25,7 @@
 #include "keymap.h"
 #ifdef ZYPEROS_DESK
 #include "desk.h"
+#include "deskcable.h"
 #endif
 
 #include <dirent.h>
@@ -1100,6 +1100,9 @@ static bool file_starts(const char *path, const char *word)
 
 bool plat_cable_link(char *addr, size_t n)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_link(addr, n);
+#endif
 	if (!file_starts("/sys/class/net/usb0/carrier", "1") ||
 	    !file_starts("/sys/class/power_supply/axp2202-usb/online", "1"))
 		return false;
@@ -1135,44 +1138,30 @@ static int plug_state = PLUG_OUT;
 static unsigned plug_t0;
 static bool link_on;          /* what usblink set: plat_usb_link's answer */
 
-/* The gadget on the controller, or off it: the UDC's name in the gadget's
- * UDC file, or an empty line. True when it is bound after. */
-static bool gadget_bound(void)
+/* The link's work in the background (gadget.h): the gadget's binds and
+ * unbinds in hwput's child, never waited on */
+static void link_setup(void)
 {
-	char buf[64] = "";
-	int fd = open(CABLE_GADGET, O_RDONLY | O_CLOEXEC);
+	static bool done;
 
-	if (fd < 0) return false;
-	if (read(fd, buf, sizeof buf - 1) < 0) buf[0] = '\0';
-	close(fd);
-	return buf[0] != '\0' && buf[0] != '\n';
+	if (done) return;
+	done = true;
+	gadget_init(&(gadget_cfg){ CABLE_UDC, NULL, CABLE_GADGET, NULL, "usb0", CABLE_PEER, false,
+	                           NULL, plat_now_ms });
 }
 
-/* When the link was last bound for usblink (plat_now_ms), for the fresh
- * link (cablefresh.h) */
-static unsigned link_bound_at;
+/* The gadget on the controller, or asked to be: true when it is bound or
+ * will be once the work asked is done */
+static bool gadget_bound(void)
+{
+	link_setup();
+	return gadget_link(-1);
+}
 
-/* Bound or let go through a job (hwput.h), so the launcher never waits on
- * the controller for long; while a job's child is still in a write the
- * gadget's UDC is not read either (a read waits on the same lock), and the
- * answer is what was last asked */
 static bool gadget_bind(bool on)
 {
-	static bool last;
-	const char *udc = strrchr(CABLE_UDC, '/') + 1;
-	hwput_step step = { on ? "usb: the gadget's UDC, bind" : "usb: the gadget's UDC, unbind",
-	                    CABLE_GADGET, on ? udc : "\n", 0 };
-
-	int r;
-
-	if (hwput_busy()) return last;
-	if (on == gadget_bound()) return last = on;
-	r = hwput_run(&(hwput_job){ on ? "the gadget's bind" : "the gadget's unbind", NULL, NULL,
-	                            &step, 1 }, true);
-	/* Not done yet, the child still in its write: as it was, as far as
-	 * anybody here can tell */
-	if (r == HWPUT_TIMEOUT || r == HWPUT_BUSY) return last;
-	return last = gadget_bound();
+	link_setup();
+	return gadget_link(on ? 1 : 0);
 }
 
 /* A host on the bus: the controller past "not attached" (reset, addressed,
@@ -1186,6 +1175,12 @@ static bool host_seen(void)
 
 usb_peer plat_usb_peer(void)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_peer();
+#endif
+	/* The link's work, at every look at the port (gadget.h) */
+	link_setup();
+	gadget_pump();
 	if (!file_starts(CABLE_ONLINE, "1")) {
 		/* Out: the probe's binding goes with it (the link's is usblink's
 		 * to let go, which it does when it sees this) */
@@ -1221,28 +1216,36 @@ usb_peer plat_usb_peer(void)
 }
 
 /* usblink's link: -1 asks, 0 lets it go (charging only), 1 binds it, 2 a
- * fresh one (off and on). The answer is the link's state after. */
+ * fresh one (off and on). The answer is the link as it will be once the
+ * work asked is done (gadget.h), which says its end in the log. */
 bool plat_usb_link(int op)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_usb_link(op);
+#endif
+	link_setup();
 	if (op < 0) return link_on;
-	if (op == 2) {
-		gadget_bind(false);
-		op = 1;
-	}
-	if (op == 1) {
-		link_on = gadget_bind(true);
-		if (link_on) {
-			link_bound_at = plat_now_ms();
-			fprintf(stderr, "usb: the link to the computer is on\n");
-		}
-		return link_on;
-	}
-	link_on = false;
-	gadget_bind(false);
-	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
+	link_on = gadget_link(op);
+	return link_on;
+}
+
+/* The controller's state says nothing here (CABLE_UDC's comment) */
+int plat_usb_configured(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_configured();
+#endif
+	return -1;
+}
+
+bool plat_cable_sense(link_sense *out)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_sense(out);
+#endif
+	(void)out;
 	return false;
 }
-bool plat_cable_sense(link_sense *out) { (void)out; return false; }
 bool plat_usb_power(usb_power *out) { (void)out; return false; }
 bool plat_usb_power_grant(unsigned plug) { (void)plug; return false; }
 bool plat_usb_power_mode(bool automatic) { (void)automatic; return false; }
@@ -1261,10 +1264,11 @@ bool plat_usb_iphone(void) { return false; }
  * count. */
 void plat_cable_reconnect(void)
 {
-	hwput_reap();
-	cable_fresh(&(cable_fresh_cfg){
-		CABLE_UDC, "usb0", CABLE_PEER, false,
-		link_bound_at && plat_now_ms() - link_bound_at < LINK_FRESH_MS });
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) { deskcable_reconnect(); return; }
+#endif
+	link_setup();
+	gadget_fresh();
 }
 
 /* The switch, checked wherever the jack is and for the same reason: this is
@@ -1664,13 +1668,48 @@ bool plat_headphones_present(void) { return false; }
 bool plat_usb_audio_present(void) { return false; }
 bool plat_cable_link(char *addr, size_t n)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_link(addr, n);
+#endif
 	(void)addr; (void)n;
 	return false;
 }
-void plat_cable_reconnect(void) { }
-usb_peer plat_usb_peer(void) { return USB_PEER_UNKNOWN; }
-bool plat_usb_link(int op) { (void)op; return true; }
-bool plat_cable_sense(link_sense *out) { (void)out; return false; }
+void plat_cable_reconnect(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) deskcable_reconnect();
+#endif
+}
+usb_peer plat_usb_peer(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_peer();
+#endif
+	return USB_PEER_UNKNOWN;
+}
+bool plat_usb_link(int op)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_usb_link(op);
+#endif
+	(void)op;
+	return true;
+}
+int plat_usb_configured(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_configured();
+#endif
+	return -1;
+}
+bool plat_cable_sense(link_sense *out)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_sense(out);
+#endif
+	(void)out;
+	return false;
+}
 bool plat_usb_power(usb_power *out) { (void)out; return false; }
 bool plat_usb_power_grant(unsigned plug) { (void)plug; return false; }
 bool plat_usb_power_mode(bool automatic) { (void)automatic; return false; }

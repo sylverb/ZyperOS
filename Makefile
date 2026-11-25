@@ -175,6 +175,11 @@ desk-r36s:
 check-desk: native
 	@python3 tools/desk-check.py
 
+# USB File Transfer's opening in desk mode over a stand-in cable whose
+# controller writes are slow (tools/xferopen-check.py, src/device/deskcable.h)
+check-xferopen: native
+	@python3 tools/xferopen-check.py
+
 # The home's d-pad held, in desk mode: the Grid's rows to each end, Spotlight's
 # groups forward
 check-homekeys: native
