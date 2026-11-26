@@ -12,14 +12,14 @@ setenv zy_dtb rk3326s-gkd-pixel2.dtb
 # console either (linux-px2.config): the panel powers up in the background
 # from early in boot (kernel patch 6), and nothing draws on it until
 # userspace does. For kernel messages on screen while debugging, turn
-# CONFIG_FRAMEBUFFER_CONSOLE back on; panic=30 then keeps a panic visible
+# CONFIG_FRAMEBUFFER_CONSOLE back on, and a longer panic= to keep a panic visible
 # instead of rebooting after 1 s. The root is squashfs, read-only.
 #
 # And no start that hangs for good (a Pixel 2's cold starts stopped in the
 # kernel under a second in, backlight on and no splash, until the battery
 # ran out: 2026-11-23). The card's root is waited for 20 s at most, then the
 # kernel panics ("VFS: Unable to mount root fs"), which pstore keeps and
-# panic=30 restarts: it is there 0.14 s after the wait begins (0.57 s into
+# panic=10 restarts: it is there 0.14 s after the wait begins (0.57 s into
 # the start, measured on a cold start of a 128 GB SDR104 card), so 20 s is
 # a card more than a hundred times slower. The watchdog U-Boot started is
 # the kernel's to pet until something opens it, 60 s at most
@@ -29,4 +29,9 @@ setenv zy_dtb rk3326s-gkd-pixel2.dtb
 # during the start only: zyperos.init sets the panic back to 0 once the
 # launcher is starting, and around the card's long writes (a fresh card's
 # format, the first start's copy), so a slow card's long write never does.
-setenv zy_args "rootfstype=squashfs ro rootwait=20 console=tty1 panic=30 watchdog.open_timeout=60 sysctl.kernel.hung_task_timeout_secs=60 sysctl.kernel.hung_task_panic=1"
+# 10 s, not more: the watchdog's first stage is a panic too (its pre-timeout
+# interrupt, linux-px2.config), and its second, the chip's own reset, comes one
+# TOP (21 s or more) after it. The panic's restart is the RK817's, which the
+# card comes back from; the chip's reset left the card unreadable to the boot
+# ROM, which started the handheld's own loader (2026-11-26).
+setenv zy_args "rootfstype=squashfs ro rootwait=20 console=tty1 panic=10 watchdog.open_timeout=60 sysctl.kernel.hung_task_timeout_secs=60 sysctl.kernel.hung_task_panic=1"

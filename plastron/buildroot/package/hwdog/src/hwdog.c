@@ -8,9 +8,11 @@
  * something opens /dev/watchdog, for watchdog.open_timeout=60 s at most;
  * this opens it at init's first step and pets it every PET_S from then on,
  * with a WATCHDOG_S timeout. A kernel that stops anywhere, before init or
- * after, stops the petting, and the chip resets itself; pstore keeps the
- * kernel's console across that warm reset, and crashlog reports it at the
- * next start.
+ * after, stops the petting: the watchdog's first stage, an interrupt, panics
+ * (the kernel's dw_wdt patch, linux-px2.config), and the panic restarts the
+ * handheld through the RK817, which pstore's RAM and the card come back
+ * from; crashlog reports it at the next start. The chip's own reset, one
+ * stage later, is for a kernel that takes no interrupt.
  *
  * What it must never do is reset a handheld that is only busy. The false
  * reset plastron PR #115 feared was a petter late on a slow card under a
