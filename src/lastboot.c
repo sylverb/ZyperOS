@@ -10,6 +10,18 @@
 
 #define NBSP "\xc2\xa0"
 
+/* A value longer than its field is left out, not cut: a time, a version or
+ * a device that lost its end reads as another one. The kernel's last line
+ * is only for the log, so it keeps what fits, marked as cut with "...". */
+static void field(char *dst, size_t size, const char *v, size_t n, bool part)
+{
+	if (n < size) memcpy(dst, v, n + 1);
+	else if (part && size > 4) {
+		memcpy(dst, v, size - 4);
+		memcpy(dst + size - 4, "...", 4);
+	}
+}
+
 /* crashlog's words, and the letters */
 static char reason_of(const char *v)
 {
@@ -72,10 +84,10 @@ bool lastboot_parse(const char *text, lastboot *out)
 				double t = strtod(val, &e);
 
 				if (e != val && t >= 0.0 && t < 1e7) out->kernel_time = t;
-			} else if (!strcmp(key, "time") && strcmp(val, "-")) snprintf(out->time, sizeof out->time, "%s", val);
-			else if (!strcmp(key, "version")) snprintf(out->version, sizeof out->version, "%s", val);
-			else if (!strcmp(key, "device")) snprintf(out->device, sizeof out->device, "%s", val);
-			else if (!strcmp(key, "last")) snprintf(out->last, sizeof out->last, "%s", val);
+			} else if (!strcmp(key, "time") && strcmp(val, "-")) field(out->time, sizeof out->time, val, vn, false);
+			else if (!strcmp(key, "version")) field(out->version, sizeof out->version, val, vn, false);
+			else if (!strcmp(key, "device")) field(out->device, sizeof out->device, val, vn, false);
+			else if (!strcmp(key, "last")) field(out->last, sizeof out->last, val, vn, true);
 			else if (!strcmp(key, "seen")) out->seen = strtol(val, NULL, 10);
 		}
 		p = end ? end + 1 : NULL;
