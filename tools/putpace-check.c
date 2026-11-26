@@ -31,7 +31,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 static int fails;
 
@@ -157,25 +156,22 @@ static SDL_Renderer *R;
 static SDL_Texture *slot[SHELF];
 static int landed_twice, landed_wrong;
 static float slow_ms;          /* each upload made this slow, on purpose */
-static double put_all_ms;      /* every upload's time in run_frames, for the host's speed */
+static double put_all_ms;      /* every upload's time in run_frames */
 static int nput_all;
 static double put_ms[64];      /* this frame's, one a picture */
 static int nput;
 
-static double now_ms(void)
-{
-	return (double)SDL_GetPerformanceCounter() * 1000.0 /
-	       (double)SDL_GetPerformanceFrequency();
-}
+/* The check's clock, in ms, which texload_deliver times its share on
+ * (texload_test_clock): it moves only by what each upload is said to cost
+ * (slow_put), so a frame's time on the pictures is the pacing's alone, the
+ * same on an idle Mac, a loaded one or CI. On the wall clock a busy machine
+ * taking the core in the middle of a frame made the frame longer than its
+ * share and a picture (CI, 2026-11-25). */
+static double fake_ms;
 
-/* This thread's own CPU time, in ms: a frame's time on the pictures is timed on it, so another
- * program holding the core in the middle of a frame is not the frame's (2026-11-24) */
-static double cpu_ms(void)
+static double test_ms(void)
 {
-	struct timespec t;
-
-	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-	return (double)t.tv_sec * 1000.0 + t.tv_nsec / 1e6;
+	return fake_ms;
 }
 
 /* How long a wait below waits for the workers, in ms. Each returns as soon as what it waits for
@@ -207,8 +203,6 @@ static SDL_Surface *kept[SHELF];
 
 static void slow_put(void *ctx, texload_got *g)
 {
-	double t0 = now_ms();
-
 	(void)ctx;
 	if (g->sys != SYS || g->idx < 0 || g->idx >= SHELF || !g->surf || !g->card) {
 		landed_wrong++;
@@ -220,9 +214,9 @@ static void slow_put(void *ctx, texload_got *g)
 		slot[g->idx] = ui_card_upload(R, g->surf, g->theme);
 		kept[g->idx] = g->surf;
 	}
-	while (now_ms() - t0 < slow_ms) { }
-	if (nput < 64) put_ms[nput] = now_ms() - t0;
-	put_all_ms += now_ms() - t0;
+	fake_ms += slow_ms;
+	if (nput < 64) put_ms[nput] = slow_ms;
+	put_all_ms += slow_ms;
 	nput_all++;
 	nput++;
 }
@@ -308,11 +302,9 @@ static bool wait_finished(int want_waiting)
  * spent before its last picture, which is what the share bounds. Returns the
  * frames it took.
  *
- * A frame's time is this thread's CPU time (cpu_ms), an upload's and the
- * spend before the last the wall clock's, as texload's own pacing reads
- * them: so "its share and one picture at most" is not failed by another
- * program taking the core between two pictures, and the spend before the
- * last is what texload decided on. The turns with nothing finished yet are
+ * Every time here is the check's clock (fake_ms), which texload's own pacing
+ * reads too: an upload costs what slow_ms says. The turns with nothing
+ * finished yet are
  * not frames, and are bounded by WAIT_MS, not counted against max_frames:
  * how many there are is the host's speed (2026-11-24). */
 static int run_frames(int want, int max_frames, double *worst_frame,
@@ -329,9 +321,9 @@ static int run_frames(int want, int max_frames, double *worst_frame,
 		int n, waiting = texload_waiting();
 
 		nput = 0;
-		t0 = cpu_ms();
+		t0 = fake_ms;
 		n = texload_deliver(theme_index(), slow_put, NULL);
-		t = cpu_ms() - t0;
+		t = fake_ms - t0;
 		if (!waiting && !n) {
 			/* Not finished yet: the workers are drawing the rest. Not a
 			 * frame that put anything, so it does not count: how many of
@@ -361,9 +353,10 @@ static void the_workers(void)
 
 	learn_cards();
 
-	/* At the host's own speed: a shelf and more, all finished at once */
-	printf("  at the host's speed\n");
-	slow_ms = 0.0f;
+	texload_test_clock(test_ms);
+	/* Uploads 0.3 ms each, as a fast GPU's: a shelf and more, all finished at once */
+	printf("  with each upload 0.3 ms\n");
+	slow_ms = 0.3f;
 	clear_shelf();
 	ask_shelf(0, 24);
 	ck(wait_finished(24), "two dozen finished");
@@ -373,25 +366,22 @@ static void the_workers(void)
 	ck(filled() == SHELF && !landed_twice && !landed_wrong && all_their_own(),
 	   "every picture in its own slot, once, and none lost");
 	{
-		/* A frame puts pictures until its share is spent, so how many
-		 * fit in one depends on this host's upload time: a fast one fits
-		 * the shelf in a few frames, a slow one (a CI runner's software
-		 * renderer) in about one a frame. That is the pacing working, so
-		 * the bound follows the host: at least 30, more where each upload
-		 * takes a share or more */
+		/* A frame puts pictures until its share is spent: at 0.3 ms an
+		 * upload about thirteen a frame, once the pace has learned the
+		 * cost, so the shelf in a few frames */
 		double avg = nput_all ? put_all_ms / nput_all : 0.0;
 		int fit = avg > 0.0 ? (int)(TEXLOAD_SHARE_MS / avg) + 1 : SHELF;
 		int need = (SHELF + fit - 1) / fit;
 		int bound = 2 * need + 2;
 
 		if (bound < 30) bound = 30;
-		ck(frames <= bound, "the shelf in a few frames, for this host's upload time");
+		ck(frames <= bound, "the shelf in a few frames, for its upload time");
 		printf("    an upload takes %.2f ms here: %d a frame, at most %d frames\n",
 		       avg, fit, bound);
 	}
-	ck(before_last <= TEXLOAD_SHARE_MS + 1.0,
+	ck(before_last <= TEXLOAD_SHARE_MS + 0.001,
 	   "no frame took another picture once its share was spent");
-	printf("    %d pictures in %d frames, the longest %.2f ms of CPU (share %.1f)\n",
+	printf("    %d pictures in %d frames, the longest %.2f ms (share %.1f)\n",
 	       SHELF, frames, worst, (double)TEXLOAD_SHARE_MS);
 
 	/* Uploads made 1.5 ms each, as a slow GPU's are: two a frame */
@@ -403,11 +393,11 @@ static void the_workers(void)
 	frames = run_frames(24, 400, &worst, &before_last, &worst_put);
 	ck(filled() == 24 && !landed_twice && !landed_wrong && all_their_own(),
 	   "every picture in its own slot, once, and none lost");
-	ck(before_last <= TEXLOAD_SHARE_MS + 1.0,
+	ck(before_last <= TEXLOAD_SHARE_MS + 0.001,
 	   "a slow upload: no frame took another picture past its share");
-	ck(worst <= TEXLOAD_SHARE_MS + worst_put + 1.0,
+	ck(worst <= TEXLOAD_SHARE_MS + worst_put + 0.001,
 	   "a slow upload: a frame is its share and one picture at most");
-	printf("    24 pictures in %d frames, the longest %.2f ms of CPU, the longest upload %.2f ms\n",
+	printf("    24 pictures in %d frames, the longest %.2f ms, the longest upload %.2f ms\n",
 	       frames, worst, worst_put);
 
 	/* Each upload more than the whole share: one a frame, and every frame one */
@@ -421,7 +411,7 @@ static void the_workers(void)
 	   "every picture in its own slot, once, and none lost");
 	ck(before_last == 0.0, "an upload past the share: one picture a frame");
 	ck(frames <= 14, "and the dozen in about a dozen frames, not stopped");
-	printf("    12 pictures in %d frames, the longest %.2f ms of CPU\n", frames, worst);
+	printf("    12 pictures in %d frames, the longest %.2f ms\n", frames, worst);
 
 	/* The shelf's loop with nothing pressed (src/main.c's main loop): it
 	 * draws a frame only when texload_ready says pictures are waiting, and
@@ -468,6 +458,7 @@ static void the_workers(void)
 	ck(filled() == 20 && !landed_twice && !landed_wrong && all_their_own(), "and the rest after it, each once");
 	texload_bump();
 	clear_shelf();
+	texload_test_clock(NULL);
 }
 
 int main(void)
