@@ -575,8 +575,7 @@ static void buttons(void)
 	 * welcome's and the choices'. */
 	{
 		static const tour_step lessons[] = { TOUR_MOVE, TOUR_A, TOUR_B, TOUR_X, TOUR_Y,
-		                                     TOUR_MENU, TOUR_QUIT, TOUR_LOCK, TOUR_SELECT,
-		                                     TOUR_VOL, TOUR_BRIGHT };
+		                                     TOUR_MENU, TOUR_SELECT, TOUR_VOL, TOUR_BRIGHT };
 		static const in_button shoulders[] = { IN_L2, IN_R2 };
 		size_t s2, b2;
 
@@ -833,6 +832,9 @@ static void menu_jobs(void)
 	   "X first: MENU comes first");
 	ck(tour_press(&t, TK_A, T0 + 10) == DS_SOUND_DENY && !strcmp(t.hint, "That's A. Try MENU."),
 	   "another button: try MENU");
+	ck(tour_press(&t, TK_L2, T0 + 12) == DS_SOUND_DENY && !strcmp(t.hint, "That's L2. Try MENU.") &&
+	   tour_press(&t, TK_R2, T0 + 14) == DS_SOUND_DENY && !strcmp(t.hint, "That's R2. Try MENU."),
+	   "L2 and R2 too, as in every lesson that asks for another button");
 	ck(tour_press(&t, TK_MENU, T0 + 20) == DS_SOUND_ACCEPT && t.moves == 1 && !t.done && !t.wrong,
 	   "MENU opens the menu over the game, accept");
 	ck(tour_press(&t, TK_A, T0 + 30) == DS_SOUND_DENY && !strcmp(t.hint, "That's A. Try X."),
@@ -865,6 +867,8 @@ static void menu_jobs(void)
 	   "L2 alone: hold MENU too");
 	ck(tour_press(&t, TK_A, T0 + 20) == DS_SOUND_DENY && !strcmp(t.hint, "That's A. Try MENU+L2."),
 	   "another button: try MENU+L2");
+	ck(tour_press(&t, TK_R2, T0 + 25) == DS_SOUND_DENY && !strcmp(t.hint, "That's R2. Try MENU+L2."),
+	   "R2 too");
 	ck(tour_press(&t, TK_START, T0 + 30) == DS_SOUND_BACK && t.over, "START still skips");
 	tour_pose(&t, TOUR_LOCK, T0, 2000, -1, DEV(true));
 	ck(tour_press(&t, TK_LOCK, T0) == DS_SOUND_REWARD && t.done, "locked and opened again: the reward");
