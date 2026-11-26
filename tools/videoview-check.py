@@ -247,29 +247,14 @@ def shots(tmp):
         check(top and not foot and not card, f'the viewer opens with its band and card up '
               f'(the shot {"whole" if top else "not open"}, the foot {"clear" if foot else "covered"}, '
               f'the card {"gone" if card else "there"})')
-        # A: away at once, not on the rest. The rest takes them away
-        # DS_MS_HOLD_BAND (2 s) after the last press, Right's, which this
-        # side sent at t0: so seen away sooner than 2 s after t0, it can only
-        # be A's doing, however slowly the launcher draws. Told apart by the
-        # wall clock alone, a loaded machine missed a ceiling of 1.5 s
-        # (2026-11-24). A look 2 s or more after t0 says nothing either way,
-        # and the press and A go again; no try can pass an A that does
-        # nothing, as only the rest then takes them away, and never before
-        # 2 s.
-        tries = []
-        for _ in range(6):
-            t0 = time.monotonic()
-            tap('right')                                     # a press: the rest starts again
-            until(lambda r: r[2] and not r[0])               # the next shot in, the band up
-            tap('a')
-            foot, card, top = until(lambda r: r[0] and r[1])
-            tries.append(round(time.monotonic() - t0, 2))
-            if foot and card and tries[-1] < 2.0:
-                break
-        check(foot and card and tries[-1] < 2.0,
-              f'A puts the band and the card away at once, nothing left at the foot '
+        tap('right')                                         # a press: the rest starts again
+        until(lambda r: r[2] and not r[0], 10)               # the next shot in, the band up
+        t0 = time.time()
+        tap('a')                                             # A: away at once, not 2 s on
+        foot, card, top = until(lambda r: r[0] and r[1], 1.5)
+        check(foot and card, f'A puts the band and the card away at once, nothing left at the foot '
               f'(the foot {"clear" if foot else "covered"}, the card {"gone" if card else "there"}, '
-              f'seen {tries} s after the last press; the rest would take 2 s)')
+              f'after {time.time() - t0:.1f} s; the rest would take 2 s)')
         ask(sock, 'press a')                                 # A held: they stay away
         time.sleep(1.2)
         foot, card, top = look()
