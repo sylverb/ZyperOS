@@ -2195,6 +2195,15 @@ check-device-compile:
 	echo "  portkeys: tools/portkeys.c, the Pixel 2's keys, bar and motor over a port, whole"; \
 	$(CC) $$F -Isrc -Idiatom/src -Idiatom/include tools/portkeys.c tools/pkkeys.c tools/pkfeel.c \
 		tools/pkshutter.c src/pcm_out.c; \
+	echo "  launcher: every src/*.c and src/ds/*.c as a device builds them (mk/cross.mk, no ZYPEROS_DESK),"; \
+	echo "    a call to an undeclared function an error, as plastron's GCC makes it"; \
+	mkdir -p build-native/device-compile; \
+	printf '#define SS_DEVID ""\n#define SS_DEVPASS ""\n' > build-native/device-compile/ss_creds.h; \
+	for d in pixel2 brick; do \
+		$(CC) -std=gnu11 -D_GNU_SOURCE -fsyntax-only -Werror=implicit-function-declaration -Werror=implicit-int \
+			-DZYPEROS_VERSION='"0.0"' -DZYPEROS_PROFILE=device_profile_$$d -DZYPEROS_DEVICE_ID=\"$$d\" \
+			-Ibuild-native/device-compile -Isrc $$S $$(ls src/*.c src/ds/*.c | grep -v '^src/i18n_tables.c$$'); \
+	done; \
 	echo "ok: every device file compiles"
 
 # The handhelds' models (src/device/td_model.h): every key once, the GKD
