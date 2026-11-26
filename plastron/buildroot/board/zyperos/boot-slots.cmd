@@ -13,10 +13,11 @@ fi
 # sets it.
 setenv zy_charge_arg
 if test "${zy_charge}" = "1"; then setenv zy_charge_arg zycharge=1; fi
-# The chip itself reset the handheld (the Pixel 2's U-Boot sets zy_reset=wdt
-# for its watchdog, thermal for its thermal cut-off: board/px2/u-boot/
-# patches/0006): zyreset= on the kernel's line, which plastron's crashlog
-# reports even when the RAM kept nothing. Nothing on any other start.
+# The chip itself reset the handheld, its watchdog or its thermal cut-off
+# (the Pixel 2's U-Boot sets zy_reset=chip from the RK817's ON_SOURCE:
+# board/px2/u-boot/patches/0006): zyreset= on the kernel's line, which
+# plastron's crashlog reports even when the RAM kept nothing. Nothing on any
+# other start.
 setenv zy_reset_arg
 if test -n "${zy_reset}"; then setenv zy_reset_arg zyreset=${zy_reset}; fi
 setenv bootargs "root=${zy_root}${zy_part} ${zy_args} zyperos.slot=${slot} zyperos.trial=${trial} ${zy_theme} ${zy_charge_arg} ${zy_test} ${zy_reset_arg}"
