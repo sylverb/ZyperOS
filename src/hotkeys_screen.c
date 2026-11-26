@@ -257,8 +257,11 @@ static void capture_draw_as(app *a, hk_page *p, const char *heading, float k)
 {
 	menu_row rows[2];
 	menu_style st = p->st;
+	static char hint[128];
 
-	rows[0] = MENU_NOTE(T(g_cap.menu ? S_HOTKEYS_MENU_CAPTURE_HINT : S_HOTKEYS_CAPTURE_HINT));
+	/* MENU's as the handheld prints it: FN on the R36S */
+	if (g_cap.menu) snprintf(hint, sizeof hint, T(S_HOTKEYS_MENU_CAPTURE_HINT), dev_menu_word(plat_profile()));
+	rows[0] = MENU_NOTE(g_cap.menu ? hint : T(S_HOTKEYS_CAPTURE_HINT));
 	rows[1] = MENU_NOTE(T(g_cap.key >= 0 ? S_HOTKEYS_CAPTURE_KEEP : S_HOTKEYS_CAPTURE_BACK));
 	/* the widest panel, the lab's 800, so the line under the keys stays
 	 * whole in every language */
@@ -349,8 +352,10 @@ static void mk_swap_text(const mk_table *t, mk_act m, int key, int other, char *
 {
 	char chord[24], was[24];
 
-	snprintf(chord, sizeof chord, "MENU+%s", hk_key_name(key));
-	mk_chord(t, m, was, sizeof was);
+	/* the keys in words, MENU as the handheld prints it (FN on the R36S) */
+	snprintf(chord, sizeof chord, "%s+%s", dev_menu_word(plat_profile()), hk_key_name(key));
+	if (hk_key_name(t->key[m])) snprintf(was, sizeof was, "%s+%s", dev_menu_word(plat_profile()), hk_key_name(t->key[m]));
+	else was[0] = '\0';
 	cq_text(CQ_HOTKEYS_SWAP, q, n, chord, mk_label(m), mk_label((mk_act)other), was);
 }
 

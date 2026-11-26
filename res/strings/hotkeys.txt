@@ -347,12 +347,13 @@ ja = ロック解除の長押し
 it = Tieni per sbloccare
 
 [hotkeys.menu_capture_hint]
-note = The capture screen's first line under the keys for Screenshot or Lock Screen under hotkeys.menu_note: hold MENU, then press one more button. MENU is the button's printed name. One line, about 760 units, as hotkeys.capture_hint.
-en = Hold MENU, then press a button.
-zh-Hans = 按住 MENU，再按一个键。
-es = Mantén MENU y pulsa un botón.
-pt-BR = Segure MENU e aperte um botão.
-fr = Maintenez MENU, puis un bouton.
-de = MENU halten, dann eine Taste.
-ja = MENU を押したまま、ボタンを押す。
-it = Tieni MENU e premi un tasto.
+note = The capture screen's first line under the keys for Screenshot or Lock Screen, MENU's chords: hold MENU, then press one more button. %s is the MENU key as it is printed: MENU, or FN on the R36S. Keep it as it is, in Latin letters. One line, about 760 units, as hotkeys.capture_hint.
+en = Hold %s, then press a button.
+zh-Hans = 按住 %s，再按一个键。
+es = Mantén %s y pulsa un botón.
+pt-BR = Segure %s e aperte um botão.
+fr = Maintenez %s, puis un bouton.
+de = %s halten, dann eine Taste.
+ja = %s を押したまま、ボタンを押す。
+it = Tieni %s e premi un tasto.
+
