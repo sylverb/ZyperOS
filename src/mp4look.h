@@ -144,13 +144,11 @@ bool mp4l_disc_moving(const mp4l_disc *d, float arm);
 /* ---- the cassette's styles (DESIGN.md 11.64, my picks in the Tape Styles
  * labs, 2026-11-23) ------------------------------------------------------------
  *
- * The tape fills the screen, in one of eight styles: Smoke, the clear
- * smoke-grey shell Cassette always had, drawn smooth and the default; the
- * other seven pixel art, drawn by code on a grid of cells (src/pixtape.h).
- * MENU's Tape Style row and Up and Down on Now Playing step round the kept
- * ones. Kept as `mp4.tape`, a word, as the look is. */
+ * The tape fills the screen, in one of seven styles, each pixel art drawn
+ * by code on a grid of cells (src/pixtape.h); Pinstripe, the first, the
+ * default. MENU's Tape Style row and Up and Down on Now Playing step round
+ * the kept ones. Kept as `mp4.tape`, a word, as the look is. */
 typedef enum {
-	MP4T_SMOKE,
 	MP4T_PINSTRIPE,
 	MP4T_BAND,               /* Cover Band: its band the cover's main color */
 	MP4T_FERRIC,
@@ -161,15 +159,17 @@ typedef enum {
 	MP4T_COUNT
 } mp4t_id;
 
+/* The style a card has until it says another, and for a word no longer
+ * known (the smooth "smoke" there was) */
+#define MP4T_DEFAULT MP4T_PINSTRIPE
+
 const char *mp4t_key(mp4t_id id);
-/* Smoke for a word it does not know */
+/* MP4T_DEFAULT for a word it does not know */
 mp4t_id     mp4t_from_key(const char *key);
-/* Whether a style is offered (all eight are); and the next kept one from
+/* Whether a style is offered (all seven are); and the next kept one from
  * `id`, `d` +1 or -1, round. A style no longer kept steps from the first. */
 bool        mp4t_kept(mp4t_id id);
 mp4t_id     mp4t_step(mp4t_id id, int d);
-/* Drawn as pixel art (all but Smoke) */
-bool        mp4t_pixel(mp4t_id id);
 
 /* The tape's number, as a C-cassette's: the shortest of 46, 60 and 90
  * minutes that holds the album, a side each half; 120 past 90. 0 when the

@@ -3,7 +3,7 @@
 #define ZYPEROS_PIXTAPE_H
 
 /* MP4's Cassette in pixel art (DESIGN.md 11.64, my picks in the Pixel
- * Tapes lab, 2026-11-23): the seven styles that are not Smoke, drawn by code
+ * Tapes lab, 2026-11-23): all seven styles, drawn by code
  * on a grid of cells from src/cassette.h's drawing in millimetres, as the
  * home's own placeholders are (res/system-art/original/placeholders): one
  * dark outline cell round each part, a light row along the top and left
@@ -22,8 +22,8 @@
  * an album keeps the same ring and scuffs); and what turns as sprite
  * sheets: a pack of tape for every half cell of radius, a hub for every
  * MP4T_HUB_STEP degrees. Every copy is scaled up with nearest sampling
- * (SDL_SetTextureScaleMode), so a cell stays a block. A frame is six copies,
- * as the smooth tape's: the back, two packs, two hubs, the front. Nothing is
+ * (SDL_SetTextureScaleMode), so a cell stays a block. A frame is six copies:
+ * the back, two packs, two hubs, the front. Nothing is
  * drawn on the CPU in a frame and no texture is sent to the GPU. */
 
 #include <SDL.h>

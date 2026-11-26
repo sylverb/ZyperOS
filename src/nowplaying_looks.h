@@ -20,8 +20,8 @@ void    np_look_set(mp4l_id id);
 /* A shot's look, never saved (--np-look); MP4L_COUNT for none */
 void    np_look_shot(mp4l_id id);
 
-/* The Cassette look's tape style (the setting mp4.tape, Smoke until it is
- * changed), and setting it; a shot's, never saved (--np-tape) */
+/* The Cassette look's tape style (the setting mp4.tape, MP4T_DEFAULT until
+ * it is changed), and setting it; a shot's, never saved (--np-tape) */
 mp4t_id np_tape(void);
 void    np_tape_set(mp4t_id id);
 void    np_tape_shot(mp4t_id id);

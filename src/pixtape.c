@@ -18,9 +18,6 @@
  * cover does); the outline the dark navy-to-black the home's art has round
  * a light thing and near black round a dark one */
 static const pt_mat MAT[MP4T_COUNT] = {
-	/* Smoke is smooth (src/cassette.c); its row is here for its print */
-	[MP4T_SMOKE]     = { 0xd6d4cb, 0x9c9a92, 0x1e201e, 0, 0xf4f3ee, 0, 0, 0, 0, 0x5c5a54, 0, 0, 0.55f,
-	                     true, false, false },
 	[MP4T_PINSTRIPE] = { 0x1c1d1c, 0x3b3d3c, 0x0e0f0e, 0xf3ecd8, 0xefeee8, 0x22201c, 0x6e6757, 0x22201c,
 	                     0x22201c, 0x09090b, 0xdf442b, 0, 1, false, false, false },
 	[MP4T_BAND]      = { 0x1c1d1c, 0x3b3d3c, 0x0e0f0e, 0xf4efe0, 0xefeee8, 0x22201c, 0x6e6757, 0x22201c,
@@ -39,7 +36,7 @@ static const pt_mat MAT[MP4T_COUNT] = {
 
 const pt_mat *pt_material(mp4t_id style)
 {
-	return &MAT[style >= 0 && style < MP4T_COUNT ? style : MP4T_SMOKE];
+	return &MAT[style >= 0 && style < MP4T_COUNT ? style : MP4T_DEFAULT];
 }
 
 /* ---- the grid -------------------------------------------------------------------- */

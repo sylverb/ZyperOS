@@ -1052,9 +1052,9 @@ static void system_menu(void)
 		ck(!strcmp(mrows[4].label, "Player Look") && mrows[4].live &&
 		   !strcmp(val(&mrows[4]), "Cover"),
 		   "Player Look, Cover when nothing says otherwise (DESIGN.md 11.64)");
-		ck(!strcmp(mrows[5].label, "Tape Style") && !mrows[5].live && !strcmp(val(&mrows[5]), "Smoke") &&
+		ck(!strcmp(mrows[5].label, "Tape Style") && !mrows[5].live && !strcmp(val(&mrows[5]), "Pinstripe") &&
 		   menu_sound_at(mb.sound, mn, 5) == MENU_SND_RING,
-		   "Tape Style under Player Look, Smoke when nothing says otherwise, dead while the look is not"
+		   "Tape Style under Player Look, Pinstripe when nothing says otherwise, dead while the look is not"
 		   " Cassette (the Tape Styles lab)");
 		ck(!strcmp(mrows[6].label, "Equalizer") && mrows[6].live && !strcmp(val(&mrows[6]), "Off"),
 		   "Equalizer, MENU's own row, Off until it is set");

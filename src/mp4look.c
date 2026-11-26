@@ -282,20 +282,20 @@ float mp4l_arm_angle(float r, float d, float pivot_deg, float len)
 /* ---- the cassette's styles ------------------------------------------------------ */
 
 static const char *const TAPE_KEY[MP4T_COUNT] = {
-	[MP4T_SMOKE] = "smoke", [MP4T_PINSTRIPE] = "pinstripe", [MP4T_BAND] = "band",
-	[MP4T_FERRIC] = "ferric", [MP4T_METAL] = "metal", [MP4T_CLEAR] = "clear",
-	[MP4T_RED] = "red", [MP4T_WORN] = "worn",
+	[MP4T_PINSTRIPE] = "pinstripe", [MP4T_BAND] = "band", [MP4T_FERRIC] = "ferric",
+	[MP4T_METAL] = "metal", [MP4T_CLEAR] = "clear", [MP4T_RED] = "red", [MP4T_WORN] = "worn",
 };
-/* My picks: all eight kept (the Tape Styles lab, 2026-11-23). One left out
- * here leaves the row's list and Up and Down. */
+/* My picks: all seven kept (the Tape Styles lab, 2026-11-23; Smoke, the
+ * smooth one, gone after the Pixel 2). One left out here leaves the row's
+ * list and Up and Down. */
 static const bool TAPE_KEPT[MP4T_COUNT] = {
-	[MP4T_SMOKE] = true, [MP4T_PINSTRIPE] = true, [MP4T_BAND] = true, [MP4T_FERRIC] = true,
-	[MP4T_METAL] = true, [MP4T_CLEAR] = true, [MP4T_RED] = true, [MP4T_WORN] = true,
+	[MP4T_PINSTRIPE] = true, [MP4T_BAND] = true, [MP4T_FERRIC] = true, [MP4T_METAL] = true,
+	[MP4T_CLEAR] = true, [MP4T_RED] = true, [MP4T_WORN] = true,
 };
 
 const char *mp4t_key(mp4t_id id)
 {
-	return id >= 0 && id < MP4T_COUNT ? TAPE_KEY[id] : TAPE_KEY[MP4T_SMOKE];
+	return id >= 0 && id < MP4T_COUNT ? TAPE_KEY[id] : TAPE_KEY[MP4T_DEFAULT];
 }
 
 mp4t_id mp4t_from_key(const char *key)
@@ -304,7 +304,7 @@ mp4t_id mp4t_from_key(const char *key)
 
 	for (i = 0; key && i < MP4T_COUNT; i++)
 		if (!strcmp(key, TAPE_KEY[i])) return (mp4t_id)i;
-	return MP4T_SMOKE;
+	return MP4T_DEFAULT;
 }
 
 bool mp4t_kept(mp4t_id id)
@@ -321,12 +321,7 @@ mp4t_id mp4t_step(mp4t_id id, int d)
 		i = (i + d + MP4T_COUNT) % MP4T_COUNT;
 		if (TAPE_KEPT[i]) return (mp4t_id)i;
 	}
-	return MP4T_SMOKE;
-}
-
-bool mp4t_pixel(mp4t_id id)
-{
-	return id != MP4T_SMOKE;
+	return MP4T_DEFAULT;
 }
 
 int mp4t_tape_no(double album_s)

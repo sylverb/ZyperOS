@@ -530,7 +530,7 @@ static void smm_tape_preview(void *app_, int k, int x, int y, int w, int h)
 	const SDL_Rect screen = { x, y, w, h };
 	const SDL_Rect in = ds_preview_screen_begin(a->r, &screen);
 
-	npl_preview_tape(a, k >= 0 && k < g_tape_n ? g_tape_at[k] : MP4T_SMOKE, in.x, in.y, in.w, in.h);
+	npl_preview_tape(a, k >= 0 && k < g_tape_n ? g_tape_at[k] : MP4T_DEFAULT, in.x, in.y, in.w, in.h);
 	ds_preview_screen_end(a->r, &screen);
 }
 

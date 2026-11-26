@@ -6599,7 +6599,7 @@ int main(int argc, char *argv[])
 		/* --np-look cover|classic|spectrum...: Now Playing and MENU's
 		 * Player Look in that look, for the shot only, never saved */
 		else if (!strcmp(argv[i], "--np-look") && i + 1 < argc) np_look_shot(mp4l_from_key(argv[++i]));
-		/* --np-tape smoke|pinstripe|band|...: Cassette's tape style, for
+		/* --np-tape pinstripe|band|metal|...: Cassette's tape style, for
 		 * the shot only, never saved */
 		else if (!strcmp(argv[i], "--np-tape") && i + 1 < argc) np_tape_shot(mp4t_from_key(argv[++i]));
 		/* --np-tape-said: the style's name in its pill, as Up or Down

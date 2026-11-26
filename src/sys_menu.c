@@ -506,7 +506,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 					break;
 				case SMM_TAPE:
 					out[k] = (menu_row){ T(S_SYSMENU_MP4_TAPE), u->mp4_tape ? u->mp4_tape
-					                     : T(S_SYSMENU_TAPE_SMOKE), u->mp4_tape_live };
+					                     : T(S_SYSMENU_TAPE_PINSTRIPE), u->mp4_tape_live };
 					break;
 				case SMM_REPEAT:
 					out[k] = (menu_row){ T(S_SYSMENU_MP4_REPEAT),

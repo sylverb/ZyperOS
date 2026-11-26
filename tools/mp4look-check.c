@@ -218,31 +218,34 @@ int main(void)
 		}
 	}
 
-	/* The cassette's styles: every word back, Smoke the default and for a
-	 * word nobody knows, Up and Down round the kept ones only */
+	/* The cassette's styles: every word back, Pinstripe the default and for
+	 * a word nobody knows (the smooth "smoke" a card may still say), Up and
+	 * Down round the seven kept ones only */
 	{
 		int k, seen[MP4T_COUNT] = { 0 }, n = 0;
-		mp4t_id t = MP4T_SMOKE;
+		mp4t_id t = MP4T_DEFAULT;
 
+		if (MP4T_COUNT != 7 || MP4T_DEFAULT != MP4T_PINSTRIPE) fail("seven styles, Pinstripe the default", MP4T_COUNT, 7);
 		for (k = 0; k < MP4T_COUNT; k++)
 			if ((int)mp4t_from_key(mp4t_key((mp4t_id)k)) != k) fail("a style's word back", k, k);
-		if (mp4t_from_key(NULL) != MP4T_SMOKE || mp4t_from_key("chrome") != MP4T_SMOKE)
-			fail("an unknown style is Smoke", 1, 0);
-		if (strcmp(mp4t_key(MP4T_SMOKE), "smoke") || strcmp(mp4t_key(MP4T_BAND), "band"))
+		if (mp4t_from_key(NULL) != MP4T_DEFAULT || mp4t_from_key("chrome") != MP4T_DEFAULT ||
+		    mp4t_from_key("smoke") != MP4T_DEFAULT)
+			fail("an unknown style, Smoke's word too, is the default", mp4t_from_key("smoke"), MP4T_DEFAULT);
+		if (strcmp(mp4t_key(MP4T_PINSTRIPE), "pinstripe") || strcmp(mp4t_key(MP4T_BAND), "band") ||
+		    strcmp(mp4t_key(MP4T_COUNT), "pinstripe"))
 			fail("the words as kept", 1, 0);
-		for (k = 0; k < MP4T_COUNT; k++) if (!mp4t_kept((mp4t_id)k)) fail("all eight kept", k, -1);
+		for (k = 0; k < MP4T_COUNT; k++) if (!mp4t_kept((mp4t_id)k)) fail("all seven kept", k, -1);
 		for (k = 0; k < MP4T_COUNT; k++) {
 			t = mp4t_step(t, +1);
 			if (!mp4t_kept(t)) fail("Down onto a style not kept", t, -1);
 			if (!seen[t]++) n++;
 		}
-		if (t != MP4T_SMOKE || n != MP4T_COUNT) fail("Down round the eight and back to Smoke", n, MP4T_COUNT);
-		if (mp4t_step(MP4T_SMOKE, -1) != MP4T_WORN || mp4t_step(MP4T_SMOKE, +1) != MP4T_PINSTRIPE)
-			fail("Up from Smoke is Worn, Down Pinstripe", mp4t_step(MP4T_SMOKE, -1), MP4T_WORN);
+		if (t != MP4T_PINSTRIPE || n != 7) fail("Down round the seven and back to Pinstripe", n, 7);
+		if (mp4t_step(MP4T_PINSTRIPE, -1) != MP4T_WORN || mp4t_step(MP4T_PINSTRIPE, +1) != MP4T_BAND ||
+		    mp4t_step(MP4T_WORN, +1) != MP4T_PINSTRIPE)
+			fail("Up from Pinstripe is Worn, Down Cover Band", mp4t_step(MP4T_PINSTRIPE, -1), MP4T_WORN);
 		for (k = 0; k < MP4T_COUNT; k++)
 			if (mp4t_step(mp4t_step((mp4t_id)k, +1), -1) != (mp4t_id)k) fail("Down then Up back", k, k);
-		if (mp4t_pixel(MP4T_SMOKE)) fail("Smoke drawn smooth", 1, 0);
-		for (k = 1; k < MP4T_COUNT; k++) if (!mp4t_pixel((mp4t_id)k)) fail("the others pixel art", k, 1);
 	}
 
 	/* The tape's number and the side, as the lab has them: a 38-minute
@@ -419,9 +422,9 @@ int main(void)
 	}
 	printf("mp4look-check: bars up at once and down on follow at any rate, caps held %d ms and down in %d,"
 	       " at rest after, bands over the bars, the setting's words; reels up in %d ms and down in %d from"
-	       " wherever they are, each at the tape's speed over its pack, a rewind in %d ms, a seek wound; the record at"
+	       " wherever they are, each at the tape's speed over its pack, a rewind in %d ms turning back all the way while the next song plays, a seek wound; the record at"
 	       " 33 1/3, the needle gliding and on every song's ring;"
-	       " the tape's eight styles, Smoke the default and Up and Down round the kept ones, its number and"
+	       " the tape's seven styles, Pinstripe the default and Up and Down round the kept ones, its number and"
 	       " side, the sprite frames from the model, a cell whole pixels on each handheld\n",
 	       DS_MS_PEAK_HOLD, MP4L_CAP_DROP_MS, DS_MS_SPIN_UP, DS_MS_SPIN_DOWN, DS_MS_REWIND);
 	return 0;

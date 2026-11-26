@@ -264,7 +264,7 @@ int sys_menu_coll_rows(bool inside, sm_coll_row *out);
  * MENU's, there while music or a video plays (2026-11-19).
  *
  * Tape Style, under Player Look wherever it is: the Cassette look's tape
- * (src/mp4look.h, Smoke by default), live only while the look is Cassette
+ * (src/mp4look.h, Pinstripe by default), live only while the look is Cassette
  * (my pick in the Tape Styles lab, 2026-11-23).
  *
  * View, under Sort By on every kind: the shelf's Covers, Grid or List, as a

@@ -38,7 +38,7 @@ SKIP_RE = re.compile(r"(_data\.h|_glyphs?\.h|^i18n_)")
 # Drawings: their numbers are the shape of a picture (a handheld in
 # millimeters, Zyper's face, MP4's cassette, its pixel tape and record), not places on a screen, and no
 # token holds them
-ART = {"tourdevice.c", "zypermark.h", "cassette.c", "cassette.h", "pixtape.c", "pixtape.h", "vinyl.c", "vinyl.h"}
+ART = {"tourdevice.c", "zypermark.h", "cassette.h", "pixtape.c", "pixtape.h", "vinyl.c", "vinyl.h"}
 
 SUFFIX = r"(?:X|Y|W|H|TOP|GAP|PAD|CX|CY|X0|X1|Y0|Y1|ROW|STEP|INSET|MARGIN|LEFT|RIGHT|DX|DY)"
 # A value of numbers alone, an arithmetic of them included ("(800-40)"): a

@@ -7354,11 +7354,11 @@ running and its bars moving. Left and Right step it round. Kept as
   tracks' lengths, LENGTH), printed where the style prints it. The side is
   the album's: its first half A, the rest B, as an album went onto a tape.
 - **Tape Style**, in MP4's MENU under Player Look, live while the look is
-  Cassette: **Smoke**, the clear smoke-grey shell with the theme's
-  **surface** as its label and a stripe in the cover's main color, drawn
-  smooth, the default; and in pixel art **Pinstripe** (black, cream, red
-  stripes), **Cover Band** (a band in the cover's main color, its number in
-  white or the ink as the color is dark or light), **Ferric** (cream, a sage
+  Cassette, seven styles in pixel art: **Pinstripe** (black, cream, red
+  stripes), the first and the default (a card that still says the smooth
+  `smoke` there was gets it too), **Cover Band** (a band in the cover's
+  main color, its number in white or the ink as the color is dark or
+  light), **Ferric** (cream, a sage
   line, a brown band), **Metal** (black, a black label printed in gold),
   **Clear** (see-through, the reels whole, the label a card along the top
   with an outline cell and its shadow, its foot at the hubs' tops), **Red**
@@ -7382,9 +7382,17 @@ running and its bars moving. Left and Right step it round. Kept as
   once, a pack for every half cell of radius and a hub for every 7.5
   degrees (48 frames, each cell the part most of its 4 x 4 samples fall
   in). Each frame shows the sprite nearest the model's radius and angle and
-  copies six textures with nearest sampling, as the smooth tape copies its
-  six: nothing is drawn on the CPU in a frame and nothing is sent to the
-  GPU.
+  copies six textures with nearest sampling: nothing is drawn on the CPU
+  in a frame and nothing is sent to the GPU.
+- **The reels' motion**: playing, both turn counterclockwise at the tape's
+  4.76 cm a second over their pack's radius, so the near-empty one turns
+  fast, up over **spin-up** and down over **spin-down**; the left pack
+  empties into the right as the song plays. A new song rewinds the tape to
+  the start over **rewind** (on **turn**) and a seek winds to its place on
+  follow (tau **wind**): then the reels turn for the wind alone, as a
+  deck's motor does, so a rewind turns both back (clockwise) the whole way,
+  the right pack unwinding into the left, though the next song already
+  plays; after it the playing turn comes back over **spin-up**.
 - **Vinyl**: a 12-inch record, 302 mm across, on its platter
   (**look-record**, the theme's **raised** in its **edge**), pressed in
   the cover's main color darkened to a fifth of its lightness and its
@@ -7460,13 +7468,14 @@ running and its bars moving. Left and Right step it round. Kept as
   does, on a change and once a second. Under the lock nothing moves: the
   bars are at rest from its first frame.
 - *(My picks in the Tape Styles labs, 2026-11-23: the tape fills the
-  screen; all eight styles, Smoke smooth and the default, the rest pixel art
-  at 8-unit cells and 7.5-degree hubs; the style in a row and on Up and
+  screen; the styles in pixel art at 8-unit cells and 7.5-degree hubs; the style in a row and on Up and
   Down; a small cover on the label; Worn its own style at Medium; the time
   on the label; the song and the line under it handwritten; a click, no
-  hiss. Clear's label a card, not a strip on the glass.)*
+  hiss. Clear's label a card, not a strip on the glass. After the Pixel 2,
+  2026-11-26: Smoke, the smooth one, gone; Pinstripe the default.)*
 - *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
-  which stays the default; a clear smoke-grey shell for the cassette; each
+  which stays the default; a clear smoke-grey shell for the cassette (gone
+  for the Tape Styles); each
   album's record pressed in its cover's main color, darkened; bars
   with caps - a bar rising at once and falling on follow, its cap holding
   400 ms and then dropping with gravity.)*

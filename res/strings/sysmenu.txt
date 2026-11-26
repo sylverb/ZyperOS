@@ -1123,7 +1123,7 @@ ja = 音を画面いっぱいの 32 本のバーで表示します。ジャケ�
 it = Il suono in 32 barre su tutto lo schermo, sotto la copertina.
 
 [sysmenu.mp4_tape]
-note = MP4's menu row on the music shelf, under Player Look: which cassette the Cassette look draws (Smoke, Pinstripe, Metal...); live only while the look is Cassette; A opens the list, its picture the tape playing
+note = MP4's menu row on the music shelf, under Player Look: which cassette the Cassette look draws (Pinstripe, Metal, Worn...); live only while the look is Cassette; A opens the list, its picture the tape playing
 en = Tape Style
 zh-Hans = 磁带样式
 es = Estilo de casete
@@ -1133,30 +1133,8 @@ de = Kassettenstil
 ja = カセットのスタイル
 it = Stile cassetta
 
-[sysmenu.tape_smoke]
-note = A Tape Style: the clear smoke-grey shell the cassette always had, the default. Begun with a capital
-en = Smoke
-zh-Hans = 烟灰
-es = Ahumado
-pt-BR = Fumê
-fr = Fumé
-de = Rauchglas
-ja = スモーク
-it = Fumé
-
-[sysmenu.tape_smoke_note]
-note = Under Tape Style's picture when Smoke is under the cursor: a narrow column, at most five short lines
-en = Clear smoke-grey, as it always was; a stripe in the cover's color.
-zh-Hans = 透明烟灰色，与以往的磁带一样，带一条封面颜色的条纹。
-es = Gris humo translúcido, como siempre, con una franja del color de la portada.
-pt-BR = Cinza fumê translúcido, como sempre, com uma faixa na cor da capa.
-fr = Gris fumé translucide, comme toujours, avec une bande à la couleur de la pochette.
-de = Durchsichtiges Rauchgrau wie bisher, mit einem Streifen in der Farbe des Covers.
-ja = これまでどおりの半透明のスモーク。ジャケットの色のラインが入ります。
-it = Grigio fumé trasparente, come sempre, con una striscia del colore della copertina.
-
 [sysmenu.tape_pinstripe]
-note = A Tape Style: a black shell, a cream label and five thin red stripes, drawn as pixel art. Begun with a capital
+note = A Tape Style, the default: a black shell, a cream label and five thin red stripes, drawn as pixel art. Begun with a capital
 en = Pinstripe
 zh-Hans = 细条纹
 es = Rayas finas

@@ -385,7 +385,7 @@ EXTRA = {
                                       "--np-tape", "band", "--np-tape-said"]),
     **{"mp4-tape-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--np-look", "cassette", "--menu",
                                                    "Tape Style", "--press", "a", "--pick-at", str(_k)])
-       for _k, _l in enumerate(("smoke", "pinstripe", "band", "ferric", "metal", "clear", "red", "worn"))},
+       for _k, _l in enumerate(("pinstripe", "band", "ferric", "metal", "clear", "red", "worn"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "Repeat", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
