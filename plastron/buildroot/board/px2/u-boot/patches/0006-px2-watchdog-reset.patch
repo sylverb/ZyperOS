@@ -1,0 +1,113 @@
+From: plastron
+Subject: [PATCH] PX30 (GKD Pixel 2): a watchdog's reset starts ZyperOS again
+
+A watchdog's reset (zytest=hang on 1.1.1-test.2, 2026-11-26) came back on
+the charging screen with the cable in, and with nothing in pstore: the whole
+handheld had been turned off and the cable had started it as a charger does
+(ON_SOURCE 0x40). Linux leaves the RK817's sleep pin set to power down
+(rk8xx_shutdown, at every reboot), the RK817's restart keeps it, and the
+watchdog's first global reset puts the PX30's PMIC_SLEEP pin back to its
+reset state. Now, in the board's late init:
+
+- The sleep pin's function is set to none, so a reset of the chip leaves the
+  PMIC, the RAM and pstore alone. Linux powers off and restarts through the
+  RK817's registers (DEV_OFF, DEV_RST), not the pin.
+- The CRU's GLB_RST_ST says when the chip's watchdog or its thermal cut-off
+  reset it: zy_reset=wdt or thermal, which boot.scr puts on the kernel's line
+  as zyreset=, and such a start is never a charger's.
+---
+--- a/board/hardkernel/odroid_go2/go2.c
++++ b/board/hardkernel/odroid_go2/go2.c
+@@ -11,8 +11,12 @@
+ #include <stdlib.h>
+ #include <power/pmic.h>
+ #include <power/rk8xx_pmic.h>
++#include <asm/arch-rockchip/cru.h>
++#include <asm/arch-rockchip/cru_px30.h>
+ 
+ #define DTB_DIR			"rockchip/"
++/* RK817 SYS_CFG3, bits 4:3: the sleep pin's function, 0 none */
++#define PX2_SLPPIN_FUNC_MSK	(0x3 << 3)
+ 
+ struct oga_model {
+ 	const u16 adc_value;
+@@ -114,6 +118,61 @@
+  * own there (0x02, read on a Pixel 2 on 2026-11-06, against 0x40 for the
+  * charger), so one never comes back as a charger's start.
+  */
++/*
++ * plastron: what reset the PX30, when it was the chip itself: its CRU's
++ * GLB_RST_ST, the global reset's flags, which a power-on clears. The watchdog
++ * (U-Boot starts it, plastron's hwdog pets it) and the thermal cut-off (the
++ * TSADC) both trigger a first global reset (arch_cpu_init sets that in
++ * GLB_RST_CON): the chip starts again and the RK817 stays on, with whatever
++ * ON_SOURCE its last power-on left, a charger's 0x40 among them. Such a start
++ * is never a charger's, and the kernel's line says why it came
++ * (zy_reset=wdt or thermal, boot.scr's zyreset=), so ZyperOS's crashlog
++ * reports a watchdog even when the RAM kept nothing. The flags are cleared
++ * after: written 0, and written back where they stay (write 1 to clear), so a
++ * restart that is not a power-on reads none.
++ */
++#define PX30_CRU_BASE	0xff2b0000
++
++static void px2_reset_reason(void)
++{
++	struct px30_cru *cru = (struct px30_cru *)PX30_CRU_BASE;
++	u32 st = readl(&cru->glb_rst_st);
++
++	if (st & (FST_GLB_WDT_RST_ST | SND_GLB_WDT_RST_ST))
++		env_set("zy_reset", "wdt");
++	else if (st & (FST_GLB_TSADC_RST_ST | SND_GLB_TSADC_RST_ST))
++		env_set("zy_reset", "thermal");
++	if (!st)
++		return;
++	printf("Reset by the chip (GLB_RST_ST 0x%x): zy_reset=%s\n", st,
++	       env_get("zy_reset") ? env_get("zy_reset") : "-");
++	writel(0, &cru->glb_rst_st);
++	if (readl(&cru->glb_rst_st))
++		writel(st, &cru->glb_rst_st);
++}
++
++/*
++ * plastron: the RK817's sleep pin does nothing while the handheld runs. Linux
++ * sets it to power the PMIC down at every reboot and power-off (rk8xx-core's
++ * rk8xx_shutdown: SLPPIN_DN_FUN, for a power-off by the pin), and the RK817's
++ * restart keeps it. The pin is the PX30's PMIC_SLEEP (GPIO0_A4), which a
++ * first global reset puts back to its reset state, and the RK817 powers down
++ * when it goes high. A watchdog's reset turned a Pixel 2 on 1.1.1-test.2
++ * off (2026-11-26), and the cable in started it again as a charger would
++ * (ON_SOURCE 0x40): the charging screen, and the RAM, pstore's report in it,
++ * lost. Linux's own power-off and restart go through the RK817's registers
++ * (DEV_OFF, DEV_RST), not the pin, so nothing needs the pin's function.
++ */
++static void px2_sleep_pin_off(struct udevice *pmic)
++{
++	int cfg = pmic_reg_read(pmic, RK817_REG_SYS_CFG3);
++
++	if (cfg < 0 || !(cfg & PX2_SLPPIN_FUNC_MSK))
++		return;
++	printf("PMIC sleep pin: function %d, now none\n", (cfg & PX2_SLPPIN_FUNC_MSK) >> 3);
++	pmic_clrsetbits(pmic, RK817_REG_SYS_CFG3, PX2_SLPPIN_FUNC_MSK, 0);
++}
++
+ static void px2_charge_boot(void)
+ {
+ 	struct udevice *pmic;
+@@ -121,6 +180,9 @@
+ 
+ 	if (uclass_get_device_by_driver(UCLASS_PMIC, DM_DRIVER_GET(rockchip_rk805), &pmic))
+ 		return;
++	px2_sleep_pin_off(pmic);
++	if (env_get("zy_reset"))
++		return;
+ 	on = pmic_reg_read(pmic, RK817_ON_SOURCE);
+ 	if (on < 0 || !(on & RK8XX_ON_PLUG_IN) || (on & RK8XX_ON_PWRON))
+ 		return;
+@@ -132,6 +194,7 @@
+ {
+ 	int ret;
+ 
++	px2_reset_reason();
+ 	px2_charge_boot();
+ 	ret = oga_detect_device();
+ 	if (ret) {
