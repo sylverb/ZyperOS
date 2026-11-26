@@ -7176,7 +7176,11 @@ and under the rule "Hold SELECT, then press a button." and "B with nothing
 held goes back.". Every button is read as a key until SELECT is let go, A
 and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
 a button with it lights beside it with "+", and the second line says "Let go
-to keep them.". SELECT let go alone waits again; MENU, or B with nothing
+to keep them.". The glyphs are whole however long the handheld has been on:
+the shoulders' words are Regular at 112, and with the button faces' table at
+8 a session filled it with SemiBold sizes and L1 to R2 drew as empty rings
+(the Pixel 2 test of 1.1.1-test.2); the table is 32 now and never stands in
+nothing (`check-capture-glyphs`). SELECT let go alone waits again; MENU, or B with nothing
 held, leaves with no change. **A clash says so, and offers a swap**: the
 keys are another action's, so a question with two answers (11.3),
 **Swap Hotkeys**, asks "Give SELECT+R2 to Quick Save? Faster has it now and

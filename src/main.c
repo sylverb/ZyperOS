@@ -7102,6 +7102,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--hk-scope") && i + 1 < argc) shot_hk_scope = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hk-capture") && i + 1 < argc) shot_hk_capture = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hk-key") && i + 1 < argc) shot_hk_key = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--glyph-warm")) shot_glyph_warm = true;
 		else if (!strcmp(argv[i], "--controls")) {
 			shot_controls = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
