@@ -175,6 +175,7 @@ void tour_run(app *a, bool first)
 		mk_chord(m, MK_LOCK, lock, sizeof lock);
 		tour_menu_keys(mk_in_of(m->key[MK_SHOT]), mk_in_of(m->key[MK_LOCK]), shot, lock);
 	}
+	tour_menu_word(dev_menu_word(plat_profile()));
 	tour_start(&t, plat_now_ms(), &plat_profile()->chords,
 	           dev_tutorial_model(plat_profile(), &plat_profile()->chords));
 	tour_lang_from(&t, (int)i18n_lang());

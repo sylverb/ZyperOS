@@ -2920,6 +2920,7 @@ static void shot_tour_draw(app *a)
 	} else {
 		const dev_chords c = shot_chords();
 
+		tour_menu_word(dev_menu_word(plat_profile()));
 		tour_pose(&t, (tour_step)shot_tour, now, shot_tour_ms, shot_tour_done,
 		          &c, dev_tutorial_model(plat_profile(), &c));
 		tour_lang_from(&t, (int)i18n_lang());
