@@ -18,11 +18,11 @@
  * The test on a name has no SDL, for src/esmedia.c; the rest reads the
  * picture. */
 
-#define CART_W        160
-#define CART_H        205
-#define CART_LABEL_X   16
-#define CART_LABEL_Y   24
-#define CART_LABEL    128
+#define CART_WIDTH      160
+#define CART_HEIGHT     205
+#define CART_LABEL_COL   16    /* where the label starts, in the cart's pixels */
+#define CART_LABEL_LINE  24
+#define CART_LABEL      128    /* its side */
 
 /* Whether `path` names a cart: it ends in .p8.png, in any case */
 static inline bool cart_label_file(const char *path)

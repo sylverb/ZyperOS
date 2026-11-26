@@ -30,16 +30,16 @@ static Uint32 px(const SDL_Surface *s, int x, int y)
 static bool write_cart(const char *path, int w, int h)
 {
 	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
-	SDL_Rect label = { CART_LABEL_X, CART_LABEL_Y, CART_LABEL, CART_LABEL };
-	SDL_Rect dot = { CART_LABEL_X, CART_LABEL_Y, 1, 1 };
+	SDL_Rect label = { CART_LABEL_COL, CART_LABEL_LINE, CART_LABEL, CART_LABEL };
+	SDL_Rect dot = { CART_LABEL_COL, CART_LABEL_LINE, 1, 1 };
 	bool ok;
 
 	if (!s) return false;
 	SDL_FillRect(s, NULL, 0xff202020);
 	SDL_FillRect(s, &label, 0xff29adff);
 	SDL_FillRect(s, &dot, 0xffff004d);
-	dot.x = CART_LABEL_X + CART_LABEL - 1;
-	dot.y = CART_LABEL_Y + CART_LABEL - 1;
+	dot.x = CART_LABEL_COL + CART_LABEL - 1;
+	dot.y = CART_LABEL_LINE + CART_LABEL - 1;
 	SDL_FillRect(s, &dot, 0xff00e436);
 	ok = IMG_SavePNG(s, path) == 0;
 	SDL_FreeSurface(s);
@@ -58,7 +58,7 @@ int main(void)
 	snprintf(cart, sizeof cart, "/tmp/zyperos-cartlabel-%ld.p8.png", (long)getpid());
 	snprintf(plain, sizeof plain, "/tmp/zyperos-cartlabel-%ld.png", (long)getpid());
 	snprintf(odd, sizeof odd, "/tmp/zyperos-cartlabel-%ld-odd.P8.PNG", (long)getpid());
-	CHECK(write_cart(cart, CART_W, CART_H) && write_cart(plain, CART_W, CART_H) &&
+	CHECK(write_cart(cart, CART_WIDTH, CART_HEIGHT) && write_cart(plain, CART_WIDTH, CART_HEIGHT) &&
 	      write_cart(odd, 200, 200), "cannot write the pictures");
 
 	CHECK(cart_label_file("Roms/PICO-8/celeste.p8.png") && cart_label_file("A.P8.PNG"),
@@ -91,7 +91,7 @@ int main(void)
 
 	/* Any other picture whole, and left to the device's scaling */
 	s = cart_label_load(plain);
-	CHECK(s && s->w == CART_W && s->h == CART_H && !cart_label_of(s), "a plain .png was cut");
+	CHECK(s && s->w == CART_WIDTH && s->h == CART_HEIGHT && !cart_label_of(s), "a plain .png was cut");
 	t = r && s ? SDL_CreateTextureFromSurface(r, s) : NULL;
 	cart_label_sharp(t, s);
 	CHECK(t && SDL_GetTextureScaleMode(t, &mode) == 0 && mode == SDL_ScaleModeLinear,

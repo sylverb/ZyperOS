@@ -12,14 +12,14 @@ static char label_mark;
 SDL_Surface *cart_label_load(const char *path)
 {
 	SDL_Surface *raw, *conv, *label;
-	SDL_Rect in = { CART_LABEL_X, CART_LABEL_Y, CART_LABEL, CART_LABEL };
+	SDL_Rect in = { CART_LABEL_COL, CART_LABEL_LINE, CART_LABEL, CART_LABEL };
 
 	if (!path || !*path || !(raw = IMG_Load(path))) return NULL;
 	conv = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ARGB8888, 0);
 	SDL_FreeSurface(raw);
 	/* Only a picture of a cart's size is a cart: a .p8.png of any other is
 	 * shown whole rather than cut somewhere that is not its label */
-	if (!conv || !cart_label_file(path) || conv->w != CART_W || conv->h != CART_H)
+	if (!conv || !cart_label_file(path) || conv->w != CART_WIDTH || conv->h != CART_HEIGHT)
 		return conv;
 	label = SDL_CreateRGBSurfaceWithFormat(0, CART_LABEL, CART_LABEL, 32, SDL_PIXELFORMAT_ARGB8888);
 	if (!label) return conv;
