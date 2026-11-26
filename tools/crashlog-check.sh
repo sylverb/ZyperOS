@@ -5,7 +5,9 @@
 # go, a console that ends in the kernel's own restart says nothing, one that
 # ends some other way (a reset Linux did not ask for) is a report too, the
 # RCU stall panic is set at every start, and only the newest CRASH_KEEP
-# reports stay. The boot partition is the device's, so not here. Runs with
+# reports stay; a start's marker on the card (ZYSTART) left by a start that
+# lost its RAM before the home is a report too, W when the kernel's line has
+# U-Boot's zyreset=chip. The boot partition is the device's, so not here. Runs with
 # the computer's sh; the device's is busybox 1.37's ash.
 set -u
 CRASHLOG=plastron/buildroot/board/px2/rootfs-overlay/usr/sbin/crashlog
@@ -25,14 +27,21 @@ bad() { echo "  FAIL $1"; fails=$((fails + 1)); }
 
 run() {
 	PSTORE=$T/pstore RCU_PANIC=$T/rcu RUN_REPORT=$T/run-report CRASH_DIR=$T/logs CRASH_KEEP=3 \
-		LASTBOOT=$T/lastboot \
-		sh "$CRASHLOG" > "$T/out" 2>&1
+		LASTBOOT=$T/lastboot ZYSTART=$T/card/.plastron/starting.txt CMDLINE=$T/cmdline \
+		ZYSTART_SYNC_PID=$T/sync-pid sh "$CRASHLOG" > "$T/out" 2>&1
+	# the marker's sync, in crashlog's background, done before the next step
+	if [ -s "$T/sync-pid" ]; then
+		while kill -0 "$(cat "$T/sync-pid")" 2> /dev/null; do sleep 0.05; done
+		rm -f "$T/sync-pid"
+	fi
 }
 fresh() {
-	rm -rf "$T/pstore" "$T/logs" "$T/run-report" "$T/lastboot"
+	rm -rf "$T/pstore" "$T/logs" "$T/run-report" "$T/lastboot" "$T/card"
 	mkdir -p "$T/pstore"
 	echo 0 > "$T/rcu"
+	echo 'root=/dev/mmcblk0p2 rootwait=20 zyperos.slot=a' > "$T/cmdline"
 }
+MARK=$T/card/.plastron/starting.txt
 reports() { ls "$T/logs" 2> /dev/null | grep -c '^crash-.*\.txt$'; }
 
 echo "nothing kept: nothing said"
@@ -150,6 +159,67 @@ printf '[    1.736000] zyperos: first frame at 1.736 s\n[  300.000000] zyperos: 
 run
 summary_is "the launcher's watchdog came back, then a reset" X H 900.000000
 grep -q '^report=crash-.*\.txt$' "$T/lastboot" && ok "the report's name" || bad "no report= in the summary"
+
+fresh
+printf '<0>[  121.4] Kernel panic - not syncing: watchdog pretimeout event\n' > "$T/pstore/dmesg-ramoops-0"
+printf '[    0.572807] Run /sbin/init as init process\n[  121.4] Kernel panic - not syncing: watchdog pretimeout event\n' > "$T/pstore/console-ramoops-0"
+run
+summary_is "the chip's watchdog's first stage, its pre-timeout panic" W C1 121.4
+
+echo "the chip's watchdog, from U-Boot"
+fresh
+echo 'root=/dev/mmcblk0p2 zyperos.slot=a zyreset=chip' > "$T/cmdline"
+printf '[    1.736000] zyperos: first frame at 1.736 s\n[  900.000000] rk817: battery 3%%\n' > "$T/pstore/console-ramoops-0"
+run
+summary_is "a reset after the home that U-Boot read as the chip's own" W H 900.000000
+r=$(ls "$T/logs"/crash-*.txt 2> /dev/null | head -n 1)
+grep -q "U-Boot read the reset as: chip" "$r" 2> /dev/null && ok "the report names the chip's reset" || bad "no chip's reset in the report"
+fresh
+echo 'root=/dev/mmcblk0p2 zyreset=wdt' > "$T/cmdline"
+printf '[  10.0] zyboot: stage=L1\n[  30.0] reboot: Restarting system\n' > "$T/pstore/console-ramoops-0"
+run
+[ "$(reports)" = 0 ] && [ ! -f "$T/lastboot" ] && ok "a console that ends in a restart says nothing, zyreset or not" ||
+	bad "a report after a restart asked for"
+
+echo "the start's marker, for a reset that took the RAM"
+fresh
+run
+grep -qx 'stage=C1' "$MARK" 2> /dev/null && grep -q '^start=' "$MARK" && ok "every start makes its marker, C1" ||
+	bad "no marker made: $(cat "$MARK" 2> /dev/null)"
+[ "$(reports)" = 0 ] && ok "and a start with no marker before it says nothing" || bad "a report with no marker"
+printf 'stage=L1\n' >> "$MARK"
+run
+summary_is_nt() {   # what, reason, stage: a summary with no kernel_time
+	if grep -qx "reason=$2" "$T/lastboot" 2> /dev/null && grep -qx "stage=$3" "$T/lastboot" &&
+	   ! grep -q '^kernel_time=' "$T/lastboot" && grep -q '^time=' "$T/lastboot"; then
+		ok "$1: $2 $3, no kernel time"
+	else
+		bad "$1: the summary is $(tr '\n' ' ' < "$T/lastboot" 2> /dev/null)"
+	fi
+}
+summary_is_nt "a start that stopped at L1, nothing kept, no chip's reason" X L1
+r=$(ls "$T/logs"/crash-*.txt 2> /dev/null | head -n 1)
+grep -q "did not reach ZyperOS's home" "$r" 2> /dev/null && grep -q 'its last step L1' "$r" &&
+	ok "the report says the start and its step" || bad "the report: $(cat "$r" 2> /dev/null)"
+[ "$(grep -c '^stage=' "$MARK")" = 1 ] && grep -qx 'stage=C1' "$MARK" && ok "the marker is this start's now" ||
+	bad "the marker: $(cat "$MARK")"
+fresh
+run
+echo 'root=/dev/mmcblk0p2 zyreset=wdt' > "$T/cmdline"
+printf 'stage=U2\nstage=L' >> "$MARK"
+run
+summary_is_nt "the chip's watchdog, a cut last line" W U2
+fresh
+run
+rm -f "$MARK"
+run
+[ "$(reports)" = 0 ] && ok "a marker the home removed: nothing" || bad "a report after a start that reached the home"
+fresh
+run
+printf '[  10.0] zyboot: stage=L1\n[  12.0] reboot: Power down\n' > "$T/pstore/console-ramoops-0"
+run
+[ "$(reports)" = 0 ] && ok "a marker with a console that ends in a power-off: the console says" ||
+	bad "a report from the marker with the kernel's power-off kept"
 
 [ "$fails" = 0 ] && echo "ok: crashlog keeps a panic's and a reset's report, once, and its summary for the launcher" && exit 0
 exit 1

@@ -4739,6 +4739,19 @@ static void up_news(const char *key, const char *fmt, const char *version, bool 
 	}
 }
 
+/* This start reached the home: plastron's start marker on the card goes
+ * (its crashlog makes it at every start, and reports one it finds at the
+ * next, when the RAM kept nothing: src/lastboot.h). An unlink and no sync:
+ * the kernel writes it back within seconds, and none of it is on the
+ * frame's way. None on a computer, nor on a handheld without crashlog. */
+static void start_reached_home(void)
+{
+	char p[512];
+
+	snprintf(p, sizeof p, "%s/.plastron/starting.txt", P_CARD);
+	if (unlink(p) == 0) fprintf(stderr, "start: the home reached, the start's marker removed\n");
+}
+
 /* The last start's restart (src/lastboot.h, DESIGN.md 11.70): this start's
  * summary read against the card's copy the first time the shelf comes round;
  * when it is new, said in Zyper's bubble as soon as nothing else of his is up,
@@ -8679,6 +8692,7 @@ int main(int argc, char *argv[])
 				if (!last_render) {
 					t_mark("first frame");
 					plat_resident_line("PREMAP");
+					start_reached_home();
 				}
 				last_render = plat_now_ms();
 			} else if (focus_due) {

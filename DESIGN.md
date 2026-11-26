@@ -7885,6 +7885,16 @@ it once (src/lastboot.h):
   panic too), T a task stuck (hung_task), R the card not found (rootwait), X a
   reset after the home with nothing of its own to say. One decimal under 10 s, whole seconds above. K1W against
   K2W tells the card's probe from what comes after it.
+- **A reset that takes the RAM with it** (the PMIC's power cut, POWER held
+  over a frozen start) leaves pstore empty. So crashlog keeps a marker on the
+  card's games partition, `.plastron/starting.txt`, made at every start once
+  the card is mounted (stage C1), a line appended for each of init's steps
+  after it (U1, U2, L1: builtins, no fork), removed at the home's first frame
+  by the launcher and at a clean stop by init. One found at the next start
+  with nothing in pstore is a report too: its last step, W when U-Boot read
+  the chip's own reset (`zyreset=chip` on the kernel's line, from the Pixel
+  2's RK817), else X, and no time ("L1X"). Its cost: one small
+  write at every start, synced in the background.
 - **About ZyperOS, page 1**: a **Last Restart** row after Awake for, its
   value the code, for 30 days after it was said, so the code a helper asks
   for is still there once the bubble has gone. Read-only, as the rest of

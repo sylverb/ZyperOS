@@ -34,7 +34,11 @@
  *           P   a kernel panic (a lockup and an RCU stall panic too)
  *           T   a task stuck (hung_task)
  *           R   the card was not found (rootwait)
- *           X   a reset after the home with no report of its own
+ *           X   a reset after the home with no report of its own; or one
+ *               that took the RAM with it during a start, which only the
+ *               start's marker on the card tells (crashlog's ZYSTART: its
+ *               last step, W when U-Boot read the chip's own reset, else X,
+ *               and no kernel time)
  *
  * The time: one decimal under 10 s, whole seconds from there, "." whatever
  * the language (a code, not a number to read).

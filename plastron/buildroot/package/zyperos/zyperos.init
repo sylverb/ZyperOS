@@ -33,10 +33,16 @@ SEED_V=
 # and for the kernel's log, whose end crashlog reports after a restart: U1
 # System Update's switch, U2 the copy of ZyperOS (its own line and bar,
 # below), L1 ZyperOS starting, up to its first frame. datapart says C1 to C3.
-# Builtins only: L1 is every start's.
+# Builtins only: L1 is every start's. And onto the start's marker on the
+# card, where plastron's crashlog made one (the Pixel 2's; it says why): a
+# line appended, so a start that loses its RAM before the home is still
+# reported with its step. The launcher removes the marker at its home's
+# first frame, and stop below at a clean stop.
+ZYSTART=$CARD/.plastron/starting.txt
 stage() {
 	echo "$1" 2> /dev/null > ${SPLASH_STAGE:-/tmp/splash-stage}
 	echo "zyboot: stage=$1" 2> /dev/null > ${KMSG:-/dev/kmsg}
+	[ -f "$ZYSTART" ] && echo "stage=$1" 2> /dev/null >> "$ZYSTART"
 }
 
 # The boot animation says what is going on while ZyperOS is copied, about a
@@ -385,6 +391,9 @@ stop() {
 	fi
 	killall -TERM zyperos.elf mp4d diatom 2>/dev/null
 	for i in $(seq 1 20); do pidof diatom > /dev/null || break; sleep 0.1; done
+	# A clean stop is no start left unfinished (a power-off from the charging
+	# screen, before the home): no marker for crashlog to find
+	rm -f "$ZYSTART"
 }
 
 case "$1" in
