@@ -45,8 +45,8 @@ static void sleep_us(long us)
 /* The stand-in: plays each write in its own time, counts the frames, checks
  * their order (each frame's left sample is its number, wrapped), and counts
  * a write that came after the last had played out: the output dry */
-static volatile long g_got, g_dry, g_next;
-static volatile bool g_order_ok = true, g_fail_next;
+static volatile long g_got, g_dry, g_next, g_low = -1;
+static volatile bool g_order_ok = true, g_fail_next, g_watch;
 static long g_ends_at;   /* when what was written has played */
 
 static long out(const int16_t *f, int n)
@@ -54,6 +54,13 @@ static long out(const int16_t *f, int n)
 	long t = now_us(), i;
 
 	if (g_fail_next) { g_fail_next = false; return -1; }
+	/* What the ring still held behind this write, the least of it while
+	 * watched: the writer's own claim, that there was always more */
+	if (g_watch) {
+		long behind = ahead_frames() - n;
+
+		if (g_low < 0 || behind < g_low) g_low = behind;
+	}
 	for (i = 0; i < n; i++, g_next++)
 		if (f[i * 2] != (int16_t)(g_next & 0x7fff)) g_order_ok = false;
 	if (g_ends_at && t > g_ends_at + 2000) g_dry++;
@@ -109,13 +116,37 @@ int main(void)
 		chunk(buf, 1024, &from);
 		ahead_push(buf, 1024);
 	}
+	/* Judged by what the ring held behind each write, not by when the
+	 * writes came: the stand-in plays in real time, and on a loaded machine
+	 * (CI, 2026-11-25) the writer thread itself woke past the 43 ms the
+	 * output holds, a write late with the ring full, which no ring can help.
+	 * Less behind a write than a slow chunk takes is the ring not keeping
+	 * the decoder ahead, which is what this is about. The decoder keeps to a schedule of its
+	 * own, each chunk's time from the start, so a sleep that wakes late is
+	 * not added to every chunk after it. */
 	g_dry = 0;
-	for (i = 0; i < 100; i++) {
-		sleep_us(i % 5 == 4 ? 60000 : 10000);
-		chunk(buf, 1024, &from);
-		ahead_push(buf, 1024);
+	g_low = -1;
+	g_watch = true;
+	t0 = now_us();
+	{
+		long at = 0;
+
+		for (i = 0; i < 100; i++) {
+			long wait;
+
+			at += i % 5 == 4 ? 60000 : 10000;
+			if ((wait = t0 + at - now_us()) > 0) sleep_us(wait);
+			chunk(buf, 1024, &from);
+			ahead_push(buf, 1024);
+		}
 	}
-	report(g_dry == 0, "a_slow_decoder_never_leaves_it_dry");
+	g_watch = false;
+	/* Behind every write, more than a slow chunk takes and a period: no
+	 * slow chunk can empty it (a ring of 4096 frames left 3072, and the
+	 * output dry by its own count only on a busier machine) */
+	report(g_low >= 60000L * 48000 / 1000000 + AHEAD_WRITE, "a_slow_decoder_never_leaves_it_dry");
+	printf("    the least behind a write %ld frames (%ld ms), %ld writes late on this machine's clock\n",
+	       g_low, g_low * 1000 / 48000, (long)g_dry);
 	{
 		/* ...where the same decoder writing straight to the output ran
 		 * dry: the stand-in's own count, without the ring */
