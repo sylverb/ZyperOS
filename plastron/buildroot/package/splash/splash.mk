@@ -31,7 +31,11 @@ endef
 else
 SPLASH_DEPENDENCIES = libdrm zlib host-pkgconf
 SPLASH_SOURCE_C = splash.c
-SPLASH_FRAMES = frames.bin
+# The R36S scans 640x480 landscape. Its frames and first-start pictures are
+# the Pixel's turned back (scripts/make-splash-frames.py --r36s). The Pixel's
+# stay 480x640, already turned.
+SPLASH_ART = $(if $(filter r36s,$(PLASTRON_DEVICE)),r36s/,)
+SPLASH_FRAMES = $(SPLASH_ART)frames.bin
 SPLASH_LIBS = $$($(PKG_CONFIG_HOST_BINARY) --cflags --libs libdrm) -lz -lm
 # The first start's line and bar over the loop (splash.c, copy_start), in
 # each of ZyperOS's languages (first-start-CODE.bin beside English's), and
@@ -39,8 +43,8 @@ SPLASH_LIBS = $$($(PKG_CONFIG_HOST_BINARY) --cflags --libs libdrm) -lz -lm
 # (splash.c, theme_light)
 define SPLASH_INSTALL_FIRST_START
 	$(INSTALL) -d $(TARGET_DIR)/usr/share/splash
-	$(INSTALL) -m 0644 $(SPLASH_PKGDIR)/first-start*.bin $(TARGET_DIR)/usr/share/splash/
-	$(INSTALL) -D -m 0644 $(SPLASH_PKGDIR)/frames-light.bin $(TARGET_DIR)/usr/share/splash/frames-light.bin
+	$(INSTALL) -m 0644 $(SPLASH_PKGDIR)/$(SPLASH_ART)first-start*.bin $(TARGET_DIR)/usr/share/splash/
+	$(INSTALL) -D -m 0644 $(SPLASH_PKGDIR)/$(SPLASH_ART)frames-light.bin $(TARGET_DIR)/usr/share/splash/frames-light.bin
 endef
 endif
 
