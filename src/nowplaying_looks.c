@@ -916,7 +916,7 @@ static TTF_Font *hand_meta(void)
  * between the times (sliding when long; nothing is cut) */
 static void cas_words_draw(SDL_Renderer *r, const cas_words *w, const tape_box *t, const tape_label *L,
                            mp4t_id st, const tape_inks *ink, float alpha, int dy, unsigned phase,
-                           int times_w, unsigned *wait)
+                           int room_l, int room_r, unsigned *wait)
 {
 	TTF_Font *ft = hand_title(), *fu = hand_meta(), *fs = ui_font(UI_F_META);
 	TTF_Font *fl = ui_hand_face((int)lroundf(L->side.h * 0.9f), true);
@@ -956,7 +956,7 @@ static void cas_words_draw(SDL_Renderer *r, const cas_words *w, const tape_box *
 	}
 	/* Who and the album, between the times */
 	{
-		int x0 = t->x + L->x0 + times_w, x1 = t->x + L->x1 - times_w, um = t->y + L->under_mid + dy;
+		int x0 = t->x + L->x0 + room_l, x1 = t->x + L->x1 - room_r, um = t->y + L->under_mid + dy;
 		int uw = ui_text_width(fu, w->under);
 		unsigned wt = ui_pingpong_wait(uw - (x1 - x0), phase);
 
@@ -989,17 +989,36 @@ static void tape_times(SDL_Renderer *r, const tape_box *t, const tape_label *L, 
 	}
 }
 
-/* The room the times take at each end of the line under the window: the
- * widest a time is, or the pause's word, and a section */
-static int times_room(void)
+/* The room the times take at each end of the line under the window. While
+ * playing, what tape_times draws there, the played time at the left and the
+ * time left at the right, each and a section: room for the widest time and
+ * the pause's words, kept while playing too, made the line slide in every
+ * language whose words are longer than a time ("Angehalten", on the Smart
+ * Pro), where English's fit. Paused or stopped, the widest of a time and
+ * both words at both ends, the line's place the same in the two. */
+static void times_room(const mu_now *mn, int *left, int *right)
 {
 	TTF_Font *fs = ui_font(UI_F_META);
-	int w = ui_text_tabular_width(fs, "-00:00"), p = ui_text_width(fs, T(S_MP4_PAUSED));
+	char t0[16], t1[16], line[20];
+	int w, p;
 
-	if (p > w) w = p;
-	p = ui_text_width(fs, T(S_MP4_STOPPED));
-	if (p > w) w = p;
-	return w + DS_SECTION;
+	if (mn->state != MU_PLAYING) {
+		w = ui_text_tabular_width(fs, "-00:00");
+		p = ui_text_width(fs, T(S_MP4_PAUSED));
+		if (p > w) w = p;
+		p = ui_text_width(fs, T(S_MP4_STOPPED));
+		if (p > w) w = p;
+		*left = *right = w + DS_SECTION;
+		return;
+	}
+	mmss(t0, sizeof t0, mn->at);
+	*left = ui_text_tabular_width(fs, t0) + DS_SECTION;
+	*right = DS_SECTION;
+	if (mn->len > 0) {
+		mmss(t1, sizeof t1, mn->len > mn->at ? mn->len - mn->at : 0);
+		snprintf(line, sizeof line, "-%s", t1);
+		*right += ui_text_tabular_width(fs, line);
+	}
 }
 
 /* The pill that says the style a moment after Up or Down */
@@ -1129,7 +1148,9 @@ static unsigned cassette(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 	{
 		cas_words w;
 		unsigned tt;
-		int room = times_room(), step = (int)lroundf(DS_GRID * t.kx);
+		int room_l, room_r, step = (int)lroundf(DS_GRID * t.kx);
+
+		times_room(mn, &room_l, &room_r);
 
 		cas_words_of(mn, &w);
 		if (!g_lab.known || M.shot) {
@@ -1147,15 +1168,15 @@ static unsigned cassette(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 		tt = g_lab.moving ? now - g_lab.t0 : DS_MS_EXIT + DS_MS_MOVE;
 		if (tt >= DS_MS_EXIT + DS_MS_MOVE) {
 			g_lab.moving = false;
-			cas_words_draw(r, &g_lab.now, &t, &L, st, &ink, 1.0f, 0, phase, room, &wait);
+			cas_words_draw(r, &g_lab.now, &t, &L, st, &ink, 1.0f, 0, phase, room_l, room_r, &wait);
 		} else if (tt < DS_MS_EXIT) {
 			float kk = ds_in((float)tt / DS_MS_EXIT);
 
-			cas_words_draw(r, &g_lab.was, &t, &L, st, &ink, 1.0f - kk, -(int)lroundf(step * kk), phase, room, &wait);
+			cas_words_draw(r, &g_lab.was, &t, &L, st, &ink, 1.0f - kk, -(int)lroundf(step * kk), phase, room_l, room_r, &wait);
 		} else {
 			float kk = ds_out((float)(tt - DS_MS_EXIT) / DS_MS_MOVE);
 
-			cas_words_draw(r, &g_lab.now, &t, &L, st, &ink, kk, (int)lroundf(step * (1.0f - kk)), phase, room, &wait);
+			cas_words_draw(r, &g_lab.now, &t, &L, st, &ink, kk, (int)lroundf(step * (1.0f - kk)), phase, room_l, room_r, &wait);
 		}
 	}
 	tape_times(r, &t, &L, mn, &ink, pt_material(st)->worn && mp4t_pixel(st));
