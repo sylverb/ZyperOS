@@ -93,6 +93,7 @@ typedef struct {
 	float from;              /* a rewind's start */
 	float t;                 /* ms into a rewind; < 0 none */
 	float ang[2];            /* the reels' angles, degrees clockwise */
+	float up;                /* ms of spin-up the playing turn has still to come, after a wind */
 	int   song;              /* the song the tape is on (its place in the queue) */
 	bool  known;
 } mp4l_tape;

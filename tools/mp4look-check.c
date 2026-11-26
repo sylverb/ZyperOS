@@ -319,6 +319,81 @@ int main(void)
 			fail("a pack halfway", mp4t_pack_half(mp4l_tape_r(0.5f, 0, 63.4f, 148.0f) / cell), 46);
 	}
 
+	/* A rewind as the device has it: the next song already playing (the
+	 * reels' spin at 1) while the tape winds back. Every frame of it, at 60
+	 * and at 30 a second, from a song's end, its middle and its first
+	 * seconds, both reels turn back (clockwise, the hub frame stepping up
+	 * or still, never down), the left pack fills and the right one empties;
+	 * after it the reels come back to the playing way over spin-up. The
+	 * checks above rewound paused, so the playing turn fighting the wind
+	 * (forward at a rewind's ends, and the whole rewind from near a song's
+	 * start) went unseen. A seek back winds back the same way. */
+	{
+		static const float FROM[] = { 1.0f, 0.5f, 0.05f, 0.01f };
+		static const float DT[] = { 1000.0f / 60, 1000.0f / 30 };
+		unsigned fi, di;
+
+		for (fi = 0; fi < sizeof FROM / sizeof FROM[0]; fi++)
+			for (di = 0; di < sizeof DT / sizeof DT[0]; di++) {
+				mp4l_tape tp = { 0 };
+				float ms, rl, rr, was[2];
+				int k, fr[2], fwd = 0, frame_down = 0, packs = 0;
+
+				mp4l_tape_step(&tp, 0, 0, FROM[fi], 1, CAS_SPEED, 63.4f, 148.0f, 800);
+				for (k = 0; k < 2; k++) fr[k] = mp4t_hub_frame(tp.ang[k]);
+				rl = mp4l_tape_r(tp.f, 0, 63.4f, 148.0f);
+				rr = mp4l_tape_r(tp.f, 1, 63.4f, 148.0f);
+				for (ms = 0; ms < (float)DS_MS_REWIND; ms += DT[di]) {
+					float l, rgt;
+
+					was[0] = tp.ang[0];
+					was[1] = tp.ang[1];
+					/* the new song 1 s long at worst: its place runs on */
+					mp4l_tape_step(&tp, DT[di], 1, 0.0f, 1, CAS_SPEED, 63.4f, 148.0f, 800);
+					for (k = 0; k < 2; k++) {
+						float d = fmodf(tp.ang[k] - was[k] + 540.0f, 360.0f) - 180.0f;
+						int f = mp4t_hub_frame(tp.ang[k]);
+
+						if (d <= 0 && tp.f > 0) fwd++;
+						if (((f - fr[k] + MP4T_HUB_FRAMES) % MP4T_HUB_FRAMES) > MP4T_HUB_FRAMES / 2) frame_down++;
+						fr[k] = f;
+					}
+					l = mp4l_tape_r(tp.f, 0, 63.4f, 148.0f);
+					rgt = mp4l_tape_r(tp.f, 1, 63.4f, 148.0f);
+					if (l < rl || rgt > rr) packs++;
+					rl = l;
+					rr = rgt;
+				}
+				if (fwd) fail("a rewind playing: frames a reel turned the playing way (from, fps)", FROM[fi] * 1000 + 1000 / DT[di], 0);
+				if (frame_down) fail("a rewind playing: hub frames stepping down (from)", FROM[fi], 0);
+				if (packs) fail("a rewind playing: a pack moving the wrong way (from)", FROM[fi], 0);
+				if (fabsf(tp.f) > 1e-6f) fail("a rewind playing ends at the start", tp.f, 0);
+				/* Then the playing turn back: none at the rewind's end, up
+				 * over spin-up, counterclockwise */
+				for (ms = 0; ms < (float)DS_MS_SPIN_UP + 2 * DT[di]; ms += DT[di]) {
+					was[1] = tp.ang[1];
+					mp4l_tape_step(&tp, DT[di], 1, 0.0f, 1, CAS_SPEED, 63.4f, 148.0f, 800);
+				}
+				near("the playing turn back up after a rewind (degrees a frame)",
+				     fmodf(was[1] - tp.ang[1] + 720, 360), CAS_SPEED * DT[di] / 1000 / 63.4f * 57.29578f, 0.01);
+			}
+		{
+			/* A seek back from 0.4 to 0.1, playing: back every frame */
+			mp4l_tape tp = { 0 };
+			int k, fwd = 0;
+
+			mp4l_tape_step(&tp, 0, 0, 0.4f, 1, CAS_SPEED, 63.4f, 148.0f, 800);
+			for (k = 0; k < 60; k++) {
+				float was = tp.ang[0], f0 = tp.f, d;
+
+				mp4l_tape_step(&tp, 1000.0f / 60, 0, 0.1f, 1, CAS_SPEED, 63.4f, 148.0f, 800);
+				d = fmodf(tp.ang[0] - was + 540.0f, 360.0f) - 180.0f;
+				if (tp.f < f0 && d <= 0) fwd++;
+			}
+			if (fwd) fail("a seek back playing: frames the left reel turned the playing way", fwd, 0);
+		}
+	}
+
 	/* The cell is whole pixels on every handheld: 8 units on the Pixel 2
 	 * (5) and the Brick (8), 16 on the Smart Pro (15) */
 	{

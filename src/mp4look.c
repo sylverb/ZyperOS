@@ -166,6 +166,7 @@ void mp4l_tape_step(mp4l_tape *t, float dt, int song, float target, float spin, 
                     float hub_r, float full_r, float wind)
 {
 	float f0, moved = 0;
+	bool wound = false;
 	int k;
 
 	if (target < 0) target = 0;
@@ -191,18 +192,31 @@ void mp4l_tape_step(mp4l_tape *t, float dt, int song, float target, float spin, 
 			t->f = t->from * (1.0f - ds_turn(t->t / (float)DS_MS_REWIND));
 		}
 		moved = t->f - f0;
+		wound = true;
 	}
 	if (t->t < 0) {
 		float gap = target - t->f;
-
 		/* Playing on, the tape is where the song is; a seek's jump is wound
 		 * on follow, which is all the tape the reels turn for past their
-		 * own speed */
-		if (fabsf(gap) < 0.002f) t->f = target;
+		 * own speed. Playing never goes back: any way back past a hair is
+		 * wound, its last stretch too */
+		bool on = gap >= 0 ? gap < 0.002f : gap > -TAPE_NEAR;
+
+		if (on) t->f = target;
 		else t->f += gap * (1.0f - expf(-dt / (float)DS_MS_WIND));
 		if (fabsf(target - t->f) < TAPE_NEAR) t->f = target;
-		if (fabsf(gap) >= 0.002f) moved = t->f - f0;
+		if (!on) {
+			moved = t->f - f0;
+			wound = true;
+		}
 	}
+	/* Rewinding or winding, the motor turns the reels for the wind alone:
+	 * the playing turn on top of it would turn them forward wherever the
+	 * wind is slow (a rewind's ends, a rewind from a song's start, a seek's
+	 * last stretch), so it is off, and comes back up over spin-up after */
+	if (wound) t->up = (float)DS_MS_SPIN_UP;
+	else if (t->up > 0) t->up = t->up > dt ? t->up - dt : 0;
+	spin *= ds_out(1.0f - t->up / (float)DS_MS_SPIN_UP);
 	for (k = 0; k < 2; k++) {
 		float r = mp4l_tape_r(t->f, k, hub_r, full_r);
 		/* Playing, the tape leaves the left pack down its outer side and
