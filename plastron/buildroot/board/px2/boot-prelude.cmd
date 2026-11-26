@@ -35,3 +35,18 @@ setenv zy_dtb rk3326s-gkd-pixel2.dtb
 # card comes back from; the chip's reset left the card unreadable to the boot
 # ROM, which started the handheld's own loader (2026-11-26).
 setenv zy_args "rootfstype=squashfs ro rootwait=20 console=tty1 panic=10 watchdog.open_timeout=60 sysctl.kernel.hung_task_timeout_secs=60 sysctl.kernel.hung_task_panic=1"
+# The PX30's own resets (its watchdog, its thermal cut-off) restart the RK817
+# too: U-Boot's zypmicrst (its patches/0006) puts GPIO0_A4, the RK817's sleep
+# pin on the GKD Pixel 2, in its function 2, the SoC's reset out, idle high,
+# and sets the RK817 to restart the whole PMU when it goes low, as Rockchip's
+# own kernel does. Alone, the chip's reset left the RK817 on: vccio_sd at
+# 1.8 V and the card in its SDR104 signalling, which the boot ROM cannot read
+# at 3.3 V, so it started the handheld's own loader instead (its charging
+# screen, then its red "system failure": 1.1.1-test.2, 2026-11-26). With the
+# RK817's restart the card is power cycled and boots, the RAM and pstore
+# kept: measured on that Pixel 2, back in ZyperOS 16 s after the watchdog,
+# ON_SOURCE 0x04, which U-Boot turns into zyreset=chip. Here, in the Pixel
+# 2's own part, as the wiring is the Pixel 2's (the R36S shares U-Boot, not
+# its board); at every start, as the RK817's restart sets its registers
+# back. A U-Boot without the command says so and boots as before.
+zypmicrst
