@@ -2,7 +2,9 @@
 #include "saver_screen.h"
 
 #include "app.h"
+#include "cartlabel.h"
 #include "ctl_channel.h"
+#include "esmedia.h"
 #include "mp4video.h"
 #include "mp4c.h"
 #include "panel.h"
@@ -173,14 +175,12 @@ static void saver_pool_build(app *a, bool video)
  * from IMG_LoadTexture of an RGB file drew nothing on the Pixel 2's GL). */
 static SDL_Texture *saver_cover_load(SDL_Renderer *r, const char *path, int *w, int *h)
 {
-	SDL_Surface *raw = IMG_Load(path), *conv;
+	SDL_Surface *conv = cart_label_load(path);   /* a PICO-8 cart as its label */
 	SDL_Texture *t;
 
-	if (!raw) return NULL;
-	conv = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ARGB8888, 0);
-	SDL_FreeSurface(raw);
 	if (!conv) return NULL;
 	t = SDL_CreateTextureFromSurface(r, conv);
+	cart_label_sharp(t, conv);
 	*w = conv->w;
 	*h = conv->h;
 	SDL_FreeSurface(conv);
@@ -213,8 +213,12 @@ static bool saver_next(app *a, unsigned now)
 			    stat(path, &st) != 0 || st.st_size <= 0)
 				continue;
 		} else {
-			box_art_path(s->folder, g->name, path, sizeof path);
-			if (stat(path, &st) != 0 || st.st_size <= 0) continue;
+			/* The shelf's lookup, without the wait the frame cannot
+			 * have: its own, EmulationStation's, a PICO-8 game's cart */
+			if (!game_media(P_ROMS, s->folder, g->file, g->name, ES_COVER, false,
+			                path, sizeof path) ||
+			    stat(path, &st) != 0 || st.st_size <= 0)
+				continue;
 			if (!(g_sv.cover = saver_cover_load(a->r, path, &g_sv.cw, &g_sv.ch))) continue;
 		}
 		g_sv.at = i;
