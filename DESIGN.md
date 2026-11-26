@@ -1175,7 +1175,10 @@ The focused row is an **accent** fill, **radius.row**, its label and value in
 ends in a footer (a rule and only notes under it) and does not fit keeps the
 footer still under its rows (`menu_style.pin_foot`): the rows above the rule
 scroll in what room is left, as a card's body scrolls over its pinned
-footer. Elsewhere a long list's footer goes round with its rows.
+footer. The footer is the first rule of the rows' tail that holds only rules
+and notes, so a rule between two groups of rows above it stays the list's
+(the Hotkeys list's, 11.61); and the more mark under the window has its own
+room over the footer's rule, never on it. Elsewhere a long list's footer goes round with its rows.
 Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several
@@ -7153,9 +7156,20 @@ and a game's **Controls tab > Hotkeys** (over the paused game), in the widest
 panel (menu_most_w): a row an action, its keys at its right drawn as this
 handheld's glyphs (11.9, `MENU_KEYS_MARK` as a value), "+" between them, or
 **None**; a key that differs from what the scope falls back to in the
-**accent-ink**. Then **Home** with MENU+START's glyphs, a quiet row, and the
-line "Held 1 s. It never changes."; then **Reset Hotkeys**, live when the
-scope shown has keys of its own, which asks first, as Reset Buttons does. In
+**accent-ink**. Then **Home** with MENU+START's glyphs (a handheld with that
+chord: the Pixel 2, the R36S), a quiet row the cursor passes, its glyphs
+faded to half as its words are dimmed; then **Reset Hotkeys**, live when the
+scope shown has keys of its own, which asks first, as Reset Buttons does.
+**What a group of rows is goes under the list**, never between its rows
+*(the Pixel 2 test of 1.1.1-test.2, 2026-11-26: "observations among the
+rows" was bad UX)*: a footer, a rule and one line in **menu** **text-dim**,
+pinned under the rows as an option list's note is (`pin_foot`), says it for
+the group the cursor is in. Among the game's hotkeys it is "Home Screen is
+fixed: held 1 s." where there is a Home row, and "In a game, with SELECT
+held." where there is none; among MENU's chords (below) "Everywhere but in a
+game."; a game's list on a handheld with no Home row has no footer. It
+follows the cursor in the frame it lands (`menu_style.at`), and is always one
+line, so the panel holds still. In
 a game **Applies To** comes first, round on Left and Right: **This Game** (as
 the Controls tab opens), the system by its home label, or **Every Game**, its
 value in the accent-ink where that scope has keys of its own; and last **All
@@ -7271,8 +7285,8 @@ Diatom's, and the screenshot is SELECT and a button, above.
   the volume keys, a press showing the panel and how to open it, SELECT and
   START held to unlock with the bar filling; over the ground, as no screen is
   under it. Auto Off still turns the handheld off.
-- **MENU > System > Hotkeys** ends with them, under a rule and "Everywhere
-  but in a game:": Screenshot and Lock Screen with their chords (A captures:
+- **MENU > System > Hotkeys** ends with them, under a rule, the footer saying
+  "Everywhere but in a game." while the cursor is on them: Screenshot and Lock Screen with their chords (A captures:
   MENU held, then a button, MENU let go keeps it; a button the other has asks
   the swap question), and **Hold to Unlock**, 1, 2, 3 or 5 s (2 s, MP4's
   hold-unlock, until changed), for this lock and MP4's. A game's Controls tab

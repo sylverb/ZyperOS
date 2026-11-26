@@ -1537,7 +1537,7 @@ for _kind in ("disk_side", "disk_in", "disk_out", "disk_first"):
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))
 # The Hotkeys list (src/hotkeys_screen.h): MENU > System's, at its top and its
-# end (Home, the line under it, Reset Hotkeys); a game's, Applies To on each
+# end (Home, Reset Hotkeys, the footer for MENU's chords); a game's, Applies To on each
 # of its three and All Controls at the end; the capture screen waiting and
 # with SELECT and Y down; the swap question; Reset Hotkeys' question for each
 # scope; and Reset Game's question over the game

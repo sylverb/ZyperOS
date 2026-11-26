@@ -23,10 +23,11 @@
 #include "uisound.h"
 #include "zyperdraw.h"
 
-/* The rows that are no action (the actions are 0 to HK_ACTS - 1) */
-enum { HKR_SCOPE = 100, HKR_HOME, HKR_NOTE, HKR_RESET, HKR_ALL,
+/* The rows that are no action (the actions are 0 to HK_ACTS - 1); their
+ * numbers are the shots' (--hotkeys), so a row gone keeps its number free */
+enum { HKR_SCOPE = 100, HKR_HOME, HKR_FOOT_RULE, HKR_RESET, HKR_ALL,
        /* MENU's chords on every screen, MENU > System's alone (src/menukeys.h) */
-       HKR_MK_RULE, HKR_MK_NOTE, HKR_MK_SHOT, HKR_MK_LOCK, HKR_MK_HOLD };
+       HKR_MK_RULE, HKR_FOOT, HKR_MK_SHOT, HKR_MK_LOCK, HKR_MK_HOLD };
 #define HKR_MAX (HK_ACTS + 11)
 
 /* The capture screen's glyphs, as the keyboard's big keys: 11.9's 112 */
@@ -53,6 +54,8 @@ typedef struct {
 	char              scope_val[CFG_STR];
 	char              mk_val[MK_ACTS][CTL_KEYS_MAX];
 	char              hold_val[24];
+	/* The footer's line, for the group the cursor is in (foot_for) */
+	char              foot[160];
 } hk_page;
 
 static const str_id ACT_LABEL[HK_ACTS] = {
@@ -101,6 +104,43 @@ static const char *scope_said(hk_page *p)
 	return T(S_HOTKEYS_EVERY_GAME);
 }
 
+/* The footer under the list says what the rows the cursor is among are
+ * (2026-11-26, the Pixel 2 test of 1.1.1-test.2: the quiet lines between
+ * the rows read as observations among them): MENU's chords, everywhere but
+ * in a game; the game's hotkeys, whose quiet Home row is fixed and held
+ * 1 s, or on a handheld with no Home (the Brick, the Smart Pro) that they
+ * work in a game, with SELECT. One line under a rule, pinned under the rows
+ * as an option list's note is, the same height whichever it says, so the
+ * panel holds still as the cursor goes from one group to the other. A
+ * list with neither (a game's, on a handheld with no Home) has none. */
+static bool has_home(void)
+{
+	return dev_role_keys(&plat_profile()->chords, DEV_ROLE_HOME) != NULL;
+}
+
+static bool has_foot(const hk_page *p)
+{
+	return !p->s || has_home();
+}
+
+static void foot_for(hk_page *p, int id)
+{
+	const bool mk = id == HKR_MK_SHOT || id == HKR_MK_LOCK || id == HKR_MK_HOLD;
+
+	snprintf(p->foot, sizeof p->foot, "%s",
+	         T(mk ? S_HOTKEYS_MENU_NOTE : has_home() ? S_HOTKEYS_HOME_NOTE : S_HOTKEYS_GAME_NOTE));
+}
+
+/* The cursor's row each pass, before the frame: the footer follows it in
+ * the frame it lands (the rows point at p->foot) */
+static void at_row(app *a, void *ctx, int sel)
+{
+	hk_page *p = ctx;
+
+	(void)a;
+	if (sel >= 0 && sel < p->n) foot_for(p, p->ids[sel]);
+}
+
 static int build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	hk_page *p = ctx;
@@ -127,12 +167,11 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 		ROW(i, ((menu_row){ T(ACT_LABEL[i]), p->val[i], true }),
 		    t.key[i] != back.key[i] ? 1u : 0u, 0);
 	}
-	/* Home, the way out of anything, the same on every card: fixed, and the
-	 * line under it says so */
+	/* Home, the way out of anything, the same on every card: fixed, a quiet
+	 * row the cursor passes, and the footer says so */
 	if (home) {
 		snprintf(p->home, sizeof p->home, "%s%s", MENU_KEYS_MARK, home);
 		ROW(HKR_HOME, ((menu_row){ T(S_CONTROLS_HOME), p->home, false }), 0u, 0);
-		ROW(HKR_NOTE, MENU_NOTE(T(S_HOTKEYS_HOME_NOTE)), 0u, 0);
 	}
 	ROW(HKR_RESET, ((menu_row){ T(S_HOTKEYS_RESET_ALL), NULL, own }), 0u, own ? 0 : MENU_SND_NO_A);
 	if (p->s) ROW(HKR_ALL, ((menu_row){ T(S_HOTKEYS_ALL_CONTROLS), NULL, true }), 0u, 0);
@@ -146,7 +185,6 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 
 		mk_default(&def);
 		ROW(HKR_MK_RULE, MENU_RULE, 0u, 0);
-		ROW(HKR_MK_NOTE, MENU_NOTE(T(S_HOTKEYS_MENU_NOTE)), 0u, 0);
 		for (i = 0; i < MK_ACTS; i++) {
 			char chord[24];
 
@@ -160,6 +198,11 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 		snprintf(p->hold_val, sizeof p->hold_val, T(S_SYSMENU_AUTO_OFF_SECS), (int)(m->hold_ms / 1000));
 		ROW(HKR_MK_HOLD, ((menu_row){ T(S_HOTKEYS_UNLOCK_HOLD), p->hold_val, true }),
 		    m->hold_ms != def.hold_ms ? 1u : 0u, MENU_SND_RING);
+	}
+	if (has_foot(p)) {
+		if (!p->foot[0]) foot_for(p, -1);
+		ROW(HKR_FOOT_RULE, MENU_RULE, 0u, 0);
+		ROW(HKR_FOOT, MENU_NOTE(p->foot), 0u, 0);
 	}
 #undef ROW
 	p->n = n;
@@ -224,6 +267,8 @@ static void capture_draw_as(app *a, hk_page *p, const char *heading, float k)
 	st.header_h = HK_CAPTURE_H;
 	st.sound = NULL;
 	st.vcolors = NULL;
+	st.at = NULL;
+	st.pin_foot = false;
 	backdrop(a, p, k);
 	menu_draw_styled(a, &st, heading, rows, 2, -1);
 }
@@ -488,6 +533,8 @@ static void page_init(hk_page *p, app *a, const menu_style *over, void *ctx, con
 	p->st.on_power = power;
 	p->st.sound = p->sound;
 	p->st.vcolors = p->vcol;
+	p->st.at = at_row;
+	p->st.pin_foot = true;
 }
 
 void hotkeys_screen(app *a)
@@ -577,6 +624,7 @@ void hotkeys_shot(app *a, const system_cfg *s, const char *file, int sel, int ca
 		for (i = 0; i < n && p.ids[i] != sel; i++) ;
 		if (i >= n) i = 0;
 		if (!rows[i].live) i = menu_step_sel(rows, n, i, +1);
+		foot_for(&p, p.ids[i]);
 		backdrop(a, &p, 1.0f);
 		menu_draw_styled(a, &p.st, heading, rows, n, i);
 	}
