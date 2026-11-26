@@ -43,7 +43,7 @@ def check(ok, what):
         fails.append(what)
 
 
-def ask(sock, line, timeout=10):
+def ask(sock, line, timeout=30):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.settimeout(timeout)
     s.connect(str(sock))
@@ -81,9 +81,11 @@ def press_once(sock, key):
     ask(sock, f'tap {key} 40')
 
 
-def until(get, ok, secs=5.0):
+def until(get, ok, secs=30.0):
     """get() again until ok(it) holds or `secs` pass (a busy computer draws
-    late); the last one got"""
+    late); the last one got. It ends as soon as ok holds, so the ceiling is
+    only how long a loaded machine may take (2026-11-24: 3 s to 10 s were
+    guesses at one, under make check's parallel run)"""
     end = time.time() + secs
     got = get()
     while not ok(got) and time.time() < end:
@@ -127,9 +129,8 @@ def run(tmp, name, snaps, saver, extra, setup=None, last='SFC\nAlpha.sfc\n\n'):
     p = subprocess.Popen([str(BINARY), '--device', 'brick', *extra], env=env, stdout=log,
                          stderr=subprocess.STDOUT)
     try:
-        for _ in range(200):
-            if sock.exists() or p.poll() is not None:
-                break
+        end = time.time() + 30
+        while time.time() < end and not sock.exists() and p.poll() is None:
             time.sleep(0.05)
         check(sock.exists(), f'{name}: the control socket is up')
         if not sock.exists():
@@ -139,7 +140,7 @@ def run(tmp, name, snaps, saver, extra, setup=None, last='SFC\nAlpha.sfc\n\n'):
         # A on the first system: its shelf, looked for as late as a slow
         # runner draws it (once: a second A would be on the shelf's game)
         press_once(sock, 'a')
-        until(lambda: ask(sock, 'state').get('screen'), lambda s: s == 'games', 10.0)
+        until(lambda: ask(sock, 'state').get('screen'), lambda s: s == 'games')
         return sock, p, log, tmp / f'{name}.log'
     except Exception:
         p.kill()
@@ -169,7 +170,7 @@ def saver(tmp):
         time.sleep(6.0)                   # twice the screensaver's delay, nothing pressed
         c0 = ask(sock, 'state')['cursor']
         press_once(sock, 'right')
-        c1 = until(lambda: ask(sock, 'state')['cursor'], lambda c: c != c0, 3.0)
+        c1 = until(lambda: ask(sock, 'state')['cursor'], lambda c: c != c0)
         started = 'saver: starts' in logfile.read_text()
         check(not started and c1 == (c0 + 1) % len(GAMES),
               f'the snap playing holds the screensaver: Right steps on past its delay '
@@ -212,9 +213,10 @@ def shots(tmp):
         near = lambda xy: all(abs(c - t) <= 24 for c, t in zip(im.getpixel(xy), SHOT_RGB))
         return near((w // 2, h - 30)), near((int(w * 0.17), int(h * 0.2))), near((w // 2, int(h * 0.17)))
 
-    def until(ok, secs=4.0):
+    def until(ok, secs=30.0):
         """Looks until `ok` holds or `secs` pass (a busy runner draws late);
-        the last look"""
+        the last look. It ends as soon as ok holds: the ceiling is only how
+        long a loaded machine may take"""
         end = time.time() + secs
         got = look()
         while not ok(got) and time.time() < end:
@@ -233,23 +235,41 @@ def shots(tmp):
     whole = lambda r: r[2]
     try:
         # the shelf's first shot: the viewer (A again if the shelf was still
-        # coming in from the home and let the press go by)
+        # coming in from the home and let the press go by). Each A waited
+        # for long, so a viewer slow to open on a loaded machine is not
+        # taken for a press let go by, and A again pressed in the viewer,
+        # which puts the band away (2026-11-24: 4 s was too short)
         for _ in range(4):
             tap('a')
-            foot, card, top = until(whole, 4)
+            foot, card, top = until(whole, 15)
             if top:
                 break
         check(top and not foot and not card, f'the viewer opens with its band and card up '
               f'(the shot {"whole" if top else "not open"}, the foot {"clear" if foot else "covered"}, '
               f'the card {"gone" if card else "there"})')
-        tap('right')                                         # a press: the rest starts again
-        until(lambda r: r[2] and not r[0], 10)               # the next shot in, the band up
-        t0 = time.time()
-        tap('a')                                             # A: away at once, not 2 s on
-        foot, card, top = until(lambda r: r[0] and r[1], 1.5)
-        check(foot and card, f'A puts the band and the card away at once, nothing left at the foot '
+        # A: away at once, not on the rest. The rest takes them away
+        # DS_MS_HOLD_BAND (2 s) after the last press, Right's, which this
+        # side sent at t0: so seen away sooner than 2 s after t0, it can only
+        # be A's doing, however slowly the launcher draws. Told apart by the
+        # wall clock alone, a loaded machine missed a ceiling of 1.5 s
+        # (2026-11-24). A look 2 s or more after t0 says nothing either way,
+        # and the press and A go again; no try can pass an A that does
+        # nothing, as only the rest then takes them away, and never before
+        # 2 s.
+        tries = []
+        for _ in range(6):
+            t0 = time.monotonic()
+            tap('right')                                     # a press: the rest starts again
+            until(lambda r: r[2] and not r[0])               # the next shot in, the band up
+            tap('a')
+            foot, card, top = until(lambda r: r[0] and r[1])
+            tries.append(round(time.monotonic() - t0, 2))
+            if foot and card and tries[-1] < 2.0:
+                break
+        check(foot and card and tries[-1] < 2.0,
+              f'A puts the band and the card away at once, nothing left at the foot '
               f'(the foot {"clear" if foot else "covered"}, the card {"gone" if card else "there"}, '
-              f'after {time.time() - t0:.1f} s; the rest would take 2 s)')
+              f'seen {tries} s after the last press; the rest would take 2 s)')
         ask(sock, 'press a')                                 # A held: they stay away
         time.sleep(1.2)
         foot, card, top = look()
