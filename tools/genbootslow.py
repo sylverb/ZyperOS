@@ -2,10 +2,16 @@
 """The boot screen's words for a start that is taking longer than it should.
 
     python3 tools/genbootslow.py             the splash's strips, in plastron
-    python3 tools/genbootslow.py --check     whether they are what this draws,
-                                             every line fits, and no frame of
-                                             the animation reaches where they go
+    python3 tools/genbootslow.py --check     whether every file is there, in its
+                                             format, with this Pillow's lines
+                                             (their ids, their widths within a
+                                             few pixels) and every line fits
                                              (make check-genbootslow)
+    python3 tools/genbootslow.py --drift     whether they are byte for byte
+                                             what this Pillow draws (make
+                                             check-genbootslow-drift, out of the
+                                             suite: another Pillow or FreeType
+                                             draws other pixels)
 
 A start reaches ZyperOS's home in 1.4 to 2 s on a GKD Pixel 2 (its kernel's
 log, seven starts) and about 2.2 s on a TrimUI Brick. One that takes longer
@@ -148,18 +154,90 @@ def widest():
     return out
 
 
+def read_lines(path):
+    """A file's lines as (id, segments, height, width), or None if it is not
+    in the format"""
+    with open(path, "rb") as f:
+        data = f.read()
+    if len(data) < 12:
+        return None
+    magic, version, _, n, _ = struct.unpack_from("<4sHHHH", data, 0)
+    if magic != b"TSPN" or version != 1:
+        return None
+    out, at = [], 12
+    for _ in range(n):
+        if at + 8 > len(data):
+            return None
+        lid, nseg, h, _, w = struct.unpack_from("<BBHHH", data, at)
+        at += 8
+        for _ in range(nseg):
+            if at + 8 > len(data):
+                return None
+            at += 8 + struct.unpack_from("<BBHI", data, at)[3]
+        out.append((lid, nseg, h, w))
+    return out if at == len(data) else None
+
+
+def expected(code, scale):
+    """The lines encode() draws, as read_lines() gives them, without drawing"""
+    out = []
+    for lid, size, segs in lines(code):
+        faces = [font_for(fc, size) for _, _, fc in segs]
+        asc = max(f.getmetrics()[0] for f in faces)
+        desc = max(f.getmetrics()[1] for f in faces)
+        w = 0
+        for f, (_, t, _) in zip(faces, segs):
+            u = max(1, int(round(f.getlength(t))))
+            w += u if scale == 1.0 else max(1, int(round(u * scale)))
+        h = asc + desc if scale == 1.0 else max(1, int(round((asc + desc) * scale)))
+        out.append((lid, len(segs), h, w))
+    return out
+
+
+def check():
+    """The files against this Pillow's lines, loosely: the same lines, each as
+    wide and as tall within a few pixels, so a string changed and not drawn
+    again shows, and another Pillow's hinting does not"""
+    bad = []
+    for dev, scale in SCALES.items():
+        for code in i18n.CODES:
+            path = os.path.join(OUT, dev, code + ".bin")
+            got = read_lines(path) if os.path.isfile(path) else None
+            want = expected(code, scale)
+            if got is None or len(got) != len(want) or any(
+                    g[:2] != e[:2] or abs(g[2] - e[2]) > 2 or abs(g[3] - e[3]) > max(3, e[3] // 50)
+                    for g, e in zip(got, want)):
+                bad.append(os.path.join(dev, code + ".bin"))
+        path = os.path.join(OUT, dev, "glyphs.bin")
+        if not os.path.isfile(path) or os.path.getsize(path) == 0:
+            bad.append(os.path.join(dev, "glyphs.bin"))
+    if bad:
+        print("check-genbootslow: not what tools/genbootslow.py draws: %s (run it)" % ", ".join(bad))
+        return 1
+    w = widest()
+    if max(w.values()) > LINE_MAX:
+        print("check-genbootslow: %s's widest line is %d units, past %d" % (max(w, key=w.get), max(w.values()), LINE_MAX))
+        return 1
+    print("check-genbootslow: the slow start's lines in %d languages for the Pixel 2, the Brick and the Smart Pro, and the"
+          " tester's letters, there and as wide as this draws them; the widest %d of %d units (%s)"
+          % (len(w), max(w.values()), LINE_MAX, max(w, key=w.get)))
+    return 0
+
+
 def main():
     if sys.argv[1:] == ["--check"]:
+        return check()
+    if sys.argv[1:] == ["--drift"]:
         with tempfile.TemporaryDirectory() as tmp:
             write(tmp)
             bad = [n for n in names()
                    if not os.path.isfile(os.path.join(OUT, n)) or
                    open(os.path.join(tmp, n), "rb").read() != open(os.path.join(OUT, n), "rb").read()]
         if bad:
-            print("check-genbootslow: not what tools/genbootslow.py draws: %s (run it)" % ", ".join(bad))
+            print("check-genbootslow-drift: not what tools/genbootslow.py draws: %s (run it)" % ", ".join(bad))
             return 1
         w = widest()
-        print("check-genbootslow: the slow start's lines in %d languages for the Pixel 2, the Brick and the Smart Pro, and the"
+        print("check-genbootslow-drift: the slow start's lines in %d languages for the Pixel 2, the Brick and the Smart Pro, and the"
               " tester's letters, as drawn; the widest %d of %d units (%s)" % (len(w), max(w.values()), LINE_MAX, max(w, key=w.get)))
         return 0
     write(OUT)

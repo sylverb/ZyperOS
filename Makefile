@@ -732,11 +732,18 @@ build-native/bootslow-check: tools/bootslow-check.c plastron/buildroot/package/s
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O2 -g \
 	      -o $@ tools/bootslow-check.c -lz
 
-# The slow start's lines, as tools/genbootslow.py draws them, every line
-# within 896 units in every language
+# The slow start's lines, there for every language and handheld and as wide
+# as tools/genbootslow.py draws them, every line within 896 units. Byte for
+# byte is check-genbootslow-drift, out of the suite as check-genfirststart
+# is: another Pillow or FreeType draws other pixels (CI's did, 2026-11-25)
 check-genbootslow:
 	@py='$(PYIMG)'; [ -n "$$py" ] || { echo "check-genbootslow: needs Pillow; set PYIMG" >&2; exit 1; }; \
 	"$$py" -B tools/genbootslow.py --check
+
+.PHONY: check-genbootslow-drift
+check-genbootslow-drift:
+	@py='$(PYIMG)'; [ -n "$$py" ] || { echo "check-genbootslow-drift: needs Pillow; set PYIMG" >&2; exit 1; }; \
+	"$$py" -B tools/genbootslow.py --drift
 
 # The last start's restart (src/lastboot.h): crashlog's summary in letters
 # and in words, the code "K1W · 0.6 s", said once, the card's copy, the About
