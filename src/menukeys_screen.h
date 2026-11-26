@@ -38,6 +38,9 @@ in_button mk_in_of(int key);
  * any screen. The screen dark, MP4's lock's rules (src/mp4lock.h) and its
  * panel: a press shows how to open it, the volume keys get through. */
 void mk_lock(app *a);
+/* How many times the lock has been opened again since the start: the
+ * tutorial's lock lesson waits for one more (src/tour_screen.c) */
+unsigned mk_unlocks(void);
 
 /* For a host shot: the lock's panel over the screen (`k`, 0 to 1, the
  * unlock's hold), and the notice as the screenshot leaves it */

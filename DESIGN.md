@@ -1803,7 +1803,9 @@ for the reward, and a wrong press tilted, nudged and answered.)*
 | Go Back | B | the game shrinks back to its card | B |
 | See the Details | X | the card turns into the details, the info screen in small: the game's name over a rule, Synopsis in focus, Year, and Favorite Off with Y's glyph | X |
 | Keep a Favorite | Y | in those details Favorite turns from Off to On, the row's own Y pressing with the glyph; the line says Y does it in the details | Y |
-| Settings | MENU | a menu panel opens over the shelf | MENU, which opens nothing here |
+| Settings | MENU | a menu panel opens over the shelf; "MENU+L1 takes a screenshot." under the line | MENU, which opens nothing here |
+| Leave a Game | MENU, a comma and X (11.9's "one after the other"), MENU and X lit on the handheld | the stand-in game plays, MENU opens the in-game menu over it (its last row Quit, X's glyph at its right), X closes it as the game goes back into its card; "It picks up there next time." under the line | MENU, then X: MENU opens the menu on the stage (accept) and holds it for X, MENU or B closes it again (back); X first is "That's X. Press MENU first." |
+| Lock the Screen | MENU, a plus and L2 (the lock's button as Hotkeys has it), both lit on the handheld | the shelf goes dark at the chord, a press shows the lock's panel in small (the padlock, its bar), SELECT and START held fill the bar, and the screen comes back; "Hold SELECT and START 2 s to unlock." under the line (Hold to Unlock's seconds) | the chord itself, which locks the handheld as on any screen (11.61): the step's press is the lock opened again with SELECT and START held, and its reward comes as the screen does. MENU alone is "Hold MENU, then press L2.", L2 alone "That's L2. Hold MENU too." |
 | Music | SELECT, and L2/R2 lit on the handheld | MP4's Now Playing fades in; "L2/R2 play the previous or next song." under the line | SELECT, which opens nothing here |
 | Volume | the VOL rocker | a stand-in bar slides onto the stage and steps up | VOL+ or VOL-, which change the real volume and show the real bar |
 | Brightness | MENU+VOL: the MENU pill, a plus and the rocker (F1 and F2 on the Brick) | the stand-in bar's sun steps up | the chord, which changes the real brightness |
@@ -1813,6 +1815,15 @@ for the reward, and a wrong press tilted, nudged and answered.)*
 | Sounds | none | four tiles, Wood, Glass, Bubble and Off, heard as they are focused | A |
 | Menu Music | none, and no step on a card without tracks | On and Off, the music playing while On is focused | A |
 | Finish | A | Zyper hops among falling confetti, "You're all set!" in his bubble, "Every button is in MENU > Controls." | A |
+
+*(2026-11-26, the Pixel 2 test of 1.1.1-test.2: MENU's two other jobs got a
+lesson each, after Settings and before Music, so MENU is taught where it is
+used: leaving a game with MENU then X, and the lock, MENU+L2 on every screen,
+opened with SELECT and START held. Settings' note keeps the screenshot. The
+lock lesson takes the launcher's own lock rather than a stand-in, so what it
+teaches is what the handheld does, and START, which the lock takes while it
+is held with SELECT, still skips everywhere else. The Smart Pro and the R36S
+have the same keys and the same two lessons, the R36S's MENU said FN.)*
 
 *(2026-11-13: Keep a Favorite comes after See the Details, and its line says
 "In the details, press Y to add a favorite." Since 2026-11-08 Y on the
@@ -1855,7 +1866,7 @@ of the player's own goes on from wherever the loop was.
   40 bits of confetti falling and turning, in **accent** and **accent-ink**
   only: lime is success (3.3). Its A is heard from 600 ms, so the A that ends
   the last reward does not skip it.
-- **Progress**: a 40 x 6 segment for each lesson and each choice, at the top center, y 32: done
+- **Progress**: a 40 x 6 segment for each lesson and each choice (16, or 15 without menu music), at the top center, y 32: done
   **accent-ink**, current **text**, to come **track**. In the volume and
   brightness steps the real bar covers it while it shows.
 - **Stage**: 680 x 340 at (172, 84), **ground** mixed a third toward
@@ -1943,7 +1954,12 @@ of the player's own goes on from wherever the loop was.
     to the right, VOL 52 degrees to the left, both at 3.95, a little nearer.
     Brightness needs MENU and VOL, on opposite sides, so it faces front at
     3.45 and those keys stand out of its edges as tabs, 2.8 mm when lit,
-    the volume keys 4.6 so their + and - fit on them pressed too. Move
+    the volume keys 4.6 so their + and - fit on them pressed too. Lock the
+    Screen needs MENU and L2, a side and the top: it faces front the same
+    way, MENU a lit tab and L2 standing up out of the top edge as a lit
+    shoulder does facing front (tilted back to the shoulders, MENU on its
+    side went out of sight). Leave a Game, MENU and X, turns to MENU's side
+    as Settings does, X on the face beside it. Move
     Around (L1, R1) and Music (L2, R2) light shoulders on both sides, so
     they keep the front pose's 10 degrees and tilt it back 25, as seen from a
     little above, so the top shows with the lit shoulders standing up on it
@@ -2035,7 +2051,7 @@ of the player's own goes on from wherever the loop was.
     **surface** tile with a 3-unit **edge** (Off crossed through), the
     speaker's waves pinging as its voice plays.
   - **Progress**: the strip has a segment for each choice after the
-    lessons' ten, 14 (13 without tracks), filled as theirs are. On the
+    lessons' twelve, 16 (15 without tracks), filled as theirs are. On the
     Pixel 2 the choices are centered, as on the Brick: the handheld is for
     buttons, and these steps teach none.
   - Each step is a few texture copies and the words, at the panel's 60 fps:
@@ -2064,7 +2080,9 @@ of the player's own goes on from wherever the loop was.
   the volume and brightness keys are not wrong presses, and a press in the
   first 250 ms of a step, of any key, is the last step's thumb and is not
   heard. L1/R1 are wrong presses everywhere but Move Around, where they are
-  moves. L2 and R2 are wrong presses in every lesson, Music's too, whose note
+  moves. In Leave a Game and Lock the Screen Zyper says how the pair goes
+  (the table above); the lock itself, in any other step, is no press of the
+  tutorial's and locks the handheld as on any screen. L2 and R2 are wrong presses in every lesson, Music's too, whose note
   names them: no step waits for them, so Zyper answers "That's L2. Try
   SELECT." like any other misclick. The Pixel 2's device layer reads L2+R2
   together itself, outside a game, to flash the battery level on its side
@@ -7292,10 +7310,12 @@ Diatom's, and the screenshot is SELECT and a button, above.
   hold-unlock, until changed), for this lock and MP4's. A game's Controls tab
   does not show them. *(My choices, to confirm: the names, the rule's line,
   the four holds.)*
-- **The tutorial**'s MENU lesson says them as its note, "MENU+L1 takes a
-  screenshot, MENU+L2 locks.", with the keys as Hotkeys has them. The
-  handheld lights MENU alone: with the shoulders lit too it turned to show
-  them and MENU's dots went out of sight.
+- **The tutorial**'s MENU lesson says the screenshot as its note, "MENU+L1
+  takes a screenshot.", with the keys as Hotkeys has them, and the lock is
+  the lesson after Leave a Game, Lock the Screen (11.10), which the
+  launcher's own lock answers. Settings lights MENU alone: with the
+  shoulders lit too it turned to show them and MENU's dots went out of
+  sight; the lock's lesson faces front, MENU a tab and L2 standing up.
 
 Host shots: `hotkeys-menu-keys`, `hotkeys-menu-capture`,
 `hotkeys-menu-capture-keys`, `menu-locked` (`--menu-lock K`) and

@@ -38,6 +38,7 @@ static mk_table g_mk;
 static app *g_app;
 static bool g_cap, g_locked;
 static int g_caught = -1;
+static unsigned g_unlocks;
 
 /* src/hotkeys.h's keys as the handheld's buttons, in its order */
 static const in_button KEY_IN[HK_KEYS] = {
@@ -77,6 +78,8 @@ void mk_capture(bool on)
 }
 
 int mk_caught(void) { return g_caught; }
+
+unsigned mk_unlocks(void) { return g_unlocks; }
 
 /* ---- the screenshot -------------------------------------------------------- */
 
@@ -329,6 +332,7 @@ void mk_lock(app *a)
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
 	g_locked = false;
+	g_unlocks++;
 	redraw_now();
 }
 

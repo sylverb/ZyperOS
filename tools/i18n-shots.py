@@ -394,6 +394,15 @@ EXTRA = {
     "tour-a": ("demo", "PS1", ["--tour", "a", "4000", "300"]),
     "tour-wrong": ("demo", "PS1", ["--tour", "vol", "3000", "--tour-wrong", "select", "420"]),
     "tour-menu": ("demo", "PS1", ["--tour", "menu", "2000"]),
+    # Leave a Game: the in-game menu open over the game, X pressing next;
+    # and X before MENU, his answer that MENU comes first
+    "tour-quit": ("demo", "PS1", ["--tour", "quit", "1900"]),
+    "tour-quit-wrong": ("demo", "PS1", ["--tour", "quit", "3000", "--tour-wrong", "x", "420"]),
+    # Lock the Screen: the lock's panel on the dark stage, its bar filling;
+    # L2 alone (hold MENU too) and MENU alone (how the chord goes)
+    "tour-lock": ("demo", "PS1", ["--tour", "lock", "3300"]),
+    "tour-lock-wrong": ("demo", "PS1", ["--tour", "lock", "3000", "--tour-wrong", "l2", "420"]),
+    "tour-lock-wrong-menu": ("demo", "PS1", ["--tour", "lock", "3000", "--tour-wrong", "menu", "420"]),
     "tour-bright": ("demo", "PS1", ["--tour", "bright", "2000"]),
     "tour-power": ("demo", "PS1", ["--tour", "power", "1800"]),
     "tour-finish": ("demo", "PS1", ["--tour", "finish", "500"]),
