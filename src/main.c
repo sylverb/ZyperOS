@@ -24,6 +24,7 @@
 #include "blur.h"
 #include "cardgen.h"
 #include "cartlabel.h"
+#include "logcap.h"
 #include "cheevos.h"
 #include "clock.h"
 #include "config.h"
@@ -7970,6 +7971,8 @@ int main(int argc, char *argv[])
 	texload_set_late(es_cover_late);
 	art_es_media(es_art_cover, es_art_video);
 	if (!shot_path) texload_start();
+	/* This boot's zyperos.log held to about 2 MB (src/logcap.h) */
+	if (!shot_path) logcap_start();
 
 	/* The interface sounds, which read their files on a thread of their own,
 	 * so the first frame waits for none of them. Not for --shot, which
