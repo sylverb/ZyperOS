@@ -30,8 +30,8 @@ typedef enum { TD_FACE_FRONT, TD_FACE_LEFT, TD_FACE_RIGHT, TD_FACE_TOP, TD_FACE_
 
 /* Which art draws the body and its keys (src/tourdevice.c): the Brick's
  * and the R36S's are one art of a thin part and a grip below a back ledge,
- * each with its own measures and marks */
-typedef enum { TD_ART_PIXEL2, TD_ART_BRICK, TD_ART_R36S } td_art;
+ * each with its own measures and marks; the Smart Pro's is its own */
+typedef enum { TD_ART_PIXEL2, TD_ART_BRICK, TD_ART_SMARTPRO, TD_ART_R36S } td_art;
 
 /* A key: where on which face, and how big - a round key's radius, an
  * elongated one's half length, a shoulder's half width */
@@ -191,6 +191,7 @@ td_view td_view_mix(td_view a, td_view b, float k);
 
 extern const td_model td_model_pixel2;
 extern const td_model td_model_brick;
+extern const td_model td_model_smartpro;
 extern const td_model td_model_r36s;
 
 #endif
