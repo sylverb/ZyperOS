@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "lastboot.h"
 #include "ds/hover.h"
 #include "shots.h"
 #include "cheats_screen.h"
@@ -15,6 +16,7 @@
 #include "ctltab.h"
 #include "ctltab_screen.h"
 #include "hotkeys_screen.h"
+#include "menukeys_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
 #include "diskpopup.h"
@@ -22,6 +24,7 @@
 #include "ds/page.h"
 #include "emptyhome.h"
 #include "gamedel_screen.h"
+#include "gamern.h"
 #include "gameinfo_screen.h"
 #include "ingame_screen.h"
 #include "hudmenu_screen.h"
@@ -148,6 +151,8 @@ int shot_popup_half = 2;
 int shot_lowbatt = -1, shot_lowbatt_kind;
 /* --heatpop MS: Zyper's "Getting hot" on the home, MS ms in (DESIGN.md 11.23) */
 int shot_heatpop = -1;
+/* --lastboot: the summary the bubble says (src/lastboot.h), ";" for line ends */
+const char *shot_lastboot;
 /* --ranews N: Zyper's bubble saying N achievements earned offline went */
 int shot_ranews;
 /* --cheevos-waiting N: the list's heading with N of its unlocks waiting */
@@ -290,6 +295,14 @@ static void gm_said_preview(app *a, int k)
 
 int shot_controls = -1;
 int shot_hotkeys = -1, shot_hk_scope = -1, shot_hk_capture, shot_hk_key = -1;
+/* --glyph-warm: the button faces a long session has opened asked for first
+ * (src/ui.c, button_font), so a shot shows a glyph as it is drawn after an
+ * hour on the handheld, not as the first screen of a start draws it */
+bool shot_glyph_warm;
+/* MENU's chords (src/menukeys_screen.h): the lock over the screen, its
+ * unlock's hold that far (0 to 1); the screenshot's notice over the shelf */
+float shot_menu_lock = -1;
+bool shot_menu_notice;
 bool shot_hk_game;
 int shot_hk_ask;
 /* --sgdb [0|1|2]: MENU > SteamGridDB with no key, a key that works, or one
@@ -365,6 +378,7 @@ int shot_tour = -2;          /* -2 none, -1 the skip message */
 int shot_tour_ms = 2000, shot_tour_done = -1;
 int shot_tour_wrong = -1, shot_tour_wrong_ms = 300;
 int shot_tour_pick = -1, shot_tour_pick_ms = 5000;
+int shot_tour_held = -1;
 bool shot_tour_music;
 int shot_fn_volume;
 /* The chords a shot draws with: the profile's, or with --fn-volume the
@@ -488,9 +502,19 @@ const char *shot_kb_title = "Wi-Fi password";
 /* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
  * language, so check-i18n-shots measures it in every one */
 int shot_kb_ss_user;
+/* --kb-rename-shown [empty]: Rename's keyboard on a game whose file keeps
+ * its name (src/gamern_screen.c), its title and its note, in the shot's
+ * language, on the focused game's name unless --keyboard gave a text; with
+ * `empty`, the field emptied, the name it would have back in it dimmed */
+int shot_kb_rename_shown;
+int shot_kb_rename_empty;
 
 static const char *kb_title_shown(void)
 {
+	if (shot_kb_rename_shown) {
+		kb_note_next(T(S_GAMEMENU_RENAME_SHOWN_NOTE));
+		return T(S_GAMEMENU_RENAME_SHOWN);
+	}
 	return shot_kb_ss_user ? T(S_SCRAPER_SS_USER) : shot_kb_title;
 }
 int shot_slots, shot_slot_sel;
@@ -671,9 +695,12 @@ static int shot_pick_index(const menu_choice *ch)
 
 /* --expect-en "WORDS|WORDS?|...": the shot fails unless the open list's
  * every choice is one of these, in English, in whatever language is on,
- * and each one not marked "?" is there: a list built from another row's
- * words shows (Recents' Card Picture said Border's Off and Blur when the two
- * shared a pool slot, 1.1.0's test run) */
+ * each once and in this order, and each one not marked "?" is there: a list
+ * built from another row's words shows (Recents' Card Picture said Border's
+ * Off and Blur when the two shared a pool slot, 1.1.0's test run), and so
+ * does one whose words another shelf's menu wrote over (a Game Boy's Border
+ * list said "Off, Handheld, Handheld, Whole, Handheld, Whole, Your Own",
+ * the Advance's three over its own five, 2026-11-23) */
 const char *shot_expect_en;
 
 /* Whether `label` is word `w` (n bytes of it) in the language that is on */
@@ -695,11 +722,14 @@ static void shot_expect_list(const menu_choice *ch)
 	int k;
 	bool bad = false;
 
+	int last = -1;
+
 	if (!p || !ch->labels) return;
 	for (k = 0; k < ch->n && !bad; k++) {
 		bool known = false;
+		int w = 0;
 
-		for (p = shot_expect_en; *p && !known; p = *e ? e + 1 : e) {
+		for (p = shot_expect_en; *p && !known; p = *e ? e + 1 : e, w++) {
 			size_t n;
 
 			e = strchr(p, '|');
@@ -711,7 +741,13 @@ static void shot_expect_list(const menu_choice *ch)
 			fprintf(stderr, "--expect-en: the list has \"%s\", which is not one of %s\n", ch->labels[k],
 			        shot_expect_en);
 			bad = true;
+		} else if (w - 1 <= last) {
+			/* the words in their order, each once */
+			fprintf(stderr, "--expect-en: the list has \"%s\" twice or out of the order %s\n",
+			        ch->labels[k], shot_expect_en);
+			bad = true;
 		}
+		last = w - 1;
 	}
 	for (p = shot_expect_en; *p && !bad; p = *e ? e + 1 : e) {
 		bool there = false;
@@ -1048,7 +1084,7 @@ static void shot_ask_text(cq_id q, const char *item, char *out, size_t n)
 		cq_text(q, out, n, "Nintendo 64", item ? item : "Tobu Tobu Girl");
 		break;
 	case CQ_HOTKEYS_RESET_SYSTEM: case CQ_BUTTONS_RESET_ALL: cq_text(q, out, n, "Nintendo 64"); break;
-	case CQ_STORE_UNUSED_ART: case CQ_SNAPS_DELETE_ALL: cq_text(q, out, n, gb); break;
+	case CQ_STORE_UNUSED_ART: case CQ_STORE_DS_COPIES: case CQ_SNAPS_DELETE_ALL: cq_text(q, out, n, gb); break;
 	case CQ_STORE_OLD_STATES: cq_text(q, out, n, 14, mb); break;
 	case CQ_STORE_SYS_SNAPS: cq_text(q, out, n, item ? item : "PlayStation", gb); break;
 	case CQ_STORE_MEDIA_FOLDER: cq_text(q, out, n, item ? item : "Lo-fi Beats", gb); break;
@@ -1726,7 +1762,13 @@ static void shot_compose_once(app *a)
 
 		for (i = 0; i < UP_NOTES; i++) np[i] = notes[i];
 
-		su_page_build(up_view(true), &p);
+		{
+			su_view v = *up_view(true);
+
+			/* The card too full: a stand-in free room, not this computer's */
+			if (v.st.state == SU_SPACE) v.card_free = 230000000ull;
+			su_page_build(&v, &p);
+		}
 		update_page_draw(a, T(S_UPDATEPAGE_TITLE), &p, np, nn, NULL);
 		return;
 	}
@@ -1870,6 +1912,18 @@ static void shot_compose_once(app *a)
 		eh_cheer_draw(a->r, games_on_card(a), (unsigned)shot_cheer, cheer_zyper, &c);
 	}
 	if (shot_kb) {
+		sysview *v = &a->view[a->sys_cursor];
+		static char plain[LIB_NAME];
+
+		if (shot_kb_rename_shown && v->list.count > 0) {
+			const game_entry *e = &v->list.items[v->cursor];
+
+			gr_shown_plain(a->sys.systems[shelf_owner(a, a->sys_cursor, v->cursor)].folder,
+			               e->file, e->name, plain, sizeof plain);
+			kb_placeholder_next(plain);
+			if (shot_kb_rename_empty) shot_kb_text = "";
+			else if (!shot_kb_text[0]) shot_kb_text = e->title;
+		}
 		if (shot_at >= 0)
 			kb_preview_press(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, (unsigned)shot_at);
@@ -1930,6 +1984,8 @@ static void shot_compose_once(app *a)
 		menu_draw_caption(a, head, rows, n, -1, menu_std_width(a), MENU_ZYPEROS, NULL, false,
 		                  0, count);
 	}
+	if (shot_menu_lock >= 0) mk_lock_shot(a, shot_menu_lock);
+	if (shot_menu_notice) mk_notice_shot(a);
 	if (shot_hotkeys >= 0) {
 		const system_cfg *hs = NULL;
 		const char *hf = NULL;
@@ -1939,6 +1995,15 @@ static void shot_compose_once(app *a)
 		if (shot_hk_game && sv->list.count > 0) {
 			hs = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
 			hf = sv->list.items[sv->cursor].file;
+		}
+		if (shot_glyph_warm) {
+			/* The SemiBold sizes the Pixel 2 opened over every screen the
+			 * i18n shots draw (2026-11-26): more than the table of 8 held,
+			 * and none of them the Regular a 112 pill's word is in */
+			static const int warm[] = { 13, 15, 16, 18, 19, 20, 21, 24, 25, 28, 30, 33, 40, 44, 70, 120 };
+			size_t w;
+
+			for (w = 0; w < sizeof warm / sizeof warm[0]; w++) ui_face_at(warm[w], true);
 		}
 		hotkeys_shot(a, hs, hf, shot_hotkeys, shot_hk_capture, shot_hk_key, shot_hk_ask, shot_hk_scope);
 	}
@@ -2434,9 +2499,7 @@ static void shot_compose_once(app *a)
 			         T(!strcmp(shot_popup, "stick_on") ? S_POPUP_STICK_ON : S_POPUP_STICK_OFF));
 		} else {
 			shot_notice_head = T(S_POPUP_SPEED);
-			snprintf(pbody, sizeof pbody,
-			         shot_popup_half % 2 ? T(S_POPUP_SPEED_HALF) : T(S_POPUP_SPEED_WHOLE),
-			         shot_popup_half / 2);
+			speed_said(shot_popup_half, pbody, sizeof pbody);
 		}
 	}
 	if (shot_notice) {
@@ -2499,6 +2562,15 @@ static void shot_compose_once(app *a)
 		if (shot_ranews > 0) {
 			snprintf(g_heatpop.line1, sizeof g_heatpop.line1, TN(S_CHEEVOS_SENT, shot_ranews), shot_ranews);
 			snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", T(S_CHEEVOS_SENT_WHERE));
+		}
+		if (shot_lastboot) {
+			char text[512], *c;
+			lastboot lb;
+
+			snprintf(text, sizeof text, "%s", shot_lastboot);
+			for (c = text; *c; c++) if (*c == ';') *c = '\n';
+			if (lastboot_parse(text, &lb)) lastboot_bubble(&lb);
+			else fprintf(stderr, "--lastboot: no stage or reason in %s\n", shot_lastboot);
 		}
 		if (shot_upnews) {
 			snprintf(g_heatpop.line1, sizeof g_heatpop.line1,
@@ -2932,6 +3004,7 @@ static void shot_tour_draw(app *a)
 			t.kept[tour_choice_of(t.step)] = t.pick[tour_choice_of(t.step)];
 		if (shot_tour_wrong >= 0)
 			tour_pose_wrong(&t, (tour_key)shot_tour_wrong, now, shot_tour_wrong_ms);
+		if (shot_tour_held >= 0) tour_pose_held(&t, now, shot_tour_held);
 		tour_draw(a->r, &t, now, &hk);
 	}
 	if (shot_osd_kind) {

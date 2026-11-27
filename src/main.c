@@ -12,6 +12,8 @@
  * it in the way of starting a game.
  */
 #include "hwreport.h"
+#include "crashrec.h"   /* the launcher's own crash, in the log and crashlog's report */
+#include "lastboot.h"
 #include "atomic.h"
 #include "autozone.h"
 #include "coreopts.h"   /* coreopts_migrate: 1.0.6's defaults at run time */
@@ -63,6 +65,7 @@
 #include "hare.h"
 #include "xfer.h"
 #include "home.h"
+#include "hotkeys_screen.h"
 #include "homesys_screen.h"
 #include "games.h"
 #include "hareart.h"
@@ -115,6 +118,7 @@
 #include "menusnap.h"
 #include "mp4c.h"
 #include "mp4lock.h"
+#include "menukeys_screen.h"
 #include "mp4resume.h"   /* MP4 back after a power-off (DESIGN.md 11.67) */
 #include "mp4hand.h"     /* MP4 handed over a program of its own (DESIGN.md 11.55) */
 #include "alsatry.h"     /* --alsa-try: a port's ALSA chain opened as PICO-8 opens it */
@@ -208,6 +212,8 @@
 #include "shelf_draw.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
+#include "klog.h"
+#include "wdog.h"
 #include "levels.h"
 #ifdef ZYPEROS_DESK
 #include "device/desk.h"
@@ -1092,6 +1098,13 @@ void sort_load(app *a)
 		a->view[i].sort = is_mp4(&a->sys.systems[i]) ? (int)ml_order_index(name)
 		                                              : sort_index(name);
 	}
+	/* Favorites First beside it, favfirst.<TAG>: "on", or nothing as it
+	 * ships */
+	for (i = 0; i < a->sys.count; i++) {
+		snprintf(key, sizeof key, "favfirst.%s", a->sys.systems[i].tag);
+		a->view[i].fav_first = db_get_str(db_dev(), key, name, sizeof name, NULL) &&
+		                       !strcmp(name, "on");
+	}
 }
 
 /* MENU > View, per shelf like Sort By: "list", "grid" or none (the
@@ -1306,6 +1319,7 @@ void sort_shelf(app *a, int sys)
 {
 	sysview *v = &a->view[sys];
 
+	v->nfav = 0;
 	if (is_mp4(&a->sys.systems[sys])) { mp4_order_view(v); return; }
 	/* Screenshots' three, each game's newest first (src/shots_screen.h) */
 	if (shots_shelf(a, sys)) { shots_sort(a, sys); return; }
@@ -1333,10 +1347,75 @@ void sort_shelf(app *a, int sys)
 	 * its games' */
 	sort_apply(v->list.items + v->nfold, v->list.count - v->nfold, v->sort,
 	           a->sys.systems[sys].tag);
+	/* Favorites First (DESIGN.md 11.70): its favorites ahead of its other
+	 * games, each part in that order, still after the folders */
+	v->fav_from = v->nfold;
+	v->nfav = v->fav_first && fav_first_offered(a, sys)
+	        ? sort_favorites_first(v->list.items + v->nfold, v->list.count - v->nfold,
+	                               a->sys.systems[sys].tag)
+	        : 0;
 	/* Splore first among the PICO-8 shelf's, whatever the order (Tarik's
-	 * pick, 2026-11-19: the shelf's first entry) */
-	if (!strcmp(a->sys.systems[sys].tag, P8_TAG))
+	 * pick, 2026-11-19: the shelf's first entry), ahead of the favorites
+	 * too: it is no game to favorite */
+	if (!strcmp(a->sys.systems[sys].tag, P8_TAG)) {
+		int at = v->nfold;
+
 		splore_pin(v->list.items + v->nfold, v->list.count - v->nfold);
+		if (v->nfav && at < v->list.count && splore_file(v->list.items[at].file) &&
+		    !fav_is(a->sys.systems[sys].tag, v->list.items[at].file))
+			v->fav_from++;
+	}
+}
+
+/* Favorites First (DESIGN.md 11.70) is a console shelf's: Favorites is
+ * all favorites, Recents goes by when, a collection by its list, and MP4's
+ * albums and Screenshots' shots are no games to favorite */
+bool fav_first_offered(app *a, int sys)
+{
+	return sys >= 0 && sys < a->sys.count && !is_mp4(&a->sys.systems[sys]) &&
+	       !a->view[sys].owner && !shots_shelf(a, sys);
+}
+
+/* Shelf `sys` sorted again with the cursor on the game it was on, not on
+ * the place: Sort By, Favorites First, and a favorite marked or taken away
+ * while Favorites First is on. The textures are indexed by place, so they
+ * are let go, and each card asks for its art where it now is. */
+void sort_shelf_keep(app *a, int sys)
+{
+	sysview *v = &a->view[sys];
+	char keep[LIB_PATH];
+	int i, keep_owner = -1;
+
+	keep[0] = '\0';
+	if (v->cursor >= 0 && v->cursor < v->list.count) {
+		snprintf(keep, sizeof keep, "%s", v->list.items[v->cursor].file);
+		/* On Favorites a file name is not enough: the same one can be on
+		 * the shelf twice, from two systems. */
+		if (v->owner) keep_owner = v->owner[v->cursor];
+	}
+	sort_shelf(a, sys);
+	free_view_textures(v);
+	v->cursor = 0;
+	for (i = 0; i < v->list.count; i++)
+		if (!strcmp(v->list.items[i].file, keep) && (!v->owner || v->owner[i] == keep_owner)) {
+			v->cursor = i;
+			break;
+		}
+	cf_reset(&v->cf, v->cursor);
+	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+}
+
+/* MENU > Favorites First on shelf `sys` turned over, kept by its tag, and
+ * the shelf sorted again on the same game */
+void fav_first_turn(app *a, int sys)
+{
+	char key[CFG_STR + 16];
+
+	if (!fav_first_offered(a, sys)) return;
+	a->view[sys].fav_first = !a->view[sys].fav_first;
+	snprintf(key, sizeof key, "favfirst.%s", a->sys.systems[sys].tag);
+	db_set_str(db_dev(), key, a->view[sys].fav_first ? "on" : "off");
+	sort_shelf_keep(a, sys);
 }
 
 void sort_all(app *a)
@@ -3370,7 +3449,7 @@ static void on_cheevo_unlocked(int id)
 
 		/* With its badge, when the card has it (src/rabadge.h) */
 		p[0] = '\0';
-		if (c) rb_path(chv_source(), c->badge, p, sizeof p);
+		if (c) rb_file(chv_source(), c->badge, p, sizeof p);
 		notice_queue(NQ_UNLOCK, id, 4000, head,
 		             c && c->title[0] ? c->title : T(S_CHEEVOS_UNLOCKED), p[0] ? p : NULL, 0, 0);
 	}
@@ -3403,7 +3482,7 @@ static void on_cheevo_progress(int id, const char *text, int value, int target)
 		         text, strchr(text, '/') + 1);
 	else
 		snprintf(count, sizeof count, "%s", text);
-	rb_path(chv_source(), c->badge, p, sizeof p);
+	rb_file(chv_source(), c->badge, p, sizeof p);
 	notice_queue(NQ_PROGRESS, id, 2500, c->title[0] ? c->title : T(S_CHEEVOS_PROGRESS), count,
 	             p[0] ? p : NULL, value, target);
 }
@@ -3427,15 +3506,15 @@ void popup_say(const char *head, const char *body)
 }
 
 /* Called from inside plat_resident_wait when Diatom says the speed step
- * changed (SELECT+R2, SELECT+L2), or that a game resumed fast: in halves, 3
- * is 1.5x. The step, not the speed reached: on a heavy SNES or GBA game the
- * top step runs about 2.5x, and that figure moves from scene to scene. */
+ * changed (SELECT+R2, SELECT+L2, Fast Forward), or that a game resumed fast:
+ * in halves, 3 is 1.5x, and 0 is Max. The step, not the speed reached: on a
+ * heavy SNES or GBA game the top step runs about 2.5x, and that figure moves
+ * from scene to scene; what Max reaches, On-Screen Stats' Speed says. */
 static void on_speed(int half)
 {
 	char body[24];
 
-	if (half % 2) snprintf(body, sizeof body, T(S_POPUP_SPEED_HALF), half / 2);
-	else          snprintf(body, sizeof body, T(S_POPUP_SPEED_WHOLE), half / 2);
+	speed_said(half, body, sizeof body);
 	popup_now(T(S_POPUP_SPEED), body);
 }
 
@@ -3447,6 +3526,14 @@ static void on_speed(int half)
  * where it went; the next shader or display mode, stepped and kept as the
  * menu's rows do, and named over the game */
 static app *g_hotkey_app;   /* main's, for on_hotkey's steps */
+
+/* What the launcher draws over every screen (plat_set_overlay): the replug
+ * message, and a screenshot's notice (src/menukeys_screen.h) */
+static void every_overlay(SDL_Renderer *r)
+{
+	replug_overlay(r);
+	mk_overlay(r);
+}
 
 static void on_hotkey(const char *key, const char *path)
 {
@@ -4113,8 +4200,10 @@ int header_half(void)
  * up, and a whole frame is some 40 draws the GL driver takes 4.4 ms of CPU to
  * run on the Pixel 2: 6% of a core for a machine that waits (2026-11-07).
  * Not while anything that is not redrawn here is on screen: the song or heat
- * pop-up, the volume bar. A whole frame still comes at least once a second
- * (HEARTBEAT_MS counts whole frames only). */
+ * pop-up, the volume bar. Nor where the screen does not keep the last
+ * frame's picture (plat_screen_kept: the Brick draws on its window). A whole
+ * frame still comes at least once a second (HEARTBEAT_MS counts whole frames
+ * only). */
 
 /* ---- the panel pass, and the panel on screen ---------------------------
  *
@@ -4673,6 +4762,13 @@ const su_view *up_view(bool now)
 		if (f) fclose(f);
 	}
 	if (!plat_battery(&g_up.battery, &g_up.charging)) { g_up.battery = 100; g_up.charging = true; }
+	/* The card's free room beside what the update needs, while it says
+	 * so: the page shows it as it changes */
+	if (g_up.st.state == SU_SPACE) {
+		struct statvfs vfs;
+
+		if (!statvfs(P_CARD, &vfs)) g_up.card_free = (unsigned long long)vfs.f_bavail * vfs.f_frsize;
+	}
 	if (g_up.st.time > 0) {
 		time_t tt = (time_t)g_up.st.time;
 		struct tm tm;
@@ -4736,6 +4832,54 @@ static void up_news(const char *key, const char *fmt, const char *version, bool 
 		nq_push(&g_nq, &it);
 		g_up_news[0][0] = '\0';
 	}
+}
+
+/* This start reached the home: plastron's start marker on the card goes
+ * (its crashlog makes it at every start, and reports one it finds at the
+ * next, when the RAM kept nothing: src/lastboot.h). An unlink and no sync:
+ * the kernel writes it back within seconds, and none of it is on the
+ * frame's way. None on a computer, nor on a handheld without crashlog. */
+static void start_reached_home(void)
+{
+	char p[512];
+
+	snprintf(p, sizeof p, "%s/.plastron/starting.txt", P_CARD);
+	if (unlink(p) == 0) fprintf(stderr, "start: the home reached, the start's marker removed\n");
+}
+
+/* The last start's restart (src/lastboot.h, DESIGN.md 11.70): this start's
+ * summary read against the card's copy the first time the shelf comes round;
+ * when it is new, said in Zyper's bubble as soon as nothing else of his is up,
+ * and the card's copy written then, so it is said once. 0 not read yet, 1 to
+ * be said, 2 said or nothing to say. */
+static int      g_lb_state;
+static lastboot g_lb_say;
+
+static void lastboot_watch(void)
+{
+	char path[512], code[48];
+
+	snprintf(path, sizeof path, "%s/%s", P_USERDATA, LASTBOOT_FILE);
+	if (g_lb_state == 0) {
+		const char *run_path = getenv("ZYPEROS_LASTBOOT_RUN");
+		lastboot run, kept;
+
+		g_lb_state = 2;
+		if (!lastboot_read(run_path && *run_path ? run_path : LASTBOOT_RUN, &run)) return;
+		lastboot_read(path, &kept);
+		if (!lastboot_due(&run, &kept, (long)time(NULL), &g_lb_say)) {
+			fprintf(stderr, "lastboot: %s%c said before\n", run.stage, run.reason);
+			return;
+		}
+		g_lb_state = 1;
+	}
+	if (g_lb_state != 1 || g_heatpop.on || g_songpop.on) return;
+	heatpop_show(plat_now_ms());
+	lastboot_bubble(&g_lb_say);
+	lastboot_code(&g_lb_say, code, sizeof code);
+	fprintf(stderr, "lastboot: said %s (%s), %s\n", code, g_lb_say.time[0] ? g_lb_say.time : "no date",
+	        lastboot_write(path, &g_lb_say) ? "kept for About" : "not kept: the card's copy would not write");
+	g_lb_state = 2;
 }
 
 /* The shelf's pass: the news up in Zyper's bubble, when there is some and
@@ -5491,27 +5635,54 @@ void refresh_game_titles(app *a)
 {
 	int si, i;
 
-	/* The systems off the home too, whose games Favorites copies again */
+	/* The systems off the home too, whose games Favorites copies again: the
+	 * systems' own shelves first (pass 0), then the shelves of games from
+	 * many (pass 1), which take each game's title from its system's */
+	for (int pass = 0; pass < 2; pass++)
 	for (si = 0; si < sys_kept(a); si++) {
 		sysview *v = &a->view[si];
 		char file[LIB_PATH];
 		int owner, selected;
 		bool changed = false;
 
+		if ((v->owner != NULL) != (pass == 1)) continue;
 		/* Not Screenshots: an entry's file is its picture's, and its title
 		 * is its game's as the shelf was read (DESIGN.md 11.68) */
 		if (is_mp4(&a->sys.systems[si]) || shots_shelf(a, si) || v->list.count <= 0) continue;
 		owner = shelf_owner(a, si, v->cursor);
 		snprintf(file, sizeof file, "%s", v->list.items[v->cursor].file);
-		/* A folder's name is its own (src/shelfdir.h); every game of a
-		 * shelf with folders, and the shelf's copies of its folder's */
-		for (i = 0; v->all && i < v->all->count; i++)
-			lib_refresh_title(db_lib(), a->sys.systems[si].folder, &v->all->items[i]);
-		for (i = 0; i < v->list.count; i++) {
-			int o = shelf_owner(a, si, i);
-			if (v->list.items[i].folder) continue;
-			if (lib_refresh_title(db_lib(), a->sys.systems[o].folder, &v->list.items[i]))
-				changed = true;
+		if (!v->owner) {
+			/* A system's own shelf: every game of it, two of one title told
+			 * apart again across all of them (lib_titles_apart), and on a
+			 * shelf with folders the folder's games as copies of those, so
+			 * a game is named alike in every folder, Search and Favorites. A
+			 * folder's name is its own (src/shelfdir.h). */
+			game_list *all = sys_games(v);
+			uint64_t was = lib_titles_digest(all);
+
+			for (i = 0; i < all->count; i++)
+				lib_refresh_title(db_lib(), a->sys.systems[si].folder, &all->items[i]);
+			lib_titles_apart(all);
+			changed = lib_titles_digest(all) != was;
+			if (v->all && lib_titles_copy(&v->list, v->all)) changed = true;
+		} else {
+			/* Favorites, Recents, Collections: each game as its system named
+			 * it, told apart there (pass 0) */
+			for (i = 0; i < v->list.count; i++) {
+				int o = shelf_owner(a, si, i), at;
+				game_entry *e = &v->list.items[i];
+				const game_list *sys;
+
+				if (e->folder) continue;
+				sys = o >= 0 && o < sys_kept(a) && !a->view[o].owner ? sys_games(&a->view[o]) : NULL;
+				if (sys && (at = lib_find_entry(sys, NULL, 0, e->file)) >= 0) {
+					if (strcmp(e->title, sys->items[at].title)) changed = true;
+					memcpy(e->title, sys->items[at].title, sizeof e->title);
+					e->apart = sys->items[at].apart;
+				} else if (lib_refresh_title(db_lib(), a->sys.systems[o].folder, e)) {
+					changed = true;
+				}
+			}
 		}
 		if (!changed) continue;
 		free_view_textures(v);
@@ -5678,6 +5849,7 @@ static int menu_shelf_width(app *a)
 		int  brow = own ? -1 : sm_pos(a, i, SM_BORDER);
 		int  bcrow = own ? -1 : sm_pos(a, i, SM_BORDER_COLOR);
 		int  vrow = mp4 ? -1 : shots ? 1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
+		int  ffrow = own || shots ? -1 : sm_pos(a, i, SM_FAVFIRST);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
 		/* Recents' Card Picture at the longer of its two (DESIGN.md 11.48) */
@@ -5723,6 +5895,18 @@ static int menu_shelf_width(app *a)
 				}
 				rows[lookrow].value = keep;
 			}
+		}
+		/* Favorites First at the longer of On and Off (DESIGN.md 11.70) */
+		if (ffrow >= 0 && ffrow < n) {
+			const char *keep = rows[ffrow].value;
+
+			for (k = 0; k < 2; k++) {
+				int mw;
+				rows[ffrow].value = T(k ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE);
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[ffrow].value = keep;
 		}
 		for (k = 0; drow >= 0 && k < DMODE_COUNT; k++) {
 			int mw;
@@ -5855,6 +6039,16 @@ static int menu_shelf_width(app *a)
 			}
 		}
 	}
+	/* A system's menu keeps its lists' words in one pool for every shelf
+	 * (sysmenu_screen.c's menu_choices), and the loop above built every
+	 * shelf's: the last with a Border row wrote its words over the shown
+	 * one's. A Game Boy's Border list opened before the width was measured
+	 * said the Advance's three words over its own five ("Off, Handheld,
+	 * Handheld, Whole, Handheld, Whole, Your Own" on the Brick, where the
+	 * game's menu said "Off, Blur, Handheld, Handheld, Whole, Your Own").
+	 * So the shown shelf's menu is built again, last. */
+	menu_build(a, a->screen == SCREEN_SYSTEMS ? SCREEN_SYSTEMS : SCREEN_GAMES, a->sys_cursor, rows, &bufs,
+	           &heading);
 	a->menu_w = w;
 	return w;
 }
@@ -6072,6 +6266,7 @@ void copy_file(const char *from, const char *to)
 const char *const TOUR_STEP_NAMES[TOUR_STEPS] = {
 	[TOUR_LANG] = "lang", [TOUR_WELCOME] = "welcome", [TOUR_MOVE] = "move", [TOUR_A] = "a",
 	[TOUR_B] = "b", [TOUR_X] = "x", [TOUR_Y] = "y", [TOUR_MENU] = "menu",
+	[TOUR_QUIT] = "quit", [TOUR_LOCK] = "lock", [TOUR_UNLOCK] = "unlock",
 	[TOUR_SELECT] = "select", [TOUR_VOL] = "vol", [TOUR_BRIGHT] = "bright",
 	[TOUR_POWER] = "power", [TOUR_THEME] = "theme", [TOUR_HOME] = "home",
 	[TOUR_SOUNDS] = "sounds", [TOUR_MUSIC] = "music", [TOUR_FINISH] = "finish" };
@@ -6484,6 +6679,10 @@ int main(int argc, char *argv[])
 	char startup[CFG_STR];
 	bool hand_back = false;
 
+	/* A crash says where it was, in the log and in a record the next start
+	 * makes a report of (src/crashrec.h), in every one of this binary's
+	 * modes */
+	crashrec_install(CRASHREC_PATH, ZYPEROS_VERSION);
 	/* The canvas of the handheld built for (src/canvas.h); --device below
 	 * makes it another's on the host */
 	canvas_init(plat_profile());
@@ -6491,6 +6690,19 @@ int main(int argc, char *argv[])
 	if (argc > 1 && !strcmp(argv[1], MP4_FOLLOW_ARG)) return mp4_follow_main();
 	if (argc > 1 && !strcmp(argv[1], STATS_PORT_PLAYED_ARG)) return port_played_main();
 	if (argc > 1 && !strcmp(argv[1], ALSA_TRY_ARG)) return alsa_try_main(argc, argv);
+	/* The launcher before this one crashed: its record made a report, as a
+	 * kernel panic's is, by plastron's crashlog (the Pixel 2's) */
+	if (crashrec_waiting(CRASHREC_PATH) && access(CRASHLOG, X_OK) == 0) {
+		char *cl[] = { CRASHLOG, "--launcher", CRASHREC_PATH, NULL };
+
+		fprintf(stderr, "crash: the launcher before this one crashed: %s\n",
+		        plat_spawn_detached(cl, NULL, "/") ? "its record handed to crashlog" : "crashlog would not start");
+	}
+#if defined(__linux__) && !defined(ZYPEROS_DESK)
+	/* The risky parts' lines in the kernel's log too, which outlives a
+	 * freeze, and on the card at once (klog.h) */
+	klog_open(NULL);
+#endif
 
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--shot") && i + 1 < argc) {
@@ -6599,6 +6811,12 @@ int main(int argc, char *argv[])
 		/* --np-look cover|classic|spectrum...: Now Playing and MENU's
 		 * Player Look in that look, for the shot only, never saved */
 		else if (!strcmp(argv[i], "--np-look") && i + 1 < argc) np_look_shot(mp4l_from_key(argv[++i]));
+		/* --np-tape pinstripe|band|metal|...: Cassette's tape style, for
+		 * the shot only, never saved */
+		else if (!strcmp(argv[i], "--np-tape") && i + 1 < argc) np_tape_shot(mp4t_from_key(argv[++i]));
+		/* --np-tape-said: the style's name in its pill, as Up or Down
+		 * leaves it */
+		else if (!strcmp(argv[i], "--np-tape-said")) npl_tape_said();
 		/* --np-bench N: N frames of the look timed before the shot */
 		else if (!strcmp(argv[i], "--np-bench") && i + 1 < argc) shot_np_bench = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--locked")) shot_locked = 1;
@@ -6901,6 +7119,7 @@ int main(int argc, char *argv[])
 				shot_tour_pick_ms = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--tour-music")) shot_tour_music = true;
+		else if (!strcmp(argv[i], "--tour-held") && i + 1 < argc) shot_tour_held = atoi(argv[++i]);
 		/* --port-waiting: with --gamemenu N port, the menu over a program
 		 * still starting (Keep Waiting) */
 		else if (!strcmp(argv[i], "--port-waiting")) g_port_waiting = true;
@@ -6981,6 +7200,13 @@ int main(int argc, char *argv[])
 			i++;
 			g_shot_no_hash = !strcmp(argv[i], "system") ? RA_HASH_NO_SYSTEM
 			                                            : RA_HASH_NO_FILE;
+		}
+		/* --lastboot SUMMARY: Zyper's bubble saying the last start's
+		 * restart, SUMMARY as crashlog writes it with ";" for its line
+		 * ends ("stage=K1;reason=W;kernel_time=0.62") */
+		else if (!strcmp(argv[i], "--lastboot") && i + 1 < argc) {
+			shot_lastboot = argv[++i];
+			if (shot_heatpop < 0) shot_heatpop = 3000;
 		}
 		else if (!strcmp(argv[i], "--upnews") && i + 1 < argc) {
 			shot_upnews = argv[++i];
@@ -7084,11 +7310,16 @@ int main(int argc, char *argv[])
 				shot_sgdb = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--hotkeys") && i + 1 < argc) shot_hotkeys = atoi(argv[++i]);
+		/* MENU's chords: the lock over the screen, the unlock held K of
+		 * the way (0 to 1); the screenshot's notice */
+		else if (!strcmp(argv[i], "--menu-lock") && i + 1 < argc) shot_menu_lock = (float)atof(argv[++i]);
+		else if (!strcmp(argv[i], "--menu-shot-notice")) shot_menu_notice = true;
 		else if (!strcmp(argv[i], "--hk-game")) shot_hk_game = true;
 		else if (!strcmp(argv[i], "--hk-ask") && i + 1 < argc) shot_hk_ask = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hk-scope") && i + 1 < argc) shot_hk_scope = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hk-capture") && i + 1 < argc) shot_hk_capture = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hk-key") && i + 1 < argc) shot_hk_key = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--glyph-warm")) shot_glyph_warm = true;
 		else if (!strcmp(argv[i], "--controls")) {
 			shot_controls = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -7317,6 +7548,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_title = argv[++i];
 		}
 		else if (!strcmp(argv[i], "--kb-ss-user")) shot_kb_ss_user = 1;
+		else if (!strcmp(argv[i], "--kb-rename-shown")) {
+			shot_kb = 1;
+			shot_kb_rename_shown = 1;
+			shot_kb_text = "";
+			if (i + 1 < argc && !strcmp(argv[i + 1], "empty")) { shot_kb_rename_empty = 1; i++; }
+		}
 		/* --kbsel ROW COL puts the keyboard's selection on a key, so the
 		 * action row can be looked at selected key by key. */
 		else if (!strcmp(argv[i], "--kbsel") && i + 2 < argc) {
@@ -7800,6 +8037,8 @@ int main(int argc, char *argv[])
 	}
 	system_order_load();
 	system_order_apply(&a.sys);
+	/* Before the scan, which titles each game by it */
+	game_names_load();
 	power_button_load();
 	homesys_load();
 
@@ -8024,9 +8263,12 @@ int main(int argc, char *argv[])
 	a.r = plat_renderer();
 	tour_hint_draw_set(keyhints_width, tour_hint);
 	t_mark("renderer");
-	/* The replug message, over every screen (DESIGN.md 11.36) */
-	plat_set_overlay(replug_overlay);
+	/* The replug message, over every screen (DESIGN.md 11.36), and a
+	 * screenshot's notice (src/menukeys.h) */
+	plat_set_overlay(every_overlay);
 	plat_input_init();
+	/* MENU's chords on every screen: a screenshot, the lock */
+	mk_init(&a);
 	t_mark("input");
 	/* Nothing is handed in any more. The two-tier lookup this replaces - a
 	 * shipped default and the player's saved level - is one key each in the
@@ -8395,6 +8637,11 @@ int main(int argc, char *argv[])
 		scraper_page(&a, NULL);
 		a.running = false;
 	}
+#if defined(__linux__) && !defined(ZYPEROS_DESK)
+	/* The watchdog, from the main loop on (wdog.h): on a handheld only,
+	 * never in a shot */
+	if (!shot_path && a.running) wdog_start(NULL, plat_backlight);
+#endif
 	while (a.running) {
 		plat_input_poll(&a.in);
 		if (a.in.quit_requested || want_quit) break;
@@ -8509,24 +8756,10 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		/* USB charges only until asked: a computer plugged in gets its
-		 * question here, once per plug (usblink.h). After the dark screen's
-		 * turn, so it waits for the screen to be lit rather than opening
-		 * in the dark. */
-		if (usblink_follow(db_dev(), plat_now_ms())) {
-			saver_stop(&a, "a computer was plugged in");
-			usb_ask(&a);
-		}
-		/* Something on the port wants power: asked too, once per plug;
-		 * the replug message is the overlay's, over any screen */
-		power_follow();
-		if (g_power_ask) {
-			unsigned plug = g_power_ask;
-
-			g_power_ask = 0;
-			saver_stop(&a, "something was plugged in");
-			usb_power_ask(&a, plug);
-		}
+		/* USB's questions (usb_questions), after the dark screen's turn,
+		 * so they wait for the screen to be lit rather than opening in the
+		 * dark */
+		usb_questions(&a);
 		/* Zyper's offer of Automatic, due from a USB Accessory answer
 		 * here or in MENU > USB Device: here, so never over a game */
 		if (g_usb_offer_due && a.running) usb_offer_show(&a);
@@ -8570,6 +8803,9 @@ int main(int argc, char *argv[])
 		 * and brought covers and snaps: the shelves take them here, on the
 		 * shelf's own pass, as the page's close does (scraper_screen.c) */
 		scraper_after_run(&a);
+		/* A screenshot MENU+L1 took (src/menukeys_screen.c) on its group,
+		 * read again here on the shelf's own pass, as after a game */
+		if (shots_take_new()) refresh_shots_shelf(&a);
 
 		/* Back on the shelf, so any menu MENU closed is closed: put the flag
 		 * down before anything here can open another. See menu_leaving. And
@@ -8584,6 +8820,8 @@ int main(int argc, char *argv[])
 		song_watch();
 		/* ...and "Getting hot", when the chip has passed the trip */
 		heat_watch();
+		/* ...and that ZyperOS had to restart the last start, once */
+		lastboot_watch();
 		up_news_watch();
 		ra_news_watch();
 		dl_news_watch();
@@ -8622,7 +8860,10 @@ int main(int argc, char *argv[])
 
 			if (touched || away || texload_ready() || now >= g_redraw_at ||
 			    now - last_render >= HEARTBEAT_MS || snap_new_picture() ||
-			    (focus_due && !focus_ok(&a))) {
+			    /* A whole frame where a focus frame cannot draw: something
+			     * it does not draw again is up, or the screen does not
+			     * keep the last frame's picture to draw over (the Brick) */
+			    (focus_due && !(focus_ok(&a) && plat_screen_kept()))) {
 				tick_tint(&a);
 				render(&a);
 				/* With the first frame up, Diatom maps its cores now (its
@@ -8634,6 +8875,7 @@ int main(int argc, char *argv[])
 				if (!last_render) {
 					t_mark("first frame");
 					plat_resident_line("PREMAP");
+					start_reached_home();
 				}
 				last_render = plat_now_ms();
 			} else if (focus_due) {
@@ -8679,6 +8921,7 @@ int main(int argc, char *argv[])
 	xs_end();
 
 done:
+	wdog_stop();                         /* the way out is long, and nothing draws */
 	ctl_stop();
 	/* The downloads' requests with the launcher: the next run starts from
 	 * what is missing */

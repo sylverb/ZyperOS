@@ -117,6 +117,10 @@ enum {
 	 * the launcher protocol it hands the display over for a menu. A port that
 	 * decided this itself would make that impossible. */
 	DIATOM_BTN_MENU,
+	/* The sticks' clicks, on a handheld with sticks (the R36S's BTN_THUMBL
+	 * and BTN_THUMBR): the RetroPad's L3 and R3. After MENU, so every
+	 * other button keeps its bit. */
+	DIATOM_BTN_L3, DIATOM_BTN_R3,
 	DIATOM_BTN_COUNT
 };
 #define DIATOM_BIT(b) (1u << (b))
@@ -638,6 +642,12 @@ bool diatom_port_should_quit(void);
 bool diatom_port_capture(const char *path);
 
 uint64_t diatom_port_now_us(void);
+/* Wait `us` microseconds on that clock: the frame loop's sleep to its next
+ * turn and a held push's wait for room (src/audio.c). A nanosleep on every
+ * device port (port_clock.h). The desktop port's test clock
+ * (DIATOM_TEST_CLOCK) moves its own time on instead, so a check of the
+ * pacing runs exactly the same whatever else the computer is doing. */
+void diatom_port_sleep_us(double us);
 
 /* The last refresh a frame was flipped at, in diatom_port_now_us's time, and
  * the refresh period measured from the flips, for the display lock to keep
