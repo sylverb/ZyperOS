@@ -3,6 +3,7 @@
  * different devices, the LEDs, the codec, the panel backlight, the battery,
  * and where things live on its card. Everything here is what makes a Brick a
  * Brick; the rest of ZyperOS reaches it through platform.h and device.h. */
+#include "gadget.h"
 #include "charging.h"
 #include "charging_rule.h"
 #include "atomic.h"
@@ -11,17 +12,21 @@
 #include "db.h"
 #include "device.h"
 #include "fileio.h"
+#include "linksteps.h"
 #include "nightkeep.h"
 #include "levels.h"
+#include "menuvol.h"
 #include "panelgamma.h"
 #include "panelgamma_sunxi.h"
 #include "platform.h"
 #include "screenfx_draw.h"
 #include "stickpad.h"
 #include "thermal.h"
+#include "wdog.h"
 #include "keymap.h"
 #ifdef ZYPEROS_DESK
 #include "desk.h"
+#include "deskcable.h"
 #endif
 
 #include <dirent.h>
@@ -260,6 +265,20 @@ static void show_scaled(void)
 	SDL_SetRenderTarget(ren, screen_tex);
 }
 
+/* Kept only in the host's desk mode, which draws on its screen texture
+ * (window_target). The Brick draws on the window, whose back buffer after
+ * SDL_RenderPresent is one of fb0's pages as Imagination's EGL left it,
+ * not the frame just shown. bend_tex would keep it, but while it is in use
+ * the shader is in the frame, and no frame is drawn over the last then. */
+bool plat_screen_kept(void)
+{
+#ifdef ZYPEROS_DESK
+	return desk_on();
+#else
+	return false;
+#endif
+}
+
 /* The Brick's panel is the screen, so drawing to the screen is drawing to the
  * window (on a panel of another size than the canvas, show_scaled). The first present tells
  * the splash first, and goes on the kernel's clock beside the splash's own
@@ -271,6 +290,7 @@ void plat_present(void)
 	Uint8 r, g, b, a;
 
 	plat_grab_frame(ren);
+	wdog_feed();                    /* the loop came round (wdog.h) */
 	plat_overlay_present(ren);
 	plat_screen_finish();
 	if (!shown) {
@@ -626,6 +646,10 @@ static void stick_apply(in_state *st)
 }
 #endif
 
+/* MENU and volume: brightness together where the profile says so, the Smart
+ * Pro (DEV_BRIGHT_MENU_VOL), and plain keys on the Brick, with F1 and F2 */
+static menuvol menu_chord = MENUVOL_INIT;
+
 static void poll_fd(int fd, in_state *st)
 {
 #ifdef __linux__
@@ -652,8 +676,15 @@ static void poll_fd(int fd, in_state *st)
 			if (keymap[i].code == ev.code) {
 				in_button b = keymap[i].b;
 
+				/* MENU and the volume keys, which are brightness
+				 * together on the Smart Pro (src/device/menuvol.h) */
+				if (b == IN_MENU) {
+					menuvol_menu(&menu_chord, st, ev.value == 1, plat_brightness_on_volume());
+				} else if (b == IN_VOLUP || b == IN_VOLDN) {
+					menuvol_volume(&menu_chord, st, b == IN_VOLUP, ev.value == 1,
+					               plat_brightness_on_volume());
 				/* A d-pad key: held while it or the stick holds it */
-				if (b <= IN_DOWN) {
+				} else if (b <= IN_DOWN) {
 					dpad_key[b] = ev.value == 1;
 					plat_set_btn(st, b, dpad_key[b] || stick.held[b]);
 				/* A repeat is no let-go of POWER (src/powerhold.h) */
@@ -686,6 +717,7 @@ void plat_input_wait(unsigned ms)
 	/* POWER held in Hold mode: woken for the pill's next segment and the
 	 * hold's end, which no event marks; and the work behind every screen
 	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	wdog_feed();
 	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) {
 #ifdef ZYPEROS_DESK
@@ -703,6 +735,7 @@ void plat_input_wait(unsigned ms)
 
 void plat_input_poll(in_state *st)
 {
+	wdog_feed();                    /* the loop came round (wdog.h) */
 	memset(st->pressed, 0, sizeof st->pressed);
 	st->power_tap = false;
 	if (plat_terminating()) st->quit_requested = true;
@@ -713,6 +746,7 @@ void plat_input_poll(in_state *st)
 	 * input owns the volume, so the launcher must not re-apply a level over
 	 * Diatom's while Diatom holds it. Diatom polls the same switch on its own
 	 * side for the same reason. */
+	menuvol_poll(&menu_chord, st);
 	plat_audio_jack_poll();
 	/* And the mute switch, for the same reason and on the same frame. */
 	plat_mute_poll(true);
@@ -1079,6 +1113,7 @@ bool plat_usb_audio_present(void) { return false; }
  * cable loses power. plastron gives usb0 this address. Two small reads,
  * asked as menus are built. */
 #define CABLE_ADDR "10.55.0.2"
+#define CABLE_PEER "10.55.0.1"      /* the computer, from udhcpd (usbgadget) */
 #define CABLE_UDC  "/sys/class/udc/5100000.udc-controller"
 
 static bool file_starts(const char *path, const char *word)
@@ -1094,6 +1129,9 @@ static bool file_starts(const char *path, const char *word)
 
 bool plat_cable_link(char *addr, size_t n)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_link(addr, n);
+#endif
 	if (!file_starts("/sys/class/net/usb0/carrier", "1") ||
 	    !file_starts("/sys/class/power_supply/axp2202-usb/online", "1"))
 		return false;
@@ -1129,30 +1167,30 @@ static int plug_state = PLUG_OUT;
 static unsigned plug_t0;
 static bool link_on;          /* what usblink set: plat_usb_link's answer */
 
-/* The gadget on the controller, or off it: the UDC's name in the gadget's
- * UDC file, or an empty line. True when it is bound after. */
+/* The link's work in the background (gadget.h): the gadget's binds and
+ * unbinds in hwput's child, never waited on */
+static void link_setup(void)
+{
+	static bool done;
+
+	if (done) return;
+	done = true;
+	gadget_init(&(gadget_cfg){ CABLE_UDC, NULL, CABLE_GADGET, NULL, "usb0", CABLE_PEER, false,
+	                           NULL, plat_now_ms });
+}
+
+/* The gadget on the controller, or asked to be: true when it is bound or
+ * will be once the work asked is done */
 static bool gadget_bound(void)
 {
-	char buf[64] = "";
-	int fd = open(CABLE_GADGET, O_RDONLY | O_CLOEXEC);
-
-	if (fd < 0) return false;
-	if (read(fd, buf, sizeof buf - 1) < 0) buf[0] = '\0';
-	close(fd);
-	return buf[0] != '\0' && buf[0] != '\n';
+	link_setup();
+	return gadget_link(-1);
 }
 
 static bool gadget_bind(bool on)
 {
-	const char *udc = strrchr(CABLE_UDC, '/') + 1;
-	int fd;
-
-	if (on == gadget_bound()) return on;
-	if ((fd = open(CABLE_GADGET, O_WRONLY | O_CLOEXEC)) < 0) return false;
-	/* An empty line unbinds; a write of nothing at all is ignored */
-	if (write(fd, on ? udc : "\n", on ? strlen(udc) : 1) < 0) { /* said below */ }
-	close(fd);
-	return gadget_bound();
+	link_setup();
+	return gadget_link(on ? 1 : 0);
 }
 
 /* A host on the bus: the controller past "not attached" (reset, addressed,
@@ -1166,6 +1204,12 @@ static bool host_seen(void)
 
 usb_peer plat_usb_peer(void)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_peer();
+#endif
+	/* The link's work, at every look at the port (gadget.h) */
+	link_setup();
+	gadget_pump();
 	if (!file_starts(CABLE_ONLINE, "1")) {
 		/* Out: the probe's binding goes with it (the link's is usblink's
 		 * to let go, which it does when it sees this) */
@@ -1201,25 +1245,36 @@ usb_peer plat_usb_peer(void)
 }
 
 /* usblink's link: -1 asks, 0 lets it go (charging only), 1 binds it, 2 a
- * fresh one (off and on). The answer is the link's state after. */
+ * fresh one (off and on). The answer is the link as it will be once the
+ * work asked is done (gadget.h), which says its end in the log. */
 bool plat_usb_link(int op)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_usb_link(op);
+#endif
+	link_setup();
 	if (op < 0) return link_on;
-	if (op == 2) {
-		gadget_bind(false);
-		op = 1;
-	}
-	if (op == 1) {
-		link_on = gadget_bind(true);
-		if (link_on) fprintf(stderr, "usb: the link to the computer is on\n");
-		return link_on;
-	}
-	link_on = false;
-	gadget_bind(false);
-	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
+	link_on = gadget_link(op);
+	return link_on;
+}
+
+/* The controller's state says nothing here (CABLE_UDC's comment) */
+int plat_usb_configured(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_configured();
+#endif
+	return -1;
+}
+
+bool plat_cable_sense(link_sense *out)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_sense(out);
+#endif
+	(void)out;
 	return false;
 }
-bool plat_cable_sense(link_sense *out) { (void)out; return false; }
 bool plat_usb_power(usb_power *out) { (void)out; return false; }
 bool plat_usb_power_grant(unsigned plug) { (void)plug; return false; }
 bool plat_usb_power_mode(bool automatic) { (void)automatic; return false; }
@@ -1231,22 +1286,18 @@ bool plat_phone_link(bool act, char *ifname, size_t in, char *ip, size_t n)
 bool plat_usb_iphone(void) { return false; }
 
 /* The controller lets go of the cable and takes it again, so the computer
- * sees the Brick plugged in afresh: the Pixel 2's computer once dropped it
- * while the controller went on saying "configured" (2026-10-08). A third of a
- * second apart, long enough for the computer to notice it went. */
+ * sees the Brick plugged in afresh, when the link needs it (cablefresh.h):
+ * the Pixel 2's computer once dropped it while the controller went on saying
+ * "configured" (2026-10-08). Its state says nothing here ("configured" from
+ * the first computer on), so only the carrier and the computer's answer
+ * count. */
 void plat_cable_reconnect(void)
 {
-	static const struct timespec gap = { 0, 300 * 1000000L };
-	int fd;
-
-	if ((fd = open(CABLE_UDC "/soft_connect", O_WRONLY | O_CLOEXEC)) < 0) return;
-	if (write(fd, "disconnect", 10) < 0) { /* left as it was */ }
-	close(fd);
-	nanosleep(&gap, NULL);
-	if ((fd = open(CABLE_UDC "/soft_connect", O_WRONLY | O_CLOEXEC)) < 0) return;
-	if (write(fd, "connect", 7) < 0) { /* the next screen tries again */ }
-	close(fd);
-	fprintf(stderr, "wire: the cable connection made fresh\n");
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) { deskcable_reconnect(); return; }
+#endif
+	link_setup();
+	gadget_fresh();
 }
 
 /* The switch, checked wherever the jack is and for the same reason: this is
@@ -1646,13 +1697,48 @@ bool plat_headphones_present(void) { return false; }
 bool plat_usb_audio_present(void) { return false; }
 bool plat_cable_link(char *addr, size_t n)
 {
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_link(addr, n);
+#endif
 	(void)addr; (void)n;
 	return false;
 }
-void plat_cable_reconnect(void) { }
-usb_peer plat_usb_peer(void) { return USB_PEER_UNKNOWN; }
-bool plat_usb_link(int op) { (void)op; return true; }
-bool plat_cable_sense(link_sense *out) { (void)out; return false; }
+void plat_cable_reconnect(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) deskcable_reconnect();
+#endif
+}
+usb_peer plat_usb_peer(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_peer();
+#endif
+	return USB_PEER_UNKNOWN;
+}
+bool plat_usb_link(int op)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_usb_link(op);
+#endif
+	(void)op;
+	return true;
+}
+int plat_usb_configured(void)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_configured();
+#endif
+	return -1;
+}
+bool plat_cable_sense(link_sense *out)
+{
+#ifdef ZYPEROS_DESK
+	if (deskcable_on()) return deskcable_sense(out);
+#endif
+	(void)out;
+	return false;
+}
 bool plat_usb_power(usb_power *out) { (void)out; return false; }
 bool plat_usb_power_grant(unsigned plug) { (void)plug; return false; }
 bool plat_usb_power_mode(bool automatic) { (void)automatic; return false; }
@@ -1754,8 +1840,9 @@ bool plat_has_wifi(void)      { return true; }
 /* Bluetooth, CPU shaders (Off and Sharp-Shimmerless, port/brick.c), two
  * speakers, F1 and F2 for brightness, no battery lights and no Player 2:
  * its profile's (src/device/brick_profile.c), or on the host desktop's. */
-/* MENU is a button of its own, and in_state has it. */
-bool plat_menu_held(void) { return false; }
+/* MENU held, for the tutorial's hands, where it is the brightness chord's
+ * (the Smart Pro); on the Brick a button of its own, and in_state has it. */
+bool plat_menu_held(void) { return menu_chord.down && plat_brightness_on_volume(); }
 /* L2 and R2 are buttons of their own too. */
 bool plat_tap_held(in_button b) { (void)b; return false; }
 
