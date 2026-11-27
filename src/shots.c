@@ -374,6 +374,7 @@ int shot_tour = -2;          /* -2 none, -1 the skip message */
 int shot_tour_ms = 2000, shot_tour_done = -1;
 int shot_tour_wrong = -1, shot_tour_wrong_ms = 300;
 int shot_tour_pick = -1, shot_tour_pick_ms = 5000;
+int shot_tour_held = -1;
 bool shot_tour_music;
 int shot_fn_volume;
 /* The chords a shot draws with: the profile's, or with --fn-volume the
@@ -2952,6 +2953,7 @@ static void shot_tour_draw(app *a)
 			t.kept[tour_choice_of(t.step)] = t.pick[tour_choice_of(t.step)];
 		if (shot_tour_wrong >= 0)
 			tour_pose_wrong(&t, (tour_key)shot_tour_wrong, now, shot_tour_wrong_ms);
+		if (shot_tour_held >= 0) tour_pose_held(&t, now, shot_tour_held);
 		tour_draw(a->r, &t, now, &hk);
 	}
 	if (shot_osd_kind) {

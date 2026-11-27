@@ -1576,11 +1576,12 @@ check-tour: build-native/tour-check
 build-native/tour-check: tools/tour-check.c src/tour.c src/tour.h src/design.h \
                          src/inbutton.h src/zyperrig.c src/zyperrig.h src/config.c \
                          src/config.h src/db.c src/db.h src/atomic.c src/atomic.h \
+                         src/menukeys.c src/menukeys.h src/hotkeys.c src/hotkeys.h \
                          $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/tour-check.c src/tour.c src/powerhold.c src/zyperrig.c src/config.c src/db.c \
-	      src/atomic.c $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3 -lm
+	      src/atomic.c src/menukeys.c src/hotkeys.c $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3 -lm
 
 # A system's color as a mark (DESIGN.md 3.3): as systems.cfg has it on Salt &
 # Pepper and a quarter toward text on Beard, for every shipped system; no
@@ -3284,7 +3285,7 @@ check-tour-colors:
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
 		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/canvas.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c \
-		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
+		  src/sysmark.c src/tour.c src/powerhold.c src/menukeys.c src/hotkeys.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		  ./build-native/tour-colors-check; \

@@ -38,9 +38,14 @@ in_button mk_in_of(int key);
  * any screen. The screen dark, MP4's lock's rules (src/mp4lock.h) and its
  * panel: a press shows how to open it, the volume keys get through. */
 void mk_lock(app *a);
-/* How many times the lock has been opened again since the start: the
- * tutorial's lock lesson waits for one more (src/tour_screen.c) */
+/* How many times the lock has been opened again since the start */
 unsigned mk_unlocks(void);
+/* While the tutorial runs: the lock's chord locks nothing, and is counted
+ * for its lock lesson instead (mk_tour_locks), which locks a stand-in on its
+ * stage (the Pixel 2 test of 1.1.1-test.3: the lesson locked the launcher).
+ * The screenshot's chord is as on any screen. */
+void mk_tour(bool on);
+unsigned mk_tour_locks(void);
 
 /* For a host shot: the lock's panel over the screen (`k`, 0 to 1, the
  * unlock's hold), and the notice as the screenshot leaves it */

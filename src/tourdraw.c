@@ -78,6 +78,10 @@
 #define PULSE_GROW 0.06f
 /* The gap the hint bubble keeps from "START: skip" */
 #define LEGEND_GAP 16.0f
+/* Leave a Game's check on its MENU glyph: a disc this round, its middle this
+ * far in from the glyph's top-left corner */
+#define QUIT_CHECK_R  15.0f
+#define QUIT_CHECK_IN  6.0f
 
 /* ---- the layer --------------------------------------------------------------
  * Where the next thing is drawn from and at what opacity: the stage's
@@ -967,31 +971,62 @@ static void lock_panel_small(SDL_Renderer *r, float op, float fill)
 	g_op = was;
 }
 
-/* Lock the Screen (MENU and its button): the little shelf, dark as the
- * lock turns the screen off, the lock's panel at a press, its bar filling
- * as SELECT and START are held, and the screen back. The player's own
- * chord locks the handheld itself (src/menukeys_screen.c); once they have
- * opened it, the stage shows the bar full going and the shelf back. */
+/* Lock the Screen (MENU and its button): the little shelf going dark as
+ * the lock turns the screen off, the lock's panel in small as a press would
+ * show it, and the shelf back for the loop to go round. The player's own
+ * chord, which the tutorial takes in place of the launcher's lock
+ * (mk_tour), leaves the stage dark with its panel, for Unlock the Screen
+ * to open. Nothing is locked but the stage. */
 static void lock_stage(SDL_Renderer *r, const tour *t, uint32_t now, const tour_hooks *hk)
 {
 	const ds_theme *th = theme();
-	float dark, panel, fill;
+	float dark, panel;
 
 	shelf(r, 0.0f, NULL, hk);
 	if (t->done) {
-		dark = panel = 1.0f - tour_ease(TC_OUT, now, t->done_at, DS_MS_FADE_OUT);
-		fill = 1.0f;
+		dark = tour_ease(TC_OUT, now, t->done_at, DS_MS_QUICK);
+		panel = tour_ease(TC_OUT, now, t->done_at + DS_MS_QUICK, DS_MS_MOVE);
 	} else {
 		const int tl = tour_loop_time(t, TOUR_LOCK_LOOP_MS, now);
-		const float back = ek(TC_OUT, tl, TOUR_LOCK_OPEN_AT, DS_MS_FADE_OUT);
+		const float back = ek(TC_OUT, tl, TOUR_LOCK_BACK_AT, DS_MS_FADE_OUT);
 
 		dark = ek(TC_OUT, tl, TOUR_LOCK_KEY_AT, DS_MS_QUICK) * (1.0f - back);
 		panel = ek(TC_OUT, tl, TOUR_LOCK_SHOW_AT, DS_MS_MOVE) * (1.0f - back);
-		fill = clampf((float)(tl - TOUR_LOCK_HOLD_AT) / (float)(TOUR_LOCK_OPEN_AT - TOUR_LOCK_HOLD_AT),
-		              0.0f, 1.0f);
 	}
 	if (dark > 0.0f) rr(r, 0, 0, STAGE_W, STAGE_H, 0, col(rgb(th->ink), 0.92f * dark));
-	lock_panel_small(r, panel, fill);
+	lock_panel_small(r, panel, 0.0f);
+}
+
+/* Unlock the Screen (SELECT and START held): the stage as the lock left it,
+ * dark with the lock's panel, its bar filling as the two are held - by the
+ * loop, or by the player in Hold to Unlock's time (tour_unlock_fill) - and
+ * the shelf back once it is full. */
+static void unlock_stage(SDL_Renderer *r, const tour *t, uint32_t now, const tour_hooks *hk)
+{
+	const ds_theme *th = theme();
+	float dark, fill;
+
+	shelf(r, 0.0f, NULL, hk);
+	if (t->done) {
+		dark = 1.0f - tour_ease(TC_OUT, now, t->done_at, DS_MS_FADE_OUT);
+		fill = 1.0f;
+	} else if (t->unlock_from) {
+		dark = 1.0f;
+		fill = tour_unlock_fill(t, now);
+	} else {
+		const int tl = tour_loop_time(t, TOUR_UNLOCK_LOOP_MS, now);
+
+		dark = 1.0f - ek(TC_OUT, tl, TOUR_UNLOCK_OPEN_AT, DS_MS_FADE_OUT)
+		     + ek(TC_OUT, tl, TOUR_UNLOCK_DARK_AT, DS_MS_QUICK);
+		fill = tl < TOUR_UNLOCK_OPEN_AT
+		       ? clampf((float)(tl - TOUR_UNLOCK_HOLD_AT) / (float)(TOUR_UNLOCK_OPEN_AT - TOUR_UNLOCK_HOLD_AT),
+		                0.0f, 1.0f)
+		       : 1.0f;
+		if (tl >= TOUR_UNLOCK_DARK_AT) fill = 0.0f;
+		dark = clampf(dark, 0.0f, 1.0f);
+	}
+	if (dark > 0.0f) rr(r, 0, 0, STAGE_W, STAGE_H, 0, col(rgb(th->ink), 0.92f * dark));
+	lock_panel_small(r, dark, fill);
 }
 
 /* ---- a step's stage --------------------------------------------------------------- */
@@ -1083,6 +1118,10 @@ static void stage_inner(SDL_Renderer *r, const tour *t, uint32_t now, const tour
 	}
 	if (t->step == TOUR_LOCK) {
 		lock_stage(r, t, now, hk);
+		return;
+	}
+	if (t->step == TOUR_UNLOCK) {
+		unlock_stage(r, t, now, hk);
 		return;
 	}
 	if (!st->loop) {
@@ -1215,6 +1254,19 @@ static void glyph(SDL_Renderer *r, const tour *t, tour_step s, float cx, float c
 		x0 = cx - w / 2.0f;
 		ui_button_pressed(r, a, (int)lroundf(cx + (x0 + wa / 2.0f - cx) * k + g_ox), y, 64,
 		                  UI_BUTTON_PLAIN, P(part_named(a)), k, op);
+		/* Leave a Game's MENU, pressed: a check on its top-left corner, so
+		 * the press is seen counted and the lesson waiting for X (the
+		 * Pixel 2 test of 1.1.1-test.3); the reward's check in small,
+		 * popping in quick, gone as the menu closes */
+		if (s == TOUR_QUIT && tour_quit_menu_in(t)) {
+			const float q = tour_ease(TC_OUT, now, t->moved_at, DS_MS_QUICK);
+			const float gk = op * q, sc = QUIT_CHECK_R / 38.0f * (0.3f + 0.7f * q);
+			const float was = g_op;
+
+			g_op = 1.0f;
+			check_at(r, cx + (x0 - cx) * k + QUIT_CHECK_IN, cy - 32.0f * k + QUIT_CHECK_IN, gk, sc);
+			g_op = was;
+		}
 		words(r, UI_F_META, then ? "," : "+",
 		      cx + (x0 + wa + (then ? 10.0f : ws / 2.0f) - cx) * k, cy, then ? -1 : 0,
 		      theme()->text_dim, 1.0f);
@@ -1355,7 +1407,9 @@ static void step_corner(SDL_Renderer *r, const tour *t, uint32_t now, const tour
 		bubble(r, say, BUBBLE_X, CORNER_Y + 2.0f + dy + 6.0f * (1.0f - in), op,
 		       legend_left() - LEGEND_GAP - BUBBLE_X);
 	}
-	legend(r);
+	/* Not in Unlock the Screen, whose START is half of its hold and skips
+	 * nothing there (tour_press) */
+	if (t->step != TOUR_UNLOCK) legend(r);
 }
 
 static void lesson(SDL_Renderer *r, const tour *t, uint32_t now, const tour_hooks *hk)

@@ -130,6 +130,7 @@ static unsigned lit_of(const tour *t, tour_step s)
 	case TOUR_MENU:   return 1u << TD_MENU;
 	case TOUR_QUIT:   return 1u << TD_MENU | 1u << TD_X;
 	case TOUR_LOCK:   return 1u << TD_MENU | 1u << td_key_of(tour_part_of(tour_menu_key(1)));
+	case TOUR_UNLOCK: return 1u << TD_SELECT | 1u << TD_START;
 	case TOUR_SELECT: return 1u << TD_SELECT | 1u << TD_L2 | 1u << TD_R2;
 	case TOUR_VOL:    return 1u << TD_VOLUP | 1u << TD_VOLDN;
 	case TOUR_BRIGHT: return t->bright == DEV_BRIGHT_MENU_VOL ? 1u << TD_MENU | 1u << TD_VOLUP | 1u << TD_VOLDN

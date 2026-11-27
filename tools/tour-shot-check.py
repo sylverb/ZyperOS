@@ -166,7 +166,7 @@ MENU_DOT = {"light": (61, 64, 62), "dark": (150, 153, 152)}      # text-soft, te
 INSET = 24                      # **inset**: text from every screen edge
 WORDS = (1024 - INSET, 480, 1024, 660)  # right of the title, line and note
 LIT_SIDE = {"move": "lr", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "r",
-            "quit": "R", "lock": "lr",
+            "quit": "R", "lock": "lr", "unlock": "lr",
             "select": "lr", "vol": "l", "bright": "lr", "power": "r"}
 # The shoulders over the top edge, facing front (10 degrees, 3.55 units a
 # millimetre): L1/R1 outside, L2/R2 inside, where a lit one stands up out of
@@ -304,7 +304,7 @@ def devices():
 # from the back, turned round, where L1 and L2 are at the right - and the
 # glass only from the front. Its F1 and F2 one ring, MENU the bottom row's.
 BRICK_LIT_SIDE = {"move": "l", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "l",
-                  "quit": "lr", "lock": "c",
+                  "quit": "lr", "lock": "c", "unlock": "c",
                   "select": "c", "vol": "l", "bright": "lr", "power": "r"}
 # The lessons whose keys are on the back ledge and the front (the d-pad with
 # L1/R1, SELECT with L2/R2): front first, held there at 2000 ms, then round to
@@ -335,7 +335,7 @@ def smartpro():
 # Where each lesson's lit keys are on the Smart Pro: the d-pad and L/R both
 # ends, A B X Y and START's lesson's SELECT at the right, MENU at the left,
 # the volume keys right of the middle, POWER left of it
-SMARTPRO_LIT_SIDE = {"move": "lr", "a": "r", "y": "r", "menu": "l", "quit": "lr", "lock": "l",
+SMARTPRO_LIT_SIDE = {"move": "lr", "a": "r", "y": "r", "menu": "l", "quit": "lr", "lock": "l", "unlock": "r",
                      "vol": "r", "power": "l"}
 
 
@@ -398,7 +398,7 @@ def brick():
 # d-pad's lesson lights L1 and R1 too, whose paddles stand out past the
 # back, so R1's edge shows on the right: the left half is judged alone.
 R36S_LIT_SIDE = {"move": "L", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "c",
-                 "quit": "cr", "lock": "c",
+                 "quit": "cr", "lock": "c", "unlock": "c",
                  "select": "c", "vol": "r", "bright": "cr", "power": "l"}
 
 

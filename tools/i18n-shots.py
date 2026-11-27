@@ -398,11 +398,17 @@ EXTRA = {
     # and X before MENU, his answer that MENU comes first
     "tour-quit": ("demo", "PS1", ["--tour", "quit", "1900"]),
     "tour-quit-wrong": ("demo", "PS1", ["--tour", "quit", "3000", "--tour-wrong", "x", "420"]),
-    # Lock the Screen: the lock's panel on the dark stage, its bar filling;
-    # L2 alone (hold MENU too) and MENU alone (how the chord goes)
-    "tour-lock": ("demo", "PS1", ["--tour", "lock", "3300"]),
+    # ...and the player's MENU counted: its check on, the menu waiting for X
+    "tour-quit-held": ("demo", "PS1", ["--tour", "quit", "2000", "--tour-held", "400"]),
+    # Lock the Screen: the lock's panel on the dark stage; L2 alone (hold
+    # MENU too) and MENU alone (how the chord goes)
+    "tour-lock": ("demo", "PS1", ["--tour", "lock", "2600"]),
     "tour-lock-wrong": ("demo", "PS1", ["--tour", "lock", "3000", "--tour-wrong", "l2", "420"]),
     "tour-lock-wrong-menu": ("demo", "PS1", ["--tour", "lock", "3000", "--tour-wrong", "menu", "420"]),
+    # Unlock the Screen: SELECT and START held, the lock's bar filling, and
+    # a wrong press's answer
+    "tour-unlock": ("demo", "PS1", ["--tour", "unlock", "2000", "--tour-held", "1000"]),
+    "tour-unlock-wrong": ("demo", "PS1", ["--tour", "unlock", "3000", "--tour-wrong", "a", "420"]),
     "tour-bright": ("demo", "PS1", ["--tour", "bright", "2000"]),
     "tour-power": ("demo", "PS1", ["--tour", "power", "1800"]),
     "tour-finish": ("demo", "PS1", ["--tour", "finish", "500"]),

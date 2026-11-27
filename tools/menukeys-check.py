@@ -10,7 +10,11 @@ is on the home's Screenshots group as ZyperOS, opens whole and is deleted
 with X as a game's; MENU
 tapped alone still opens the menu, as it is let go. MENU held and L2 pressed
 locks: SELECT+START held for less than Hold to Unlock keeps it locked, held
-past it unlocks.
+past it unlocks. MENU > System > Hotkeys' footer says what the row under
+the cursor is; MENU's capture keeps MENU's glyph as its screen leaves;
+Hold to Unlock at 0.5 s opens the lock in less than a second. And the
+tutorial, pressed through to its lock lessons: MENU+L2 locks only the stage,
+SELECT+START held opens it, and Music takes SELECT alone.
 build-native/zyperos must be built (make native)."""
 import json
 import os
@@ -83,6 +87,92 @@ def apart(a, b):
         return 1.0
     d = ImageChops.difference(x, y).convert('L').point(lambda v: 255 if v > 24 else 0)
     return d.histogram()[255] / (x.size[0] * x.size[1])
+
+
+def tour(tmp, env):
+    """The tutorial's lock lessons in desk mode, pressed through from the
+    language step (the Pixel 2 test of 1.1.1-test.3): MENU+L2 in Lock the
+    Screen locks nothing but the stage, and is its press; SELECT+START held
+    past Hold to Unlock in Unlock the Screen is its press; and Music takes
+    SELECT alone, a shoulder there a wrong press."""
+    env = dict(env)
+    sock = Path(tempfile.gettempdir()) / f'zyperos-mkcheck-tour-{os.getpid()}.sock'
+    env['ZYPEROS_DESK_SOCK'] = str(sock)
+    # the tutorial from its start, with Hold to Unlock back at 2 s
+    subprocess.run([str(BINARY), '--set', 'tour.done=0'], env=env, check=True, stdout=subprocess.DEVNULL)
+    subprocess.run([str(BINARY), '--set', 'menukeys='], env=env, check=True, stdout=subprocess.DEVNULL)
+    logfile = tmp / 'tour.log'
+    log = open(logfile, 'w')
+    p = subprocess.Popen([str(BINARY), '--device', 'pixel2'], env=env, stdout=log, stderr=subprocess.STDOUT)
+
+    def step():
+        said = [l for l in logfile.read_text().splitlines() if l.startswith('tour: the ') and l.endswith(' step')]
+        return said[-1][len('tour: the '):-len(' step')] if said else None
+
+    def to(name, secs=4.0):
+        return until(step, lambda s: s == name, secs)
+
+    try:
+        for _ in range(200):
+            if sock.exists() or p.poll() is not None:
+                break
+            time.sleep(0.05)
+        check(sock.exists(), 'the tutorial\'s control socket is up')
+        if not sock.exists():
+            return
+        time.sleep(1.0)
+        for key, then in (('a', 'welcome'), ('a', 'move'), ('right', None), ('left', 'a'), ('a', 'b'),
+                          ('b', 'x'), ('x', 'y'), ('y', 'menu'), ('menu', 'quit')):
+            ask(sock, f'tap {key} 40')
+            if then:
+                to(then)
+            time.sleep(0.35)
+        ask(sock, 'tap menu 40')
+        time.sleep(0.4)
+        ask(sock, 'tap x 40')
+        check(to('lock') == 'lock', f'pressed through to Lock the Screen ({step()})')
+        time.sleep(0.4)
+        ask(sock, 'press menu')
+        time.sleep(0.2)
+        ask(sock, 'tap l2 40')
+        time.sleep(0.2)
+        ask(sock, 'release menu')
+        check(to('unlock') == 'unlock', f'MENU+L2 is the lock lesson\'s press ({step()})')
+        check('lock: locked' not in logfile.read_text(),
+              'and locks nothing but the stage: the launcher\'s lock never comes')
+        time.sleep(0.5)
+        ask(sock, 'press select+start')
+        time.sleep(1.0)
+        ask(sock, 'release select+start')
+        time.sleep(0.6)
+        check(step() == 'unlock' and 'tour: tour.done' in logfile.read_text(),
+              'SELECT+START let go after 1 s: still locked')
+        ask(sock, 'press select+start')
+        time.sleep(2.4)
+        ask(sock, 'release select+start')
+        check(to('select') == 'select', f'held past Hold to Unlock: the unlock lesson\'s press, and Music comes ({step()})')
+        check('lock: ' not in logfile.read_text(), 'and the launcher was never locked or unlocked')
+        time.sleep(0.5)
+        for key in ('l1', 'l2', 'r2'):
+            ask(sock, f'tap {key} 40')
+            time.sleep(1.3)
+            check(step() == 'select', f'{key.upper()} in Music is no right answer: Music still waits for SELECT')
+        ask(sock, 'tap select 40')
+        check(to('vol') == 'vol', f'SELECT lands it ({step()})')
+    finally:
+        try:
+            ask(sock, 'quit')
+            p.wait(timeout=10)
+        except Exception:
+            pass
+        if p.poll() is None:
+            p.kill()
+            p.wait()
+        log.close()
+        if sock.exists():
+            sock.unlink()
+        if fails:
+            print(logfile.read_text()[-2000:])
 
 
 def main():
@@ -220,6 +310,97 @@ def main():
         ask(sock, 'tap a 40')
         gone = until(lambda: sorted(shots.glob('ZyperOS *.png')), lambda l: not l, 5.0)
         check(not gone, f'X deletes it from the card ({[g.name for g in gone]})')
+
+        # MENU > System > Hotkeys: the footer says what the row under the
+        # cursor is (the Pixel 2 test of 1.1.1-test.3: "Home Screen is
+        # fixed" on every row); MENU's capture keeps MENU's glyph as it
+        # leaves (it turned into SELECT's); Hold to Unlock has 0.5 s
+        ask(sock, 'tap b 40')
+        time.sleep(0.6)
+        ask(sock, 'tap menu 40')
+        until(lambda: ask(sock, 'state').get('screen'), lambda x: x not in ('systems', 'games'), 4.0)
+        for _ in range(8):
+            if ask(sock, 'state').get('screen') == 'System':
+                break
+            ask(sock, 'tap r1 40')
+            time.sleep(0.4)
+        for _ in range(16):
+            if ask(sock, 'state').get('focus') == 'Hotkeys':
+                break
+            ask(sock, 'tap down 40')
+            time.sleep(0.3)
+        ask(sock, 'tap a 40')
+        time.sleep(1.0)
+
+        def footer():
+            said = [l for l in logfile.read_text().splitlines() if l.startswith("hotkeys: the footer says '")]
+            return said[-1][len("hotkeys: the footer says '"):-1] if said else None
+
+        rows = []
+        for _ in range(14):
+            st = ask(sock, 'state')
+            if rows and st.get('cursor') == rows[0][0]:
+                break
+            rows.append((st.get('cursor'), st.get('focus'), footer()))
+            ask(sock, 'tap down 40')
+            time.sleep(0.35)
+        game = 'In a game, with SELECT held.'
+        names = [r[1] for r in rows]
+        check(names[:2] == ['Quick Save', 'Quick Load'] and names[-3:] == ['Screenshot', 'Lock Screen', 'Hold to Unlock'],
+              f'the Hotkeys list from Quick Save to Hold to Unlock ({names})')
+        check(all(r[2] == game for r in rows[:-3]),
+              f'each of the game\'s hotkeys: "{game}" ({[(r[1], r[2]) for r in rows[:-3]]})')
+        check([r[2] for r in rows[-3:]] == ['On every screen, in a game too.'] * 2 + ['How long to hold SELECT+START.'],
+              f'MENU\'s chords and Hold to Unlock say theirs ({[(r[1], r[2]) for r in rows[-3:]]})')
+        check(not any(r[2] and 'Home' in r[2] for r in rows), 'and no row says the Home row\'s line')
+
+        # MENU's Screenshot: MENU held, R1, MENU let go; the glyph stays MENU's
+        for _ in range(16):
+            if ask(sock, 'state').get('focus') == 'Lock Screen':
+                break
+            ask(sock, 'tap down 40')
+            time.sleep(0.3)
+        ask(sock, 'tap up 40')
+        time.sleep(0.4)
+        mark = len(logfile.read_text().splitlines())
+        ask(sock, 'tap a 40')
+        time.sleep(0.8)
+        ask(sock, 'press menu')
+        time.sleep(0.3)
+        ask(sock, 'tap r1 40')
+        time.sleep(0.3)
+        ask(sock, 'release menu')
+        time.sleep(1.2)
+        shown = [l[len('hotkeys: the capture shows '):] for l in logfile.read_text().splitlines()[mark:]
+                 if l.startswith('hotkeys: the capture shows ')]
+        check(shown and shown[-1] == 'MENU+R1' and all(k.startswith('MENU') for k in shown),
+              f'MENU+R1 captured, and its glyph stays MENU\'s as the screen leaves ({shown})')
+
+        # Hold to Unlock: 2 s, left to 1 s and to 0.5 s; the lock opens in 0.8 s
+        for _ in range(4):
+            if ask(sock, 'state').get('focus') == 'Hold to Unlock':
+                break
+            ask(sock, 'tap down 40')
+            time.sleep(0.3)
+        ask(sock, 'tap left 40')
+        time.sleep(0.3)
+        ask(sock, 'tap left 40')
+        time.sleep(0.3)
+        ask(sock, 'tap menu 40')            # MENU closes every screen
+        until(lambda: ask(sock, 'state').get('screen'), lambda x: x in ('systems', 'games'), 4.0)
+        time.sleep(0.8)
+        n0 = logfile.read_text().count('lock: unlocked')
+        ask(sock, 'press menu')
+        time.sleep(0.2)
+        ask(sock, 'tap l2 40')
+        time.sleep(0.2)
+        ask(sock, 'release menu')
+        time.sleep(0.6)
+        ask(sock, 'press select+start')
+        time.sleep(0.8)
+        ask(sock, 'release select+start')
+        opened = until(lambda: logfile.read_text().count('lock: unlocked'), lambda x: x > n0, 2.0)
+        check(opened > n0, 'Hold to Unlock at 0.5 s: SELECT+START held 0.8 s opens the lock')
     finally:
         try:
             ask(sock, 'quit')
@@ -234,6 +415,8 @@ def main():
             sock.unlink()
         if fails:
             print(logfile.read_text()[-3000:])
+        else:
+            tour(tmp, env)
         shutil.rmtree(tmp, ignore_errors=True)
     print(f'menukeys: {"all passed" if not fails else f"{len(fails)} failed"}')
     return 1 if fails else 0

@@ -463,7 +463,9 @@ is kept (lsof); `SCRATCH=-n` only lists them.
 
 `--tour STEP [MS [DONE]]` draws a frame of the tutorial in place of the shelf:
 STEP is `lang` (the language step: its cursor steps a language a second,
-and `--tour-pick N` puts it on language N), `welcome`, `move`, `a`, `b`, `y`, `x`, `menu`, `select`, `vol`,
+and `--tour-pick N` puts it on language N), `welcome`, `move`, `a`, `b`, `y`, `x`, `menu`, `quit`, `lock`,
+`unlock` (`--tour-held MS`: in `quit` MENU pressed MS ago, its check on and
+the menu open; in `unlock` SELECT and START held MS), `select`, `vol`,
 `bright`, `power`, `finish`, or `skip` for the message a skip leaves over the
 shelf; MS into it (2000), its press landed DONE ms ago (none), at a fixed
 clock, so the same arguments draw the same picture. The finish includes the

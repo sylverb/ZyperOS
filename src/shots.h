@@ -133,6 +133,7 @@ extern int shot_tour_wrong_ms;
 extern int shot_tour_wrong;
 extern int shot_tour_pick_ms;
 extern int shot_tour_pick;
+extern int shot_tour_held;   /* --tour-held MS: Leave a Game's MENU, the unlock's hold */
 extern bool shot_tour_music;
 extern int shot_fn_volume;
 extern int shot_theme;

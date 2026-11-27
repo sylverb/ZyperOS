@@ -6081,7 +6081,7 @@ void copy_file(const char *from, const char *to)
 const char *const TOUR_STEP_NAMES[TOUR_STEPS] = {
 	[TOUR_LANG] = "lang", [TOUR_WELCOME] = "welcome", [TOUR_MOVE] = "move", [TOUR_A] = "a",
 	[TOUR_B] = "b", [TOUR_X] = "x", [TOUR_Y] = "y", [TOUR_MENU] = "menu",
-	[TOUR_QUIT] = "quit", [TOUR_LOCK] = "lock",
+	[TOUR_QUIT] = "quit", [TOUR_LOCK] = "lock", [TOUR_UNLOCK] = "unlock",
 	[TOUR_SELECT] = "select", [TOUR_VOL] = "vol", [TOUR_BRIGHT] = "bright",
 	[TOUR_POWER] = "power", [TOUR_THEME] = "theme", [TOUR_HOME] = "home",
 	[TOUR_SOUNDS] = "sounds", [TOUR_MUSIC] = "music", [TOUR_FINISH] = "finish" };
@@ -6911,6 +6911,7 @@ int main(int argc, char *argv[])
 				shot_tour_pick_ms = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--tour-music")) shot_tour_music = true;
+		else if (!strcmp(argv[i], "--tour-held") && i + 1 < argc) shot_tour_held = atoi(argv[++i]);
 		/* --port-waiting: with --gamemenu N port, the menu over a program
 		 * still starting (Keep Waiting) */
 		else if (!strcmp(argv[i], "--port-waiting")) g_port_waiting = true;

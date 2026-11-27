@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-const unsigned MK_HOLD_MS[MK_HOLDS] = { 1000, 2000, 3000, 5000 };
+const unsigned MK_HOLD_MS[MK_HOLDS] = { 500, 1000, 2000, 3000, 5000 };
 
 static const char *const ACT_NAME[MK_ACTS] = { "shot", "lock" };
 
@@ -119,6 +119,13 @@ bool mk_load(const char *stored, mk_table *out)
 	if (next.key[MK_SHOT] == next.key[MK_LOCK]) return false;
 	*out = next;
 	return true;
+}
+
+void mk_secs(unsigned ms, bool comma, char *out, size_t n)
+{
+	if (!n) return;
+	if (ms % 1000 == 0) snprintf(out, n, "%u", ms / 1000);
+	else snprintf(out, n, "%u%c%u", ms / 1000, comma ? ',' : '.', ms % 1000 / 100);
 }
 
 void mk_chord(const mk_table *t, mk_act a, char *out, size_t n)

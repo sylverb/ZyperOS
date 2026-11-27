@@ -180,7 +180,7 @@ ja = %s でどこでも設定を開けます。
 it = Premi %s per le impostazioni, ovunque.
 
 [tour.menu.note]
-note = The MENU lesson's note, beside Zyper's corner: MENU held with a button, on every screen outside a game, takes a screenshot of the screen. %s is the keys as printed, "MENU+L1" ("FN+L1" on the R36S); the lock, MENU's other chord, is the lesson after (tour.lock). Keep it about as long as English's.
+note = The MENU lesson's note, beside Zyper's corner: MENU held with a button, on every screen and in a game too, takes a screenshot. %s is the keys as printed, "MENU+L1" ("FN+L1" on the R36S); the lock, MENU's other chord, is the lesson after (tour.lock). Keep it about as long as English's.
 en = %s takes a screenshot.
 zh-Hans = %s 截图。
 es = %s hace una captura.
@@ -224,7 +224,7 @@ ja = 次はそこから続きます。
 it = La prossima volta riprende da lì.
 
 [tour.lock.title]
-note = The lesson after Leave a Game: MENU held with a button locks the handheld on every screen outside a game (MENU > System > Hotkeys' Lock Screen). Short, as the other lessons' titles.
+note = The lesson after Leave a Game: MENU held with a button locks the handheld on every screen, in a game too (MENU > System > Hotkeys' Lock Screen). Short, as the other lessons' titles.
 en = Lock the Screen
 zh-Hans = 锁定屏幕
 es = Bloquear la pantalla
@@ -246,15 +246,37 @@ ja = %s を押しながら %s でロック。
 it = Tieni %s, poi premi %s per bloccare.
 
 [tour.lock.note]
-note = The second line: how the lock opens, SELECT and START held together for Hold to Unlock's seconds (%d: 1, 2, 3 or 5). SELECT and START are the buttons' printed names, drawn as their keys. Keep it about as long as English's.
-en = Hold SELECT and START %d s to unlock.
-zh-Hans = 按住 SELECT 和 START %d 秒解锁。
-es = Mantén SELECT y START %d s para desbloquear.
-pt-BR = Segure SELECT e START %d s para desbloquear.
-fr = Maintenez SELECT et START %d s pour déverrouiller.
-de = SELECT und START %d s halten zum Entsperren.
-ja = SELECT と START を %d 秒押して解除。
-it = Tieni SELECT e START %d s per sbloccare.
+note = The lock lesson's second line: MENU held with its button locks on every screen of the launcher, and in a game too. Keep it about as long as English's.
+en = On every screen, in a game too.
+zh-Hans = 所有画面均可，游戏中也可。
+es = En toda pantalla, y en juego.
+pt-BR = Em toda tela, no jogo também.
+fr = Sur tout écran, en jeu aussi.
+de = Überall, auch im Spiel.
+ja = どの画面でも。ゲーム中も。
+it = Ovunque, anche in gioco.
+
+[tour.unlock.title]
+note = The lesson after Lock the Screen: the lock opens again with SELECT and START held together. Short, as the other lessons' titles.
+en = Unlock the Screen
+zh-Hans = 解锁屏幕
+es = Desbloquear la pantalla
+pt-BR = Desbloquear a tela
+fr = Déverrouiller l'écran
+de = Bildschirm entsperren
+ja = 画面のロックを解除
+it = Sblocca lo schermo
+
+[tour.unlock.line]
+note = Under the title: how the lock opens, SELECT and START held together for Hold to Unlock's seconds. %s is the seconds as the page writes them: 0.5 (0,5 with a decimal comma), 1, 2, 3 or 5. SELECT and START are the buttons' printed names, drawn as their keys. Keep it about as long as English's.
+en = Hold SELECT and START %s s to unlock.
+zh-Hans = 按住 SELECT 和 START %s 秒解锁。
+es = Mantén SELECT y START %s s para desbloquear.
+pt-BR = Segure SELECT e START %s s para desbloquear.
+fr = Maintenez SELECT et START %s s pour déverrouiller.
+de = SELECT und START %s s halten zum Entsperren.
+ja = SELECT と START を %s 秒押して解除。
+it = Tieni SELECT e START %s s per sbloccare.
 
 [tour.select.title]
 en = Music
@@ -745,7 +767,7 @@ note = In the lock lesson, its button alone (L2): the lock is MENU held with it.
 en = That's %s. Hold %s too.
 zh-Hans = 这是 %s。请同时按住 %s。
 es = Eso es %s. Mantén %s también.
-pt-BR = Você apertou %s. Segure %s também.
+pt-BR = Só %s? Segure %s junto.
 fr = C'est %s. Maintenez aussi %s.
 de = Das war %s. Halte auch %s.
 ja = それは %s。%s も押さえて。

@@ -27,9 +27,10 @@
 
 typedef enum { MK_SHOT, MK_LOCK, MK_ACTS } mk_act;
 
-/* How long SELECT+START is held to unlock, the choices, in ms; the second
- * the one from the start, MP4's lock's as it was (DS_MS_HOLD_UNLOCK) */
-#define MK_HOLDS      4
+/* How long SELECT+START is held to unlock, the choices, in ms; 2 s the one
+ * from the start, MP4's lock's as it was (DS_MS_HOLD_UNLOCK). Half a second
+ * the shortest (the Pixel 2 test of 1.1.1-test.3: "add a 0.5 s option") */
+#define MK_HOLDS      5
 extern const unsigned MK_HOLD_MS[MK_HOLDS];
 #define MK_HOLD_DEFAULT 2000
 
@@ -59,6 +60,10 @@ unsigned mk_hold_step(unsigned ms, int dir);
  * and back, ZyperOS's own for "" or anything it cannot read (false then) */
 void mk_store(const mk_table *t, char *out, size_t n);
 bool mk_load(const char *stored, mk_table *out);
+
+/* A hold's seconds as the pages write them: "0.5", "2"; with `comma` the
+ * decimal comma ("0,5") of the languages that write one */
+void mk_secs(unsigned ms, bool comma, char *out, size_t n);
 
 /* "MENU+L1", the action's chord as the pages write it */
 void mk_chord(const mk_table *t, mk_act a, char *out, size_t n);

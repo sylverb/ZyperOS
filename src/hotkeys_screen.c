@@ -104,31 +104,40 @@ static const char *scope_said(hk_page *p)
 	return T(S_HOTKEYS_EVERY_GAME);
 }
 
-/* The footer under the list says what the rows the cursor is among are
- * (2026-11-26, the Pixel 2 test of 1.1.1-test.2: the quiet lines between
- * the rows read as observations among them): MENU's chords, everywhere but
- * in a game; the game's hotkeys, whose quiet Home row is fixed and held
- * 1 s, or on a handheld with no Home (the Brick, the Smart Pro) that they
- * work in a game, with SELECT. One line under a rule, pinned under the rows
- * as an option list's note is, the same height whichever it says, so the
- * panel holds still as the cursor goes from one group to the other. A
- * list with neither (a game's, on a handheld with no Home) has none. */
-static bool has_home(void)
+/* The footer under the list says what the row under the cursor is, or
+ * nothing where there is nothing to say (the Pixel 2 test of 1.1.1-test.3:
+ * it said "Home Screen is fixed" on every row, where Home is a quiet row
+ * the cursor never lands on). The game's hotkeys work in a game, with
+ * SELECT held; MENU's chords on every screen, in a game too; Hold to
+ * Unlock is how long SELECT and START open the lock; Applies To, Reset
+ * Hotkeys and All Controls say what they are themselves. One line under a
+ * rule, pinned under the rows as an option list's note is, the same
+ * height whatever it says (an empty line too), so the panel holds still
+ * as the cursor moves. (2026-11-26, the test of 1.1.1-test.2: the quiet
+ * lines between the rows read as observations among them, so they went
+ * under the list.) */
+static str_id foot_id(int id)
 {
-	return dev_role_keys(&plat_profile()->chords, DEV_ROLE_HOME) != NULL;
-}
-
-static bool has_foot(const hk_page *p)
-{
-	return !p->s || has_home();
+	if (id >= 0 && id < HK_ACTS) return S_HOTKEYS_GAME_NOTE;
+	if (id == HKR_MK_SHOT || id == HKR_MK_LOCK) return S_HOTKEYS_MENU_NOTE;
+	if (id == HKR_MK_HOLD) return S_HOTKEYS_HOLD_NOTE;
+	return S_COUNT;
 }
 
 static void foot_for(hk_page *p, int id)
 {
-	const bool mk = id == HKR_MK_SHOT || id == HKR_MK_LOCK || id == HKR_MK_HOLD;
+	const str_id f = foot_id(id);
 
-	snprintf(p->foot, sizeof p->foot, "%s",
-	         T(mk ? S_HOTKEYS_MENU_NOTE : has_home() ? S_HOTKEYS_HOME_NOTE : S_HOTKEYS_GAME_NOTE));
+	snprintf(p->foot, sizeof p->foot, "%s", f < S_COUNT ? T(f) : "");
+	/* Said as it changes, for check-menukeys: the line each row has */
+	{
+		static char said[160] = "-";
+
+		if (strcmp(said, p->foot)) {
+			snprintf(said, sizeof said, "%s", p->foot);
+			fprintf(stderr, "hotkeys: the footer says '%s'\n", p->foot);
+		}
+	}
 }
 
 /* The cursor's row each pass, before the frame: the footer follows it in
@@ -168,7 +177,7 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 		    t.key[i] != back.key[i] ? 1u : 0u, 0);
 	}
 	/* Home, the way out of anything, the same on every card: fixed, a quiet
-	 * row the cursor passes, and the footer says so */
+	 * row the cursor passes */
 	if (home) {
 		snprintf(p->home, sizeof p->home, "%s%s", MENU_KEYS_MARK, home);
 		ROW(HKR_HOME, ((menu_row){ T(S_CONTROLS_HOME), p->home, false }), 0u, 0);
@@ -195,15 +204,18 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 		    m->key[MK_SHOT] != def.key[MK_SHOT] ? 1u : 0u, 0);
 		ROW(HKR_MK_LOCK, ((menu_row){ T(S_SYSMENU_MP4_LOCK), p->mk_val[MK_LOCK], true }),
 		    m->key[MK_LOCK] != def.key[MK_LOCK] ? 1u : 0u, 0);
-		snprintf(p->hold_val, sizeof p->hold_val, T(S_SYSMENU_AUTO_OFF_SECS), (int)(m->hold_ms / 1000));
+		{
+			/* "0.5 s" or "0,5 s", the language's decimal mark */
+			char secs[12];
+
+			mk_secs(m->hold_ms, i18n_decimal_comma(), secs, sizeof secs);
+			snprintf(p->hold_val, sizeof p->hold_val, T(S_HOTKEYS_UNLOCK_SECS), secs);
+		}
 		ROW(HKR_MK_HOLD, ((menu_row){ T(S_HOTKEYS_UNLOCK_HOLD), p->hold_val, true }),
 		    m->hold_ms != def.hold_ms ? 1u : 0u, MENU_SND_RING);
 	}
-	if (has_foot(p)) {
-		if (!p->foot[0]) foot_for(p, -1);
-		ROW(HKR_FOOT_RULE, MENU_RULE, 0u, 0);
-		ROW(HKR_FOOT, MENU_NOTE(p->foot), 0u, 0);
-	}
+	ROW(HKR_FOOT_RULE, MENU_RULE, 0u, 0);
+	ROW(HKR_FOOT, MENU_NOTE(p->foot), 0u, 0);
 #undef ROW
 	p->n = n;
 	return n;
@@ -233,7 +245,11 @@ static menu_result power(app *a, void *ctx)
 }
 
 /* The capture screen's keys, for its header (menu_style.header has no
- * context): SELECT while held, and the button with it */
+ * context): SELECT (or MENU) while held, and the button with it. Kept as
+ * they were when the capture ends, until the next one starts: the panel's
+ * copy draws the header again as it leaves (snap_draw), and a MENU chord's
+ * glyph turned into SELECT's in that leave when `menu` was cleared at the
+ * end (the Pixel 2 test of 1.1.1-test.3) */
 static struct { bool sel; int key; bool menu; } g_cap;
 
 static void capture_header(app *a, const SDL_Rect *r)
@@ -249,6 +265,16 @@ static void capture_header(app *a, const SDL_Rect *r)
 	}
 	if (g_cap.key >= 0) snprintf(keys, sizeof keys, "%s+%s", g_cap.menu ? "MENU" : "SELECT", hk_key_name(g_cap.key));
 	else snprintf(keys, sizeof keys, "%s", g_cap.menu ? "MENU" : "SELECT");
+	/* Said when it changes, for check-menukeys: the keys never turn into
+	 * another's, the leave included */
+	{
+		static char said[24];
+
+		if (strcmp(said, keys)) {
+			snprintf(said, sizeof said, "%s", keys);
+			fprintf(stderr, "hotkeys: the capture shows %s\n", keys);
+		}
+	}
 	/* lit as they go down, the tutorial's pressed look */
 	ui_button_pressed(a->r, keys, cx, cy, HK_CAPTURE_GLYPH, UI_BUTTON_PLAIN, 1.0f, 1.0f, 1.0f);
 }
@@ -336,7 +362,7 @@ static int capture_menu(app *a, hk_page *p, mk_act m)
 		ui_frame_rest(8);
 	}
 	mk_capture(false);
-	g_cap.menu = false;
+	/* g_cap stays MENU's: the panel leaving draws it again */
 	panel_close(a, lv, !a->running);
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
@@ -386,6 +412,7 @@ static int capture(app *a, hk_page *p, hk_act act)
 
 	g_cap.sel = false;
 	g_cap.key = -1;
+	g_cap.menu = false;
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
 	while (!done && !want_quit && a->running) {

@@ -1804,8 +1804,9 @@ for the reward, and a wrong press tilted, nudged and answered.)*
 | See the Details | X | the card turns into the details, the info screen in small: the game's name over a rule, Synopsis in focus, Year, and Favorite Off with Y's glyph | X |
 | Keep a Favorite | Y | in those details Favorite turns from Off to On, the row's own Y pressing with the glyph; the line says Y does it in the details | Y |
 | Settings | MENU | a menu panel opens over the shelf; "MENU+L1 takes a screenshot." under the line | MENU, which opens nothing here |
-| Leave a Game | MENU, a comma and X (11.9's "one after the other"), MENU and X lit on the handheld | the stand-in game plays, MENU opens the in-game menu over it (its last row Quit, X's glyph at its right), X closes it as the game goes back into its card; "It picks up there next time." under the line | MENU, then X: MENU opens the menu on the stage (accept) and holds it for X, MENU or B closes it again (back); X first is "That's X. Press MENU first." |
-| Lock the Screen | MENU, a plus and L2 (the lock's button as Hotkeys has it), both lit on the handheld | the shelf goes dark at the chord, a press shows the lock's panel in small (the padlock, its bar), SELECT and START held fill the bar, and the screen comes back; "Hold SELECT and START 2 s to unlock." under the line (Hold to Unlock's seconds) | the chord itself, which locks the handheld as on any screen (11.61): the step's press is the lock opened again with SELECT and START held, and its reward comes as the screen does. MENU alone is "Hold MENU, then press L2.", L2 alone "That's L2. Hold MENU too." |
+| Leave a Game | MENU, a comma and X (11.9's "one after the other"), MENU and X lit on the handheld | the stand-in game plays, MENU opens the in-game menu over it (its last row Quit, X's glyph at its right), X closes it as the game goes back into its card; "It picks up there next time." under the line | MENU, then X: MENU opens the menu on the stage (accept), puts the reward's check in small on the MENU glyph's top-left corner, and holds the menu for X; MENU or B closes it again (back), and so does 3 s with no X, the lesson starting over at MENU; X first is "That's X. Press MENU first." |
+| Lock the Screen | MENU, a plus and L2 (the lock's button as Hotkeys has it), both lit on the handheld | the shelf goes dark at the chord and the lock's panel shows in small (the padlock, its bar), then the shelf comes back; "On every screen, in a game too." under the line | the chord, which the tutorial takes in place of the lock: the stage goes dark with the lock's panel and stays so for the next lesson; the handheld is never locked. MENU alone is "Hold MENU, then press L2.", L2 alone "That's L2. Hold MENU too." |
+| Unlock the Screen | SELECT, a plus and START, both lit on the handheld | on the stage the lock left, SELECT and START held fill the panel's bar and the shelf comes back; the line is "Hold SELECT and START 2 s to unlock." (Hold to Unlock's seconds, "0.5" or "0,5" as the language writes) | SELECT and START held together for Hold to Unlock's time, the bar filling as they are held and emptying when one is let go; START skips nothing in this step, and "START: skip" is not drawn |
 | Music | SELECT, and L2/R2 lit on the handheld | MP4's Now Playing fades in; "L2/R2 play the previous or next song." under the line | SELECT, which opens nothing here |
 | Volume | the VOL rocker | a stand-in bar slides onto the stage and steps up | VOL+ or VOL-, which change the real volume and show the real bar |
 | Brightness | MENU+VOL: the MENU pill, a plus and the rocker (F1 and F2 on the Brick) | the stand-in bar's sun steps up | the chord, which changes the real brightness |
@@ -1820,10 +1821,18 @@ for the reward, and a wrong press tilted, nudged and answered.)*
 lesson each, after Settings and before Music, so MENU is taught where it is
 used: leaving a game with MENU then X, and the lock, MENU+L2 on every screen,
 opened with SELECT and START held. Settings' note keeps the screenshot. The
-lock lesson takes the launcher's own lock rather than a stand-in, so what it
-teaches is what the handheld does, and START, which the lock takes while it
-is held with SELECT, still skips everywhere else. The Smart Pro and the R36S
-have the same keys and the same two lessons, the R36S's MENU said FN.)*
+Smart Pro and the R36S have the same keys and the same lessons, the R36S's
+MENU said FN.)*
+
+*(2026-11-26, the Pixel 2 test of 1.1.1-test.3: the lock lesson took the
+launcher's own lock, which really locked the tutorial and taught no unlock of
+its own. Now the tutorial takes the lock's chord itself while it runs
+(`mk_tour`), locks a stand-in on the stage, and Unlock the Screen is a lesson
+of its own. Leave a Game's MENU shows a check once it counts, and the menu
+closes after 3 s with no X. And a lesson takes its own button and no other:
+Music, whose line asks for SELECT, had taken L2 and R2 too (from the Smart
+Pro kit's notes), and a shoulder there read as a right answer;
+`check-tour` presses every key in every lesson.)*
 
 *(2026-11-13: Keep a Favorite comes after See the Details, and its line says
 "In the details, press Y to add a favorite." Since 2026-11-08 Y on the
@@ -1866,7 +1875,7 @@ of the player's own goes on from wherever the loop was.
   40 bits of confetti falling and turning, in **accent** and **accent-ink**
   only: lime is success (3.3). Its A is heard from 600 ms, so the A that ends
   the last reward does not skip it.
-- **Progress**: a 40 x 6 segment for each lesson and each choice (16, or 15 without menu music), at the top center, y 32: done
+- **Progress**: a 40 x 6 segment for each lesson and each choice (17, or 16 without menu music), at the top center, y 32: done
   **accent-ink**, current **text**, to come **track**. In the volume and
   brightness steps the real bar covers it while it shows.
 - **Stage**: 680 x 340 at (172, 84), **ground** mixed a third toward
@@ -1959,7 +1968,8 @@ of the player's own goes on from wherever the loop was.
     way, MENU a lit tab and L2 standing up out of the top edge as a lit
     shoulder does facing front (tilted back to the shoulders, MENU on its
     side went out of sight). Leave a Game, MENU and X, turns to MENU's side
-    as Settings does, X on the face beside it. Move
+    as Settings does, X on the face beside it. Unlock the Screen, SELECT
+    and START, faces front with both lit. Move
     Around (L1, R1) and Music (L2, R2) light shoulders on both sides, so
     they keep the front pose's 10 degrees and tilt it back 25, as seen from a
     little above, so the top shows with the lit shoulders standing up on it
@@ -2051,7 +2061,7 @@ of the player's own goes on from wherever the loop was.
     **surface** tile with a 3-unit **edge** (Off crossed through), the
     speaker's waves pinging as its voice plays.
   - **Progress**: the strip has a segment for each choice after the
-    lessons' twelve, 16 (15 without tracks), filled as theirs are. On the
+    lessons' thirteen, 17 (16 without tracks), filled as theirs are. On the
     Pixel 2 the choices are centered, as on the Brick: the handheld is for
     buttons, and these steps teach none.
   - Each step is a few texture copies and the words, at the panel's 60 fps:
@@ -2081,8 +2091,10 @@ of the player's own goes on from wherever the loop was.
   first 250 ms of a step, of any key, is the last step's thumb and is not
   heard. L1/R1 are wrong presses everywhere but Move Around, where they are
   moves. In Leave a Game and Lock the Screen Zyper says how the pair goes
-  (the table above); the lock itself, in any other step, is no press of the
-  tutorial's and locks the handheld as on any screen. L2 and R2 are wrong presses in every lesson, Music's too, whose note
+  (the table above); the lock's chord, in any other step, is nothing, and
+  never locks the handheld while the tutorial runs. In Unlock the Screen
+  SELECT and START are its hold, any other button a wrong press ("That's A.
+  Try SELECT+START."). L2 and R2 are wrong presses in every lesson, Music's too, whose note
   names them: no step waits for them, so Zyper answers "That's L2. Try
   SELECT." like any other misclick. The Pixel 2's device layer reads L2+R2
   together itself, outside a game, to flash the battery level on its side
@@ -2092,8 +2104,10 @@ of the player's own goes on from wherever the loop was.
   and answer their own.
 - **POWER** is the tutorial's in its own step until it is pressed; anywhere
   else, and a second press during that reward, it turns the handheld off.
-- **START** skips at any point, "START: skip" in **meta** **text-dim** at the
-  bottom right, its right edge at 1000. After a skip at the first start, a
+- **START** skips at any point but Unlock the Screen, whose hold it is half
+  of (pressed a moment before SELECT it would end the tutorial), "START:
+  skip" in **meta** **text-dim** at the bottom right, its right edge at
+  1000, not drawn in that step. After a skip at the first start, a
   one-line message (11.8), "Show Tutorial is in MENU.", holds **hold-short**
   over the shelf; any press puts it away.
 - The sounds: **accept** for the welcome's and the finish's A, **move** (or
@@ -7178,16 +7192,18 @@ handheld's glyphs (11.9, `MENU_KEYS_MARK` as a value), "+" between them, or
 chord: the Pixel 2, the R36S), a quiet row the cursor passes, its glyphs
 faded to half as its words are dimmed; then **Reset Hotkeys**, live when the
 scope shown has keys of its own, which asks first, as Reset Buttons does.
-**What a group of rows is goes under the list**, never between its rows
-*(the Pixel 2 test of 1.1.1-test.2, 2026-11-26: "observations among the
-rows" was bad UX)*: a footer, a rule and one line in **menu** **text-dim**,
-pinned under the rows as an option list's note is (`pin_foot`), says it for
-the group the cursor is in. Among the game's hotkeys it is "Home Screen is
-fixed: held 1 s." where there is a Home row, and "In a game, with SELECT
-held." where there is none; among MENU's chords (below) "Everywhere but in a
-game."; a game's list on a handheld with no Home row has no footer. It
-follows the cursor in the frame it lands (`menu_style.at`), and is always one
-line, so the panel holds still. In
+**What the row under the cursor is goes under the list**, never between
+the rows *(the Pixel 2 test of 1.1.1-test.2, 2026-11-26: "observations
+among the rows" was bad UX)*: a footer, a rule and one line in **menu**
+**text-dim**, pinned under the rows as an option list's note is
+(`pin_foot`), says it for the row the cursor is on, or nothing where the row
+says it itself *(the test of 1.1.1-test.3: "Home Screen is fixed" showed on
+every row; Home is a quiet row the cursor never lands on, so its line went)*.
+On the game's hotkeys "In a game, with SELECT held."; on MENU's chords
+(below) "On every screen, in a game too."; on Hold to Unlock "How long to
+hold SELECT+START."; on Applies To, Reset Hotkeys and All Controls nothing.
+It follows the cursor in the frame it lands (`menu_style.at`), and is
+always one line, an empty one too, so the panel holds still. In
 a game **Applies To** comes first, round on Left and Right: **This Game** (as
 the Controls tab opens), the system by its home label, or **Every Game**, its
 value in the accent-ink where that scope has keys of its own; and last **All
@@ -7213,7 +7229,9 @@ the shoulders' words are Regular at 112, and with the button faces' table at
 8 a session filled it with SemiBold sizes and L1 to R2 drew as empty rings
 (the Pixel 2 test of 1.1.1-test.2); the table is 32 now and never stands in
 nothing (`check-capture-glyphs`). SELECT let go alone waits again; MENU, or B with nothing
-held, leaves with no change. **A clash says so, and offers a swap**: the
+held, leaves with no change. The keys stay as they were caught while the
+screen leaves: the panel's copy draws its header again as it goes, and a
+MENU chord's glyph turned into SELECT's there (the test of 1.1.1-test.3). **A clash says so, and offers a swap**: the
 keys are another action's, so a question with two answers (11.3),
 **Swap Hotkeys**, asks "Give SELECT+R2 to Quick Save? Faster has it now and
 moves to None." (or to the keys the row had), Cancel and **Swap**, the
@@ -7304,16 +7322,18 @@ Diatom's, and the screenshot is SELECT and a button, above.
   START held to unlock with the bar filling; over the ground, as no screen is
   under it. Auto Off still turns the handheld off.
 - **MENU > System > Hotkeys** ends with them, under a rule, the footer saying
-  "Everywhere but in a game." while the cursor is on them: Screenshot and Lock Screen with their chords (A captures:
-  MENU held, then a button, MENU let go keeps it; a button the other has asks
-  the swap question), and **Hold to Unlock**, 1, 2, 3 or 5 s (2 s, MP4's
-  hold-unlock, until changed), for this lock and MP4's. A game's Controls tab
-  does not show them. *(My choices, to confirm: the names, the rule's line,
-  the four holds.)*
+  "On every screen, in a game too." while the cursor is on them: Screenshot
+  and Lock Screen with their chords (A captures: MENU held, then a button,
+  MENU let go keeps it; a button the other has asks the swap question), and
+  **Hold to Unlock**, 0.5, 1, 2, 3 or 5 s ("0,5 s" where the language writes
+  a decimal comma; 2 s, MP4's hold-unlock, until changed), for this lock and
+  MP4's, its footer "How long to hold SELECT+START.". A game's Controls tab
+  does not show them. *(The test of 1.1.1-test.3: "add a 0.5 s option".)*
 - **The tutorial**'s MENU lesson says the screenshot as its note, "MENU+L1
   takes a screenshot.", with the keys as Hotkeys has them, and the lock is
-  the lesson after Leave a Game, Lock the Screen (11.10), which the
-  launcher's own lock answers. Settings lights MENU alone: with the
+  the lesson after Leave a Game, Lock the Screen (11.10), then Unlock the
+  Screen. While the tutorial runs the lock's chord is its own and locks a
+  stand-in on the stage, never the handheld. Settings lights MENU alone: with the
   shoulders lit too it turned to show them and MENU's dots went out of
   sight; the lock's lesson faces front, MENU a tab and L2 standing up.
 

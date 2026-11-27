@@ -15,6 +15,7 @@
 #include "i18n.h"
 #include "tour.h"
 #include "powerhold.h"
+#include "menukeys.h"   /* mk_secs: Hold to Unlock's seconds as written */
 
 /* ---- the clocks ----------------------------------------------------------- */
 
@@ -42,6 +43,7 @@
  * TOUR_LOCK_*, which src/tourdraw.c's stages follow */
 #define QUIT_LOOP_MS   TOUR_QUIT_LOOP_MS
 #define LOCK_LOOP_MS   TOUR_LOCK_LOOP_MS
+#define UNLOCK_LOOP_MS TOUR_UNLOCK_LOOP_MS
 
 /* ---- the steps ------------------------------------------------------------ */
 
@@ -120,13 +122,18 @@ static const step_def STEPS[TOUR_STEPS] = {
 	/* MENU's two other jobs, after it (the Pixel 2 test of 1.1.1-test.2):
 	 * leaving a game, MENU and then X, as the in-game menu's Quit does from
 	 * anywhere on it; and the lock, MENU held with its button on every
-	 * screen, which the launcher carries out itself and the step takes
-	 * once SELECT and START have opened it again. Loops of their own. */
+	 * screen, which the tutorial takes in place of the launcher's lock and
+	 * shows on its stage, and the next lesson opens with SELECT and START
+	 * held (the test of 1.1.1-test.3: the real lock blocked the tutorial).
+	 * Loops of their own. */
 	[TOUR_QUIT]    = { S_TOUR_QUIT_TITLE, S_TOUR_QUIT_LINE,
 	                   NO_TEXT, S_TOUR_QUIT_NOTE, NO_TEXT, TG_KEYS, "MENU, X", NO_TEXT, "MENU", NULL,
 	                   NULL },
 	[TOUR_LOCK]    = { S_TOUR_LOCK_TITLE, S_TOUR_LOCK_LINE,
 	                   NO_TEXT, S_TOUR_LOCK_NOTE, NO_TEXT, TG_KEYS, "MENU+L2", NO_TEXT, "MENU+L2", NULL,
+	                   NULL },
+	[TOUR_UNLOCK]  = { S_TOUR_UNLOCK_TITLE, S_TOUR_UNLOCK_LINE,
+	                   NO_TEXT, NO_TEXT, NO_TEXT, TG_KEYS, "SELECT+START", NO_TEXT, "SELECT+START", NULL,
 	                   NULL },
 	[TOUR_SELECT]  = { S_TOUR_SELECT_TITLE, S_TOUR_SELECT_LINE,
 	                   NO_TEXT, S_TOUR_SELECT_NOTE, NO_TEXT, TG_PILL,
@@ -195,7 +202,7 @@ const tour_info *tour_step_info(tour_step s)
 	static tour_info info[TOUR_STEPS];
 	/* The words that name the MENU key, said with its word */
 	static char line[TOUR_STEPS][192], line_fn[TOUR_STEPS][192], want_fn[TOUR_STEPS][24];
-	static char lock_label[24], lock_want[24], lock_note[192];
+	static char lock_label[24], lock_want[24], unlock_line[192];
 	const step_def *d;
 	const char *wk, *wf;
 
@@ -232,10 +239,16 @@ const tour_info *tour_step_info(tour_step s)
 	}
 	if (s == TOUR_LOCK) {
 		snprintf(line[s], sizeof line[s], T(d->line), g_menu_word, lock_key_name());
-		snprintf(lock_note, sizeof lock_note, T(d->note), (int)((g_lock_hold_ms + 500) / 1000));
 		info[s].line = line[s];
-		info[s].note = lock_note;
 		info[s].label = lock_label;
+	}
+	if (s == TOUR_UNLOCK) {
+		/* Hold to Unlock's seconds, "0.5" or "0,5" as the language writes */
+		char secs[12];
+
+		mk_secs(g_lock_hold_ms, i18n_decimal_comma(), secs, sizeof secs);
+		snprintf(unlock_line, sizeof unlock_line, T(d->line), secs);
+		info[s].line = unlock_line;
 	}
 	return &info[s];
 }
@@ -491,14 +504,20 @@ static float demo_press(const tour *t, tour_part p, uint32_t now)
 		     : p == TP_X    ? press_window(tl, TOUR_QUIT_X_AT, TOUR_QUIT_X_AT + 160) : 0.0f;
 	}
 	if (t->step == TOUR_LOCK) {
-		/* MENU held over its button's press, then SELECT and START held
-		 * while the lock's bar fills (tourdraw's lock_demo) */
+		/* MENU held over its button's press (tourdraw's lock_stage) */
 		tl = tour_loop_time(t, LOCK_LOOP_MS, now);
 		if (p == TP_MENU) return press_window(tl, TOUR_LOCK_MENU_AT, TOUR_LOCK_KEY_AT + 500);
 		if (p == tour_part_of(g_mk_key[1]))
 			return press_window(tl, TOUR_LOCK_KEY_AT, TOUR_LOCK_KEY_AT + 160);
+		return 0.0f;
+	}
+	if (t->step == TOUR_UNLOCK) {
+		/* SELECT and START held while the lock's bar fills (tourdraw's
+		 * unlock_stage), while the player's own hold is not filling it */
+		if (t->unlock_from) return 0.0f;
+		tl = tour_loop_time(t, UNLOCK_LOOP_MS, now);
 		if (p == TP_SELECT || p == TP_START)
-			return press_window(tl, TOUR_LOCK_HOLD_AT, TOUR_LOCK_OPEN_AT);
+			return press_window(tl, TOUR_UNLOCK_HOLD_AT, TOUR_UNLOCK_OPEN_AT);
 		return 0.0f;
 	}
 	if (st->loop) {
@@ -723,6 +742,7 @@ static void enter(tour *t, tour_step s, uint32_t now)
 	t->pos_from = 0.0f;
 	t->moved_at = now;
 	t->wrong = false;
+	t->unlock_from = 0;
 	/* A choice starts on the setting as it is */
 	if (tour_choice_of(s) >= 0) {
 		const int c = tour_choice_of(s);
@@ -805,23 +825,32 @@ int tour_lang_kept(const tour *t)
 	return t->lang_kept;
 }
 
+/* The presses each lesson waits for, as a mask of tour_keys, and nothing
+ * else: a step whose line asks for SELECT takes SELECT alone (the Pixel 2
+ * test of 1.1.1-test.3: Music took L2 and R2 too, and a shoulder pressed
+ * there read as a right answer). Move Around takes L1 and R1, which jump
+ * on the home and move its little shelf. Leave a Game, Lock the Screen and
+ * Unlock the Screen are answered in tour_press and tour_hold; the choices
+ * there too. tools/tour-check.c presses every key in every step. */
+#define K(k) (1u << (k))
+static const unsigned ANSWERS[TOUR_STEPS] = {
+	[TOUR_MOVE]   = K(TK_UP) | K(TK_DOWN) | K(TK_LEFT) | K(TK_RIGHT) | K(TK_L1) | K(TK_R1),
+	[TOUR_A]      = K(TK_A),
+	[TOUR_B]      = K(TK_B),
+	[TOUR_X]      = K(TK_X),
+	[TOUR_Y]      = K(TK_Y),
+	[TOUR_MENU]   = K(TK_MENU),
+	[TOUR_SELECT] = K(TK_SELECT),
+	[TOUR_VOL]    = K(TK_VOL),
+	[TOUR_BRIGHT] = K(TK_BRIGHT),
+	[TOUR_POWER]  = K(TK_POWER),
+};
+#undef K
+
 /* Whether a press is the one the step waits for. */
 static bool answers(const tour *t, tour_key k)
 {
-	switch (t->step) {
-	case TOUR_MOVE:   return k == TK_UP || k == TK_DOWN || k == TK_LEFT || k == TK_RIGHT ||
-	                         k == TK_L1 || k == TK_R1;
-	case TOUR_A:      return k == TK_A;
-	case TOUR_B:      return k == TK_B;
-	case TOUR_X:      return k == TK_X;
-	case TOUR_Y:      return k == TK_Y;
-	case TOUR_MENU:   return k == TK_MENU;
-	case TOUR_SELECT: return k == TK_SELECT;
-	case TOUR_VOL:    return k == TK_VOL;
-	case TOUR_BRIGHT: return k == TK_BRIGHT;
-	case TOUR_POWER:  return k == TK_POWER;
-	default:          return false;
-	}
+	return k >= 0 && k < TK_KEYS && (ANSWERS[t->step] >> k & 1u);
 }
 
 /* The press landed: the reward, with Zyper up from the bottom edge, from
@@ -902,6 +931,11 @@ int tour_press(tour *t, tour_key k, uint32_t now)
 		if (t->step != TOUR_LOCK || t->done) return TOUR_QUIET;
 		return landed(t, now);
 	}
+	/* Unlock the Screen: SELECT and START are its hold (tour_hold), so
+	 * neither is wrong there, and START skips nothing while it waits or
+	 * cheers - pressed a moment before SELECT, it would end the tutorial.
+	 * The skip's hint is not drawn in this step. */
+	if (t->step == TOUR_UNLOCK && (k == TK_SELECT || k == TK_START)) return TOUR_QUIET;
 	/* Anywhere but its own step POWER is the caller's, and turns the
 	 * handheld off: tour_takes_power. */
 	if (k == TK_POWER) {
@@ -987,8 +1021,9 @@ int tour_press(tour *t, tour_key k, uint32_t now)
 		return missed(t, k, now);
 	}
 	/* Lock the Screen: every press that reaches the step is a wrong one,
-	 * the chord itself being the launcher's (TK_LOCK above) */
-	if (t->step == TOUR_LOCK) return missed(t, k, now);
+	 * the chord itself coming as TK_LOCK (above); Unlock the Screen's is
+	 * a hold (tour_hold), and any press is a wrong one there too */
+	if (t->step == TOUR_LOCK || t->step == TOUR_UNLOCK) return missed(t, k, now);
 	if (!answers(t, k)) return missed(t, k, now);
 	if (t->step == TOUR_MOVE) {
 		/* L1/R1 jump as they do on the home, 3 systems (HOME_JUMP) */
@@ -1029,8 +1064,46 @@ void tour_tick(tour *t, uint32_t now)
 {
 	if (t->over) return;
 	zyper_tick(t, now);
+	/* Leave a Game's menu, open with no X for TOUR_QUIT_WAIT_MS: it closes,
+	 * as B would, and the lesson starts over at MENU */
+	if (t->step == TOUR_QUIT && t->moves && !t->done && since(now, t->moved_at) >= TOUR_QUIT_WAIT_MS) {
+		t->moves = 0;
+		t->moved_at = now;
+	}
 	if (t->done && since(now, t->done_at) >= DS_MS_TOUR_REWARD && t->step < TOUR_FINISH)
 		enter(t, next_step(t, t->step), now);
+}
+
+int tour_hold(tour *t, bool select, bool start, uint32_t now)
+{
+	if (t->over || t->step != TOUR_UNLOCK || t->done || since(now, t->step_at) < DEAF_MS) {
+		t->unlock_from = 0;
+		return TOUR_QUIET;
+	}
+	if (!select || !start) {
+		t->unlock_from = 0;
+		return TOUR_QUIET;
+	}
+	if (!t->unlock_from) t->unlock_from = now ? now : 1;
+	if (since(now, t->unlock_from) < (int)g_lock_hold_ms) return TOUR_QUIET;
+	t->unlock_from = 0;
+	return landed(t, now);
+}
+
+float tour_unlock_fill(const tour *t, uint32_t now)
+{
+	float k;
+
+	if (t->step != TOUR_UNLOCK) return 0.0f;
+	if (t->done) return 1.0f;
+	if (!t->unlock_from) return 0.0f;
+	k = (float)since(now, t->unlock_from) / (float)g_lock_hold_ms;
+	return k < 0.0f ? 0.0f : k > 1.0f ? 1.0f : k;
+}
+
+bool tour_quit_menu_in(const tour *t)
+{
+	return t->step == TOUR_QUIT && t->moves > 0;
 }
 
 bool tour_takes_power(const tour *t)
@@ -1075,6 +1148,16 @@ void tour_pose_wrong(tour *t, tour_key k, uint32_t now, int ms)
 {
 	missed(t, k, now - (uint32_t)ms);
 	zyper_tick(t, now);
+}
+
+void tour_pose_held(tour *t, uint32_t now, int ms)
+{
+	if (t->step == TOUR_QUIT) {
+		t->moves = 1;
+		t->moved_at = now - (uint32_t)ms;
+	} else if (t->step == TOUR_UNLOCK) {
+		t->unlock_from = now - (uint32_t)ms;
+	}
 }
 
 void tour_pose_pick(tour *t, int pick, uint32_t now, int ms)

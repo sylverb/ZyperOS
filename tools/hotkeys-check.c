@@ -127,8 +127,22 @@ static void menukeys(void)
 	ck(t.key[MK_SHOT] == HK_L2 && t.key[MK_LOCK] == HK_L1, "a key the other has: the two swap");
 	mk_swap(&t, MK_LOCK, HK_START);
 	ck(t.key[MK_LOCK] == HK_L1, "START refused, nothing changed");
-	ck(mk_hold_step(2000, 1) == 3000 && mk_hold_step(5000, 1) == 1000 && mk_hold_step(1000, -1) == 5000,
-	   "Hold to Unlock steps 1, 2, 3, 5 s and round");
+	ck(mk_hold_step(2000, 1) == 3000 && mk_hold_step(5000, 1) == 500 && mk_hold_step(500, -1) == 5000 &&
+	   mk_hold_step(500, 1) == 1000 && mk_hold_step(1000, -1) == 500,
+	   "Hold to Unlock steps 0.5, 1, 2, 3, 5 s and round (0.5 s: the Pixel 2 test of 1.1.1-test.3)");
+	t.hold_ms = 500;
+	mk_store(&t, s, sizeof s);
+	ck(!strcmp(s, "1;shot:l2,lock:l1,hold:500") && mk_load(s, &back) && back.hold_ms == 500,
+	   "half a second is kept and read back");
+	mk_secs(500, false, c, sizeof c);
+	{
+		char d[24], e[24];
+
+		mk_secs(500, true, d, sizeof d);
+		mk_secs(2000, true, e, sizeof e);
+		ck(!strcmp(c, "0.5") && !strcmp(d, "0,5") && !strcmp(e, "2"),
+		   "the seconds as the pages write them: 0.5, 0,5 with a decimal comma, 2");
+	}
 	t.hold_ms = 3000;
 	mk_store(&t, s, sizeof s);
 	ck(!strcmp(s, "1;shot:l2,lock:l1,hold:3000"), "what is kept");

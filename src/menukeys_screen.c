@@ -36,9 +36,9 @@
 
 static mk_table g_mk;
 static app *g_app;
-static bool g_cap, g_locked;
+static bool g_cap, g_locked, g_tour;
 static int g_caught = -1;
-static unsigned g_unlocks;
+static unsigned g_unlocks, g_tour_locks;
 
 /* src/hotkeys.h's keys as the handheld's buttons, in its order */
 static const in_button KEY_IN[HK_KEYS] = {
@@ -80,6 +80,10 @@ void mk_capture(bool on)
 int mk_caught(void) { return g_caught; }
 
 unsigned mk_unlocks(void) { return g_unlocks; }
+
+void mk_tour(bool on) { g_tour = on; }
+
+unsigned mk_tour_locks(void) { return g_tour_locks; }
 
 /* ---- the screenshot -------------------------------------------------------- */
 
@@ -385,6 +389,9 @@ static void run(in_state *st, in_button b)
 	act = mk_act_on(&g_mk, mk_key_of(b));
 	if (act == MK_SHOT) {
 		shoot();
+	} else if (act == MK_LOCK && g_tour) {
+		/* the tutorial's: its lesson locks a stand-in, never the handheld */
+		g_tour_locks++;
 	} else if (act == MK_LOCK) {
 		mk_lock(g_app);
 		if (st != &g_app->in) memset(st, 0, sizeof *st);
