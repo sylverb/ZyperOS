@@ -521,6 +521,21 @@ static void smm_look_preview(void *app_, int k, int x, int y, int w, int h)
 	ds_preview_screen_end(a->r, &screen);
 }
 
+/* Tape Style's list (src/mp4look.h): the kept styles in their order, each
+ * its name and what it is, its picture the Cassette look playing in it */
+static mp4t_id g_tape_at[MP4T_COUNT];
+static int g_tape_n;
+
+static void smm_tape_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	const SDL_Rect in = ds_preview_screen_begin(a->r, &screen);
+
+	npl_preview_tape(a, k >= 0 && k < g_tape_n ? g_tape_at[k] : MP4T_DEFAULT, in.x, in.y, in.w, in.h);
+	ds_preview_screen_end(a->r, &screen);
+}
+
 /* MP4's Repeat, videos' own mode (src/sys_menu.h): its values in the row's
  * order, Off first, which is how videos played before it */
 static const muq_mode REPEAT_MODE[3] = { MUQ_IN_ORDER, MUQ_REPEAT_ONE, MUQ_REPEAT_ALL };
@@ -556,7 +571,7 @@ static void pm_rumble_focus(void *app_, int k)
  * the thirteenth, and Card Picture's list said Border's Off and Blur
  * (1.1.0's test run). A new list takes a new name here. */
 enum {
-	PS_SHOW, PS_MSORT, PS_MVIEW, PS_LOOK, PS_REPEAT,   /* MP4's shelf */
+	PS_SHOW, PS_MSORT, PS_MVIEW, PS_LOOK, PS_TAPE, PS_REPEAT,   /* MP4's shelf */
 	PS_PICTURE,                     /* Recents' Card Picture */
 	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_SSORT, PS_DISPLAY, PS_BORDER, PS_BORDER_COLOR,
 	PS_SHADER, PS_STRENGTH, PS_VIEW,
@@ -639,32 +654,9 @@ static const ds_hover PM_APPEAR_HOVER = { .show = appear_show, .undo = appear_un
  * `file`. */
 static void shelf_sort_to(app *a, int sys, int sort, bool keep)
 {
-	sysview *v = &a->view[sys];
-	char was[LIB_PATH];
-	int i, was_owner = -1;
-
-	was[0] = '\0';
-	if (v->cursor >= 0 && v->cursor < v->list.count) {
-		snprintf(was, sizeof was, "%s", v->list.items[v->cursor].file);
-		/* On Favorites a file name is not enough: the same one can be on
-		 * the shelf twice, from two systems. */
-		if (v->owner) was_owner = v->owner[v->cursor];
-	}
-	v->sort = sort;
-	sort_shelf(a, sys);
+	a->view[sys].sort = sort;
 	if (keep) sort_save(a);
-	/* The textures are indexed by position, so they moved with nothing.
-	 * Dropping them lets the next frame fetch each card's art for where it
-	 * now sits. */
-	free_view_textures(v);
-	v->cursor = 0;
-	for (i = 0; i < v->list.count; i++)
-		if (!strcmp(v->list.items[i].file, was) && (!v->owner || v->owner[i] == was_owner)) {
-			v->cursor = i;
-			break;
-		}
-	cf_reset(&v->cf, v->cursor);
-	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+	sort_shelf_keep(a, sys);
 }
 
 /* A system's Sort By and View lists, and MP4's Show, Sort By and View: the
@@ -800,6 +792,7 @@ static const ds_hover SM_COLOR_HOVER = { .draw = sm_color_preview };
 static const ds_hover SM_SHADER_HOVER = { .draw = sm_shader_preview };
 static const ds_hover SM_STRENGTH_HOVER = { .draw = sm_strength_preview };
 static const ds_hover SMM_LOOK_HOVER = { .draw = smm_look_preview };
+static const ds_hover SMM_TAPE_HOVER = { .draw = smm_tape_preview };
 
 static void menu_choices(app *a, int sys, bool games)
 {
@@ -865,6 +858,22 @@ static void menu_choices(app *a, int sys, bool games)
 				g_smm_choice[SMM_LOOK].notes = notes;
 				g_smm_choice[SMM_LOOK].hover = &SMM_LOOK_HOVER;
 				g_smm_choice[SMM_LOOK].list = true;
+			}
+			{
+				static const char *notes[MP4T_COUNT];
+				int t;
+
+				for (t = 0, g_tape_n = 0, cur = 0; t < MP4T_COUNT; t++) {
+					if (!mp4t_kept((mp4t_id)t)) continue;
+					if ((mp4t_id)t == np_tape()) cur = g_tape_n;
+					g_tape_at[g_tape_n] = (mp4t_id)t;
+					P[PS_TAPE].lab[g_tape_n] = tape_style_name((mp4t_id)t);
+					notes[g_tape_n++] = tape_style_note((mp4t_id)t);
+				}
+				g_smm_choice[SMM_TAPE] = ch_make(&P[PS_TAPE], g_tape_n, cur, false);
+				g_smm_choice[SMM_TAPE].notes = notes;
+				g_smm_choice[SMM_TAPE].hover = &SMM_TAPE_HOVER;
+				g_smm_choice[SMM_TAPE].list = true;
 			}
 			for (i = 0; i < 3; i++) P[PS_REPEAT].lab[i] = T(REPEAT_TEXT[i]);
 			g_smm_choice[SMM_REPEAT] = ch_make(&P[PS_REPEAT], 3, repeat_at(), false);
@@ -1084,6 +1093,20 @@ static void menu_choices(app *a, int sys, bool games)
 		}
 		g_pm_choice[PM_SAVER] = ch_make(&P[8], n, cur, false);
 	}
+	{
+		/* Game Names' two, Short first as it ships, each with what it
+		 * does under the list (DESIGN.md 11.71): two, so A would turn it
+		 * over, but its list opens all the same for the notes */
+		static const char *nnotes[2];
+
+		P[10].lab[0] = T(S_SYSMENU_NAMES_SHORT);
+		P[10].lab[1] = T(S_SYSMENU_NAMES_FILE);
+		nnotes[0] = T(S_SYSMENU_NAMES_SHORT_NOTE);
+		nnotes[1] = T(S_SYSMENU_NAMES_FILE_NOTE);
+		g_pm_choice[PM_NAMES] = ch_make(&P[10], 2, lib_names_file() ? 1 : 0, false);
+		g_pm_choice[PM_NAMES].notes = nnotes;
+		g_pm_choice[PM_NAMES].list = true;
+	}
 	/* Home Screen: in the order Right steps it */
 	for (i = 0; i < HOME_LAYOUTS; i++) P[9].lab[i] = home_name((home_layout)i);
 	g_pm_choice[PM_HOME] = ch_make(&P[9], HOME_LAYOUTS, (int)a->home_layout, false);
@@ -1195,10 +1218,13 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.mp4_both  = u.mp4 && mp4_kinds() > 1;
 		u.mp4_playing = u.mp4 && lock_allowed();
 		u.mp4_look  = u.mp4 ? look_label(np_look()) : NULL;
+		u.mp4_tape  = u.mp4 ? tape_style_name(np_tape()) : NULL;
+		u.mp4_tape_live = u.mp4 && np_look() == MP4L_CASSETTE;
 		u.mp4_repeat = u.mp4 ? T(REPEAT_TEXT[repeat_at()]) : NULL;
 		u.eq         = eq_preset_name(eq_preset_get(eq_out_now()));
 		u.sort       = u.mp4 ? ml_order_label_kind((ml_order)a->view[sys].sort, mp4_kind_shown())
 		                      : sort_label(a->view[sys].sort);
+		u.fav_first  = a->view[sys].fav_first;
 	} else {
 		aout_state ao = aout_now();
 
@@ -1234,6 +1260,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.screen_colors = screen_colors_value();
 		u.home = home_name(a->home_layout);
 		u.order = g_order_release ? T(S_PANEL_ORDER_RELEASE) : T(S_PANEL_ORDER_AZ);
+		u.names = T(lib_names_file() ? S_SYSMENU_NAMES_FILE : S_SYSMENU_NAMES_SHORT);
 		{
 			static char hs[24];
 
@@ -2517,6 +2544,14 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				 * (menu_choose) */
 				if (d) np_look_set((mp4l_id)((np_look() + d + MP4L_COUNT) % MP4L_COUNT));
 				return MENU_STAY;
+			} else if (id == SMM_TAPE) {
+				/* Round the kept styles either way, kept at once; A opens
+				 * their list, the picture the tape under the cursor
+				 * (menu_choose). Only while the look is Cassette: the row
+				 * is dim otherwise and says no. */
+				if (np_look() != MP4L_CASSETTE) return MENU_STAY;
+				if (d) np_tape_set(mp4t_step(np_tape(), d));
+				return MENU_STAY;
 			} else if (id == SMM_SHOW) {
 				/* All, then the kinds the card has, round in either
 				 * direction (A opens their list, menu_choose). ML_ALL is the
@@ -2691,6 +2726,13 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			                                : sort_step_in(sort_set_of(a, a->sys_cursor), v->sort, d), true);
 			return MENU_STAY;
 		}
+		/* Favorites First, under it: Off or On, turned over on Left,
+		 * Right and A as Look's two-way rows are, the shelf under the menu
+		 * sorted again on the same game (DESIGN.md 11.70) */
+		if ((d || key == IN_ACCEPT) && sel == SM_FAVFIRST) {
+			fav_first_turn(a, a->sys_cursor);
+			return MENU_STAY;
+		}
 		if (key != IN_ACCEPT) return MENU_STAY;
 		/* One of this shelf's games: the menu closes and it starts */
 		if (sel == SM_RANDOM) {
@@ -2792,6 +2834,19 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		g_order_release = !g_order_release;
 		db_set_str(db_dev(), "systems.order", g_order_release ? "release" : "az");
 		rescan_all(a);
+		redraw_now();
+		return MENU_CHANGED;
+	}
+	/* Game Names: Short or File Name, kept, and every shelf named again at
+	 * once, each cursor on its game (refresh_game_titles), the name orders
+	 * sorted by the new names; Screenshots' too, which names each shot by
+	 * its game (DESIGN.md 11.71). Once per press, never per frame. */
+	if (sel == PM_NAMES && d) {
+		lib_names_set(!lib_names_file());
+		db_set_str(db_dev(), GAME_NAMES_KEY, lib_names_file() ? "file" : "short");
+		refresh_game_titles(a);
+		refresh_shots_shelf(a);
+		fprintf(stderr, "names: %s, every shelf named again\n", lib_names_file() ? "File Name" : "Short");
 		redraw_now();
 		return MENU_CHANGED;
 	}
