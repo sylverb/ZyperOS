@@ -13,6 +13,7 @@
  * device_display_release before a game presents, device_display_take when the
  * launcher has the screen back. */
 #include "atomic.h"
+#include "gadget.h"
 #include "charging.h"
 #include "charging_rule.h"
 #include "audioout.h"
@@ -21,6 +22,7 @@
 #include "device.h"
 #include "displayback.h"
 #include "fileio.h"
+#include "hwput.h"
 #include "nightkeep.h"
 #include "levels.h"
 #include "menuvol.h"
@@ -30,7 +32,9 @@
 #include "portmenu.h"
 #include "screenfx_draw.h"
 #include "spawn.h"
+#include "stickpad.h"
 #include "thermal.h"
+#include "wdog.h"
 
 #include <SDL_syswm.h>
 
@@ -44,6 +48,12 @@
 #define RK_CODE_B        BTN_EAST
 #define RK_CODE_FUNCTION BTN_TRIGGER_HAPPY1
 #define RK_L2R2_TAPS     1
+#endif
+/* Whether the handheld has sticks (the R36S's: the left one moves as the
+ * d-pad, their clicks are L3 and R3). None on the Pixel 2, whose pad is read
+ * as it always was. */
+#ifndef RK_STICKS
+#define RK_STICKS        0
 #endif
 
 #include <dirent.h>
@@ -109,7 +119,10 @@ int plat_boot_theme(const char *text)
 	if (fd >= 0 && close(fd)) ok = 0;
 	ok = ok && rename(tmp, path) == 0;
 	if (!ok) unlink(tmp);
+	/* The whole card's, after a big transfer as long as it takes (wdog.h) */
+	wdog_hold("the card's sync");
 	sync();
+	wdog_release();
 	umount(BOOT_MOUNT);
 	return ok ? 1 : -1;
 }
@@ -312,6 +325,8 @@ static void draw_picture(const SDL_Rect *dest, bool fx)
  * it (a shot) is read from screen_tex, which has none */
 void plat_screen_finish(void) { }
 bool plat_screen_shader_in_frame(void) { return false; }
+/* ZyperOS draws on screen_tex, which show_screen copies to the panel */
+bool plat_screen_kept(void) { return true; }
 
 /* Black around the picture, then the picture: 1024x768 down to 640x480 and a
  * quarter turn counter-clockwise, which on this panel ("Left Side Up") is the
@@ -378,6 +393,7 @@ void plat_present(void)
 {
 	Uint8 r, g, b, a;
 
+	wdog_feed();                    /* the loop came round (wdog.h) */
 	SDL_GetRenderDrawColor(ren, &r, &g, &b, &a);
 	plat_overlay_present(ren);
 	if (!video_shown) {
@@ -655,6 +671,21 @@ static bool l2_down, r2_down;  /* the two together ask for the battery level (be
 static bool l2r2_chorded;      /* ...and have, since both were last up */
 static bool l2_tap, r2_tap;    /* a tap reported last poll ends this one */
 
+/* The left stick as the d-pad on the launcher's screens (src/stickpad.h),
+ * where the pad has one: the R36S's, as ABS_X and ABS_Y with their range and
+ * their flat, the dead zone its device tree gives. A direction is held while
+ * its d-pad key or the stick holds it, so it repeats as the d-pad's does.
+ * The right stick moves nothing here (L1 and R1 already page, and a thumb
+ * resting on it under A B X Y would move the cursor). The Pixel 2 has no
+ * stick (RK_STICKS 0): stick_on stays false and nothing changes there. */
+_Static_assert((int)IN_LEFT == (int)STICK_LEFT && (int)IN_RIGHT == (int)STICK_RIGHT &&
+               (int)IN_UP == (int)STICK_UP && (int)IN_DOWN == (int)STICK_DOWN,
+               "stickpad's directions are the d-pad's buttons");
+static stickpad stick;
+static bool     stick_on;
+static struct { int value, min, max, flat; } stick_axis[2];
+static bool     dpad_key[STICK_DIRS];
+
 /* Kernel code -> ZyperOS button, by what is printed on the key. Measured
  * 2026-10-01 pressing each in a known order: the A, B, X and Y caps send
  * SOUTH, EAST, NORTH and WEST - named for their labels, not for where they
@@ -667,9 +698,57 @@ static const struct { int code; in_button b; } keymap[] = {
 	{ RK_CODE_A, IN_ACCEPT },     { RK_CODE_B, IN_BACK },
 	{ BTN_NORTH, IN_X },          { BTN_WEST, IN_Y },
 	{ BTN_TL, IN_L1 },            { BTN_TR, IN_R1 },
+#if RK_STICKS
+	{ BTN_THUMBL, IN_L3 },        { BTN_THUMBR, IN_R3 },
+#endif
 	{ BTN_SELECT, IN_SELECT },    { BTN_START, IN_START },
 };
 #define CODE_FUNCTION RK_CODE_FUNCTION
+
+/* Whether the pad has a left stick, and its two axes' range and flat */
+static void stick_probe(void)
+{
+	unsigned long abs[NLONGS(ABS_MAX)];
+	struct input_absinfo ai;
+	static const int code[2] = { ABS_X, ABS_Y };
+	int i;
+
+	stick_on = false;
+	memset(abs, 0, sizeof abs);
+	if (!RK_STICKS || fd_pad < 0 || ioctl(fd_pad, EVIOCGBIT(EV_ABS, sizeof abs), abs) < 0) return;
+	for (i = 0; i < 2; i++) {
+		if (!BIT_IS_SET(abs, code[i]) || ioctl(fd_pad, EVIOCGABS(code[i]), &ai) < 0) return;
+		stick_axis[i].value = ai.value;
+		stick_axis[i].min = ai.minimum;
+		stick_axis[i].max = ai.maximum;
+		stick_axis[i].flat = ai.flat;
+	}
+	stick_on = true;
+	fprintf(stderr, "input: the left stick moves as the d-pad (X %d..%d, Y %d..%d, flat %d)\n",
+	        stick_axis[0].min, stick_axis[0].max, stick_axis[1].min, stick_axis[1].max, stick_axis[0].flat);
+}
+
+/* The stick where the last report left it: each direction it holds or lets
+ * go, with the d-pad's key for that direction */
+static void stick_apply(in_state *st)
+{
+	bool was[STICK_DIRS];
+	int rx, ry, x, y, d;
+
+	if (!stick_on) return;
+	memcpy(was, stick.held, sizeof was);
+	x = stickpad_centred(stick_axis[0].value, stick_axis[0].min, stick_axis[0].max, stick_axis[0].flat, &rx);
+	y = stickpad_centred(stick_axis[1].value, stick_axis[1].min, stick_axis[1].max, stick_axis[1].flat, &ry);
+	/* The two axes on one scale, the smaller range's */
+	if (rx != ry && rx > 0 && ry > 0) {
+		if (rx > ry) x = (int)((long)x * ry / rx);
+		else y = (int)((long)y * rx / ry);
+	}
+	stickpad_update(&stick, x, y, rx < ry ? rx : ry);
+	for (d = 0; d < STICK_DIRS; d++)
+		if (stick.held[d] != was[d])
+			plat_set_btn(st, (in_button)d, stick.held[d] || dpad_key[d]);
+}
 
 /* Every input device this file wants, found by what each reports, not by
  * number: there is no udev here, and enumeration order is not a promise.
@@ -706,7 +785,7 @@ static void input_scan(void)
 			ioctl(fd, EVIOCGNAME(sizeof name), name);
 			if (!strncmp(name, "ZyperOS ", 8)) keys[BTN_SOUTH / BITS_PER_LONG] &= ~(1UL << (BTN_SOUTH % BITS_PER_LONG));
 		}
-		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           { fd_pad = fd; pad_node = i; }
+		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           { fd_pad = fd; pad_node = i; stick_probe(); }
 		else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
 		else if (fd_power < 0 && BIT_IS_SET(keys, KEY_POWER))           fd_power = fd;
 		else if (jack_fd < 0  && BIT_IS_SET(sw, SW_HEADPHONE_INSERT))   jack_fd = fd;
@@ -898,7 +977,15 @@ static void key_event(in_state *st, const struct input_event *ev)
 	}
 	for (i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
 		if (keymap[i].code == ev->code) {
-			plat_set_btn(st, keymap[i].b, ev->value == 1);
+			const in_button b = keymap[i].b;
+
+			/* A d-pad key: held while it or the stick holds it */
+			if (b == IN_LEFT || b == IN_RIGHT || b == IN_UP || b == IN_DOWN) {
+				dpad_key[b] = ev->value == 1;
+				plat_set_btn(st, b, dpad_key[b] || stick.held[b]);
+				return;
+			}
+			plat_set_btn(st, b, ev->value == 1);
 			return;
 		}
 }
@@ -906,9 +993,18 @@ static void key_event(in_state *st, const struct input_event *ev)
 static void poll_fd(int fd, in_state *st)
 {
 	struct input_event ev;
+	bool moved = false;
 
-	while (fd >= 0 && read(fd, &ev, sizeof ev) == (ssize_t)sizeof ev)
+	while (fd >= 0 && read(fd, &ev, sizeof ev) == (ssize_t)sizeof ev) {
+		/* The left stick, taken as a whole at each read */
+		if (ev.type == EV_ABS && fd == fd_pad && stick_on && (ev.code == ABS_X || ev.code == ABS_Y)) {
+			stick_axis[ev.code == ABS_Y].value = ev.value;
+			moved = true;
+			continue;
+		}
 		key_event(st, &ev);
+	}
+	if (moved) stick_apply(st);
 }
 
 void plat_input_wait(unsigned ms)
@@ -922,6 +1018,7 @@ void plat_input_wait(unsigned ms)
 	/* POWER held in Hold mode: woken for the pill's next segment and the
 	 * hold's end, which no event marks; and the work behind every screen
 	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	wdog_feed();
 	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
@@ -932,6 +1029,7 @@ void plat_input_poll(in_state *st)
 {
 	SDL_Event e;
 
+	wdog_feed();
 	memset(st->pressed, 0, sizeof st->pressed);
 	st->power_tap = false;
 	if (plat_terminating()) st->quit_requested = true;
@@ -1482,6 +1580,8 @@ bool plat_cable_link(char *addr, size_t n)
  * charger detection marks a computer's port SDP or CDP and a wall charger
  * DCP, with or without the gadget bound, and USB-HOST is the ID pin of a host
  * cable. Every extcon's "state" is read, lines like "SDP=1". */
+static void link_setup(void);
+
 usb_peer plat_usb_peer(void)
 {
 	DIR *d;
@@ -1489,6 +1589,11 @@ usb_peer plat_usb_peer(void)
 	bool host = false, data = false, dcp = false;
 	char in[8] = "";
 	int fd;
+
+	/* The link's work, at every look at the port: a job that ended said,
+	 * what was asked started (gadget.h) */
+	link_setup();
+	gadget_pump();
 
 	/* No power coming in is nothing on the port, whatever the extcon still
 	 * says: the RK817's input answers on its own interrupt, at once, where
@@ -1527,6 +1632,8 @@ usb_peer plat_usb_peer(void)
  * writing its name into UDC, and let go by writing nothing. S40usbgadget
  * binds it at boot only in Developer Mode (usblink.h). */
 #define GADGET_UDC "/sys/kernel/config/usb_gadget/px2/UDC"
+/* The computer's address on the link, the one udhcpd gives (udhcpd.conf) */
+#define CABLE_PEER "10.42.0.2"
 
 static bool dhcpd_running(void);
 
@@ -1538,6 +1645,31 @@ static bool dhcpd_running(void);
  * told the computer it was connected (a Mac's en8 "inactive", the steps'
  * "no driver" hint). Only what is missing is done: an address already there
  * is left alone, never flushed. */
+/* Whether cable_netdev_up has work: usb0 down, or up with no address. Two
+ * small reads, for the main thread (the work is the network thread's). */
+static bool netdev_missing(void)
+{
+	char buf[32];
+	unsigned long flags = 0;
+	struct ifreq ifr;
+	int fd;
+	ssize_t got;
+	bool has;
+
+	if ((fd = open("/sys/class/net/usb0/flags", O_RDONLY | O_CLOEXEC)) < 0) return false;
+	got = read(fd, buf, sizeof buf - 1);
+	close(fd);
+	if (got > 0) { buf[got] = '\0'; flags = strtoul(buf, NULL, 16); }
+	if (!(flags & 1)) return true;             /* IFF_UP */
+	if ((fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0)) < 0) return false;
+	memset(&ifr, 0, sizeof ifr);
+	snprintf(ifr.ifr_name, sizeof ifr.ifr_name, "usb0");
+	ifr.ifr_addr.sa_family = AF_INET;
+	has = ioctl(fd, SIOCGIFADDR, &ifr) == 0;
+	close(fd);
+	return !has;
+}
+
 static void cable_netdev_up(void)
 {
 	char buf[32];
@@ -1578,42 +1710,88 @@ static void cable_netdev_up(void)
 	}
 }
 
+/* The cable's network, brought up off the main thread: cable_netdev_up's ip
+ * and udhcpd (spawn_capture, up to 3 s each) after a new bind and whenever
+ * plat_cable_sense finds something missing, and udhcpd started again when it
+ * died. A thread that takes each ask once; asks while it works are one more
+ * turn, not one each. */
+enum { NET_UP = 1, NET_DHCPD = 2 };
+static pthread_mutex_t net_mx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  net_cv = PTHREAD_COND_INITIALIZER;
+static unsigned        net_asked;
+static bool            net_thread;
+
+static void dhcpd_again(void)
+{
+	if (!dhcpd_running() && access("/etc/udhcpd.conf", R_OK) == 0) {
+		char *argv[] = { "/usr/sbin/udhcpd", "/etc/udhcpd.conf", NULL };
+
+		fprintf(stderr, "usb: udhcpd was not running, started again (%d)\n",
+		        spawn_capture(argv, NULL, 0, 3));
+	}
+}
+
+static void *net_run(void *arg)
+{
+	(void)arg;
+	pthread_mutex_lock(&net_mx);
+	for (;;) {
+		unsigned what;
+
+		while (!net_asked) pthread_cond_wait(&net_cv, &net_mx);
+		what = net_asked;
+		net_asked = 0;
+		pthread_mutex_unlock(&net_mx);
+		if (what & NET_UP) cable_netdev_up();
+		if (what & NET_DHCPD) dhcpd_again();
+		pthread_mutex_lock(&net_mx);
+	}
+	return NULL;
+}
+
+static void net_ask(unsigned what)
+{
+	pthread_mutex_lock(&net_mx);
+	if (!net_thread) {
+		pthread_t t;
+
+		net_thread = pthread_create(&t, NULL, net_run, NULL) == 0;
+		if (net_thread) pthread_detach(t);
+	}
+	net_asked |= what;
+	pthread_cond_signal(&net_cv);
+	pthread_mutex_unlock(&net_mx);
+	if (!net_thread) {                       /* no thread: here, as before */
+		if (what & NET_UP) cable_netdev_up();
+		if (what & NET_DHCPD) dhcpd_again();
+	}
+}
+
+static void after_bind(void) { net_ask(NET_UP); }
+
+/* The gadget's link (gadget.h): asked for and never waited on; its writes
+ * in hwput's child */
+static void link_setup(void)
+{
+	static bool done;
+
+	if (done) return;
+	done = true;
+	gadget_init(&(gadget_cfg){ NULL, "/sys/class/udc", GADGET_UDC, NULL, "usb0", CABLE_PEER, true,
+	                           after_bind, plat_now_ms });
+}
+
 bool plat_usb_link(int op)
 {
-	char cur[64] = "";
-	int fd = open(GADGET_UDC, O_RDONLY | O_CLOEXEC);
+	link_setup();
+	return gadget_link(op);
+}
 
-	if (fd < 0) return false;                  /* no gadget: S40 has not run */
-	if (read(fd, cur, sizeof cur - 1) < 0) cur[0] = '\0';
-	close(fd);
-	if (op == 2) {
-		plat_usb_link(0);
-		return plat_usb_link(1);
-	}
-	if (op < 0 || (op == 1) == (cur[0] != '\0' && cur[0] != '\n'))
-		return cur[0] != '\0' && cur[0] != '\n';
-	if (op == 1) {
-		DIR *d = opendir("/sys/class/udc");
-		struct dirent *e;
-		char udc[256] = "";
-
-		if (!d) return false;
-		while ((e = readdir(d)))
-			if (e->d_name[0] != '.') { snprintf(udc, sizeof udc, "%s", e->d_name); break; }
-		closedir(d);
-		if (!udc[0] || (fd = open(GADGET_UDC, O_WRONLY | O_CLOEXEC)) < 0) return false;
-		if (write(fd, udc, strlen(udc)) < 0) { close(fd); return false; }
-		close(fd);
-		fprintf(stderr, "usb: the link to the computer is on (%s)\n", udc);
-		cable_netdev_up();
-		return true;
-	}
-	if ((fd = open(GADGET_UDC, O_WRONLY | O_CLOEXEC)) < 0) return true;
-	/* An empty line unbinds; a write of nothing at all is ignored */
-	if (write(fd, "\n", 1) < 0) { close(fd); return true; }
-	close(fd);
-	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
-	return false;
+int plat_usb_configured(void)
+{
+	link_setup();
+	gadget_pump();
+	return gadget_configured();
 }
 
 /* File Transfer's steps over the cable (linksteps.h), from the device's own
@@ -1624,7 +1802,6 @@ bool plat_usb_link(int op)
  * the computer's side of the link has a fixed MAC address, so it is the same
  * one every plug), and a datagram to it makes the kernel ask for it by ARP:
  * a computer that took the address answers, whatever its firewall says. */
-#define CABLE_PEER "10.42.0.2"
 
 /* udhcpd, which S40usbgadget starts at boot, is the computer's only way to
  * an address: one that died leaves every computer on the cable without one
@@ -1697,7 +1874,7 @@ bool plat_cable_sense(link_sense *o)
 	 * left down: brought up here too, every 2 s at most */
 	if (o->configured && (!netdev_at || now - netdev_at >= 2000u)) {
 		netdev_at = now ? now : 1;
-		cable_netdev_up();
+		if (netdev_missing()) net_ask(NET_UP);
 	}
 	o->carrier = o->configured &&
 	             read_small("/sys/class/net/usb0/carrier", buf, sizeof buf) && buf[0] == '1';
@@ -1707,12 +1884,7 @@ bool plat_cable_sense(link_sense *o)
 	/* No address yet: udhcpd started again if it is gone, every 5 s at most */
 	if (!o->address && (!dhcpd_at || now - dhcpd_at >= 5000u)) {
 		dhcpd_at = now ? now : 1;
-		if (!dhcpd_running() && access("/etc/udhcpd.conf", R_OK) == 0) {
-			char *argv[] = { "/usr/sbin/udhcpd", "/etc/udhcpd.conf", NULL };
-
-			fprintf(stderr, "usb: udhcpd was not running, started again (%d)\n",
-			        spawn_capture(argv, NULL, 0, 3));
-		}
+		net_ask(NET_DHCPD);
 	}
 	if (!o->address && (!asked_at || now - asked_at >= 1000u)) {
 		int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -1884,34 +2056,16 @@ bool plat_usb_iphone(void)
 }
 
 /* The USB controller lets go of the cable and takes it again, so the computer
- * sees a new device plugged in. Seen 2026-10-08: the Mac dropped the Pixel as
- * if unplugged while the controller here went on saying "configured" and never
- * offered itself again; a restart was the only way back. A third of a second
- * apart, long enough for the computer to notice it went. */
+ * sees a new device plugged in, when the link needs it (cablefresh.h). Seen
+ * 2026-10-08: the Mac dropped the Pixel as if unplugged while the controller
+ * here went on saying "configured" and never offered itself again; a restart
+ * was the only way back. Made every time File Transfer opened, it hung the
+ * controller once over a link in use (2026-11-21), so only now when the
+ * computer does not answer over it, or it is not whole. */
 void plat_cable_reconnect(void)
 {
-	static const struct timespec gap = { 0, 300 * 1000000L };
-	DIR *d = opendir("/sys/class/udc");
-	struct dirent *e;
-
-	if (!d) return;
-	while ((e = readdir(d))) {
-		char path[300];
-		int fd;
-
-		if (e->d_name[0] == '.') continue;
-		snprintf(path, sizeof path, "/sys/class/udc/%s/soft_connect", e->d_name);
-		if ((fd = open(path, O_WRONLY | O_CLOEXEC)) < 0) continue;
-		if (write(fd, "disconnect", 10) < 0) { /* left as it was */ }
-		close(fd);
-		nanosleep(&gap, NULL);
-		if ((fd = open(path, O_WRONLY | O_CLOEXEC)) < 0) continue;
-		if (write(fd, "connect", 7) < 0) { /* the next screen tries again */ }
-		close(fd);
-		fprintf(stderr, "wire: the cable connection made fresh\n");
-		break;
-	}
-	closedir(d);
+	link_setup();
+	gadget_fresh();
 }
 
 /* No mute switch on this device. */

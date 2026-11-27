@@ -221,7 +221,7 @@ A PC Engine CD will not start without `syscard3.pce`, and ZyperOS says so by nam
 
 ### Nintendo DS
 
-Nintendo DS runs on DSperate, which ZyperOS ships, with ZyperOS's own in-game menu. A game starts with the top screen alone. While it runs, DSperate gives its threads a core each, as its own frontend does, and the CPU stays at its top clock. On my Pixel 2, light scenes hold 60 frames a second, and a busy Mario Kart DS race drops to about 40: the game keeps its speed and sound, and the frames it cannot draw in time are left out. **L1** and **R1** are the DS's L and R. **L2** shows the other screen. **R2** shows the bottom screen and turns the stylus on: the d-pad moves a cursor and **A** touches. **R2** again turns the stylus off and goes back. The in-game menu's Display tab also has **Screens** (Single, Stacked or Top Focus), **Swap Screens** and **Stylus**. A DraStic save (`Saves/<game>.dsv`, from ROGUE OS or another system) is taken over the first time a game runs on DSperate. Encrypted ROM dumps need `bios7.bin`, `bios9.bin` and `firmware.bin` in `Bios/`. A DS game reads its language from the firmware, and a `firmware.bin` carries the language of the console it was dumped from, so ZyperOS tells DSperate which language to use with each game and leaves the file alone. **Game Language** in the console's menu, under **Core**, is **Auto** to start with (the language of **MENU > Language** where the DS has it, English where it doesn't, as Português (Brasil) and 简体中文 are not on a DS) or one of English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文 outright; 简体中文 is for the iQue DS's games, which are the only ones that have it. A game resumes where you left it only in the language it was left in: after a change of **Game Language** it starts fresh, in the new one, with a note that says why, and its battery save keeps your progress. A save state you load yourself keeps the language it was saved in, and **Reset** in the in-game menu starts the game again in the row's language.
+Nintendo DS runs on DSperate, which ZyperOS ships, with ZyperOS's own in-game menu. A game starts with the top screen alone. While it runs, DSperate gives its threads a core each, as its own frontend does, and the CPU stays at its top clock. On my Pixel 2, light scenes hold 60 frames a second, and a busy Mario Kart DS race drops to about 40: the game keeps its speed and sound, and the frames it cannot draw in time are left out. **L1** and **R1** are the DS's L and R. **L2** shows the other screen. **R2** shows the bottom screen and turns the stylus on: the d-pad moves a cursor and **A** touches. **R2** again turns the stylus off and goes back. The in-game menu's Display tab also has **Screens** (Single, Stacked or Top Focus), **Swap Screens** and **Stylus**. A DraStic save (`Saves/<game>.dsv`, from ROGUE OS or another system) is taken over the first time a game runs on DSperate. Encrypted ROM dumps need `bios7.bin`, `bios9.bin` and `firmware.bin` in `Bios/`. A DS game reads its language from the firmware, and a `firmware.bin` carries the language of the console it was dumped from, so ZyperOS tells DSperate which language to use with each game and leaves the file alone. **Game Language** in the console's menu, under **Core**, is **Auto** to start with (the language of **MENU > Language** where the DS has it, English where it doesn't, as Português (Brasil) and 简体中文 are not on a DS) or one of English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文 outright; 简体中文 is for the iQue DS's games, which are the only ones that have it. A game resumes where you left it only in the language it was left in: after a change of **Game Language** it starts fresh, in the new one, with a note that says why, and its battery save keeps your progress. A save state you load yourself keeps the language it was saved in, and **Reset** in the in-game menu starts the game again in the row's language. A zipped DS game is unpacked the first time it runs, into a hidden `.dsperate` folder beside the zip, so it starts at once the next time. ZyperOS keeps the most recently played of those copies, up to 2 GB a folder, and removes the oldest ones. **Delete Game** takes a game's copy with it, **Rename** renames it, and **MENU > Storage** shows them all as **Unpacked DS Games**, which deletes them in one go. Saves and save states do not need the copy: a game whose copy was removed is unpacked again the next time it starts, which takes a few seconds.
 
 ### Arcade and Neo Geo
 
@@ -806,8 +806,10 @@ this network as is**, and open `10.42.1.1` in Chrome. The phone has no
 internet on this network; it comes back when the phone leaves it.
 
 The adapter needs a driver that can be an access point. The TL-WN725N v2/v3
-(RTL8188EUS) can, with Realtek's own driver, which plastron gives it. An
-adapter that cannot shows **Could not start the hotspot.**
+(RTL8188EUS) can, with Realtek's own driver, which plastron gives it. AC1200
+USB adapters on the kernel's rtw88 (8822BU, such as Edimax EW-7822ULC /
+`7392:b822`) use the same hostapd path; try Wi-Fi File Transfer with no
+network joined. An adapter that cannot shows **Could not start the hotspot.**
 
 On a network, that driver's power saving is off: with it on, this chip is
 known to drop off some routers over and over. Each join and each drop, with
@@ -848,7 +850,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Super Game Boy** | the Game Boy and Game Boy Color shelves', under Core, on mGBA: `Off` to start with, as before, or `Its Games`, where a game made for the Super Game Boy starts as one, in its own colors and border (no BIOS needed; other games start as before). For this system alone, saved the moment it changes, for the next game started. With its border the picture is 256x224: 2x on the Pixel 2, 3x on the Brick at Sharp Pixels |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
-| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
+| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band and the game's name go away so the video has the whole screen, and any button brings them back. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Square Pixels, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes. `Square Pixels` (1.1.0) draws every pixel of the game square, whatever shape its core asks for, as tall as the screen (as wide, for a wide game such as the GBA's): an NES or SNES game at 8:7, a Game Gear game at 10:9, a PC Engine game at 16:15, as RetroArch's 1:1 PAR does with integer scaling off. `Sharp Pixels` draws them square too, at a whole number of times their size, so it can leave a border all round |
 | **Border** | under Display, while the display mode leaves room around the system's games, and always on the Game Boys (the Game Boys and other handhelds, a Sharp Pixels picture smaller than the screen): `Off` to start with, black as before; `Blur`, the game's own picture blurred and darker around it; on the Game Boy, Game Boy Color and Game Boy Advance, in any display mode, `Handheld`, a drawing of the handheld's own face around the game at its full size, cut at the screen's edge, and `Handheld, Whole`, the game smaller so the whole screen glass and some of the body show (not for the Advance on the Pixel 2, where the game would be tiny); choosing either turns the system's Display to Sharp Pixels, the size the frames are drawn for; or `Your Own`, the first PNG in `Borders/<the system's folder>/` on the card (or in NextUI's `Overlays/<tag>/`), shown only when there is one. For this system alone; the same row is in a game's Display tab, where it changes the game's at once |
 | **Handheld Color** | under Border while it is a Game Boy Color frame: the handheld's color, `Yellow`, `Red`, `Purple`, `Green`, `Teal` or `Clear Purple` |
@@ -1296,12 +1298,12 @@ browser: ROMs, Music, Audiobooks, Videos, Menu Music, BIOS, Saves and Save
 States. The screen
 shows the handheld's address, its name (`zyperos.local`) and a four-digit
 PIN, new each time it opens. Either opens the page; the name is the easier
-one to type, and the address works where the name does not. Over the USB
-cable the name comes first, `http://zyperos.local`, with the address and the
-PIN under it: only the computer is on that link. Over Wi-Fi the address
-comes first and the name sits beside the PIN: anyone on the network could
-answer for a name, so the address on the handheld's own screen is the one
-to trust.
+one to type, and the address works where the name does not. The address
+comes first, over the USB cable as over Wi-Fi, and the name under it
+(`http://zyperos.local` over the cable): Windows does not always find the
+name over the cable, and the address works on every computer. Over Wi-Fi
+anyone on the network could answer for a name, so the address on the
+handheld's own screen is the one to trust.
 The page asks for the PIN and opens as the fourth digit goes in. Five wrong
 PINs and the page waits 30 seconds.
 
@@ -1367,8 +1369,8 @@ shows them, and Zyper cheers.
 
 The same thing over a cable, with no Wi-Fi, called USB File Transfer. It works with a Mac, Linux, or Windows 11; Windows 10 has no driver for this kind of connection.
 
-1. Plug the device into the computer with a USB cable, and choose **File Transfer**. Or open **MENU > USB File Transfer**, which takes Wi-Fi File Transfer's place while a computer is on the cable. While the computer connects, it shows a bar; then its name, `http://zyperos.local`, in large type, its address under it, and a PIN.
-2. Open `http://zyperos.local` in a browser on that computer, or the address, `http://10.42.0.1` on the Pixel 2 or `http://10.55.0.2` on the Brick, and type the PIN.
+1. Plug the device into the computer with a USB cable, and choose **File Transfer**. Or open **MENU > USB File Transfer**, which takes Wi-Fi File Transfer's place while a computer is on the cable. While the computer connects, it shows a bar; then its address, `10.42.0.1` on the Pixel 2 and `10.55.0.2` on the Brick, in large type, its name, `http://zyperos.local`, under it, and a PIN.
+2. Open the address in a browser on that computer, `http://10.42.0.1` on the Pixel 2 or `http://10.55.0.2` on the Brick, or `http://zyperos.local`, and type the PIN. On Windows, use the address if the name does not open.
 3. Drag games into their console's folder, albums into `Music`, books into `Audiobooks` or films into `Videos`. They're on the shelf when you leave the screen, or, with the transfer behind the shelf, a moment after they arrive.
 
 ### Leaving the transfer screen
@@ -2135,7 +2137,7 @@ A file that another game on the card still uses stays: a save two systems' games
 
 <table>
   <tr>
-    <td align="center"><img src="../res/readme/storage.png" width="320" alt="MENU > Storage: 120.5 GB used and 7.4 GB free of 128 GB, a bar by part, two recommendations, then PlayStation, Videos and Sega CD by size"><br><sub>The card by part, then by size</sub></td>
+    <td align="center"><img src="../res/readme/storage.png" width="320" alt="MENU > Storage: 120.5 GB used and 7.4 GB free of 128 GB, a bar by part, three recommendations, then PlayStation, Videos and Sega CD by size"><br><sub>The card by part, then by size</sub></td>
     <td align="center"><img src="../res/readme/storage-system.png" width="320" alt="PlayStation's page: 3.8 GB in six games, its bar of games, saves and art, Delete Video Snaps, then its games largest first"><br><sub>A system's games, largest first</sub></td>
     <td align="center"><img src="../res/readme/storage-music.png" width="320" alt="Music's page: 5.2 GB in 318 songs, then its albums largest first, and X beside the list for the order"><br><sub>Music's albums; X changes the order</sub></td>
   </tr>
@@ -2143,7 +2145,7 @@ A file that another game on the card still uses stays: a save two systems' games
 
 </div>
 
-**Unused Art** deletes the covers and video snaps of games that are no longer on the card; a fetch in **MENU > Downloads** can bring them back. **Old Save States** deletes the save states of games none of whose states was written in a year and that you have not played in one. Your saves stay. Each asks first, with the room it gives back, and the cursor on Cancel.
+**Unused Art** deletes the covers and video snaps of games that are no longer on the card; a fetch in **MENU > Downloads** can bring them back. **Old Save States** deletes the save states of games none of whose states was written in a year and that you have not played in one. Your saves stay. **Unpacked DS Games** deletes the copies of zipped Nintendo DS games that DSperate unpacked so they start at once; your saves and states stay, and each game unpacks again the next time it starts. Each asks first, with the room it gives back, and the cursor on Cancel.
 
 ### Ports
 
@@ -2308,6 +2310,12 @@ Battery saves are `.srm` files in `Saves/`, named after the game. Save states, t
 
 Open **MENU > Wi-Fi File Transfer** (**USB File Transfer** over the USB cable), open its address in a browser, and click **Download logs** under the folders (behind the ⋯ on a phone). You get one `.tar.gz` file holding the last ten boots' logs, on the Pixel 2 the USB port's last 50 plugs (`usb.log`: what was plugged in, what the handheld asked and did, and how long it stayed) and the Wi-Fi adapter's joins and drops, each drop with the reason the network or the adapter gave and the last signal seen (`wifi.log`), and a short summary of the device, ready to send to whoever is helping you. Wi-Fi network, headset and account names are masked in it, and the logs on the card are left as they are. The logs themselves are on the card, in `.userdata/brick/logs/` on the Brick and `.userdata/pixel2/logs/` on the Pixel 2.
 
+### A start that takes too long, or a restart
+
+A start normally reaches the home in about 2 seconds. If it takes longer, the boot screen says what it is doing after 5 seconds ("Checking the card · C3"), and after 20 seconds "Taking longer than usual" and what to do: if it stays like that, hold **POWER** for 10 seconds and turn the handheld on again. Testers can hold **SELECT** for 2 seconds on the boot screen to see the system's latest lines.
+
+If a start never finished, or the handheld froze while you played, and it was restarted, Zyper says so once on the home, with a short code such as **K1W · 0.6 s**: where it stopped (K1 is the kernel before the card was found, C3 the card's check, L1 ZyperOS starting, H while playing) and why (W a watchdog, P a crash). **MENU > About ZyperOS** keeps that code as **Last Restart** for 30 days. The full report is in your logs ([above](#sending-the-logs)) and, on the Pixel 2, in `zyperos-crash.txt` on the card's PX2BOOT drive; sending it with the code on the Discord helps find the cause.
+
 ## How it compares
 
 The GKD Pixel 2 has several operating systems to choose from. This is ZyperOS beside the one it comes with and four others, from what each one's own pages, code and releases say in November 2026. ROGUE OS set the bar for this handheld, and ZyperOS set out to match it.
@@ -2388,7 +2396,7 @@ The GKD Pixel 2 has several operating systems to choose from. This is ZyperOS be
   </tr>
   <tr>
     <td align="center"><img src="../res/readme/portmaster.png" width="240" alt="Install PortMaster: its crane icon, PortMaster's version, what it is, and the download's bar at 9.8 of 24 MB"><br><sub>PortMaster with one press</sub></td>
-    <td align="center"><img src="../res/readme/storage.png" width="240" alt="MENU > Storage: the card in one bar by part, two recommendations, then every system by size"><br><sub>What fills the card</sub></td>
+    <td align="center"><img src="../res/readme/storage.png" width="240" alt="MENU > Storage: the card in one bar by part, three recommendations, then every system by size"><br><sub>What fills the card</sub></td>
     <td align="center"><img src="../res/readme/battery.png" width="240" alt="MENU > Battery Icon set to Time Left: the corner reads 3 h 25 min beside the battery"><br><sub>The battery, as time left</sub></td>
   </tr>
   <tr>
