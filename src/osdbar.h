@@ -106,7 +106,20 @@ typedef struct {
 	float fill[OSDBAR_BOOST_MAX];     /* 0..1 each */
 	float charge;                     /* 0..1, the charging cell's fill */
 	float grow, morph, tick, flash, push;   /* 0..1 each */
+	/* The volume's bar with the mute switch down (the Brick's side
+	 * switch): the speaker crossed in text-soft, no waves, no steps and no
+	 * boost, the pill 452 wide, so a press shows nothing moving that plays
+	 * nothing. The steps' room is left for a host that writes words to
+	 * write "Muted" in (OSDBAR_WORD_*); one that has none shows the mark. */
+	bool muted;
 } osdbar_look;
+
+/* Where the steps stand, in the buffer's units: the room a muted bar leaves
+ * for its word, from OSDBAR_WORD_X0 to OSDBAR_WORD_X1 with its middle on
+ * OSDBAR_WORD_CY (src/osdbar.c's SEG_X0, SEG_X1 and the pill's middle) */
+#define OSDBAR_WORD_X0 (OSDBAR_W / 2 - 226 + 84)
+#define OSDBAR_WORD_X1 (OSDBAR_W / 2 + 226 - 30)
+#define OSDBAR_WORD_CY (OSDBAR_H / 2 - 2)   /* the pill 12 under the top, 64 tall */
 
 /* A look of the plain bar: the level, its mark at rest, no boost */
 void osdbar_look_plain(osdbar_look *l, int kind, int level, int max);

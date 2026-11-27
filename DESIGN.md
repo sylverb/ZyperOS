@@ -1611,6 +1611,17 @@ boost kept like the level, games, MP4 and ports, headphones the same (a plug
 closes it), a mid-tone lift for brightness. A host shot: `--osd volume 20
 +4`.
 
+**Muted.** With the Brick's side switch down every output is silent, so the
+volume's bar does not move steps that play nothing: a press shows the pill
+with the speaker crossed in **text-soft**, no waves, no steps and no boost,
+452 wide, and the word "Muted" where the steps were, from their left, in
+**menu** **text** (`levels.muted`), cut to their room if a language runs
+longer. The level still moves under it, as it did. Over a Diatom game the
+pill is the same but for the word, which Diatom has no font for: the crossed
+speaker alone, from the launcher's SETMUTE. Brightness has no mute. Host
+shots: `ZYPEROS_MUTE_SWITCH=on` with `--device brick` and `--osd volume N`;
+`--status muted` for the corner's mark (11.12). *(#482, 2026-11-26.)*
+
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
 power button has it - and 20 segments in **accent-ink** over **track**, one
@@ -2206,6 +2217,16 @@ it has priority for direct volume or brightness feedback.
   the jack (the codec's SW_HEADPHONE_INSERT): a headband of radius 9, a
   3-unit stroke as the rune's, its ends inside two cups 6 by 10, in
   **text-soft** (2026-11-09). Audio Channels' Auto plays stereo there.
+- **Muted**, 26 wide, between the fan and the battery, while the Brick's
+  side switch is down (gpio243 reads 1) and every output is silent,
+  headphones too: the volume bar's speaker, a body and a cone, and a cross
+  where its waves would be, a 3-unit stroke as the headphones', in
+  **text-soft**. Only on a handheld with the switch (the profile's
+  `mute_switch`: the Brick; the Smart Pro has none). The launcher's log
+  says "brick: mute switch on" or "off" at the start and at each flip.
+  *(#482, 2026-11-26: "no sound" on a Brick whose bar still moved; my
+  answer there: "I'll make the mute show on screen so this doesn't confuse
+  anyone".)*
 - **File Transfer**, 24 wide, left of the others while it runs behind the
   shelf (11.23): an arrow up and one down, 2.5-unit strokes, in **text-dim**
   with nothing moving and **text-soft** while files move; then a 2-unit ring

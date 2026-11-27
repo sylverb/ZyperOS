@@ -109,6 +109,52 @@ static void segments(int theme, float scale, int kind, int level, int max)
 	ck(edge_empty, what);
 }
 
+/* The mute switch down (osdbar_look's muted): the volume's bar has no step
+ * lit or dark where the steps were, whatever the level and the boost, the
+ * speaker crossed in text-soft with no wave, and the pill no wider; the
+ * word's room is the steps'. Brightness ignores it. */
+static void muted(int theme, float scale)
+{
+	static uint32_t px[OSDBAR_W * OSDBAR_H], plain[OSDBAR_W * OSDBAR_H];
+	const ds_theme *th = &DS_THEME[theme];
+	char what[160], name[64];
+	osdbar_look l;
+	int w, h, i, lit = 0;
+
+	osdbar_size(scale, &w, &h);
+	osdbar_look_plain(&l, OSDBAR_VOLUME, 13, 20);
+	l.ncells = 3;
+	l.fill[0] = l.fill[1] = 1;
+	l.grow = 1;
+	l.muted = true;
+	osdbar_render_look(px, w, h, w, scale, theme, &l, 1.0f, false);
+	snprintf(name, sizeof name, "%s-volume-muted-at-%.3f", tag(theme), scale);
+	dump(name, px, w, h);
+	for (i = 0; i < 20; i++) {
+		float sw = (SEG_X1 - SEG_X0 - 4.0f * 19) / 20;
+		uint32_t p = at(px, w, scale, SEG_X0 + i * (sw + 4) + sw / 2, MID_Y);
+
+		if (is_rgb(p, th->accent_ink) || is_rgb(p, th->track)) lit++;
+	}
+	snprintf(what, sizeof what, "%s: no step where the steps were", name);
+	ck(lit == 0, what);
+	snprintf(what, sizeof what, "%s: the cross in text-soft", name);
+	ck(is_rgb(at(px, w, scale, PILL_L + DS_LEVEL_MARK + 10, MID_Y), th->text_soft), what);
+	snprintf(what, sizeof what, "%s: the speaker's body in text-soft", name);
+	ck(is_rgb(at(px, w, scale, PILL_L + DS_LEVEL_MARK - 15.5f, MID_Y), th->text_soft), what);
+	snprintf(what, sizeof what, "%s: no boost past the pill's end", name);
+	ck((at(px, w, scale, PILL_L + 452 + 20, MID_Y) >> 24) < 3, what);
+	snprintf(what, sizeof what, "%s: the word's room is the steps'", name);
+	ck(OSDBAR_WORD_X0 == (int)SEG_X0 && OSDBAR_WORD_X1 == (int)SEG_X1 && OSDBAR_WORD_CY == (int)MID_Y, what);
+	/* brightness has no mute: the same bar as without it */
+	osdbar_look_plain(&l, OSDBAR_BRIGHT, 6, 11);
+	osdbar_render_look(plain, w, h, w, scale, theme, &l, 1.0f, false);
+	l.muted = true;
+	osdbar_render_look(px, w, h, w, scale, theme, &l, 1.0f, false);
+	snprintf(what, sizeof what, "%s: brightness the same muted or not", name);
+	ck(!memcmp(px, plain, (size_t)w * h * sizeof px[0]), what);
+}
+
 /* Near enough to a color to be it: antialiasing and the shadow showing
  * through the body's 7% move a channel by a few steps, not six. */
 static int near_rgb(uint32_t p, ds_rgb c)
@@ -259,6 +305,8 @@ int main(int argc, char **argv)
 		segments(t, 0.625f, OSDBAR_BRIGHT, 11, 11);
 		pill(t, 1.0f);
 		pill(t, 0.625f);
+		muted(t, 1.0f);
+		muted(t, 0.625f);
 	}
 	repaints();
 

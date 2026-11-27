@@ -1149,6 +1149,12 @@ sun whose rays grow with the brightness. The mark and the segments are lime
 for volume and amber for brightness, on a bar in the theme that is on, light
 or dark.
 
+**The Brick's mute switch.** The switch on the Brick's side mutes everything,
+the speaker and headphones alike. While it is down, a crossed speaker sits
+next to the battery at the top right, and the volume keys show the bar with
+the speaker crossed and the word **Muted** in place of its steps (in a game,
+the crossed speaker alone). Flip the switch back to hear sound again.
+
 ### Past the top: the boost
 
 Some films and games are quiet even at the top of the volume. At the top,

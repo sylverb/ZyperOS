@@ -401,11 +401,24 @@ void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
 	if (L.level > L.max) L.level = L.max;
 	if (L.ncells < 0) L.ncells = 0;
 	if (L.ncells > OSDBAR_BOOST_MAX) L.ncells = OSDBAR_BOOST_MAX;
+	/* Muted, the volume's bar shows neither the level nor the boost: what
+	 * they would play, nothing plays */
+	if (L.kind != OSDBAR_VOLUME) L.muted = false;
+	if (L.muted) {
+		osdbar_look m;
+
+		memset(&m, 0, sizeof m);
+		m.kind = OSDBAR_VOLUME;
+		m.max = L.max;
+		m.cut = 1;
+		m.muted = true;
+		L = m;
+	}
 	if (!painted.valid || painted.theme != theme || painted.w != w || painted.h != h ||
 	    painted.scale != scale || painted.gen != colors_gen || memcmp(&painted.look, &L, sizeof L)) {
 		canvas cv = { f, w, h, scale };
 		const ds_theme *th = colors_on[theme] ? &colors[theme] : &DS_THEME[theme];
-		float col[3], track[3], surface[3], edge[3], ink[3], warn[3], dim[3], btrack[3];
+		float col[3], track[3], surface[3], edge[3], ink[3], warn[3], dim[3], btrack[3], soft[3];
 		const float pix = 1.0f / scale;            /* a pixel, in units */
 		const float cy = PILL_Y0 + PILL_H / 2;
 		const float sw = (SEG_X1 - SEG_X0 - SEG_GAP * (L.max - 1)) / L.max;
@@ -423,6 +436,7 @@ void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
 		rgb3(ink, th->ink);
 		rgb3(warn, th->warning);
 		rgb3(dim, th->text_dim);
+		rgb3(soft, th->text_soft);
 		mixc(btrack, warn, track, 0.72f);
 		memset(f, 0, (size_t)w * h * 4 * sizeof f[0]);
 
@@ -443,11 +457,13 @@ void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
 			else if (L.kind == OSDBAR_POWER)
 				power_mark(&cv, x0 + 40, cy, col, pix);
 			else
-				speaker(&cv, x0 + MARK_CX, cy, clampf(L.mark, 0, 1), L.cut, bf, col, warn, pix);
+				speaker(&cv, x0 + MARK_CX, cy, clampf(L.mark, 0, 1), L.cut, bf,
+				        L.muted ? soft : col, warn, pix);
 		}
 
-		/* One segment per step, widths shared out evenly across the track. */
-		for (i = 0; i < L.max; i++) {
+		/* One segment per step, widths shared out evenly across the track:
+		 * none muted, where the word goes */
+		for (i = 0; i < L.max && !L.muted; i++) {
 			float sx = seg0 + i * (sw + SEG_GAP);
 			shape seg = rbox(sx, cy - SEG_H / 2, sx + sw, cy + SEG_H / 2, SEG_R);
 			paint(&cv, &seg, i < L.level ? col : track, 1, pix, NULL, 0);

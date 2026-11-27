@@ -3924,6 +3924,7 @@ static void status_gather(status_marks *m, bool moving)
 	m->wifi = wifi;
 	m->bt = plat_has_bluetooth() && aout_bt_sink()[0];
 	m->phones = plat_headphones_present();
+	m->muted = plat_muted();
 	m->batt = battery_now(&pct, &chg) ? pct : -1;
 	m->charging = chg;
 	m->held = chg && charge_held();
