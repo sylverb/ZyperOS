@@ -108,6 +108,8 @@ typedef enum {
 	TK_A, TK_B, TK_X, TK_Y, TK_L1, TK_R1, TK_L2, TK_R2,
 	TK_START, TK_SELECT, TK_MENU,
 	TK_VOL, TK_BRIGHT, TK_POWER,
+	/* The sticks' clicks, a wrong press in every step (the R36S's) */
+	TK_L3, TK_R3,
 	TK_KEYS
 } tour_key;
 
@@ -268,6 +270,9 @@ int  tour_lang_kept(const tour *t);
  * and its drawing `model` beside the lessons, NULL for none
  * (dev_tutorial_model) */
 void tour_start(tour *t, uint32_t now, const dev_chords *c, const td_model *model);
+/* The MENU key's word as the handheld prints it (dev_menu_word: "FN" on the
+ * R36S), for the tutorial's words that name the key; MENU until set */
+void tour_menu_word(const char *w);
 
 /* One press. Returns the sound it plays (a ds_sound, src/design.h), or
  * TOUR_QUIET for none. VOL and BRIGHT are the levels' keys, which the caller

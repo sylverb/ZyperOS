@@ -56,9 +56,10 @@ settles something the lab did not ask about, it says so and gives the reason.
 
 | | |
 |---|---|
-| Design space | 1024 x 768 units, landscape (`ZYPEROS_SCREEN_W/H`) |
+| Design space (the canvas) | 768 units high on every handheld; as wide as the panel's shape makes it, to the grid: 1024 on 4:3, 1368 on 16:9 (`ZYPEROS_SCREEN_W/H`, `src/canvas.h`). A screen takes its places from the canvas's edges, middle and columns, never from a typed 1024 |
 | GKD Pixel 2 panel | 640 x 480 shown, 0.625 px per unit; the panel is 480x640 portrait mounted turned, and the picture is turned onto it (`plat_save_screen`, plastron's SDL patch) |
 | TrimUI Brick | 1024 x 768, 1 px per unit |
+| TrimUI Smart Pro | the 1368 x 768 canvas on its 1280 x 720 panel (turned by its kernel), 0.9375 px per unit; no bars |
 | Grid | 8 units, which is exactly 5 panel pixels; 4 units for fine steps |
 | Screen inset | 24 units from every edge for text and marks |
 
@@ -126,8 +127,10 @@ Each role has one value per theme. Code asks for the role, never the value.
 - **accent-ink** is lime as a *mark* on the ground: the bar's segments for
   volume, an earned achievement, the progress strip. In Beard it is a darker
   lime, because the fill's lime on a light ground is only 1.3:1.
-- **light** is brightness, **favorite** the heart, **warning** low battery
-  and errors.
+- **light** is brightness, **favorite** the heart, **warning** low battery,
+  errors and the answer that loses what no press brings back (11.3, "A
+  question with two answers"): at rest on its **raised** slab, where it is
+  large text and owed 3:1 (`LARGE_TEXT_ON`, 4.0:1 in Beard).
 - **store-games**, **store-saves** and **store-art** are Storage's bar and
   its legend's dots (11.32), and nothing else.
 
@@ -139,7 +142,7 @@ Each role has one value per theme. Code asks for the role, never the value.
 | a system's color (systems.cfg) | its shelf's marks and lift and missing-cover fallback | focus, any menu (its heading rule, its frame, its light), source sprite colors, unrelated screens |
 | **light** | brightness | anything else |
 | **favorite** | the heart | anything else |
-| **warning** | low battery, an error a row reports | emphasis |
+| **warning** | low battery, an error a row reports, an answer that cannot be undone (11.3) | emphasis |
 
 *This document's calls, from the audit (2026-11-04):* MP4 is no longer its
 own green (0x9CD345 sat a few degrees from Zyper's lime and the two could not
@@ -310,7 +313,13 @@ else changes. A line with characters its face lacks is drawn in the first of
 its role's faces that has them all (the set that is on, then Japanese's for
 kana, Chinese's otherwise), placed by the capitals of the face it was asked
 in (src/ui.c, `face_for`), so 简体中文 and 日本語 read in an English menu and
-a game named in either is not boxes. The button letters
+a game named in either is not boxes. A face of no role, opened at a size of
+its own (home.c's page faces: the bar's song, the cassette's label, the
+grid's names; `ui_face_at`), looks the same way among the Chinese and
+Japanese cuts of its size and weight, opened the first time a line needs one:
+`ui_face_open` keeps each face's size and cut for it. Until 2026-11-23 it
+drew such a line in Lexend, and a Japanese song title in the top bar was
+all boxes (Discord; `make check-cjkface`). The button letters
 and the cards the launcher draws stay Lexend in every language: they are
 marks. Measured on an M3 against Lexend (2026-11-07): 1 ms to open the eight
 sizes, 0.5 MB more memory, and a new line of Chinese about six times
@@ -502,6 +511,12 @@ its own says why beside it.
 | **list-mark** | 64 | a list row's mark |
 | **list-row-gap** | 12 | between a list's rows |
 | **list-pad-y** | 14 | a list row's words from its top and foot |
+| **confirm-inset** | 26 | an answer's slab from the panel's edge |
+| **confirm-gap** | 24 | between the two answers side by side |
+| **confirm-word-pad** | 24 | an answer's words from its slab's ends, at the least |
+| **confirm-glyph** | 40 | B's glyph in the answer B gives |
+| **confirm-glyph-gap** | 14 | between that glyph and the answer's word |
+| **confirm-press** | 94 | a pressed answer's slab, percent of its size |
 | **badge** | 40 | a disc with a mark on a cover: its source, a video |
 | **badge-small** | 30 | the same on a small cover |
 | **badge-ring** | 2 | the edge round a badge, and a switch mark's ring |
@@ -1262,7 +1277,7 @@ something other than its row.
 **Lists go round.** Down on the last row that can be selected goes to the
 first, and Up on the first to the last, in every menu list - MENU, a
 system's menu, the in-game menu, a screen's rows, MP4's list, the
-achievement list, Storage, the yes/cancel panel. A **held** direction stops
+achievement list, Storage, the two answers of a question. A **held** direction stops
 at the end and stays there, playing **edge** once (9); the next press goes
 round, heard as any step. It is one rule in one place, `menu_step_round`
 for a press and `menu_step_sel` for a hold (src/menu.c), and
@@ -1278,6 +1293,69 @@ one step and the window scrolls through the seam as it scrolls through rows
 (`menu_loop_*`: slots, where slot s is row s mod (n + 1) and the seam is the
 slot that comes to n). Both triangles show on such a list, since there is
 always more.
+
+**A question with two answers** *(my picks in the confirm panels lab,
+2026-11-22, `~/Documents/ZyperOS/labs/confirm-panels-lab.html`: "Our UI has
+to be flawless and consistent")*. Every question the launcher asks with two
+answers is one panel, 39 of them in one table (`src/confirmq.h`): Delete
+Game, Wi-Fi's and Bluetooth's Forget, Storage's, Downloads', Reset, the USB
+offer. A
+question with three answers or more stays as it is (11.18, 11.36).
+
+- **The heading is the action** ("Delete Game", "Forget Network", "Reset
+  Hotkeys"), in Title Case and never a question; **the item's name is in
+  the question** ("Delete Castlevania - Symphony of the Night? Its saves and
+  states, cover and video go too. This cannot be undone."), however long:
+  it is never moved to the heading. A heading too wide for the panel is
+  broken onto two lines, never slid.
+- **The question wraps** to the panel's width (`menu_std_width`, at most
+  `menu_most_w`'s 864, the 4:3 room on the Smart Pro's wide canvas too),
+  balanced and centered in **menu** **text-dim**, lines 67 apart. When its
+  lines do not fit over the answers it is set in **meta** (lines 55 apart),
+  never under it; only past that does it scroll itself in its room, as a
+  card's body does, which no question in the launcher needs
+  (`check-confirm`). Nothing is cut and nothing slides: until 1.1.0 ask_panel
+  dropped the lines past four, and 14 questions slid in one row. A rule in
+  **edge** divides it from the answers where there is room.
+- **The answers side by side**, each a raised slab (**raised**,
+  **radius.row**), confirm-inset (26) from the panel's edges and
+  confirm-gap (24) apart: 408 units each on English's panel. **The safe
+  answer on the left** (Cancel), the cursor on it as the panel opens; on a
+  question whose answers both go on, the one the cursor started on before
+  (Turn On Wi-Fi, Without Cheats, Keep Asking). The focused one is the
+  **accent** fill, its words **on-accent**, as every focus; the fill glides
+  between them in **quick**. An answer's words are in **menu** while both fit
+  their halves (confirm-word-pad, 24, either end), in **meta** together when
+  one does not, and the two stack the panel's width only when one does not
+  fit its half even in **meta**, Up and Down moving them then.
+- **The answer that loses what no press brings back** (files, a password,
+  play since a save, your own buttons, a pairing: 33 of the 39) has its words in
+  **warning** at rest, the lime fill when focused. A question whose answers
+  both go on marks neither.
+- **B's glyph** (11.9, each handheld's own, confirm-glyph 40) is before the
+  word of the answer B gives, confirm-glyph-gap (14) from it, in
+  **on-accent** on the fill: B gives the safe answer, never one that stays.
+  Where the left answer itself does something that stays (the USB offer's
+  Keep Asking, kept for good; PICO-8's Later, which closes the menu) or the
+  answers both go on, B leaves with nothing done and no answer has its
+  glyph. There is no foot of hints.
+- **Keys.** Left and Right move between the answers and go round; a held
+  one stops at the end and plays **edge** once; Up and Down only play
+  **edge**. A takes the answer under the cursor; B its own answer; MENU
+  leaves with nothing done, as from any screen, and POWER turns the
+  handheld off with nothing done (over a game, it stops the game). A
+  question that comes by itself keeps its guard (11.36).
+- **Motion.** It opens in **move** from 96%, as every panel. The answer
+  taken, by A or by B, presses (**press**, its slab and its fill to
+  confirm-press, 94%), then the panel closes in **exit**; a press during it
+  ends it at once.
+
+It is one drawer and one run: `src/ds/confirm.h` lays it out and draws it,
+`confirm_ask` (src/main.c) runs it, a screen names its question and gives
+its words (`cq_text`). `check-confirm` holds the table, the keys and every
+question in every language on the Pixel 2 and the Brick; `--ask NAME` shoots
+any of them (check-i18n-shots' `ask-*`).
+
 
 **MENU's tabs.** MENU is in six tabs, **Games**, **Display**, **Sound**,
 **Connections**, **System** and **About**, and **L1** and **R1** go round
@@ -1318,11 +1396,20 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
-| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
+| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Game Names (11.71), Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, Equalizer (11.60), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Hotkeys, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
+
+**Wi-Fi and Bluetooth forget after asking.** X on a saved network (Wi-Fi)
+or a paired headset (Bluetooth) asks first, a question with two answers
+(above): **Forget Network**, "Forget Casa 5G?" (and "You are connected to
+it and will lose the network." on the one the handheld is on), or **Forget
+Headset**, "Forget WH-1000XM4? Pair it again to use it.", Cancel and
+**Forget**, the cursor on Cancel, Forget in **warning**. *(Bluetooth's forgot
+at once until 1.1.0; Tarik's, 2026-11-23, after the confirm panels lab
+listed it: it asks as Wi-Fi's does.)*
 
 A row added to MENU goes into `pm_row` where its tab's rows are and into
 `sys_menu_tab_of`, whose switch the compiler holds to every row.
@@ -2639,7 +2726,10 @@ card is full, a version did not start) is said in full where What's New goes,
 which steps aside: **menu** **text**, up to three balanced lines from y 348
 every 52, with an 8-wide **warning** bar at their left; the line under the
 versions stays short ("Back on 0.1.0"). *(2026-11-05: the error was
-hard to read as a cut **meta** line in **warning**.)* The buttons at the foot, centered on y 714: 11.9's glyph at 48
+hard to read as a cut **meta** line in **warning**.)* A card too full says what the update needs free and what the card has ("The card needs 410 MB free for the
+update and has 230 MB."), and A is **Check Again**, which runs the download again: the program measures
+again, and goes on if the update fits now *(2026-11-22: "should say how much needed and check again
+option")*. The buttons at the foot, centered on y 714: 11.9's glyph at 48
 and its word in **meta** **text-soft**, 40 between pairs. A is the page's
 action (Download, Continue, Restart Now, Look Again, Try Again), B is Back
 ("Continue in background" while it works; "Later" when it is ready), Y is "Roll
@@ -3491,7 +3581,7 @@ screen), in this order, the rows in brackets only where they apply:
 7. [A quiet row, "Cross has no button now", under a button whose change left
    a game button with none.]
 8. **Reset Buttons**, live only when what shows differs from its default; A
-   asks first in the yes/cancel panel Delete Game uses, "Put back the
+   asks first, a question with two answers (11.3), "Put back the
    PlayStation's buttons in Spyro the Dragon?" or "Put back ZyperOS's buttons
    for every PlayStation game?".
 9. **Hotkeys**: A opens the Hotkeys list (11.61), at its own width, Applies
@@ -3648,21 +3738,15 @@ anything is asked. *(2026-11-08, from Tarik's Pixel 2: Storage showed each
 port as its script alone, and deleting one from there left its folders.
 Ports had had no Delete Game, since nothing had said what was a port's.)*
 
-- **The question** is the confirm panel every destructive row asks with
-  (Forget, Unlink, Delete All, Roll Back): over the shelf on **scrim.menu**,
-  heading **Delete Game**, then the question, then **Delete** and
-  **Cancel**, a centered list, the cursor starting on Cancel; B and MENU are
-  Cancel, POWER turns the handheld off with nothing deleted. What is new is
-  that the question is a paragraph: it names the game, says what goes with
-  it and that it cannot be undone, "Delete Metal Gear Solid? Its saves and
-  states, cover and video go too. This cannot be undone." Its lines are
-  wrapped to the panel and centered, as the one-line question of the other
-  confirms is, in **text-dim** as a question row is, a **menu** note line
-  each; a rule (the heading's) divides it from the answers when there is
-  room. A question too long for the lines over its answers would leave its
-  start where no cursor goes, so a game whose name does not fit is named in
-  the heading instead, as on its details page, and the question says "this
-  game".
+- **The question** is a question with two answers (11.3): over the shelf
+  on **scrim.menu**, heading **Delete Game**, then the question, then
+  **Cancel** and **Delete** side by side, the cursor on Cancel, Delete in
+  **warning**; B is Cancel, MENU leaves, POWER turns the handheld off with
+  nothing deleted. The question names the game, says what goes with it and
+  that it cannot be undone, "Delete Metal Gear Solid? Its saves and states,
+  cover and video go too. This cannot be undone.", wrapped to the panel
+  however long the name. *(Until 1.1.0 a name that did not fit moved to the
+  heading, where it slid, and the question said "this game".)*
 - **The yes** draws one frame, "Deleting..." (11.8), deletes, closes the
   details page onto the shelf as it is now, and says what came of it in a
   one-line message: "Deleted. 1.2 GB given back.", or that some of its
@@ -3759,7 +3843,8 @@ asks it.
 y 92, 112 square) where System Update has Zyper, its size in **title** and its
 games' count at the right, its own bar of games, saves and art with each
 part's size in the legend. Then **Delete Video Snaps** when it has snaps
-(Video Snaps' own delete, 11.19), a rule, and its games, largest first: a
+(Video Snaps' own delete, 11.19; its question names the system, "Delete the
+PlayStation video snaps?", where until 1.1.0 it said "every video snap"), a rule, and its games, largest first: a
 game's size is what Delete Game gives back (11.31's plan, summed), its facts
 "Played 22h 5m · last played 3mo ago · saves and states 69 MB" or "never
 played". A on a game is Delete Game's question, as it is, over this page;
@@ -3814,7 +3899,19 @@ a system's page. Each list keeps its order, as Sort By keeps a shelf's: the
 card's, each system's by its tag, each media folder's. Under the list at the
 right, on the more-rows mark's line, X's glyph and the order it is now
 ("Size", "A to Z", "Last Played") in **meta** **text-dim**: the button and
-what it is, as the keyboard's action row names its keys (11.5).
+what it is, as the keyboard's action row names its keys (11.5). A press of
+Up or Down is a row. Held, once it repeats, each repeat goes further: in A to
+Z a letter, the first row of the next initial, or of its own and then the one
+before, as the shelf's letter jump does (`home_letter_held`); in Size and
+Last Played, which are in no letter order, five rows. The clock is every
+list's (90 ms after 300 ms); what a repeat covers grows the longer it is
+held, as MP4's seek does (`repeat_stage`): twice as far from a second, four
+times from three. A held step stops at the end, and the end it comes to
+plays **edge** once, as in every list (`home_held_step`). The
+recommendations, Delete Video Snaps and Other Files are a letter of their
+own. *(2026-11-22: "should skip by letter when pressing and holding up/down
+buttons"; 2026-11-26: "also implement faster scroll when holding down and
+sorted by size. maybe skip 5". Last Played steps as Size does: mine.)*
 
 The page is a base, as MP4's shelf is: MENU's panel leaves over it as it
 opens, and a panel opened on it - a question, "Deleting...", a result - comes
@@ -4309,16 +4406,17 @@ asked about every time (my ask, 2026-11-13: "cant zyper remember?"). So
 the player's USB Accessory answers are counted on the device
 (`usb_accessory_answers`), and after the second, while the setting is Ask
 and the offer was never answered, the shelf offers Automatic once the
-accessory has its power (the power waits for nothing): Delete Game's
-confirm panel, **Power without asking?** over "Automatic powers what you
-plug in after 2 seconds. A computer not connected yet gets about 2
-seconds of power." in up to four balanced lines and the rule, then
-**Automatic** and **Keep Asking**, the cursor on Keep Asking. It comes by
-itself, so it takes a press as the question does (a button held through
-its start, or pressed in its first half second, counts once let go).
-Automatic is the setting's own, told to usbrole. Either answer, B too, is
-kept (`usb_auto_offer`) and it is never offered again; POWER, Auto Off or
-a quit answer nothing, and the next USB Accessory offers it again. On the
+accessory has its power (the power waits for nothing): a question with two
+answers (11.3), **Power Automatically**, "Power without asking? Automatic
+powers what you plug in after 2 seconds. A computer not connected yet gets
+about 2 seconds of power.", then **Keep Asking** and **Automatic**, the
+cursor on Keep Asking. It comes by itself, so it takes a press as the
+question does (a button held through its start, or pressed in its first
+half second, counts once let go). Automatic is the setting's own, told to
+usbrole. Either answer is kept (`usb_auto_offer`) and it is never offered
+again; B, MENU, POWER, Auto Off or a quit answer nothing and keep nothing,
+and the next USB Accessory offers it again. *(Until 1.1.0 B was kept for
+good as Keep Asking: B never takes an answer that stays, 11.3.)* On the
 shelf only, after the question, so never over a game (an answer in MENU >
 USB Device offers it back on the shelf). Host shot: `--usb-offer`.
 
@@ -4698,10 +4796,27 @@ renames. The details page stays open on the game, under its new name.
   name whose save, state or cover is already another file's. The message
   says which (11.8), and the keyboard opens again on what was typed. A
   change of case alone is a rename, though the card ignores case.
-- **No Rename** for an arcade set, a BIOS set or a port: their names are
-  what the core or PortMaster runs them by.
+- **The name shown only** for an arcade set (FinalBurn Neo, MAME, a
+  Flycast NAOMI or Atomiswave set), a BIOS set or a port, whose file names
+  are what the core or PortMaster runs them by *(2026-11-22, reported on
+  Discord: "Ports, Arcade, MAME and Neo Geo are unable to change the game's
+  names")*. The same row and keyboard, opened on the name it shows, titled
+  **Rename Shown Name**, its quiet line led by a few words in the hints'
+  ink, "file keeps its name", before L1/R1's and MENU's as on every
+  keyboard; once the field is empty, the name it would have back is in it,
+  dimmed (a placeholder), so the way back needs no words. START keeps the name typed in
+  the library (its own table, `user_titles`), and no file moves: its saves,
+  states, cover and play time stay as they are. Any title's characters are
+  taken, `:` and `/` too. The name every screen shows is the first there
+  is: **the player's name**, then the downloaded title (Names and Details,
+  else what a `gamelist.xml` named it), then the file's name tidied. A
+  download of names writes only its title, so the player's name stays; a
+  rescan shows it; Delete Game takes it with the game. **Back**: START on an
+  empty field, or on the name it would show without one, clears it.
 
-Host shots: `--info-delete` shows the row above Delete Game.
+Host shots: `--info-delete` shows the row above Delete Game;
+`--kb-rename-shown [empty]` the keyboard for a name shown only, on the
+focused game's name, or emptied with the placeholder.
 
 ### 11.42 Display's Theme, Screen Colors and Night Mode
 
@@ -5642,6 +5757,7 @@ the tiles' style is read off a name.
 | Layout engine | `src/ds/flex.c`, `flex.h` | boxes laid out by rules (section 5, The system): `ds_flex_begin`, `ds_flex_add`, `ds_flex_solve`, `ds_flex_rect`; `check-flex` holds its rules |
 | Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`, one column of boxes on the layout engine (the heading's band **page-body-y** tall, the body with two tiles and a line of words **page-news-drop** under them, the line of marks **page-line-over** over the keys, the keys on the foot inset); the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` (`src/usbdrive_screen.c`) draws the ground and Zyper and hands back the frame. |
+| A question with two answers | `src/ds/confirm.c`, `confirm.h`; the questions `src/confirmq.c`, `confirmq.h` | 11.3: `ds_confirm_layout`, `ds_confirm_draw` (the heading, the question wrapped, the two slabs, the fill, B's glyph, the press). In `src/main.c`, `confirm_ask` runs one (`PANEL_CONFIRM`, its press kept in the panel's copy) and `confirm_preview` draws one for a shot. `check-confirm` |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
 | The grid | `src/gamegrid.c`, `gamegrid.h`; the rule `src/gridrule.c`, `gridrule.h` | 11.47: the shape from the art, the cells, the covers in them, the band; `check-gridrule` |
 | The focus | `src/ds/focus.c`, `focus.h`; its pixels `src/focusgeo.c`, `focusgeo.h` | 3.5's Highlight on the home and the shelves: `ds_focus_marks_of` (what a choice draws for a cover or a still), `ds_focus_tile` (the focused item grown on whole pixels, or on its way), `ds_focus_ring`, `ds_focus_ring_in`, `ds_focus_bar`, `ds_focus_hairline`, `ds_focus_dim`, `ds_focus_sheen`, `ds_round_ring`, the glide's weights (`ds_focus_weights`); `ui_lift_focus` in `src/ui.c`. `check-focusgeo` holds the pixels to the Pixel 2's filter. |
@@ -6166,7 +6282,7 @@ first play gets it.
 **Settings** (START), a panel: **ScreenScraper**, **RetroAchievements**,
 **SteamGridDB** with their accounts, **Video Snaps** (11.19's page),
 **Names and Details** (On or Off), **On the Card** (each kind's room; A on
-Videos or Achievements deletes them all after a question, cursor on Cancel;
+Videos or Achievements deletes them all after a question (11.3);
 Covers and Names say why they are not deleted here). RetroAchievements' page
 says who is signed in, signs in again, and **Sign Out** after a question:
 earned achievements stay on the account, unlocks still waiting stay in their
@@ -6395,8 +6511,9 @@ it starts again in. A opens the Display list, each mode's picture beside it
 (PICO-8's own screen, cut out of the frame the menu is over, drawn in that
 mode); Left and Right step nothing, as a step would start it again. A mode
 other than the one on asks first, as Reset Game's hotkey asks, the cursor on
-Cancel: **Start the cart again?**, "PICO-8 starts again in Actual Size. Play
-since the cart last saved is lost.", **Start Again** and Cancel. Start Again
+Cancel: **Start Cart Again**, "Start the cart again? PICO-8 starts again in
+Actual Size. Play since the cart last saved is lost.", Cancel and **Start
+Again** (11.3). Start Again
 keeps the mode as the shelf's row keeps it (`display.PICO8`), and PICO-8 ends
 (saving its settings) and starts again in it, behind the cart's loading
 screen, MP4 playing on; Cancel, B or the mode on change nothing. The **Next
@@ -6432,8 +6549,9 @@ PICO-8 has no states and no speed, so their keys stay PICO-8's under SELECT.
 
 **Reset** is a row of the Game tab over it, before Quit as in a game's, once
 PICO-8 has drawn, and the Reset Game hotkey's: both ask first, over the frame,
-as Reset Game's hotkey asks over a game, the cursor on Cancel: **Reset the
-game?**, "Play since the last save is lost.", **Reset** and Cancel. Reset is
+as Reset Game's hotkey asks over a game, the cursor on Cancel: **Reset
+Game**, "Reset the game? Play since the last save is lost.", Cancel and
+**Reset**. Reset is
 PICO-8's own CTRL-R ("Reload / Run / Restart cartridge", its manual): portkeys
 keeps a keyboard of its own for the run (uinput, which plastron's kernel has
 built in, as gptokeyb's keyboard is made) and presses CTRL and R on it once
@@ -6449,10 +6567,13 @@ table in force becomes the pad's mapping line (src/p8pad.h: O on SDL's a, X
 on its b), which PICO-8.sh exports, the line that shipped when nothing is
 changed. A change cannot reach a PICO-8 that is running, so the menu closing
 back to the cart with new buttons (Continue, B, MENU) asks the Display row's
-question, "PICO-8 takes the new buttons as it starts again. Play since the
-cart last saved is lost.": **Start Again** starts it again with them, in the
-mode on; Cancel, B or MENU keep them for its next start and the cart goes
-on. A Display mode's start again takes them as it starts, and Reset, Quit
+question, "Start the cart again? PICO-8 takes the new buttons as it starts
+again. Play since the cart last saved is lost.": **Start Again** starts it
+again with them, in the mode on; **Later**, where the cursor starts, keeps
+them for its next start and the cart goes on; B goes back to the menu with
+nothing done, and MENU closes it as Later does. *(Until 1.1.0 the left
+answer was Cancel and B was it, going on without a start again: B never
+takes an answer that stays, 11.3.)* A Display mode's start again takes them as it starts, and Reset, Quit
 and POWER ask nothing, keeping them for the next start. *(Up to 1.1.0-rc.8
 a Controls row opened the list as a page, and leaving it asked.)* A turbo
 is the plain button over it, and the N64's layer is no PICO-8's.
@@ -6525,10 +6646,10 @@ where a player looks*), its line **Not installed** and A **How to Add**, which
 opens a page in System Update's form (11.17): heading **Your PICO-8**, "PICO-8"
 where the versions go, "By Lexaloffle · not on this card" under it, three
 points (what it adds, whose it is, how to add it), and **Back**. With no way
-out to the internet and a radio to turn on, A asks first: **Splore needs
-Wi-Fi**, "Wi-Fi is off. Offline, Splore has only the carts it downloaded
+out to the internet and a radio to turn on, A asks first (11.3): **Open
+Splore**, "Wi-Fi is off. Offline, Splore has only the carts it downloaded
 before.", **Turn On Wi-Fi** (on, and the saved network joined, up to 15 s) or
-**Open Offline**; B leaves it.
+**Open Offline**, both going on and neither marked; B leaves it.
 
 **Splore's downloads.** PICO-8 for Raspberry Pi has no HTTP of its own: it
 runs `wget` for every list and cart. The system's wget is busybox's, which has
@@ -6620,7 +6741,7 @@ kept by its tag: **Added** (the list's order, the order its games went in;
 as it ships), **Name**, **Last Played** and **System** (the home's order of
 the systems, A to Z in each). Rename opens the keyboard on its name and
 renames its file. Delete Collection asks first, as Delete Game does (11.31):
-"Delete Couch Co-op? Its games stay on the card.", Delete over **Cancel**,
+"Delete Couch Co-op? Its games stay on the card.", **Cancel** and Delete,
 the cursor on Cancel; the list goes, never a game. After Rename, Remove and
 Delete the menu closes onto the shelf as it is now: on the collection under
 its new name, on the next game, or on the collection after the one that went.
@@ -6687,15 +6808,17 @@ Y From the Start when there is a resume point, X Details, spread from B to
 X. Left and Right step, Up and Down jump a letter, L1 and R1 a screenful,
 as on the cover row.
 
-**The strip.** After **hold-band** (2 s) with no press on a game whose snap
+**At rest.** After **hold-band** (2 s) with no press on a game whose snap
 plays, counted from the later of the last press and the snap's start (so a
-shelf come back to from a game keeps its band up as long), the band goes down in **move** (out) to a strip 48 high at the foot,
-and the covers and keys fade out as it goes, so the snap has the screen but
-for the strip. The strip holds the rail (11.2): a **track** from margin to
-margin, DS_BAR high, centered in the strip, with the focus's place on it in
-**accent-ink**, as wide as a share of the shelf (at least DS_RAIL_MIN), so
-where the game is in the shelf still shows. Any press brings the band back
-up in **quick** and does what it does: Right steps on as the band comes up.
+shelf come back to from a game keeps its band up as long), nothing covers
+the snap, as in the Screenshots viewer (11.68): the band goes down off the
+screen in **move** (out), its covers and keys fading out as it goes, the
+name's card goes up off the top with it, and the ground's fade under the
+header goes with them *(2026-11-22: "make title disappear in video mode like
+in screenshots and remove the bottom bar"; until then the band went down to
+a strip 48 high that held the rail, and the card stayed)*. Any press brings
+them back in **quick** and does what it does: Right steps on as the band
+comes up.
 A game with no snap never goes down; the band comes back up by itself when
 the snap stops (the dark screen). The covers glide to their places drawn
 frame by frame to the end, as the cover row's do, whether or not the snap
@@ -6717,7 +6840,7 @@ rest; to measure on the Pixel 2 before it ships (a shelf of games with
 snaps, Left held then let go, Right pressed once a second).
 
 Host shots: `shelf-video` (no snap), `shelf-video-snap` (the test picture),
-`shelf-video-half` and `shelf-video-strip` (`--band F`, the band F of the
+`shelf-video-half` and `shelf-video-rest` (`--band F`, the band F of the
 way down), `system-menu-view-video` and `system-menu-view-video-list`
 (tools/i18n-shots.py).
 
@@ -6864,8 +6987,21 @@ logo, a maker's name or printed text: where the real face has a logo or
 words, the plastic is plain.
 
 - **Handheld**: the game at its full Sharp Pixels size, where Sharp Pixels
-  puts it, the frame cut where the panel ends (on the Pixel 2 a Game Boy at
-  3x shows the lens's glass round it and the edge of its light).
+  puts it, the frame cut where the panel ends. **The light is drawn nearer
+  the screen where the panel would cut it** *(Reported on Discord,
+  2026-11-22: "the Gameboy red light awkwardly off screen"; my pick of two
+  ways, 2026-11-23: the game stays in the middle, and only the light moves,
+  as the bezels made for 4:3 handhelds draw it)*: a light in the lens, beside
+  the screen (the Game Boy's and the Color's), whose ring and 1 mm round it
+  are not on the panel moves across toward the game the least it takes for
+  them to be, its ring 1 mm clear of the game too (`hf_light_dx`). The rest
+  of the face stays true to scale. A Game Boy's light is 8.3 mm left of its
+  screen: at 3x on the Pixel 2 a third of it showed at the edge, and at 5x
+  on the Brick none; now its ring's left edge is 10 px in on the Pixel 2 and
+  17 on the Brick, and a Color's the same 1 mm. Where the panel shows the
+  light whole (the Smart Pro's 1280x720, Handheld, Whole) it stays where the
+  face has it. The Advance's light is on the body past the lens's right end,
+  off the panel whole, and is not moved: the face there is body, not lens.
 - **Handheld, Whole**: the game smaller by whole steps until the whole lens
   and 1.5 mm of body round it are on the panel, the lens in the middle: 2x
   on the Pixel 2, 3x on the Brick (one step smaller, 4x, still cuts a Game
@@ -7097,9 +7233,10 @@ and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
 a button with it lights beside it with "+", and the second line says "Let go
 to keep them.". SELECT let go alone waits again; MENU, or B with nothing
 held, leaves with no change. **A clash says so, and offers a swap**: the
-keys are another action's, so the yes/cancel panel says "SELECT+R2 is
-already taken by Faster. Swap them, and Faster moves to None." (or to the
-keys the row had), **Swap** and Cancel, the cursor on Cancel, so no hotkey
+keys are another action's, so a question with two answers (11.3),
+**Swap Hotkeys**, asks "Give SELECT+R2 to Quick Save? Faster has it now and
+moves to None." (or to the keys the row had), Cancel and **Swap**, the
+cursor on Cancel, so no hotkey
 is lost by accident (2026-11-19: "If a hotkey is taken, we should
 show a message saying it"; it read "SELECT+R2 is Faster now", which did not
 say it was taken). There is no Both: a chord does one
@@ -7107,9 +7244,9 @@ action.
 
 **Reset Game asks first** *(my pick: a reset loses play, so one press is not
 enough)*. The chord pauses the game as MENU does (Diatom's PAUSED
-`for=reset`), and over the paused frame the yes/cancel panel Delete Game uses
-asks "Reset the game?", "Play since the last save is lost.", **Reset** and
-Cancel, the cursor on Cancel. Reset resets and the game goes on; Cancel or B
+`for=reset`), and over the paused frame a question with two answers (11.3),
+**Reset Game**, asks "Reset the game? Play since the last save is lost.",
+Cancel and **Reset**, the cursor on Cancel. Reset resets and the game goes on; Cancel or B
 goes back to it where it was. **Quit** pauses the same way (`for=quit`) and
 stops the game as the menu's Quit does.
 
@@ -7395,15 +7532,16 @@ evaluates nothing (CHEEVOS says `paused=cheats`), the Achievements row says
 off again does not bring them back: what a cheat changed in the game's
 memory stays. While signed in, for a game with achievements, the list's top
 line says "Achievements wait while a cheat is on.", and **the first cheat
-asks first**, once a game: "Turn on a cheat?", "Achievements stop for this
-game until it starts again with every cheat off.", **Turn On** and Cancel,
-the cursor on Cancel, as Delete Game asks.
+asks first**, once a game: **Turn On Cheat**, "Turn on a cheat? Achievements
+stop for this game until it starts again with every cheat off.", Cancel and
+**Turn On**, the cursor on Cancel (11.3).
 
 **The start.** A game starts with what was on when it was last left: the
 pop-up "Cheats" / "2 cheats on" over its first frames, for **hold-short**, so
 nobody plays an evening with a cheat they forgot. A game that stopped by
-itself with cheats on (EXIT `reason=crash`) asks at its next start: "This
-game stopped last time with cheats on. Start it without them?",
+itself with cheats on (EXIT `reason=crash`) asks at its next start (11.3),
+**Start Game**: "This game stopped last time with cheats on. Start it without
+them?",
 **Without Cheats** (the cursor's) and **With Cheats**; without, the game
 starts with none and they stay set for later. B leaves it unstarted.
 
@@ -7607,8 +7745,8 @@ screen at its own shape, as large as the screen holds it (on the Pixel 2 a
 SNES shot is 549 x 480 pixels), on ink; the name's card at the top left
 ("Screenshots · 3 / 13", the game, its line); the band of shots at the foot.
 After **hold-band** with no press nothing covers the shot: the band goes
-down off the screen with no strip, and the name's card goes up off the top
-with it, in **move** *(my ask, 2026-11-20: "the top card that contains the
+down off the screen, and the name's card goes up off the top with it, in
+**move**, as on every Video view (11.57) *(my ask, 2026-11-20: "the top card that contains the
 name and etc should animate and disappear as well. so we can see the whole
 image. also the collapsed footer can be nothing")*. **A** puts them away at
 once, without the rest, and A held keeps them away *("it goes straight to
@@ -7664,8 +7802,9 @@ the details of a game?"; my OK, for 1.1.0.)*
 
 A shelf's title stops at the first bracket after a space (src/library.c's
 `lib_title`: "Final Fantasy VII (USA) (Disc 1).chd" is "Final Fantasy VII"),
-and the shelves, Recents, Favorites and the in-game menu stay so. A game's
-details (X on the shelf) give the brackets back:
+and the shelves, Recents, Favorites and the in-game menu stay so under Game
+Names' Short, as it ships; its File Name gives every one of them the brackets
+(11.71). A game's details (X on the shelf) give the brackets back:
 
 - **File**, the last of the facts, after Genre and Core and before
   Achievements, in the facts' quiet style: the game's file as it is on the
@@ -7700,6 +7839,29 @@ its cursor on Buttons (`--info-on-buttons`), which File put below the first
 screenful. `check-titles` holds
 the names and the counts of discs on real folders, `check-menus` the rows'
 order.
+
+**Two games of one title** *(drmoze on the Discord, 2026-11-23: on his
+TurboGrafx-16 "2 copies of each game appear in the menu"; my pick, (b))*.
+His USA and Japanese dumps, "Bonk's Adventure (USA)" and "PC Genjin
+(Japan)", got one name from MENU > Downloads (ScreenScraper's for the game,
+the US one first), and stood on the shelf as one game twice; two dumps the
+shelf names from their files ("Neutopia (USA)", "Neutopia (Japan)") did the
+same. Each keeps its name, and where two games of a system show the same
+title, in any case, each gets what tells it from the other, from its file
+(src/library.c's `lib_titles_apart`), on every view and wherever the title
+shows (Search, Favorites, Recents, Collections):
+
+- **its region**, when each has one and no two the same: "Bonk's Adventure
+  (USA)", "Bonk's Adventure (Japan)";
+- else **its region and the brackets the others do not all have**, a
+  revision, a translation, a disc: "Zelda (USA)", "Zelda (USA) (Rev 1)";
+- else **its file**, after a dot: "Bonk · Bonk (USA).pce", "Bonk · Bonk
+  (USA).zip", and its folders too when only they differ; its extension
+  alone where the title is the file's name already, "Bonk (USA) · pce".
+
+A game with nothing to tell it by keeps its bare title, and a title that
+stops being shared loses its brackets again. Worked out when the shelf is
+read and again whenever a title changes (a download, Rename, Delete Game).
 
 ### 11.70 Favorites First
 *(Asked for on the Discord: zazouboy, 2026-11-22, "it would be a nice option
@@ -7755,3 +7917,60 @@ holds the split in every order; `check-favfirst` walks a real shelf with
 its own keys, in Covers and List, by Name and by Recently Added, the letter
 jump at the favorites' end, and Favorites as it was. `check-menus` holds the
 row's place, its values, its sound and that no other shelf's menu has it.
+
+### 11.71 Game Names
+*(Asked for on the Discord: DoctorIssa, 2026-11-21, under "Option to show
+(brackets) on filenames", about 900 files told apart by their brackets, a
+version, a region: "is there any chance there is a way we can have a setting
+to show them"; 11.69 put them on the details first. My OK, 2026-11-23.)*
+
+**Game Names** in MENU's Display tab, under Home Systems, says how every
+shelf names its games:
+
+- **Short**, as it ships, and nothing changes for anyone who never sets it:
+  the downloaded name (MENU > Downloads' Names, or a gamelist.xml's), else
+  the file's name less its brackets, its article in front (`lib_title`):
+  "Final Fantasy VII", "The Legend of Zelda - Link's Awakening".
+- **File Name**: the file's whole name, every bracket in it, less the
+  extension, its article where the file has it: "Final Fantasy VII (USA)
+  (Disc 1)", "Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2)".
+  A game in a folder of its own (a disc set, a ScummVM game) is its folder's
+  name, "Chrono Cross (USA)": the name the scan keeps for it (`name`), what
+  its art is found by too. Less the folders the shelf only keeps it in, as
+  its File row (11.69) is.
+
+**What wins.** Under File Name the file's name is over a downloaded one: the
+player asked to see the brackets, and a download has none ("Mario Bros. (Arcade
+Classic)" from the catalog is "Mario Bros (v1.1)", the dump on the card).
+Under Short, the order is as it was: the downloaded name, then the file's,
+cut. A name the player gives a game whose file keeps its name (Rename on an
+arcade set or a port, #463, when it lands) is over both, in both: it is what
+the player typed, as Rename's name is the file's, and so shown, on every
+other game. Two games of one title told apart (#466, when it lands): under
+File Name two names are the same only where two files are (a .zip and a .pce
+of one dump), so only its last rule, the file, can apply, and it puts the
+extension alone after the name ("Bonk (USA) · pce"); no region is put after
+a name that has it already.
+
+**Everywhere a game is named**: Covers, Grid, List and Video, Favorites,
+Recents, Collections and Screenshots, Search, Play Time, the details'
+heading, the in-game menu, and the name on the card of a game with no art
+(11.1), so two discs of one game have two cards. A long name slides on focus
+as every long title does, and is cut with its ellipsis off focus, as before. Name orders and the
+letter jump go by the name on screen: under File Name "Legend of Zelda, The"
+is under L. The File row stays on the details: it is the same words for a
+loose game, but the one fact there for a game in a folder.
+
+**Turned over at once**: Right and Left step it, and A opens the two, each
+with what it does under the list, its example name in English. Kept in the
+device's database (`names`: "short" or "file") and read before the scan, as
+System Order is. Every shelf is named again in place (`refresh_game_titles`,
+what a download of names runs), each cursor on its game, the name orders
+sorted again; Screenshots built again, as its names are its games'. No
+rescan, no card read.
+
+`check-gamenames` holds the rule on a real folder and database (Short, File
+Name, a set, the article, a downloaded name, the order, a refresh both
+ways); `check-gamenames-shots` the List view's rows under each, as the Pixel
+2 and as the Brick in both themes, and MENU's row turning it over;
+`check-menus` the row's place and words.

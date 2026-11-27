@@ -16,6 +16,10 @@
 #      builds it), which is never a kit: no kit symbol or string in it.
 #   4. No device's start script (sd/*/device.sh) seeds Diatom's present file:
 #      a kit's launcher does (src/device/brick_kit.c).
+#   5. That file's place (diatom/port/present_file.h), where the kit seeds it
+#      and Diatom's Brick port reads it: the handheld's own settings folder
+#      (USERDATA_PATH: .userdata/smartpro on a Smart Pro), the Brick's with
+#      none; and both sides take it from there.
 #
 # The device's own program (zyperos.elf, plastron's SDK) is held to a
 # release's bytes by hand, in the change that touches this: a build of main
@@ -151,6 +155,37 @@ fi
 # ---- 4. no start script seeds Diatom's present file ---------------------------
 ! grep -l 'diatom-present' sd/*/device.sh > /dev/null 2>&1
 ck $? "no sd/*/device.sh seeds diatom-present"
+
+# ---- 5. the present file's place, the same on both sides ----------------------
+cat > "$T/present.c" << 'EOF'
+#include "present_file.h"
+int main(void)
+{
+	char d[512], f[600];
+
+	present_file_paths(d, sizeof d, f, sizeof f);
+	printf("%s %s\n", d, f);
+	return 0;
+}
+EOF
+if $CC -std=gnu11 -Wall -Wextra -Werror -O1 -Idiatom/port -o "$T/present" "$T/present.c" 2> "$T/err"; then
+	got=$(env -u USERDATA_PATH "$T/present")
+	[ "$got" = "/mnt/SDCARD/.userdata/brick /mnt/SDCARD/.userdata/brick/diatom-present" ]
+	ck $? "no USERDATA_PATH: the Brick's folder, as before (got $got)"
+	got=$(USERDATA_PATH= "$T/present")
+	[ "$got" = "/mnt/SDCARD/.userdata/brick /mnt/SDCARD/.userdata/brick/diatom-present" ]
+	ck $? "an empty USERDATA_PATH: the Brick's folder (got $got)"
+	got=$(USERDATA_PATH=/mnt/SDCARD/.userdata/smartpro "$T/present")
+	[ "$got" = "/mnt/SDCARD/.userdata/smartpro /mnt/SDCARD/.userdata/smartpro/diatom-present" ]
+	ck $? "a Smart Pro's USERDATA_PATH: its own folder (got $got)"
+else
+	ck 1 "diatom/port/present_file.h compiles ($(head -3 "$T/err"))"
+fi
+grep -q 'present_file_paths' src/device/brick_kit.c && grep -q 'present_file_paths' diatom/port/brick.c &&
+	! grep -q '"/mnt/SDCARD/[.]userdata/brick' src/device/brick_kit.c
+ck $? "the kit's seed and Diatom's Brick port both take the file from present_file.h"
+grep -q 'USERDATA_PATH=$SDCARD/.userdata/$DEVICE_ID' sd/brick/device.sh
+ck $? "sd/brick/device.sh names USERDATA_PATH after the device, as present_file.h reads it"
 
 if [ "$fails" -ne 0 ]; then
 	echo "kitbuild: $fails of $checks checks failed"
