@@ -14,7 +14,7 @@
 
 #include "../src/device/build.h"
 
-static const dev_build *const BUILDS[] = { &device_build_pixel2, &device_build_brick, &device_build_smartpro };
+static const dev_build *const BUILDS[] = { &device_build_pixel2, &device_build_brick, &device_build_smartpro, &device_build_r36s };
 
 static const struct { unsigned bit; const char *word; } HELPERS[] = {
 	{ DEV_HELPER_PORTKEYS, "portkeys" }, { DEV_HELPER_ZYHOME, "zyhome" },

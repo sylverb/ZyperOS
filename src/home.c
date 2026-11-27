@@ -4,6 +4,7 @@
 #include "design.h"
 #include "ds/focus.h"
 #include "focusgeo.h"
+#include "keyrepeat.h"   /* repeat_stage: a held step growing */
 #include "look.h"
 #include "ds/layout.h"   /* DS_HINT_*: a hint's glyph and the gap to its word */
 #include "platform.h"    /* ZYPEROS_SCREEN_W: the stage's middle and right */
@@ -191,6 +192,23 @@ int home_letter_jump(const unsigned char *keys, int count, int cursor, int dir)
     start = p;
     while (start > 0 && keys[start - 1] == keys[p]) start--;
     return start;
+}
+int home_letter_held(const unsigned char *keys, int count, int cursor, int dir)
+{
+    int to = home_letter_jump(keys, count, cursor, dir);
+    return (dir > 0 && to < cursor) || (dir < 0 && to > cursor) ? cursor : to;
+}
+int home_held_step(const unsigned char *keys, int count, int cursor, int dir, unsigned held_ms)
+{
+    int times = 1 << repeat_stage(held_ms), to = cursor, i;
+
+    if (count <= 0) return 0;
+    if (!keys) {
+        to = cursor + (dir > 0 ? 1 : -1) * HOME_HELD_ROWS * times;
+        return to < 0 ? 0 : to >= count ? count - 1 : to;
+    }
+    for (i = 0; i < times; i++) to = home_letter_held(keys, count, to, dir);
+    return to;
 }
 bool home_song_update(home_song *song, bool active, bool paused, const char *title)
 {
@@ -629,9 +647,15 @@ static void restore_state(SDL_Renderer *r,draw_state s)
 #define HOME_GALLERY_STILL 384    /* 1.5 times its 256 cell */
 #define HOME_GALLERY_DOWN  24
 #define HOME_GALLERY_NAME  50
-#define HOME_SELECT_X      784    /* SELECT's hint on the foot (Spotlight) */
-#define HOME_GALLERY_A_X   768    /* the gallery's A, kept there while it ends by the inset */
-static const SDL_FRect FOCUS={ZYPEROS_SCREEN_W-HOME_STILL_IN-HOME_STILL,HOME_TOP+HOME_STILL_DOWN,HOME_STILL,HOME_STILL};
+#define HOME_SELECT_X      (ZYPEROS_SCREEN_W-240) /* SELECT's hint on the foot (Spotlight) */
+#define HOME_GALLERY_A_X   (ZYPEROS_SCREEN_W-256) /* the gallery's A, kept there while it ends by the inset */
+/* The cover's still, by the canvas's right edge (src/canvas.h) */
+static inline SDL_FRect home_focus(void)
+{
+	return (SDL_FRect){ ZYPEROS_SCREEN_W - HOME_STILL_IN - HOME_STILL, HOME_TOP + HOME_STILL_DOWN,
+	                    HOME_STILL, HOME_STILL };
+}
+#define FOCUS (home_focus())
 #define HOME_MID_X       (ZYPEROS_SCREEN_W/2)
 #define HOME_STILL_MID_Y ((int)(FOCUS.y+FOCUS.h/2))                       /* 336 */
 #define HOME_ROW_Y       ((int)(FOCUS.y+FOCUS.h)+HOME_ROW_UNDER)          /* 600 */

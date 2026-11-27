@@ -15,10 +15,11 @@
                                                 macOS job, one part a runner)
 
 Every screen is shot as each handheld ZyperOS runs on (DEVICES: the Pixel 2,
-the README's, first, then the Brick), with its own keys, rows and words: the
-Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and
-it has rows the Pixel 2 has not (Bluetooth) and the other way round (Side
-Lights). A string must fit on each, and is drawn if either draws it.
+the README's, first, then the Brick and the Smart Pro), with its own keys,
+rows and words: the Brick's MENU is the word on its key, wider than the
+Pixel 2's three dots, and it has rows the Pixel 2 has not (Bluetooth) and
+the other way round (Side Lights); the Smart Pro's canvas is 1368 units wide
+(src/canvas.h). A string must fit on each, and is drawn if any draws it.
 
 A layout drawn for English meets words up to half again as long in French or
 Portuguese, and Chinese's taller face. The launcher, built for the host, says
@@ -66,8 +67,9 @@ _spec.loader.exec_module(R)
 
 # The handhelds every screen is shot as: the README's first, whose every row
 # a shot finds (a missing one is a renamed row), then the rest, which may lack
-# one (the Brick's Strength row, with no GPU shaders)
-DEVICES = ["pixel2", "brick"]
+# one (the Brick's Strength row, with no GPU shaders); the Smart Pro for its
+# wide canvas
+DEVICES = ["pixel2", "brick", "smartpro"]
 
 # The string IDs of a text the launcher drew: src/ui.c says the text, not the
 # ID (a label is copied into a row's buffer, or formatted around a name, and
@@ -343,6 +345,11 @@ EXTRA = {
     "keyboard": ("demo", "PS1", ["--keyboard"]),
     # The ScreenScraper sign-in's title, the longest the keyboard has
     "keyboard-ss-user": ("demo", "PS1", ["--keyboard", "--kb-ss-user"]),
+    # Rename on an arcade set or a port: the name shown only, its title and
+    # its note before the hints; emptied, the original name dimmed in the
+    # field (src/gamern_screen.c)
+    "keyboard-rename-shown": ("demo", "PS1", ["--screen", "games", "--kb-rename-shown"]),
+    "keyboard-rename-shown-empty": ("demo", "PS1", ["--screen", "games", "--kb-rename-shown", "empty"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
     "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
     # A video this CPU cannot carry, its notice: too big (AV1 at 60 fps), with
@@ -637,6 +644,21 @@ EXTRA.setdefault("usb-menu-said", ("demo", "PS1", ["--usb-menu", "said"]))
 # Zyper's one-time offer of Automatic, after a second USB Accessory
 EXTRA.setdefault("usb-offer", ("demo", "PS1", ["--usb-offer"]))
 EXTRA.setdefault("usb-mark", ("demo", "PS1", _USB_WAIT))
+# Every question with two answers (src/confirmq.h, DESIGN.md 11.3), each
+# over the shelf with the inventory's own words (src/shots.c's
+# shot_ask_text): Delete Game and Delete Screenshot with "Castlevania -
+# Symphony of the Night", the longest name the confirm panels lab found hard
+CONFIRM_QUESTIONS = (
+    "wifi-forget", "wifi-forget-joined", "pico8-restart-display", "pico8-restart-buttons",
+    "pico8-reset", "game-reset", "splore-wifi", "cheats-crash", "cheats-first", "hotkeys-swap",
+    "hotkeys-reset-game", "hotkeys-reset-system", "hotkeys-reset-every", "storage-unused-art",
+    "storage-old-states", "storage-system-snaps", "storage-media-folder", "storage-media-file",
+    "storage-orphan-port", "game-delete", "port-delete", "update-rollback", "collection-delete",
+    "screenshot-delete", "media-video-delete", "sgdb-unlink", "ss-unlink", "snaps-delete-all",
+    "reset-buttons-game", "reset-buttons-all", "usb-offer", "dl-sign-out", "dl-delete-videos",
+    "dl-delete-cheats", "dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats", "bt-forget")
+for _q in CONFIRM_QUESTIONS:
+    EXTRA.setdefault("ask-" + _q, ("demo", "PS1", ["--ask", _q]))
 # System Update (DESIGN.md 11.17, 2026-11-11): What's New scrolled to its
 # end, the corner's mark of a download behind the shelf, and Zyper's news
 EXTRA.setdefault("update-notes-end", ("demo", "PS1", ["--update", "--update-scroll", "99"]))
@@ -1097,11 +1119,12 @@ for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
 
 
 # The Video view (DESIGN.md 11.57): a game with no snap, its card whole
-# above the band; its snap playing (the test picture), the band up; the band
-# down to its strip, and halfway there; MENU's View on Video and its list
+# above the band; its snap playing (the test picture), the band up; at rest,
+# the band and the name's card away, and halfway there; MENU's View on Video
+# and its list
 for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
                       ("shelf-video-snap", ["--screen", "games", "--view", "video", "--snap", "1"]),
-                      ("shelf-video-strip", ["--screen", "games", "--view", "video", "--snap", "1", "--band", "1"]),
+                      ("shelf-video-rest", ["--screen", "games", "--view", "video", "--snap", "1", "--band", "1"]),
                       ("shelf-video-half", ["--screen", "games", "--view", "video", "--snap", "1", "--band", ".5"]),
                       ("system-menu-view-video", ["--screen", "games", "--view", "video", "--menu", "View"]),
                       ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
@@ -1113,7 +1136,7 @@ for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
 # pictures on the card, each a PNG made up here as Diatom names them, at its
 # game's own size, and one of a game no longer on the card. The home on the
 # group, its shelf in Covers, Grid and List, a shot opened with A (the Video
-# view) and its band down to the strip, Delete Screenshot's question and its
+# view) and at rest, its band and card away, Delete Screenshot's question and its
 # message, MENU's Sort By list, and Home Systems with the group's row Off
 _SHOTS = {}
 for (_folder, _game, _when, _wh, _sky, _ground, _hue) in (
@@ -1130,7 +1153,7 @@ for _name, _flags in (("home-screenshots", []),
                       ("shelf-screenshots-grid", ["--screen", "games", "--view", "grid"]),
                       ("shelf-screenshots-list", ["--screen", "games", "--view", "list"]),
                       ("screenshots-viewer", ["--screen", "games", "--shelf-press", "a"]),
-                      ("screenshots-viewer-strip", ["--screen", "games", "--shelf-press", "a", "--band", "1"]),
+                      ("screenshots-viewer-rest", ["--screen", "games", "--shelf-press", "a", "--band", "1"]),
                       ("screenshots-delete", ["--screen", "games", "--shots-delete"]),
                       ("screenshots-said", ["--screen", "games", "--shots-said"]),
                       ("screenshots-menu", ["--screen", "games", "--menu", "Sort By"]),
@@ -1566,7 +1589,11 @@ UPDATE_STATES = {
     "update-error-download": ("state error\nversion 0.1.1\ndownload 83000000\nkind system\ntime {now}\n", True),
     "update-needs-system": ("state needs-system\nversion 0.3.0\ntime {now}\n", True),
     "update-too-big": ("state too-big\nversion 0.3.0\nkind system\ntime {now}\n", True),
-    "update-space": ("state space\nversion 0.2.0\ndownload 14200000\ntime {now}\n", True),
+    # The card too full: what the update needs, beside the shot's stand-in
+    # free room (src/shots.c)
+    "update-space": ("state space\nversion 0.2.0\ndownload 14200000\nneed 410000000\ntime {now}\n", True),
+    # ...and as a program from before need was written says it
+    "update-space-old": ("state space\nversion 0.2.0\ndownload 14200000\ntime {now}\n", True),
     "update-available-offline": ("state available\nversion 0.1.1\ndownload 83000000\nkind system\ntime {now}\n", False),
     "update-ready": ("state ready\nversion 0.1.1\nkind system\ntime {now}\n", True),
 }
