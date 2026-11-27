@@ -1178,6 +1178,11 @@ void refresh_favorites_shelf(app *a)
 		a->sys_cursor = 0;
 		a->screen = SCREEN_SYSTEMS;
 	}
+	/* And every console shelf with Favorites First on (DESIGN.md 11.70): a
+	 * game marked goes up among its favorites, one taken away back among
+	 * the others, at its place in the shelf's order, the cursor with it */
+	for (i = 0; i < a->sys.count; i++)
+		if (a->view[i].fav_first && fav_first_offered(a, i)) sort_shelf_keep(a, i);
 	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 }
 
@@ -2214,6 +2219,17 @@ void system_order_load(void)
 	g_order_release = !strcmp(v, "release");
 }
 
+/* MENU > Display > Game Names (DESIGN.md 11.71): "file" for File Name,
+ * anything else Short, as it ships. Before the scan, which titles the games
+ * by it (src/library.h, lib_names_set). */
+void game_names_load(void)
+{
+	char v[16];
+
+	db_get_str(db_dev(), GAME_NAMES_KEY, v, sizeof v, "short");
+	lib_names_set(!strcmp(v, "file"));
+}
+
 void system_order_apply(systems_cfg *s)
 {
 	if (!g_order_release) cfg_sort_systems(s);
@@ -2463,6 +2479,8 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 		memmove(&all->items[k], &all->items[k + 1],
 		        (size_t)(all->count - k - 1) * sizeof *all->items);
 		all->count--;
+		/* The one it was told apart from goes back to its name */
+		lib_titles_apart(all);
 		shelf_show_dir(v, v->dir);
 		sort_shelf(a, si);
 		v->cursor = at < v->list.count ? at : v->list.count > 0 ? v->list.count - 1 : 0;
@@ -2484,6 +2502,12 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 		if (v->th)  memmove(&v->th[k],  &v->th[k + 1],  rest * sizeof *v->th);
 		if (v->cb)  memmove(&v->cb[k],  &v->cb[k + 1],  rest * sizeof *v->cb);
 		v->list.count--;
+		/* The one it was told apart from goes back to its name, in its
+		 * place (its picture is the place's) */
+		lib_titles_apart(&v->list);
+		/* Favorites First's two parts (DESIGN.md 11.70) close up with it */
+		if (v->nfav && k >= v->fav_from && k < v->fav_from + v->nfav) v->nfav--;
+		else if (v->nfav && k < v->fav_from) v->fav_from--;
 		/* Its cursor: on the game, it is now on the next one; past the
 		 * end, on the one before */
 		if (v->cursor > k) v->cursor--;
@@ -2567,7 +2591,12 @@ bool shelf_rename_game(app *a, const char *tag, const char *file, const char *ne
 		snprintf(e->file, sizeof e->file, "%s", new_file);
 		snprintf(e->name, sizeof e->name, "%s", new_name);
 		lib_display_title(db_lib(), folder, e->file, e->name, e->title, sizeof e->title);
+		e->apart = 0;
 	}
+	/* A game of the same title as the new name, or the one it was told
+	 * apart from, told apart again (lib_titles_apart) */
+	lib_titles_apart(sys_games(v));
+	if (v->all) lib_titles_copy(&v->list, v->all);
 	/* Every index from here on can name another game */
 	free_all_textures(a);
 	SDL_AtomicIncRef(&g_lib_gen);       /* a check that read the card before is moot */

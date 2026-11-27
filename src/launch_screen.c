@@ -11,6 +11,7 @@
 #include "ctl_channel.h"
 #include "dl_screen.h"
 #include "dlq.h"
+#include "dscache.h"
 #include "dsv.h"
 #include "ingame_screen.h"
 #include "cheats_screen.h"
@@ -1058,6 +1059,10 @@ void launch(app *a)
 					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%shotkeys=%s",
 					         keys[0] ? "\t" : "", run);
 			}
+			/* Fast Forward's speed, where it is not 2x, Diatom's own */
+			if (hk.ff != def.ff && strlen(keys) + 16 <= sizeof keys)
+				snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%sffspeed=%s",
+				         keys[0] ? "\t" : "", hk_ff_word(hk.ff));
 			{
 				/* The game's part of the name as src/shotname.h has it,
 				 * which the Screenshots shelf reads back */
@@ -1653,6 +1658,20 @@ void launch(app *a)
 	present_ground(a);
 	/* The language its auto state was just written in, if it was */
 	ds_resume_record(st, ds_lang, &ds_before, ds_had);
+	/* The zipped DS games DSperate unpacked beside this one, kept under its
+	 * own frontend's cap, this game's copy kept (src/dscache.h) */
+	if (!strcmp(s->tag, "NDS") && !strcmp(s->core, "dsperate")) {
+		char romdir[CFG_STR * 2], dir[1024], keep[1200];
+		int went = 0;
+		unsigned long long freed;
+
+		if (snprintf(romdir, sizeof romdir, "%s/%s", P_ROMS, s->folder) < (int)sizeof romdir &&
+		    dsc_dir(romdir, romfile, dir, sizeof dir) &&
+		    dsc_image(romdir, romfile, keep, sizeof keep) &&
+		    (freed = dsc_trim(dir, DSC_CAP, keep, &went)) > 0)
+			fprintf(stderr, "dscache: %s: %d unpacked game%s removed, %llu MB given back\n",
+			        dir, went, went == 1 ? "" : "s", freed >> 20);
+	}
 
 	/* The game has just written a fresh autosave preview. Throw the card's
 	 * texture away so it picks that up - but only if the preview is what the

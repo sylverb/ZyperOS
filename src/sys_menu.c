@@ -80,7 +80,7 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_SEARCH: case PM_STATS: case PM_RANDOM: case PM_SCRAPER:
 		return PT_GAMES;
 	case PM_APPEARANCE: case PM_THEME: case PM_HOME:
-	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
+	case PM_ORDER: case PM_HOMESYS: case PM_NAMES: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
 	case PM_STRENGTH: case PM_SCREEN: case PM_NIGHT:
 		return PT_DISPLAY;
 	case PM_AUDIO: case PM_CHANNELS: case PM_EQ: case PM_SOUNDS: case PM_MUSIC: case PM_RUMBLE:
@@ -326,6 +326,7 @@ static const unsigned char PM_SOUND[PM_ROWS] = {
 	[PM_STRENGTH]   = MENU_SND_NO_A,
 	[PM_HOME]       = MENU_SND_RING,
 	[PM_ORDER]      = MENU_SND_RING,
+	[PM_NAMES]      = MENU_SND_RING,
 	[PM_BATTERY]    = MENU_SND_RING,
 	[PM_HOURS]      = MENU_SND_RING,
 	[PM_DEVELOPER]  = MENU_SND_RING,
@@ -333,7 +334,7 @@ static const unsigned char PM_SOUND[PM_ROWS] = {
 	/* A pick is heard as reward, or deny with nothing to pick */
 	[PM_RANDOM]     = MENU_SND_OWN,
 };
-/* Core, Game Language, Super Game Boy, Timing, View and Shader step on A as well; Sort By,
+/* Core, Game Language, Super Game Boy, Timing, Favorites First, View and Shader step on A as well; Sort By,
  * Display Mode and Strength do nothing with it. */
 static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_CORE]    = MENU_SND_RING,
@@ -341,6 +342,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_SGB]     = MENU_SND_RING,
 	[SM_PACE]    = MENU_SND_RING,
 	[SM_SORT]    = MENU_SND_RING | MENU_SND_NO_A,
+	[SM_FAVFIRST] = MENU_SND_RING,
 	[SM_VIEW]    = MENU_SND_RING,
 	[SM_DISPLAY] = MENU_SND_RING | MENU_SND_NO_A,
 	[SM_BORDER]  = MENU_SND_RING,
@@ -547,6 +549,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		full[SM_PACE]    = (menu_row){ T(S_SYSMENU_PACE), u->pace, u->pace != NULL };
 		full[SM_SORT]    = (menu_row){ T(S_SYSMENU_SORT_BY),
 		                              u->sort ? u->sort : T(S_SORT_NAME), true  };
+		/* Its favorites ahead of its other games, each part in Sort By's
+		 * order (DESIGN.md 11.70) */
+		full[SM_FAVFIRST] = (menu_row){ T(S_SYSMENU_FAVORITES_FIRST),
+		                               T(u->fav_first ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE), true };
 		/* The covers in a row, or a list of names (DESIGN.md 11.39) */
 		full[SM_VIEW]    = (menu_row){ T(S_SYSMENU_VIEW),
 		                              T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
@@ -723,6 +729,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* Which shelves the home shows (src/homesys.h); A opens the switches */
 	full[PM_HOMESYS] = (menu_row){ T(S_SYSMENU_HOME_SYSTEMS),
 	                               u->homesys ? u->homesys : T(S_SYSMENU_HOME_SYSTEMS_ALL), true };
+	/* How every shelf names its games, Short or File Name, stepped round
+	 * like System Order; A opens the two with a note under each */
+	full[PM_NAMES] = (menu_row){ T(S_SYSMENU_GAME_NAMES), u->names ? u->names : T(S_SYSMENU_NAMES_SHORT), true };
 	/* The status corner's battery: the mark alone, or its charge written
 	 * beside it (2026-11-05). On every device: both have a battery. */
 	full[PM_BATTERY] = (menu_row){ T(S_SYSMENU_BATTERY_ICON), u->battery ? u->battery : sys_menu_battery_name(0), true };

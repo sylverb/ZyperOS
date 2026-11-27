@@ -180,9 +180,23 @@ check-desk: native
 check-homekeys: native
 	@python3 tools/homekeys-check.py
 
+# A shelf's d-pad held, in desk mode: the list's Up and Down and the grid's
+# Left and Right stop at the ends, the cover row goes round
+check-shelfkeys: native
+	@python3 tools/shelfkeys-check.py
+
 # The Video view in desk mode: its snap playing holds the screensaver
 check-videoview: native
 	@'$(PYIMG)' tools/videoview-check.py
+
+# The screensaver's games and pictures, as the shelf finds them (gamelist.xml's
+# images too), in desk mode left alone past its delay
+check-saver-art: native
+	@python3 tools/saver-art-check.py
+
+# The screensaver's cover clear of its slabs, its snap over the whole screen, off its frames
+check-saver-place: native
+	@'$(PYIMG)' tools/saver-place-check.py
 
 # No button read twice by in_repeat in one step (a held one turned round)
 check-inrepeat:
@@ -641,6 +655,24 @@ build-native/dsresume-check: tools/dsresume-check.c src/dsresume.c src/dsresume.
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/dsresume-check.c src/dsresume.c src/atomic.c
 
+# The zipped DS games DSperate unpacks into .dsperate (src/dscache.h): where
+# a zip's copy goes, the cap after a DS game (the least recently launched
+# first, the game just played kept), Delete Game taking a game's copy,
+# Rename moving it and its tag, and Storage counting it as the game's, on a
+# scratch card. Plain C, no device.
+check-dscache: build-native/dscache-check
+	@./build-native/dscache-check
+
+build-native/dscache-check: tools/dscache-check.c src/dscache.c src/dscache.h src/gamedel.c src/gamedel.h src/storage.c \
+                            src/gamern.c src/gamern.h src/esmedia.c src/snaps.c \
+                            src/sheet.c src/portinfo.c src/library.c src/db.c src/favorites.c src/stats.c \
+                            src/atomic.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/dscache-check.c src/dscache.c src/storage.c src/gamedel.c src/gamern.c src/esmedia.c src/snaps.c \
+	      src/sheet.c src/portinfo.c src/library.c src/db.c src/favorites.c src/stats.c src/atomic.c $(I18N_SRC) \
+	      -lsqlite3 -lpthread
+
 # The patched cores' stamps (mk/core-stamp.sh): a stamp written for a core
 # passes, and a core built before a patch changed, a core changed after its
 # build, a core with no stamp and a patch no core claims each fail, with what
@@ -982,10 +1014,25 @@ check-wifi-watch:
 check-launch-start:
 	@sh tools/launch-start-check.sh
 
+# File Transfer's way in and heading: the address first, over the cable as
+# over Wi-Fi, read off the launcher's own shots
+check-xferway:
+	@sh tools/xferway-check.sh
+
 # The Pixel 2's crash report (plastron's /usr/sbin/crashlog): what pstore kept
-# of a panic or a reset, said once, onto the card for Download logs
+# of a panic or a reset, and the launcher's own crash, said once, onto the
+# card for Download logs
 check-crashlog:
 	@sh tools/crashlog-check.sh
+
+# The launcher's own crash (src/crashrec.h): children that crash on purpose
+# say where, in the log and the record, and still die of it
+check-crashrec: build-native/crashrec-check
+	@./build-native/crashrec-check
+
+build-native/crashrec-check: tools/crashrec-check.c src/crashrec.c src/crashrec.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra -o $@ tools/crashrec-check.c src/crashrec.c -lpthread
 
 # The display's gamma table, emptied (src/panelgamma.h): the launcher's and
 # Diatom's code against a stand-in display, with Linux's request numbers
@@ -1324,6 +1371,26 @@ build-native/cardgen-check: tools/cardgen-check.c src/cardgen.c src/cardgen.h \
 # union of them with no seam. No SDL.
 check-blur: build-native/blur-check
 	@./build-native/blur-check
+
+# The List view's boxes (src/listbox.h, DESIGN.md 11.39): the media as tall
+# as the rows, on the 4:3 canvas and the Smart Pro's
+check-listbox: build-native/listbox-check
+	@./build-native/listbox-check
+
+build-native/listbox-check: tools/listbox-check.c src/listbox.c src/listbox.h src/look.c src/look.h src/ds/flex.c src/ds/flex.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(pkg-config --cflags sdl2) -Isrc \
+	      -o $@ tools/listbox-check.c src/listbox.c src/look.c src/ds/flex.c $$(pkg-config --libs sdl2) -lm
+
+# The List view's details over the media at rest (src/snaprest.h), on a
+# clock the check moves by hand
+check-snaprest: build-native/snaprest-check
+	@./build-native/snaprest-check
+
+build-native/snaprest-check: tools/snaprest-check.c src/snaprest.c src/snaprest.h src/design.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/snaprest-check.c src/snaprest.c -lm
 
 # The grid's rule (src/gridrule.h, DESIGN.md 11.47): the shape a shelf takes
 # from its art, where the cells go, which art is a cut-out
@@ -1751,6 +1818,19 @@ check-strings:
 # parts of the languages and handhelds
 check-i18n-shots:
 	@python3 tools/i18n-shots.py $(if $(CHECK_SHARD),--part $(CHECK_SHARD))
+
+# Border's two lists, a system's menu's and a game's, on both handhelds and in
+# both themes: each held by --expect-en to the same words in the same order,
+# each once (Blur where the device draws it), so the two say the same
+BORDER_LIST_SHOTS := $(foreach w,off blur handheld whole own,system-menu-border-list-$(w) gamemenu-border-list-$(w))
+check-border-lists:
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+		for t in light dark; do \
+			ZYPEROS_SHOTS_CACHE=0 python3 tools/i18n-shots.py --lang en --device pixel2 --device brick \
+				--theme $$t $(BORDER_LIST_SHOTS) || exit 1; \
+		done; \
+	else echo "check-border-lists: skipped, no SDL2"; fi
 
 # How the Brick's initramfs (plastron's brick-rootswitch) reads the kernel's
 # line: the slot's root the boot script names, and a developer's root update
@@ -2624,6 +2704,16 @@ build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refres
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
 	      -o $@ tools/title-refresh-check.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
 
+# MENU > Display > Game Names (DESIGN.md 11.71): Short, or the file's whole
+# name over a downloaded one, by the real scan, database and refresh
+check-gamenames: build-native/gamenames-check
+	@./build-native/gamenames-check
+
+build-native/gamenames-check: tools/gamenames-check.c src/db.c src/library.c src/sheet.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/gamenames-check.c src/db.c src/library.c src/sheet.c $(I18N_SRC) -lsqlite3
+
 # Host build of the launcher, for working on how the shelf looks.
 native:
 	$(MAKE) $(NATIVE_J) -f mk/native.mk VERSION=$(VERSION)
@@ -2865,10 +2955,10 @@ check-sort: build-native/sort-check
 	@./build-native/sort-check
 
 build-native/sort-check: tools/sort-check.c src/sort.h src/library.h src/stats.c \
-                         src/stats.h src/db.c src/atomic.c $(I18N_SRC) FORCE
+                         src/stats.h src/db.c src/atomic.c src/favorites.c src/favorites.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/sort-check.c src/stats.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/sort-check.c src/stats.c src/db.c src/atomic.c src/favorites.c $(I18N_SRC) -lsqlite3
 
 # Bluetooth. A device NAME is arbitrary bytes chosen by whoever owns the
 # headset, arriving over the air into a process running as root; an ADDRESS is
@@ -3213,6 +3303,20 @@ check-textfade:
 		  ./build-native/textfade-check; \
 	else echo "skipped: no SDL2 for the text fade check"; fi
 
+# Chinese and Japanese names in every face ui_face_open opens, not only the
+# role faces: home.c's page faces drew a song's title in boxes.
+check-cjkface:
+	@if pkg-config --exists sdl2 SDL2_ttf SDL2_image; then \
+		mkdir -p build-native; \
+		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
+		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
+		  -o build-native/cjkface-check tools/cjkface-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
+		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
+		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
+		  ./build-native/cjkface-check; \
+	else echo "skipped: no SDL2 for the CJK face check"; fi
+
 # MP4's tape labels' handwriting: what Caveat has not, in Lexend or Noto,
 # run by run (ui_hand_face), never boxes
 check-handface:
@@ -3355,8 +3459,21 @@ check-home-shots: native
 pico8-shots: native
 	@'$(PYIMG)' tools/pico8-shots.py
 
+# Game Names on the real launcher (tools/gamenames-shot-check.py): the List
+# view's rows under Short and File Name, as the Pixel 2 and the Brick, in
+# both themes, and MENU's row turning it over at once
+.PHONY: check-gamenames-shots
+check-gamenames-shots: native
+	@'$(PYIMG)' tools/gamenames-shot-check.py
+
 check-favorites-shots: native
 	@'$(PYIMG)' tools/favorites-shot-check.py
+
+# MENU > Favorites First (DESIGN.md 11.70) on the host launcher: a shelf's
+# favorites ahead of its other games, walked with the shelf's own keys
+.PHONY: check-favfirst
+check-favfirst: native
+	@python3 tools/favfirst-check.py
 
 # A system turned off the home keeps its games on Favorites and Recents, and
 # they start from there on its own core (src/shelfbuild.c, app.parked)
