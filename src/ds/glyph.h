@@ -32,7 +32,7 @@
  * SteamGridDB - and a heart for the favorites. And MENU > Downloads'
  * (11.53): a cup with two handles for achievements, books standing on a
  * shelf for libretro, whose open book is now the names and details, and a
- * wand with its sparkles for cheats. And the Link Cable's two (11.70): a dot
+ * wand with its sparkles for cheats. And the Link Cable's two (11.72): a dot
  * with two arcs each side, sending out, for Host, and a magnifying glass
  * for Join. */
 typedef enum {

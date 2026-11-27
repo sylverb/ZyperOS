@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """check-link-core: the Link Cable on a Game Boy game running on mGBA, and a
-game's own core (Tarik's decision of 2026-11-27, DESIGN.md 11.70), in desk
+game's own core (Tarik's decision of 2026-11-27, DESIGN.md 11.72), in desk
 mode's launcher on a card of its own, driven as a person would:
 
   - A game on the Game Boy shelf, which runs on mgba (the shelf's choice),

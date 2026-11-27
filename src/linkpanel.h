@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 /* The Link Cable's page while it hosts, looks for a host, joins one or is
- * linked (DESIGN.md 11.70), a panel over the paused game as the in-game
+ * linked (DESIGN.md 11.72), a panel over the paused game as the in-game
  * menu's pages are (11.3) and as its mock draws it: the heading over a rule,
  * one large line in the middle ("Waiting for the other Pixel 2"), the host's
  * code under it while it hosts (the other one types it to join), the lines

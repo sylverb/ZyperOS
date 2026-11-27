@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """A Game Boy ROM that tests the link cable: the Link Cable's game
-(DESIGN.md 11.70) without a commercial one. Original code and font, a few
+(DESIGN.md 11.72) without a commercial one. Original code and font, a few
 hundred bytes, written here as bytes: no assembler to install.
 
     python3 tools/gblink-rom.py out.gb

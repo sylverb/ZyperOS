@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_LINK_SCREEN_H
 #define ZYPEROS_LINK_SCREEN_H
 
-/* The Link Cable's page over the paused game (DESIGN.md 11.70, src/link.h):
+/* The Link Cable's page over the paused game (DESIGN.md 11.72, src/link.h):
  * Host and Join as tiles, then waiting for the other one, the hosts found,
  * joining, linked; link_ops on the device; and the shots' made-up states.
  * The code is src/link_screen.c, the page's panel src/linkpanel.c. */

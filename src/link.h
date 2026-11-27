@@ -3,7 +3,7 @@
 #define ZYPEROS_LINK_H
 
 /* The Link Cable: a Game Boy or Game Boy Color game on two Pixel 2s, linked
- * as by the cable, over the handhelds' own Wi-Fi (DESIGN.md 11.70).
+ * as by the cable, over the handhelds' own Wi-Fi (DESIGN.md 11.72).
  *
  *   Gambatte    the link itself: its network Game Link, one handheld the
  *               server and the other its client, two bytes each way a

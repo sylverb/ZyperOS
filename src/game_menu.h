@@ -230,7 +230,7 @@ typedef enum {
 	 * display has a table: its value the look, and A opens MENU >
 	 * Display's own page over the paused game (1.1.0) */
 	GM_SCREEN_COLORS,
-	/* Link Cable (src/link.h, DESIGN.md 11.70), a Game Boy or Game Boy
+	/* Link Cable (src/link.h, DESIGN.md 11.72), a Game Boy or Game Boy
 	 * Color game's on Gambatte, on the Game tab after Player 2's place:
 	 * Off, Waiting, Linked or Lost, and A opens its page; quiet, Needs
 	 * Wi-Fi, with no adapter in */
@@ -261,7 +261,7 @@ int gm_layout_index(const char *name);                   /* 0 for one it does no
 /* What the in-game menu needs to know, gathered by the caller. */
 typedef struct {
 	/* the display mode's label; what each mode does is said in its list,
-	 * beside a picture of it (menu_pick_preview), not under the row */
+	 * beside a picture of it (menu_pick_hover), not under the row */
 	const char *dmode;
 	const char *shader;   /* the shader's label; NULL reads Off */
 	/* Its strength, "50%", when it is an old screen; NULL: no Strength row */

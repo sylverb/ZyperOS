@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The Link Cable's page. See linkpanel.h; its slab, rules and legend are
  * the in-game menu's pages' (DESIGN.md 11.3), its large line and dots the
- * mock's (11.70). */
+ * mock's (11.72). */
 #include <stdio.h>
 #include <string.h>
 

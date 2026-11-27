@@ -37,7 +37,7 @@
  *
  * The in-game menu's Link Cable row on a Game Boy or Game Boy Color game on
  * Gambatte opens this page over the paused game (src/link.h, DESIGN.md
- * 11.70). Off, it asks Host or Join in tiles, as the USB question does. Host
+ * 11.72). Off, it asks Host or Join in tiles, as the USB question does. Host
  * makes this handheld's own network and waits for the other one; Join looks
  * for a host and lists what it finds. Linked, the page closes and the game
  * goes on, and a notice says so on both. B stops what it started and goes

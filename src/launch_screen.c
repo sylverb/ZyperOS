@@ -12,8 +12,10 @@
 #include "ctl_channel.h"
 #include "dl_screen.h"
 #include "dlq.h"
+#include "dscache.h"
 #include "dsv.h"
 #include "ingame_screen.h"
+#include "menukeys_screen.h"
 #include "cheats_screen.h"
 #include "hudmenu_screen.h"
 #include "mp4c.h"
@@ -50,6 +52,7 @@
 #include "update_screen.h"
 #include "zyperdraw.h"
 #include "levels.h"
+#include "wdog.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -543,7 +546,12 @@ static bool splore_join(app *a)
 	unsigned until;
 
 	wait_panel(a, T(S_MENU_WIFI), T(S_WIFI_TURNING_ON));
-	if (!wifi_up()) return false;
+	wdog_hold("Wi-Fi");                 /* its waits have no end of their own */
+	if (!wifi_up()) {
+		wdog_release();
+		return false;
+	}
+	wdog_release();
 	wifi_pref_save(true);
 	until = plat_now_ms() + 15000;
 	while (plat_now_ms() < until && a->running) {
@@ -1091,6 +1099,10 @@ static void launch_on(app *a)
 					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%shotkeys=%s",
 					         keys[0] ? "\t" : "", run);
 			}
+			/* Fast Forward's speed, where it is not 2x, Diatom's own */
+			if (hk.ff != def.ff && strlen(keys) + 16 <= sizeof keys)
+				snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%sffspeed=%s",
+				         keys[0] ? "\t" : "", hk_ff_word(hk.ff));
 			{
 				/* The game's part of the name as src/shotname.h has it,
 				 * which the Screenshots shelf reads back */
@@ -1100,6 +1112,18 @@ static void launch_on(app *a)
 					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%sshots=%s",
 					         keys[0] ? "\t" : "", shots);
 			}
+		}
+		/* MENU's chords (src/menukeys.h), which work in a game too: Diatom
+		 * takes the screenshot's button under MENU as SELECT's hotkey does,
+		 * and pauses for the lock (PAUSED for=lock, game_lock). With every
+		 * game, so a key changed in MENU > System > Hotkeys holds at once */
+		{
+			char mk[48];
+
+			mk_run(mk_now(), mk, sizeof mk);
+			if (strlen(keys) + strlen(mk) + 12 <= sizeof keys)
+				snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%smenukeys=%s",
+				         keys[0] ? "\t" : "", mk);
 		}
 		/* The cheats that are on for this game, handed over as it loads
 		 * (src/cheats_screen.h): cheats= on RUN, none for most games */
@@ -1438,9 +1462,11 @@ static void launch_on(app *a)
 					levels_game_paused(true);
 					/* A hotkey's pause (src/hotkeys.h): Quit stops the
 					 * game as MENU then X does, Reset Game asks first;
+					 * MENU's lock chord locks over it (src/menukeys.h);
 					 * MENU's opens the menu */
 					if (!strcmp(why, "quit")) gm_quit();
 					else if (!strcmp(why, "reset")) game_reset_ask(a);
+					else if (!strcmp(why, "lock")) game_lock(a);
 					else if (link_open) game_link_open(a);
 					else game_menu(a);
 					link_open = false;
@@ -1694,6 +1720,20 @@ static void launch_on(app *a)
 	present_ground(a);
 	/* The language its auto state was just written in, if it was */
 	ds_resume_record(st, ds_lang, &ds_before, ds_had);
+	/* The zipped DS games DSperate unpacked beside this one, kept under its
+	 * own frontend's cap, this game's copy kept (src/dscache.h) */
+	if (!strcmp(s->tag, "NDS") && !strcmp(s->core, "dsperate")) {
+		char romdir[CFG_STR * 2], dir[1024], keep[1200];
+		int went = 0;
+		unsigned long long freed;
+
+		if (snprintf(romdir, sizeof romdir, "%s/%s", P_ROMS, s->folder) < (int)sizeof romdir &&
+		    dsc_dir(romdir, romfile, dir, sizeof dir) &&
+		    dsc_image(romdir, romfile, keep, sizeof keep) &&
+		    (freed = dsc_trim(dir, DSC_CAP, keep, &went)) > 0)
+			fprintf(stderr, "dscache: %s: %d unpacked game%s removed, %llu MB given back\n",
+			        dir, went, went == 1 ? "" : "s", freed >> 20);
+	}
 
 	/* The game has just written a fresh autosave preview. Throw the card's
 	 * texture away so it picks that up - but only if the preview is what the

@@ -1,5 +1,5 @@
 CHECKS += check-link-core
-#| the Link Cable on a Game Boy game running on mGBA and a game's own core (DESIGN.md 11.70, Tarik's
+#| the Link Cable on a Game Boy game running on mGBA and a game's own core (DESIGN.md 11.72, Tarik's
 #| decision of 2026-11-27), in desk mode on a card of its own (tools/link-core-check.py): the row on
 #| mgba, A asking Restart on Gambatte with Cancel first and B the same, Restart starting the game
 #| again on gambatte with its page open at once, core.GB.<file> gambatte and the shelf's core
