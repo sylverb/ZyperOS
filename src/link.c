@@ -545,7 +545,10 @@ void link_tick(unsigned now_ms)
 		 * gave can still be on the adapter while the new lease comes */
 		if (r > 0 && !link_same_net(addr, g.host_addr)) r = 0;
 		if (r > 0) {
-			g.sock = g_ops->udp_open(NULL, 0);
+			/* On the port the host answers to (it says welcome and beat
+			 * to the hello's address on LINK_BEAT_PORT), and on this
+			 * end's address alone, as the host's is */
+			g.sock = g_ops->udp_open(addr, LINK_BEAT_PORT);
 			if (g.sock < 0) { fail(LINK_FAIL_NETWORK, "no socket for the beat"); break; }
 			fprintf(stderr, "link: on %s's network as %s\n", g.joining, addr);
 			g.t0 = t;

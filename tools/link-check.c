@@ -480,7 +480,9 @@ static void join_side(void)
 	g_join_addr = "10.42.1.23";
 	run(100);
 	CHECK(link_state_now() == LINK_JOIN_ASKING);
-	CHECK(at("udp * 0") >= 0);
+	/* The joiner's socket where the host's welcome and beats go: the
+	 * hello's address, on 56399 (an ephemeral port heard nothing) */
+	CHECK(at("udp 10.42.1.23 56399") >= 0 && logged("udp * ") == 0);
 	CHECK(at("send 10.42.1.1:56399 ZLINK1\thello\tPixel 2 7F2A\tTetris DX") >= 0);
 	/* Hello again every half second until the host answers */
 	run(1000);
@@ -663,6 +665,7 @@ static void cable(void)
 	run(100);
 	CHECK(link_state_now() == LINK_JOIN_ASKING);
 	CHECK(at("send 10.42.0.1:56399 ZLINK1\thello\tPixel 2 7F2A\tTetris DX") >= 0);
+	CHECK(at("udp 10.42.0.2 56399") >= 0 && logged("udp * ") == 0);
 	arrive(LINK_MSG_WELCOME, "Pixel 2 0C11", "Tetris", "10.42.0.1");
 	run(100);
 	CHECK(link_state_now() == LINK_LINKED);

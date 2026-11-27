@@ -7,16 +7,17 @@ CHECKS += check-link
 #| name, the WPA2 password made from it alone, a typed code read as four digits or refused, and a
 #| wrong one joining nothing; an address as Gambatte's twelve digits, and nothing that is not one;
 #| the fourteen SETOPT lines for the server and the client and the one for off; the datagrams read
-#| back, tabs flattened, anything else none; the host's network before its socket, nothing to
-#| Diatom before a hello, the server's options, the welcome and one notice on it, a beat every half
-#| second, a stranger told busy, six seconds with no beat a lost link (said once, the core's link
-#| off); the joiner's scan again while it is looked at, its join with the typed code, no hello
-#| before an address and one every half second until the welcome, then the client's options; a bye
-#| said as left; each failure (no hotspot, no scan, no join, no answer, busy, Diatom refusing); the
-#| game's end quiet; the beat's socket on 10.42.1.1 alone; the stop's bye twice with nothing to
-#| Diatom; the USB-C cable (the adapter's Wi-Fi before it, no code, no hotspot, the gadget and the
-#| beat on 10.42.0.1, the joiner's port the host and 10.42.0.2, the client's address 10.42.0.1, no
-#| hotspot to lose, each failure); and `src/linknet.c`'s socket on the loopback
+#| back, tabs flattened, anything else none; the host's network before its socket, nothing to Diatom
+#| before a hello, the server's options, the welcome and one notice on it, a beat every half second,
+#| a stranger told busy, six seconds with no beat a lost link (said once, the core's link off); the
+#| joiner's scan again while it is looked at, its join with the typed code, no hello before an
+#| address, its socket on that address and 56399 (where the host answers), and one every half second
+#| until the welcome, then the client's options; a bye said as left; each failure (no hotspot, no
+#| scan, no join, no answer, busy, Diatom refusing); the game's end quiet; the beat's socket on
+#| 10.42.1.1 alone; the stop's bye twice with nothing to Diatom; the USB-C cable (the adapter's
+#| Wi-Fi before it, no code, no hotspot, the gadget and the beat on 10.42.0.1, the joiner's port the
+#| host and 10.42.0.2, the client's address 10.42.0.1, no hotspot to lose, each failure); and
+#| `src/linknet.c`'s socket on the loopback
 
 check-link: build-native/link-check
 	@./build-native/link-check
