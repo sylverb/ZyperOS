@@ -7858,7 +7858,9 @@ code came next; I chose four digits, 2026-11-22, as they are quick to type,
 knowing that someone near who captures the handshake tries the ten thousand
 offline in seconds.)* So the link's network carries nothing else of the
 launcher's. The beat's socket binds the link's own address (10.42.1.1),
-never every address; Gambatte's server listens on every address, as the
+never every address, and the joiner's its own address on the host's network,
+on the same port 56399, where the host answers its hello (an ephemeral port,
+as the first build had it, never heard the welcome); Gambatte's server listens on every address, as the
 core has it. While the link holds the radio (`link_holds_radio`: hosting,
 joined, or scanning), Developer Mode's SSH over Wi-Fi and its zyperos.local
 stop and come back after (`sshlink_facts.link`, `check-sshlink`); a

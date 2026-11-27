@@ -25,8 +25,9 @@
  *   D  the client unloads its game: the server reads 0xFF (a cable out) at
  *      once, with no frame longer than a second
  *
- * Exit 0 when every phase holds. Not in make check: it needs the core built
- * for the computer, which the release does not. */
+ * Exit 0 when every phase holds. make check-gblink runs it once
+ * tools/gblink-core.sh has built the core for the computer (the release
+ * does not), and skips without it. */
 #include <dlfcn.h>
 #include <signal.h>
 #include <stdarg.h>
