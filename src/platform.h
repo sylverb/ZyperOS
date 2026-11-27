@@ -19,8 +19,13 @@
  * device file, src/device/<name>.c, chosen by DEVICE= at build time (the
  * Brick's is brick.c). device.h is the seam between those two halves. */
 
-#define ZYPEROS_SCREEN_W 1024
-#define ZYPEROS_SCREEN_H 768
+/* The canvas every screen is drawn in (src/canvas.h): 768 units high on
+ * every handheld, and as wide as its panel's shape makes it, 1024 on a 4:3
+ * panel, 1368 on a 16:9 one. A run-time width, set from the device's profile
+ * at the start: a screen lays itself out from it, never from a typed 1024. */
+#include "canvas.h"
+#define ZYPEROS_SCREEN_W canvas_w
+#define ZYPEROS_SCREEN_H CANVAS_H
 
 /* THE FORMAT OF EVERY TEXTURE ZYPEROS DRAWS INTO (SDL_TEXTUREACCESS_TARGET):
  * the screen itself on the Pixel 2, the menus' panel pass, the keyboard's and
@@ -264,9 +269,9 @@ bool plat_resident_start_error(plat_start_error *out);
 void plat_resident_on_unlock(void (*fn)(int id));
 
 /* Called from inside plat_resident_wait when Diatom reports its speed step,
- * in halves (2 is 1x, 3 is 1.5x, up to 6, 3x): on every SELECT+R2 and
- * SELECT+L2, and again when a game resumes fast. A callback for the unlock's
- * reason. NULL to stop. */
+ * in halves (2 is 1x, 3 is 1.5x, up to 6, 3x, and 0 for Max): on every
+ * SELECT+R2, SELECT+L2 and Fast Forward, and again when a game resumes fast.
+ * A callback for the unlock's reason. NULL to stop. */
 void plat_resident_on_speed(void (*fn)(int half));
 
 /* Called from inside plat_resident_wait when R2 turned a PSP game's d-pad

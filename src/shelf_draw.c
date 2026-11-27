@@ -1255,6 +1255,9 @@ static void draw_games(app *a)
 		if (!g_home_live) snaprest_touch(&v->vm, now);
 		vi = (vv_info){
 			.heading = head, .title = g ? g->title : NULL,
+			/* The heart as the cover row's: not on Favorites, nor a shot */
+			.favorite = g && !g->folder && !shots && strcmp(s->tag, HOMESYS_FAV) && !is_mp4(s) &&
+			            fav_is(a->sys.systems[owner].tag, g->file),
 			.count = v->list.count, .cursor = v->cursor,
 			.accent = g ? a->sys.systems[owner].accent : s->accent,
 			.played = g_game_page.valid ? g_game_page.played : "",
@@ -1274,7 +1277,6 @@ static void draw_games(app *a)
 			.playing = si.snap && si.snap_k >= 1,
 			.band = g_shot_band,
 			.foot = shots ? sfoot : NULL, .nfoot = snf,
-			.clear = shots,
 		};
 		/* Somebody watching a snap holds the screensaver; a still shot
 		 * does not */
