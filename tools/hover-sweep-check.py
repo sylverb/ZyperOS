@@ -34,7 +34,8 @@ THEME = {("theme", "Accent"), ("theme", "Light Background"), ("theme", "Dark Bac
 # (name, card, shelf, focus, device, settings, extra flags, lists that must show)
 CASES = [
     ("pixel2", "demo", "PS1", True, "pixel2", {}, [],
-     {("menu", "Home Screen"), ("menu", "Battery Icon"), ("night", "Night Mode"), ("menu", "Language"),
+     {("menu", "Appearance"), ("menu", "Home Screen"), ("menu", "Battery Icon"), ("night", "Night Mode"),
+      ("menu", "Language"),
       ("menu", "UI Sounds"), ("menu", "Audio Channels"),
       ("screen", "Look"), ("system", "Sort By"), ("system", "View"), ("datetime", "Time Zone"),
       ("music", "Volume"), ("music", "Track"),

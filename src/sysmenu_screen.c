@@ -73,6 +73,7 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 
 /* Developer (SSH) is offered on a development image (dropbear at boot) and
@@ -603,6 +604,31 @@ static void home_undo(void *app_, int kept)
 
 static const ds_hover PM_HOME_HOVER = { .show = home_show, .undo = home_undo };
 
+/* Appearance's list: the theme Light, Dark or Auto gives now on the whole
+ * screen, Auto's by Night Mode's hours at this minute, in memory
+ * (theme_show: no setting and no theme file); the setting's back on undo.
+ * The screen is drawn again only where the theme changes: Auto by day is
+ * Light. */
+static void appear_show(void *app_, int k)
+{
+	int was = theme_index();
+
+	if (k < 0 || k >= APPEARANCES) return;
+	theme_show(theme_saved_at(appearance_id((appearance)k), time(NULL)));
+	if (theme_index() != was) theme_changed(app_);
+}
+
+static void appear_undo(void *app_, int kept)
+{
+	int was = theme_index();
+
+	(void)kept;
+	theme_show(-1);
+	if (theme_index() != was) theme_changed(app_);
+}
+
+static const ds_hover PM_APPEAR_HOVER = { .show = appear_show, .undo = appear_undo };
+
 /* Shelf `sys` in order `sort`, saved with `keep` or only shown (Sort By's
  * list's cursor). The cursor follows the GAME, not its index. Re-sorting
  * under a cursor left where it sat means closing the menu onto a different
@@ -977,6 +1003,7 @@ static void menu_choices(app *a, int sys, bool games)
 		anotes[APPEAR_AUTO] = T(S_THEME_AUTO_NOTE);
 		g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], APPEARANCES, (int)theme_appearance(), false);
 		g_pm_choice[PM_APPEARANCE].notes = anotes;
+		g_pm_choice[PM_APPEARANCE].hover = &PM_APPEAR_HOVER;
 	}
 	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);

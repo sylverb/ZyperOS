@@ -1215,7 +1215,8 @@ Video Snaps, Menu Music:
   it; B, MENU or POWER put back what is kept, and nothing is saved until A.
   The tick stays on the kept choice, and the list's width with it. Four
   kinds, by what the choice changes:
-  - *On the whole screen*: Accent, Light and Dark Background, Folder Color
+  - *On the whole screen*: Appearance (the theme Light, Dark or Auto gives
+    now), Accent, Light and Dark Background, Folder Color
     and Highlight (Theme; a ground of the theme that is not on shows that
     theme while its list is open), MENU's Shader and Strength, Home Screen and Battery Icon (the shelf behind the list, the
     corner's battery), Night Mode and Night Warmth (the warmth that choice
