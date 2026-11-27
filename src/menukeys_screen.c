@@ -272,15 +272,19 @@ void mk_overlay(SDL_Renderer *r)
 
 /* ---- the lock -------------------------------------------------------------- */
 
-void mk_lock(app *a)
+/* Locked until opened: false then, true when Auto Off came instead, which
+ * on the shelf turns the handheld off here and over a game (`game`) is the
+ * caller's, which stops the game first */
+static bool lock_run(app *a, bool game)
 {
 	mp4lock l = { 0 };
+	bool idle = false;
 	bool dark = false, panel_was = false;
 	int drawn_k = -1;
 	Uint32 osd_due = UINT32_MAX;
 
 	g_locked = true;
-	fprintf(stderr, "lock: locked (MENU's chord)\n");
+	fprintf(stderr, "lock: locked (MENU's chord%s)\n", game ? ", over a game" : "");
 	l.hold_ms = g_mk.hold_ms;
 	mp4lock_engage(&l, plat_now_ms(), a->in.down[MP4_UNLOCK_A] && a->in.down[MP4_UNLOCK_B]);
 	plat_input_flush();
@@ -296,7 +300,8 @@ void mk_lock(app *a)
 		if (idle_due(a)) {
 			plat_backlight_dim(false);
 			plat_backlight(true);
-			power_off(a);
+			idle = true;
+			if (!game) power_off(a);
 			break;
 		}
 		if (mp4lock_step(&l, plat_now_ms(), a->in.down, a->in.pressed)) break;
@@ -338,6 +343,17 @@ void mk_lock(app *a)
 	g_locked = false;
 	g_unlocks++;
 	redraw_now();
+	return idle;
+}
+
+void mk_lock(app *a)
+{
+	(void)lock_run(a, false);
+}
+
+bool mk_lock_game(app *a)
+{
+	return lock_run(a, true);
 }
 
 void mk_lock_shot(app *a, float k)

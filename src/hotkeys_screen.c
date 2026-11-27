@@ -184,7 +184,7 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 	}
 	ROW(HKR_RESET, ((menu_row){ T(S_HOTKEYS_RESET_ALL), NULL, own }), 0u, own ? 0 : MENU_SND_NO_A);
 	if (p->s) ROW(HKR_ALL, ((menu_row){ T(S_HOTKEYS_ALL_CONTROLS), NULL, true }), 0u, 0);
-	/* MENU held with a button, on every screen outside a game (2026-11-22):
+	/* MENU held with a button, on every screen and in a game (2026-11-22):
 	 * a screenshot, the lock, and how long SELECT+START is held to open it.
 	 * The launcher's own, so only on MENU > System's list, not a game's */
 	if (!p->s) {

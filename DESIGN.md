@@ -7296,15 +7296,32 @@ with no folder) is neither felt nor heard.
 
 **MENU and a button, on every screen** *(2026-11-22: "Ability to screenshot
 on all screens, maybe menu+l1 (add to tutorial)", "Ability to lock device
-on all screens, maybe menu+l2 (add to tutorial)")*. Outside a game, MENU
+on all screens, maybe menu+l2 (add to tutorial)")*. On every screen, MENU
 held and L1 pressed saves the screen; MENU held and L2 pressed locks the
 handheld (src/menukeys.h). MENU opens on its release on both handhelds, as
 the Pixel 2's FUNCTION always has (it is the brightness chord's too) and as
 MENU does in a game, so a button pressed under it is MENU's chord and MENU
 then opens nothing; only the two chords' buttons are taken, every other
 press under MENU goes through as it did. Never START (MENU+START held is
-Home), SELECT, the d-pad or a volume key. In a game nothing changes: MENU is
-Diatom's, and the screenshot is SELECT and a button, above.
+Home), SELECT, the d-pad or a volume key.
+
+**In a game too** *(the Pixel 2 test of 1.1.1-test.3: "why do Screenshot
+and Lock Screen work everywhere but in a game?")*. MENU is Diatom's there,
+and opens the in-game menu as it is let go, so the rule is the same: RUN
+says MENU's two chords with every game (`menukeys=shot:l1,lock:l2`, the
+keys in force), and Diatom judges them at the core's polls beside SELECT's
+(diatom/src/chord.h, `mchord`). The chord's button is never the game's,
+from its press until it is let go, and MENU then opens nothing; every other
+button under MENU is the game's, as it was (in a DS game MENU+L1 was the
+DS's L and is the screenshot now). MENU+L1 is a game's screenshot, the
+game's own frame with the shutter, the buzz and the notice, as SELECT's
+Screenshot hotkey takes it (below); it needs no SELECT hotkey set. MENU+L2
+pauses the game as MENU does (`PAUSED for=lock`) and the launcher locks the
+handheld over it, as on any screen, then the game goes on where it was;
+Auto Off while it is locked stops the game as POWER over its menu does. A
+Diatom or a launcher from before sends or reads none of it, and MENU's
+buttons stay the game's. Over your PICO-8 and the ports nothing changes
+yet: their keys are portkeys'.
 
 - **The screenshot** is the frame as it was drawn, before the volume bar
   over it, 1024 x 768, read back as it is presented and written off the

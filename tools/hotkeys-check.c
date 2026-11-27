@@ -134,6 +134,17 @@ static void menukeys(void)
 	mk_store(&t, s, sizeof s);
 	ck(!strcmp(s, "1;shot:l2,lock:l1,hold:500") && mk_load(s, &back) && back.hold_ms == 500,
 	   "half a second is kept and read back");
+	{
+		mk_table d;
+		char r[48];
+
+		mk_default(&d);
+		mk_run(&d, r, sizeof r);
+		ck(!strcmp(r, "shot:l1,lock:l2"), "RUN menukeys= for a game: MENU's own, shot:l1,lock:l2");
+		mk_swap(&d, MK_SHOT, HK_R2);
+		mk_run(&d, r, sizeof r);
+		ck(!strcmp(r, "shot:r2,lock:l2"), "and the keys in force");
+	}
 	mk_secs(500, false, c, sizeof c);
 	{
 		char d[24], e[24];

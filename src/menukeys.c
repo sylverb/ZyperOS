@@ -121,6 +121,12 @@ bool mk_load(const char *stored, mk_table *out)
 	return true;
 }
 
+void mk_run(const mk_table *t, char *out, size_t n)
+{
+	if (!n) return;
+	snprintf(out, n, "shot:%s,lock:%s", hk_key_map(t->key[MK_SHOT]), hk_key_map(t->key[MK_LOCK]));
+}
+
 void mk_secs(unsigned ms, bool comma, char *out, size_t n)
 {
 	if (!n) return;

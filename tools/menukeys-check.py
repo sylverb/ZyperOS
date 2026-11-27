@@ -14,7 +14,9 @@ past it unlocks. MENU > System > Hotkeys' footer says what the row under
 the cursor is; MENU's capture keeps MENU's glyph as its screen leaves;
 Hold to Unlock at 0.5 s opens the lock in less than a second. And the
 tutorial, pressed through to its lock lessons: MENU+L2 locks only the stage,
-SELECT+START held opens it, and Music takes SELECT alone.
+SELECT+START held opens it, and Music takes SELECT alone. And in a game:
+RUN carries menukeys= to Diatom, and its PAUSED for=lock locks the
+handheld over the paused game until SELECT+START opens it (RESUME).
 build-native/zyperos must be built (make native)."""
 import json
 import os
@@ -171,6 +173,124 @@ def tour(tmp, env):
         log.close()
         if sock.exists():
             sock.unlink()
+        if fails:
+            print(logfile.read_text()[-2000:])
+
+
+def in_game(tmp):
+    """MENU's lock chord in a game, the launcher's half (Diatom's own is its
+    test/hotkeys.py): RUN carries menukeys= with every game, and PAUSED
+    for=lock from Diatom locks the handheld over the paused game, SELECT+
+    START held opens it and the game goes on (RESUME). The real launcher in
+    desk mode with a Diatom of the check's own on the resident's socket, as
+    check-ingame-colors runs it: a game a power-off left running, so the
+    start goes straight back into it with the menu up."""
+    import importlib.machinery
+    import threading
+
+    def module(name, path):
+        loader = importlib.machinery.SourceFileLoader(name, str(path))
+        spec = importlib.util.spec_from_loader(name, loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        return mod
+
+    import importlib.util
+    gm = module('ingame_colors', ROOT / 'tools/ingame-colors-check.py')
+    desk = module('desk', ROOT / 'tools/desk')
+    rs = module('readme_shots', ROOT / 'tools/readme-shots.py')
+
+    class Diatom(gm.Diatom):
+        """And a line of its own to the launcher, as a hotkey's pause is"""
+        def __init__(self, path):
+            self.conns = []
+            super().__init__(path)
+
+        def talk(self, c):
+            self.conns.append(c)
+            super().talk(c)
+
+        def push(self, line):
+            for c in list(self.conns):
+                try:
+                    c.sendall((line + '\n').encode())
+                except OSError:
+                    pass
+
+    card = tmp / 'game-card'
+    rs.demo_card(card, None, {'artwork': {}})
+    desk.card_sounds(card)
+    subprocess.run([str(BINARY), '--set', 'tour.done=1'], env=desk.card_env(card, None), check=True,
+                   stdout=subprocess.DEVNULL)
+    gm.game_left_running(card)
+    sock = Path(tempfile.gettempdir()) / f'zyperos-mkcheck-game-{os.getpid()}.sock'
+    dsock = Path(tempfile.gettempdir()) / f'zyperos-mkcheck-game-{os.getpid()}-d.sock'
+    for f in (sock, dsock):
+        if f.exists():
+            f.unlink()
+    (tmp / 'game-flags').mkdir(exist_ok=True)
+    env = desk.card_env(card, None)
+    env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', ZYPEROS_DESK_FORCE='1',
+               ZYPEROS_DESK_SOCK=str(sock), ZYPEROS_FLAG_DIR=str(tmp / 'game-flags'),
+               ZYPEROS_CTL_DIR=str(tmp / 'game-ctl'), ZYPEROS_DIATOM_SOCKET=str(dsock),
+               ZYPEROS_DIATOM_PIDFILE=str(tmp / 'game-diatom.pid'))
+    env.pop('ZYPEROS_HEADLESS', None)
+    diatom = Diatom(dsock)
+    logfile = tmp / 'game.log'
+    log = open(logfile, 'w')
+    p = subprocess.Popen([str(BINARY), '--device', 'pixel2'], env=env, stdout=log, stderr=subprocess.STDOUT)
+    try:
+        for _ in range(200):
+            if (sock.exists() and 'PAUSE' in diatom.words()) or p.poll() is not None:
+                break
+            time.sleep(0.05)
+        check(sock.exists() and 'PAUSE' in diatom.words(), 'a game: the start goes back into it, the menu up')
+        if not sock.exists():
+            return
+        run = [l for l in diatom.lines if l.startswith('RUN\t')]
+        check(run and '\tmenukeys=shot:l1,lock:l2' in run[-1],
+              f'RUN carries MENU\'s chords to Diatom: menukeys=shot:l1,lock:l2 ({run[-1][:60] if run else None}...)')
+        ask(sock, 'wait-frames 8', timeout=30)
+        ask(sock, 'tap b 40')
+        resumed = until(lambda: diatom.words().count('RESUME'), lambda n: n >= 1, 5.0)
+        check(resumed >= 1, 'B closes the menu, the game goes on')
+        time.sleep(0.3)
+        diatom.push('PAUSED\tfor=lock')
+        locked = until(lambda: "lock: locked (MENU's chord, over a game)" in logfile.read_text(), lambda x: x, 5.0)
+        check(locked, 'PAUSED for=lock: the handheld locks over the paused game')
+        time.sleep(0.5)
+        ask(sock, 'press select+start')
+        time.sleep(1.0)
+        ask(sock, 'release select+start')
+        time.sleep(0.4)
+        check(diatom.words().count('RESUME') == 1 and 'lock: unlocked' not in logfile.read_text(),
+              'SELECT+START held 1 s: still locked, the game still paused')
+        ask(sock, 'press select+start')
+        time.sleep(2.6)
+        # once the game goes on the launcher waits on it, and desk mode's
+        # socket with it: the let-go is not answered
+        try:
+            ask(sock, 'release select+start', timeout=2)
+        except OSError:
+            pass
+        back = until(lambda: diatom.words().count('RESUME'), lambda n: n >= 2, 5.0)
+        check('lock: unlocked' in logfile.read_text() and back >= 2,
+              'held past Hold to Unlock: open, and the game goes on (RESUME)')
+        check(diatom.words().count('STOP') == 0, 'and the game was never stopped')
+    finally:
+        try:
+            ask(sock, 'quit', timeout=2)
+            p.wait(timeout=10)
+        except Exception:
+            pass
+        if p.poll() is None:
+            p.kill()
+            p.wait()
+        log.close()
+        diatom.close()
+        for f in (sock, dsock):
+            if f.exists():
+                f.unlink()
         if fails:
             print(logfile.read_text()[-2000:])
 
@@ -417,6 +537,8 @@ def main():
             print(logfile.read_text()[-3000:])
         else:
             tour(tmp, env)
+        if not fails:
+            in_game(tmp)
         shutil.rmtree(tmp, ignore_errors=True)
     print(f'menukeys: {"all passed" if not fails else f"{len(fails)} failed"}')
     return 1 if fails else 0

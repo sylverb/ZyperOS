@@ -38,6 +38,10 @@ in_button mk_in_of(int key);
  * any screen. The screen dark, MP4's lock's rules (src/mp4lock.h) and its
  * panel: a press shows how to open it, the volume keys get through. */
 void mk_lock(app *a);
+/* The same over a game Diatom paused for it (PAUSED for=lock): true when
+ * Auto Off came while it was locked, for the caller to stop the game and
+ * turn the handheld off as its menu does; false once it is opened */
+bool mk_lock_game(app *a);
 /* How many times the lock has been opened again since the start */
 unsigned mk_unlocks(void);
 /* While the tutorial runs: the lock's chord locks nothing, and is counted

@@ -18,8 +18,10 @@
  * chord, and MENU then opens nothing. Only the buttons these take are
  * chords: the rest go through as they always did.
  *
- * Not in a game: there MENU is Diatom's, and SELECT and a button are the
- * game's hotkeys (src/hotkeys.h), the screenshot among them. Never START,
+ * In a game too: there MENU is Diatom's, and RUN menukeys= gives it these
+ * two (mk_run; its chord.h's mchord), the screenshot the game's frame as
+ * SELECT's hotkey takes it, the lock a pause (PAUSED for=lock) the launcher
+ * locks over (game_lock). Never START,
  * which is Home with MENU (MENU+START held, tools/zyhome.c), nor SELECT,
  * the d-pad or a volume key (MENU+volume is the Pixel 2's brightness). The
  * buttons are src/hotkeys.h's, by the same names. */
@@ -64,6 +66,10 @@ bool mk_load(const char *stored, mk_table *out);
 /* A hold's seconds as the pages write them: "0.5", "2"; with `comma` the
  * decimal comma ("0,5") of the languages that write one */
 void mk_secs(unsigned ms, bool comma, char *out, size_t n);
+
+/* What RUN says to Diatom for a game (menukeys=, its chord.h's mchord):
+ * "shot:l1,lock:l2", the keys in force, so they work in a game too */
+void mk_run(const mk_table *t, char *out, size_t n);
 
 /* "MENU+L1", the action's chord as the pages write it */
 void mk_chord(const mk_table *t, mk_act a, char *out, size_t n);
