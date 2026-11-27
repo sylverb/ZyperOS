@@ -94,9 +94,15 @@
 #define LINK_BEAT_MS     500
 #define LINK_LOST_MS     6000
 
-/* Offered for a game on `core`, on a device with the hotspot it is built on
- * (`device`: plat_player2, the Pixel 2 with a Wi-Fi adapter's hostapd) */
-bool link_offered(const char *core, bool device);
+/* Offered for a game of a system whose cores (`cores`, systems.cfg's comma
+ * list: the Game Boy's and the Game Boy Color's "mgba,gambatte") have
+ * Gambatte, whichever of them the game runs on, on a device with the
+ * hotspot it is built on (`device`: plat_player2, the Pixel 2). Tarik's
+ * decision of 2026-11-27: the row on mGBA too, which asks to restart the
+ * game on Gambatte (CQ_LINK_GAMBATTE) before the page. */
+bool link_offered(const char *cores, bool device);
+/* The game runs on the link's core already: the page opens at once */
+bool link_on_core(const char *core);
 
 /* ---- the pure parts, for the check --------------------------------------- */
 

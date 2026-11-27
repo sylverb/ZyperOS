@@ -188,6 +188,13 @@ static void offered(void)
 	CHECK(!link_offered("gambatte", false));
 	CHECK(!link_offered("mgba", true));
 	CHECK(!link_offered(NULL, true));
+	/* The Game Boy's and the Game Boy Color's shelves offer it whichever
+	 * core the game runs on (2026-11-27); a shelf without Gambatte never */
+	CHECK(link_offered("mgba,gambatte", true));
+	CHECK(link_offered("gambatte, mgba", true));
+	CHECK(!link_offered("mgba,gambatte_x", true) && !link_offered("mgba,sameboy", true));
+	CHECK(!link_offered("mgba,gambatte", false));
+	CHECK(link_on_core("gambatte") && !link_on_core("mgba") && !link_on_core(NULL));
 }
 
 static void names(void)

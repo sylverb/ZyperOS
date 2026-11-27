@@ -68,8 +68,9 @@ sites = {
     # port that could not start; Splore with no network joined; a game whose
     # own file is empty or cut short (src/gamefile.h), a zip packed with a
     # method Diatom cannot read, a disc whose firmware is missing or the wrong
-    # size, and a core that would not load (src/startfail.h)
-    "launch_port_core": (0, 2), "splore_open": (0, 1), "launch": (0, 4),
+    # size, and a core that would not load (src/startfail.h); launch_on is
+    # launch's body, launch the game's own core around it
+    "launch_port_core": (0, 2), "splore_open": (0, 1), "launch_on": (0, 4),
 }
 for name, counts in sites.items():
     body = function(name)

@@ -138,7 +138,7 @@ def start_diatom(card, env, tmp):
     """The resident emulator as tools/desk's start_diatom starts it, from
     diatom/build/gblink and with its files in `tmp`, so a desk window of
     Tarik's and its card are never touched"""
-    binary = ROOT / "diatom/build/gblink/diatom"
+    binary = Path(os.environ.get("GBLINK_DIATOM") or ROOT / "diatom/build/gblink/diatom")
     cores = tmp / "cores"
     for link, to in ((card / "ZyperOS/diatom", binary), (card / "ZyperOS/cores", cores)):
         if link.is_symlink() or link.exists(): link.unlink()

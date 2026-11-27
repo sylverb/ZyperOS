@@ -159,6 +159,9 @@ typedef struct {
 	 * Game Boys', the N64's, the Dreamcast's): a fact, so a person asking
 	 * for help can say which ran; "" for a shelf of one core */
 	char  core[64];
+	/* ...and steppable (core_game_step): its shelf offers more than one
+	 * core here, so the game can have one of its own (2026-11-27) */
+	bool  core_live;
 	/* The game's file on the card (lib_file_shown), with the brackets its
 	 * title leaves out, "(USA) (Rev 1)", "(Disc 2)", by which one copy is
 	 * told from another (DESIGN.md 11.69); "" for an entry that is no file

@@ -3,6 +3,8 @@
 
 #include "aout_route.h"
 #include "app.h"
+#include "ctl_channel.h"
+#include "platform.h"
 #include "fileio.h"
 #include "hotspot.h"
 #include "ingame_screen.h"
@@ -283,7 +285,7 @@ static const char *tiles_line(const link_view *v)
 static int tiles_rows(const link_view *v, menu_row *rows, link_bufs *b)
 {
 	key_hint hh[3] = { { KEYHINT_LEFT_RIGHT, T(S_KEYHINT_MOVE) }, { "A", T(S_KEYHINT_CHOOSE) },
-	                   { "B", T(S_KEYHINT_CLOSE) } };
+	                   { "B", T(S_KEYHINT_CLOSE_TILES) } };
 
 	keyhints_pack(hh, 3, b->legend, sizeof b->legend);
 	rows[0] = (menu_row){ T(S_LINK_HOST), T(S_LINK_HOST_LINE), true };
@@ -606,6 +608,53 @@ bool link_page(app *a, SDL_Texture *bg)
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
 	return linked;
+}
+
+/* ---- on mGBA: the game again on Gambatte ----------------------------------
+ *
+ * Tarik's decision (2026-11-27): the row shows on a Game Boy or Game Boy
+ * Color game whichever core it runs on; on mGBA it asks first
+ * (CQ_LINK_GAMBATTE), and its yes gives this game Gambatte as its own core
+ * (core_game_set: the shelf and its other games stay as they are, and the
+ * Core row on its details page changes it back), stops the game and opens
+ * it again on Gambatte,
+ * from the shelf's turn as px2-open's open after a quit is (ctl_open_after),
+ * and the Link Cable page opens over it at once (link_page_next_take). */
+static bool g_page_next;
+static char g_page_file[LIB_PATH];
+
+bool link_page_next_take(const char *file)
+{
+	bool v = g_page_next && file && !strcmp(file, g_page_file);
+
+	g_page_next = false;
+	return v;
+}
+
+bool link_restart_on_core(app *a)
+{
+	sysview *sv = &a->view[a->sys_cursor];
+	system_cfg *s;
+	char rom[LIB_PATH * 2];
+	int o;
+
+	if (sv->list.count <= 0 || sv->cursor < 0 || sv->cursor >= sv->list.count) return false;
+	o = shelf_owner(a, a->sys_cursor, sv->cursor);
+	if (o < 0) return false;
+	s = &a->sys.systems[o];
+	if (!core_ready(s, LINK_CORE)) return false;
+	snprintf(rom, sizeof rom, "%s/%s/%s", P_ROMS, s->folder, sv->list.items[sv->cursor].file);
+	/* This game's own core from now on (Tarik's pick, 2026-11-27): the
+	 * shelf and its other games stay as they are; the game's details page
+	 * steps it back (its Core row) */
+	core_game_set(s, sv->list.items[sv->cursor].file, LINK_CORE);
+	fprintf(stderr, "link: %s now runs on %s, starting again on it\n", sv->list.items[sv->cursor].file,
+	        LINK_CORE);
+	ctl_open_after(rom, LINK_CORE);
+	snprintf(g_page_file, sizeof g_page_file, "%s", sv->list.items[sv->cursor].file);
+	g_page_next = true;
+	plat_resident_line("STOP");
+	return true;
 }
 
 void link_game_end(app *a)

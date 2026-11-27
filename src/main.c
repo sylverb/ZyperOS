@@ -744,6 +744,63 @@ void core_load(app *a)
 	for (i = 0; i < sys_kept(a); i++) dmode_settle(a, i);
 }
 
+/* ---------- a game's own core (2026-11-27) -------------------------------
+ *
+ * Tarik's decision with the Link Cable: a game can run on a core of its own
+ * among its shelf's, over the shelf's Core row. Kept as core.<TAG>.<file>
+ * (as a game's own buttons are map.<tag>.<file>); none, the shelf's choice.
+ * The Link Cable's question on mGBA sets it to Gambatte for that game
+ * alone; its details page's Core row steps it, Shelf's Choice first. */
+static void core_game_key(const system_cfg *s, const char *file, char *key, size_t n)
+{
+	snprintf(key, n, "core.%s.%s", s->tag, file);
+}
+
+bool core_game_get(const system_cfg *s, const char *file, char *out, int cap)
+{
+	char key[CFG_STR + LIB_PATH + 16], name[CFG_STR], alt[CFG_STR];
+	int k, n = cfg_core_count(s);
+
+	if (!file || !*file || n < 2) return false;
+	core_game_key(s, file, key, sizeof key);
+	if (!db_get_str(db_dev(), key, name, sizeof name, NULL) || !name[0]) return false;
+	/* Only one its shelf still offers, and on the card */
+	for (k = 0; k < n; k++)
+		if (cfg_core_at(s, k, alt, sizeof alt) && !strcmp(alt, name) && core_ready(s, alt)) {
+			snprintf(out, (size_t)cap, "%s", alt);
+			return true;
+		}
+	return false;
+}
+
+void core_game_set(const system_cfg *s, const char *file, const char *core)
+{
+	char key[CFG_STR + LIB_PATH + 16];
+
+	core_game_key(s, file, key, sizeof key);
+	if (core && *core) db_set_str(db_dev(), key, core);
+	else db_del(db_dev(), key);
+	fprintf(stderr, "core: %s/%s %s%s\n", s->folder, file, core && *core ? "runs on " : "goes by its shelf",
+	        core && *core ? core : "");
+}
+
+/* The game's Core row stepped: Shelf's Choice, then each core the shelf
+ * offers, round; what it is now into `out` ("" for the shelf's) */
+void core_game_step(const system_cfg *s, const char *file, int d, char *out, int cap)
+{
+	char cur[CFG_STR] = "", alt[CFG_STR];
+	int n = core_offered_count(s), k, at = 0;
+
+	if (n < 2) { if (cap) out[0] = '\0'; return; }
+	core_game_get(s, file, cur, sizeof cur);
+	for (k = 0; k < n; k++)
+		if (cur[0] && core_offered_at(s, k, alt, sizeof alt) && !strcmp(alt, cur)) at = k + 1;
+	at = (at + d + n + 1) % (n + 1);
+	if (at == 0 || !core_offered_at(s, at - 1, alt, sizeof alt)) alt[0] = '\0';
+	core_game_set(s, file, alt);
+	snprintf(out, (size_t)cap, "%s", alt);
+}
+
 /* The next core the shelf's Core row offers, or the previous one. */
 void core_step(app *a, int sys, int d)
 {

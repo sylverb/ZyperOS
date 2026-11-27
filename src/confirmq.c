@@ -87,6 +87,10 @@ static const cq_def CQ[CQ_COUNT] = {
 	                       S_DOWNLOADS_DELETE_CHEATS_BODY, CANCEL, DEL, CQ_LOSES },
 	/* Tarik's, after the lab (2026-11-23): Bluetooth's Forget asks, as Wi-Fi's does */
 	[CQ_BT_FORGET] = { "bt-forget", S_BT_FORGET_HEADING, S_BT_FORGET_ASK, NONE, CANCEL, S_BT_FORGET, CQ_LOSES },
+	/* Tarik's decision, 2026-11-27: the link is Gambatte's, so on mGBA the
+	 * game starts again on it; play since its last save is lost */
+	[CQ_LINK_GAMBATTE] = { "link-gambatte", S_LINK_GAMBATTE_HEADING, S_LINK_GAMBATTE_ASK,
+	                       S_LINK_GAMBATTE_LOST, CANCEL, S_LINK_GAMBATTE_YES, CQ_LOSES },
 };
 
 const cq_def *cq_of(cq_id q)

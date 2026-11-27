@@ -58,4 +58,13 @@ void link_setup(void);
  * holds, as on the charger. False on a handheld. */
 bool link_desk_holds_idle(void);
 
+/* On mGBA, the question's yes (CQ_LINK_GAMBATTE): Gambatte the game's own
+ * core (core_game_set), the game stopped and opened again on Gambatte from the
+ * shelf's turn, and the page owed over it (link_page_next_take). False,
+ * and nothing done, with no game or no Gambatte on the card. */
+bool link_restart_on_core(app *a);
+/* The page is owed over `file`, the game starting now (asked once: the
+ * next start forgets it either way) */
+bool link_page_next_take(const char *file);
+
 #endif

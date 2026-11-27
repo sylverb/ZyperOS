@@ -1452,3 +1452,14 @@ fr = Petite
 de = Klein
 ja = 小
 it = Piccola
+
+[gamemenu.core_shelf]
+note = The value of a game's Core row on its details page (X on a game) when the game has no core of its own and runs on its shelf's (MENU > the shelf's Core row): %s is the core's name ("mgba"), never translated. Left, Right or A on the row gives the game a core of its own (2026-11-27). Short: a row's value.
+en = %s (Shelf's)
+zh-Hans = %s（游戏架）
+es = %s (del estante)
+pt-BR = %s (da estante)
+fr = %s (de l'étagère)
+de = %s (des Regals)
+ja = %s（棚の設定）
+it = %s (dello scaffale)

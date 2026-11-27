@@ -1291,7 +1291,7 @@ always more.
 **A question with two answers** *(my picks in the confirm panels lab,
 2026-11-22, `~/Documents/ZyperOS/labs/confirm-panels-lab.html`: "Our UI has
 to be flawless and consistent")*. Every question the launcher asks with two
-answers is one panel, 39 of them in one table (`src/confirmq.h`): Delete
+answers is one panel, 40 of them in one table (`src/confirmq.h`): Delete
 Game, Wi-Fi's and Bluetooth's Forget, Storage's, Downloads', Reset, the USB
 offer. A
 question with three answers or more stays as it is (11.18, 11.36).
@@ -7797,9 +7797,33 @@ network Game Link carries it; the handhelds reach each other on the host's
 own Wi-Fi, made as Player 2's is (11.43). Each needs a Wi-Fi adapter in.
 
 **The row.** The in-game menu's Game tab has **Link Cable** after Quick
-Slot (Player 2's place, which a Game Boy game never has) for a game on
-Gambatte, the Game Boy shelves' second core (11.62): mGBA has no network
-link, so on mGBA there is no row. Its value is Off, Waiting (this one hosts
+Slot (Player 2's place, which a Game Boy game never has) on a Game Boy or
+Game Boy Color game, whichever of the shelf's two cores it runs on, with
+Gambatte on the card. *(My decision, 2026-11-27: the row on mGBA too. It
+had no row there, as mGBA has no network link, and nobody would find the
+feature on the shelves' default core.)* On Gambatte, the Game Boy shelves'
+second core (11.62), A opens the page. On mGBA, A asks first, in the
+question with two answers (11.3): **Restart on Gambatte**, "Restart this
+game on Gambatte for the Link Cable? Its own save carries over; play
+since it is lost. It stays on Gambatte (Core, in its details).", Cancel
+on the left with the cursor on it and B giving it, **Restart** in
+**warning** (it loses play since the game's last own save: save states
+are each core's). Restart makes Gambatte this game's own core, stops the
+game and starts it again on Gambatte (from the shelf's turn, as
+px2-open's open after a quit), and the Link Cable page opens over it at
+once. The battery save is the same file for both cores.
+
+**A game's own core** (2026-11-27, with the row above). A game can run on
+a core of its own among its shelf's, over the shelf's Core row:
+`core.<TAG>.<file>` in the handheld's database (as a game's own buttons
+are `map.<tag>.<file>`), used by every start of it (A on it, Favorites,
+Recents, px2-open's open without core=), one the shelf no longer offers
+or the card lacks ignored. Its details page (X on the game) has the
+**Core** row it always had on a shelf of two cores, now stepped by Left,
+Right or A: the shelf's, said as the shelf's ("mgba (Shelf's)"), then each
+core the shelf offers, round, kept at once; the shelf's removes the key.
+The shelf's Core row and its other games stay as they were. Only the
+Link Cable's question sets it from a game. Its value is Off, Waiting (this one hosts
 and the other has not joined), Linked, or Lost (the other one went). With no
 adapter in, the row is quiet and says Needs Wi-Fi (12's one name for no
 network). The Pixel 2 only (`plat_player2`, the hotspot it is built on).
@@ -7957,6 +7981,13 @@ Gambatte cores built for a computer over the loopback and holds the core's
 side: bytes that cross whole both ways, a peer stopped for 13 s costing the
 other one frame of ten seconds and no more, the link back by itself, and an
 unloaded game freeing the other at once.
+
+On mGBA: `ask-link-gambatte` (the question), `gamemenu-link-mgba` (the
+row), `info-core-shelf` and `info-core-own` (the details page's Core row),
+light and dark; `check-link-core` drives it in desk mode (the question,
+Cancel, Restart, the page at once, the other games on mgba, the row back to
+the shelf's). The page's foot is "Move", "Choose" and "Close", a question's
+capitals (`keyhint.close_tiles`; a panel's foot keeps "close").
 
 Host shots: `link-tiles`, `link-starting`, `link-waiting`, `link-looking`,
 `link-found`, `link-joining`, `link-linked`, `link-lost`, `link-failed` and

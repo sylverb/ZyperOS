@@ -42,9 +42,11 @@ int gi_rows(menu_row *out, const game_info *gi, bool net)
 		out[n++] = (menu_row){ T(S_GAMEMENU_YEAR),  gi->year,  false };
 	if (gi->scraped && gi->genre[0])
 		out[n++] = (menu_row){ T(S_GAMEMENU_GENRE), gi->genre, false };
-	/* The core, a fact, where the shelf offers more than one (1.0.7) */
+	/* The core, where the shelf offers more than one (1.0.7): the game's
+	 * own, or the shelf's said as the shelf's, stepped here since
+	 * 2026-11-27 (Left, Right or A: the shelf's, then each core) */
 	if (gi->core[0])
-		out[n++] = (menu_row){ T(S_SYSMENU_CORE), gi->core, false };
+		out[n++] = (menu_row){ T(S_SYSMENU_CORE), gi->core, gi->core_live };
 	/* The file, brackets and all, the last fact (DESIGN.md 11.69): the
 	 * shelf's title stops at the first bracket, and the brackets are how
 	 * one copy is told from another - "(USA)" from "(Europe)", "(Rev 1)",

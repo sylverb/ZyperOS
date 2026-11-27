@@ -671,10 +671,13 @@ void gm_gather(app *a, gm_ui *out)
 			u.player2 = true;
 			u.player2_value = gm_player2_value(p2_row_state());
 		}
-		/* The Game Boy's Link Cable, on Gambatte on a device with the
-		 * hotspot it is built on; quiet with no adapter in (a shot draws
-		 * it on the host) */
-		if (link_offered(q->core, plat_player2() || g_shot_link)) {
+		/* The Game Boy's Link Cable, on a shelf with Gambatte, on either
+		 * of its cores (on mGBA it asks to start again on Gambatte, Tarik's
+		 * decision of 2026-11-27), with Gambatte on the card, on a device
+		 * with the hotspot it is built on; quiet with no adapter in (a shot
+		 * draws it on the host) */
+		if (link_offered(q->cores[0] ? q->cores : q->core, plat_player2() || g_shot_link) &&
+		    (g_shot_link || core_ready(q, LINK_CORE))) {
 			u.link = true;
 			u.link_value = gm_link_value(link_row_state());
 			u.link_quiet = !link_row_adapter();
@@ -2444,12 +2447,29 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		player2_page(a, c->bg);
 		break;
 	/* Linked from the page: the game goes on at once, as the mock has it */
-	case GM_LINK:
+	case GM_LINK: {
+		const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor,
+		                                      a->view[a->sys_cursor].cursor)];
+
+		/* On mGBA: the Link Cable is Gambatte's, so the game starts again
+		 * on it, asked first (Tarik's decision, 2026-11-27) */
+		if (!link_on_core(q->core)) {
+			char text[512];
+
+			cq_text(CQ_LINK_GAMBATTE, text, sizeof text);
+			if (!confirm_ask_over(a, CQ_LINK_GAMBATTE, text, &c->st, c))
+				return plat_run_power_pressed() ? MENU_DONE : MENU_STAY;
+			if (plat_run_power_pressed()) return MENU_DONE;
+			if (link_restart_on_core(a)) return MENU_DONE;
+			uisound_play(DS_SOUND_DENY);
+			return MENU_STAY;
+		}
 		if (link_page(a, c->bg)) {
 			c->resume = true;
 			return MENU_DONE;
 		}
 		break;
+	}
 	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
 	case GM_CHEATS:
 		cheats_page(a, c->bg);
@@ -2723,6 +2743,35 @@ void game_reset_ask(app *a)
 		return;
 	}
 	if (yes) plat_resident_line("RESET");
+	gm_resume(a);
+}
+
+/* The Link Cable's page over a game that just started on Gambatte for it
+ * (link_restart_on_core): over the paused frame as Reset Game's question
+ * is, then the game goes on, linked or not */
+void game_link_open(app *a)
+{
+	gm_ctx c = { 0 };
+	const char *pv = plat_resident_last_preview();
+
+	c.a = a;
+	if (pv && *pv) {
+		SDL_Surface *sf = IMG_Load(pv);
+
+		if (sf) {
+			c.bg = SDL_CreateTextureFromSurface(a->r, sf);
+			SDL_FreeSurface(sf);
+		}
+	}
+	gm_preview_frame(c.bg);
+	link_page(a, c.bg);
+	gm_preview_frame(NULL);
+	if (c.bg) SDL_DestroyTexture(c.bg);
+	if (plat_run_power_pressed()) return;
+	if (want_quit || !a->running) {
+		plat_resident_line("STOP");
+		return;
+	}
 	gm_resume(a);
 }
 

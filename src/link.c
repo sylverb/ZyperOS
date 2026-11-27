@@ -24,9 +24,24 @@ link_medium link_medium_of(bool adapter_in, bool cable_peer)
 	return cable_peer ? LINK_CABLE : LINK_NONE;
 }
 
-bool link_offered(const char *core, bool device)
+bool link_offered(const char *cores, bool device)
 {
-	return device && core && !strcmp(core, LINK_CORE);
+	const char *p = cores;
+	size_t n = strlen(LINK_CORE);
+
+	if (!device || !cores) return false;
+	/* LINK_CORE as one of the comma list's names, spaces around it allowed */
+	while (*p) {
+		while (*p == ' ' || *p == ',') p++;
+		if (!strncmp(p, LINK_CORE, n) && (p[n] == '\0' || p[n] == ',' || p[n] == ' ')) return true;
+		while (*p && *p != ',') p++;
+	}
+	return false;
+}
+
+bool link_on_core(const char *core)
+{
+	return core && !strcmp(core, LINK_CORE);
 }
 
 /* ---- the pure parts ------------------------------------------------------- */

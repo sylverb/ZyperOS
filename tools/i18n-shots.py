@@ -651,7 +651,8 @@ CONFIRM_QUESTIONS = (
     "storage-orphan-port", "game-delete", "port-delete", "update-rollback", "collection-delete",
     "screenshot-delete", "media-video-delete", "sgdb-unlink", "ss-unlink", "snaps-delete-all",
     "reset-buttons-game", "reset-buttons-all", "usb-offer", "dl-sign-out", "dl-delete-videos",
-    "dl-delete-cheats", "dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats", "bt-forget")
+    "dl-delete-cheats", "dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats", "bt-forget",
+    "link-gambatte")
 for _q in CONFIRM_QUESTIONS:
     EXTRA.setdefault("ask-" + _q, ("demo", "PS1", ["--ask", _q]))
 # System Update (DESIGN.md 11.17, 2026-11-11): What's New scrolled to its
@@ -1579,6 +1580,17 @@ for _name, _kind in (("gamemenu-link", "linked"), ("gamemenu-link-waiting", "wai
     EXTRA.setdefault(_name, ("demo", "GB", ["--screen", "games", "--gamemenu", "4", "--link", _kind]))
     SHOT_SETTINGS[_name] = {"core.GB": "gambatte"}
 
+# On mGBA (Tarik's decision, 2026-11-27): the Link Cable row on a Game Boy
+# game running on mgba, and a game's own core on its details page, on a
+# card with both cores (stand-ins, gbcores_card): the shelf's ("mgba
+# (Shelf's)") and its own (gambatte, as the Link Cable's restart leaves it)
+EXTRA.setdefault("gamemenu-link-mgba", ("gbcores", "GB", ["--screen", "games", "--gamemenu", "4",
+                                                          "--link", "tiles"]))
+SHOT_SETTINGS["gamemenu-link-mgba"] = {"core.GB": "mgba"}
+EXTRA.setdefault("info-core-shelf", ("gbcores", "GB", ["--screen", "games", "--info"]))
+EXTRA.setdefault("info-core-own", ("gbcores", "GB", ["--screen", "games", "--info"]))
+SHOT_SETTINGS["info-core-own"] = {"core.GB.Pokemon - Red Version (USA, Europe).gb": "gambatte"}
+
 # MENU > System Update in the states whose lines are longest, each as the
 # status file the update program writes it (src/sysupdate.c); the second is
 # whether a network is there (a test release's source on the card counts as
@@ -1816,7 +1828,7 @@ KNOWN_KEYS = set()
 
 # The scratch cards every run shoots from, by name
 CARDS = ["demo", "empty", "scummvm", "openbor", "ports", "all", "portdocs", "media", "pmcard", "psp",
-         "es", "systems", "pico8"]
+         "es", "systems", "pico8", "gbcores"]
 
 
 def make_cards(top):
@@ -1840,6 +1852,12 @@ def make_cards(top):
     R.openbor_card(cards["openbor"])
     R.psp_card(cards["psp"])
     pico8_card(cards["pico8"])
+    # The demonstration card with the Game Boy's two cores (stand-in files,
+    # as pico8_card's fake08): its Core rows have a choice
+    R.demo_card(cards["gbcores"], None, {"artwork": {}})
+    (cards["gbcores"] / "ZyperOS/cores").mkdir(parents=True, exist_ok=True)
+    for _c in ("mgba", "gambatte"):
+        (cards["gbcores"] / f"ZyperOS/cores/{_c}_libretro.so").write_bytes(b"")
     R.card_dirs(cards["empty"])
 
 

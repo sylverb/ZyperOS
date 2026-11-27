@@ -389,3 +389,47 @@ fr = Aucune liaison par le câble. Choisissez Héberger sur l'autre Pixel 2, pu
 de = Keine Verbindung per Kabel. Erst Hosten auf dem anderen Pixel 2, dann hier Beitreten.
 ja = ケーブルで通信できません。もう一台の Pixel 2 でホストを選び、こちらで参加してください。
 it = Nessun collegamento sul cavo. Scegli Ospita sull'altro Pixel 2, poi Unisciti qui.
+
+[link.gambatte_heading]
+note = The heading of the question the Link Cable row asks on a Game Boy or Game Boy Color game running on mGBA (Tarik's decision, 2026-11-27): the link runs on Gambatte, so the game starts again on it. A heading in Title Case, the action, never a question. Gambatte is a core's name, never translated.
+en = Restart on Gambatte
+zh-Hans = 在 Gambatte 上重新启动
+es = Reiniciar en Gambatte
+pt-BR = Reiniciar no Gambatte
+fr = Redémarrer sur Gambatte
+de = Auf Gambatte neu starten
+ja = Gambatte で再起動
+it = Riavvia su Gambatte
+
+[link.gambatte_ask]
+note = The first sentence of that question, under link.gambatte_heading; link.gambatte_lost follows it (panel.join). The yes is link.gambatte_yes, the cursor on Cancel. Gambatte is a core's name.
+en = Restart this game on Gambatte for the Link Cable?
+zh-Hans = 要为联机线在 Gambatte 上重新启动这个游戏吗？
+es = ¿Reiniciar este juego en Gambatte para el Cable Link?
+pt-BR = Reiniciar este jogo no Gambatte para o Cabo Link?
+fr = Redémarrer ce jeu sur Gambatte pour le Câble Link ?
+de = Dieses Spiel für das Link-Kabel auf Gambatte neu starten?
+ja = 通信ケーブルのため、このゲームを Gambatte で再起動しますか？
+it = Riavviare questo gioco su Gambatte per il Cavo Link?
+
+[link.gambatte_lost]
+note = Under link.gambatte_ask: what the restart keeps and loses. The battery save (the game's own save) carries over; play since the game's last own save is lost, as save states are each core's; this game alone keeps Gambatte (its shelf and the shelf's other games do not), and the Core row (sysmenu.core) on its details page (X on the game) changes it back. Wrapped to the panel.
+en = Its own save carries over; play since it is lost. It stays on Gambatte (Core, in its details).
+zh-Hans = 游戏自身的存档会保留，之后的进度会丢失。它会保持使用 Gambatte（详情中的核心）。
+es = Su partida guardada se conserva; lo jugado después se pierde. Sigue en Gambatte (Núcleo, en sus detalles).
+pt-BR = O save do jogo continua; o que jogou depois se perde. Fica no Gambatte (Núcleo, nos detalhes).
+fr = Sa sauvegarde est conservée ; la partie depuis est perdue. Il reste sur Gambatte (Cœur, dans ses détails).
+de = Sein Spielstand bleibt; alles danach geht verloren. Es bleibt bei Gambatte (Core, in seinen Details).
+ja = ゲーム本体のセーブは残り、それ以降の進行は失われます。Gambatte のままになります（詳細のコア）。
+it = Il suo salvataggio resta; quanto giocato dopo si perde. Resta su Gambatte (Core, nei dettagli).
+
+[link.gambatte_yes]
+note = The yes of that question: the game stops and starts again on Gambatte, then the Link Cable page opens. One or two words, an answer's word, in Title Case.
+en = Restart
+zh-Hans = 重新启动
+es = Reiniciar
+pt-BR = Reiniciar
+fr = Redémarrer
+de = Neu starten
+ja = 再起動
+it = Riavvia
