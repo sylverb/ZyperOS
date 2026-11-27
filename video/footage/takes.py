@@ -586,6 +586,42 @@ for code in ['en', 'zh-Hans', 'es', 'pt-BR', 'fr', 'de', 'ja', 'it']:
     shots(f'lang-{code}', [(PS1, ['--lang', code, '--menu', 'Language'], 100)])
 
 
+# ---- The Brick introduction (src/brick-intro) ----------------------------------
+# Every scene on the TrimUI Brick alone: each take a copy of one above, the
+# same card and presses, drawn on the Brick's profile. A take whose presses
+# land elsewhere on the Brick's home gets a Brick-only live() of its own.
+def brick(name):
+    """TAKES['bi-NAME'] (without a 'v11-' prefix): TAKES[name] on the Brick"""
+    new = 'bi-' + name.removeprefix('v11-')
+    TAKES[new] = {**TAKES[name], 'device': 'brick'}
+    return new
+
+
+for _src in ['poweroff', 'homegrid', 'snap', 'v11-vview', 'v11-dl', 'quicksave', 'undo', 'gm-remap',
+             'v11-hotkeys', 'v11-shots', 'v11-cheats', 'gm-cheevos', 'v11-coll', 'v11-recents', 'search',
+             'wifi-xfer', 'v11-looks', 'v11-boost', 'v11-eq', 'look', 'firststart', 'folders']:
+    brick(_src)
+# System Update as a Brick on 1.0.6 saw 1.1.0 (card.py's brick_intro)
+TAKES['bi-update'] = {**TAKES['update'], 'device': 'brick', 'card': 'bi'}
+# Made as if the Brick has every feature the Pixel 2 has (Tarik, 2026-11-22:
+# the video waits for them, so it shows them): the shader and border lists,
+# the Ports shelf and PortMaster, your PICO-8 with Splore, Player 2, the
+# charge limit, and the Rumble and lights pages, each on the Brick's profile
+for _src in ['lshader', 'v11-border', 'ports', 'portline', 'v11-p8', 'player2', 'charge']:
+    brick(_src)
+# The Brick's profile has no Rumble row yet (draft #452): the Rumble list as
+# the Pixel 2's profile draws it, until the Brick's lands. The Brick's lights
+# page does not exist yet, so the video does not show one.
+# Only the Rumble list itself: its rows and lines are the same on every
+# handheld, where the Sound tab around it is the Pixel 2's (its mono speaker)
+shots('bi-rumble', [(PS1, ['--menu', 'Rumble', '--press', 'a', '--pick-at', str(k)], ms)
+                    for k, ms in ((0, 700), (1, 750), (2, 750), (3, 1300))])
+# System Update in the background without its page (it names versions): the
+# shelf's download mark filling, on the Brick introduction's card
+TAKES['bi-update-bg'] = {**TAKES['update-bg'], 'device': 'brick', 'card': 'bi',
+                         'segments': TAKES['update-bg']['segments'][1:]}
+
+
 # ---- running them --------------------------------------------------------------
 def write_last(card, tag, game):
     (card / 'ZyperOS/.last').write_text(f'{tag}\n{game}\n')
@@ -740,10 +776,17 @@ def main():
     if not only or any(spec_card(t) == V11 for t in only):
         cards[V11] = cardlib.v110(cardlib.build(WORK / 'card-v110', more=True))
         cardlib.device_settings(cards[V11], BINARY, **{'tour.done': 1, 'clock': '24h'})
+    # The Brick introduction's: 1.1's card, a Brick on 1.0.6 offered 1.1.0
+    if not only or any(spec_card(t) == 'bi' for t in only):
+        cards['bi'] = cardlib.brick_intro(cardlib.v110(cardlib.build(WORK / 'card-bi', more=True)))
+        cardlib.device_settings(cards['bi'], BINARY, **{'tour.done': 1, 'clock': '24h'})
     # The demonstration card with the snap's game holding it in its .media,
     # for the play mark and the bar, and the snap's frames for snapsub.dylib
     cards['snaps'] = cardlib.build(WORK / 'card-snaps')
     cardlib.device_settings(cards['snaps'], BINARY, **{'tour.done': 1, 'clock': '24h'})
+    # Its BIOS files as stand-ins, as the 1.1 card's, so a shelf shows no
+    # "Needs scph5501.bin in Bios" (the Brick's PlayStation core asks for one)
+    cardlib.rs.stand_in_bios(cards['snaps'])
     folder = next(line.split('|')[2] for line in (ROOT / 'config/systems.cfg').read_text().splitlines()
                   if line.startswith('sys|') and line.split('|')[4] == SNAP_GAME[0])
     stem = Path(SNAP_GAME[1]).stem
