@@ -285,10 +285,12 @@ def join(args):
     host, name = args.host, args.name
     # The address this computer has toward the host, for the beat's socket:
     # the host answers to the hello's address on port 56399 (link.c's say)
-    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    probe.connect((host, BEAT_PORT))
-    me = probe.getsockname()[0]
-    probe.close()
+    me = args.me
+    if not me:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        probe.connect((host, BEAT_PORT))
+        me = probe.getsockname()[0]
+        probe.close()
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((me, BEAT_PORT))
@@ -298,7 +300,7 @@ def join(args):
     if not rom:
         rom = os.path.join(tmp, "linktest.gb")
         with open(rom, "wb") as f: f.write(gbrom.rom())
-    d = Diatom("joiner", args.diatom, tmp, visible=True)
+    d = Diatom("joiner", args.diatom, tmp, visible=not args.headless)
     stop = []
     signal.signal(signal.SIGINT, lambda *_: stop.append(1))
     try:
@@ -354,6 +356,8 @@ def main():
             p.add_argument("host", help="the Pixel 2 that hosts: 10.42.0.1 on the cable, 10.42.1.1 on its Wi-Fi")
             p.add_argument("--name", default="Mac 0001", help="how the Pixel 2 names this computer")
             p.add_argument("--rom", help="the game (default: tools/gblink-rom.py's test ROM)")
+            p.add_argument("--me", help="this computer's address toward the host (default: the route's)")
+            p.add_argument("--headless", action="store_true", help="no window, no sound")
     a = ap.parse_args()
     return check(a) if a.cmd == "check" else join(a)
 
