@@ -5,7 +5,7 @@
 # the offline checks, a host build of the launcher, the cores, and the assets.
 # docs/building.md says how to work on a device.
 
-.PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art check yuvtarget \
+.PHONY: all clean native desk desk-brick desk-r36s handhelds px2-payload vendor boot system-art check yuvtarget \
         landbench design sounds strings cjk-font tour-previews check-prep release check-site-devices check-linux building-doc
 
 all: check
@@ -159,7 +159,7 @@ building-doc:
 	@python3 tools/building-doc.py --write
 
 # Desk mode (docs/building.md, "Work on the UI without a device"): the
-# launcher in a window as the Pixel 2, or as the Brick, on a sample card, a
+# launcher in a window as the Pixel 2, the Brick or the R36S, on a sample card, a
 # game in it on Diatom's desktop build. tools/desk takes more (--zoom, --roms,
 # --lang, --fresh) and drives a running window.
 desk:
@@ -168,7 +168,10 @@ desk:
 desk-brick:
 	@tools/desk run --device brick
 
-# Desk mode in SDL's dummy window, both handhelds, over its control socket
+desk-r36s:
+	@tools/desk run --device r36s
+
+# Desk mode in SDL's dummy window, every handheld, over its control socket
 check-desk: native
 	@python3 tools/desk-check.py
 
@@ -176,6 +179,11 @@ check-desk: native
 # groups forward
 check-homekeys: native
 	@python3 tools/homekeys-check.py
+
+# A shelf's d-pad held, in desk mode: the list's Up and Down and the grid's
+# Left and Right stop at the ends, the cover row goes round
+check-shelfkeys: native
+	@python3 tools/shelfkeys-check.py
 
 # The Video view in desk mode: its snap playing holds the screensaver
 check-videoview: native
@@ -502,7 +510,7 @@ build-native/status-check: tools/status-check.c src/status.c src/status.h \
                           src/design.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/status-check.c src/status.c src/look.c -lm
+	      -o $@ tools/status-check.c src/status.c src/look.c src/canvas.c -lm
 
 # Charger changes reach the shared battery cache within 250 ms at the shelf's
 # 16 ms poll rate. Stable samples request no redraw; capacity stays at 5 s.
@@ -638,6 +646,24 @@ build-native/dsresume-check: tools/dsresume-check.c src/dsresume.c src/dsresume.
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/dsresume-check.c src/dsresume.c src/atomic.c
 
+# The zipped DS games DSperate unpacks into .dsperate (src/dscache.h): where
+# a zip's copy goes, the cap after a DS game (the least recently launched
+# first, the game just played kept), Delete Game taking a game's copy,
+# Rename moving it and its tag, and Storage counting it as the game's, on a
+# scratch card. Plain C, no device.
+check-dscache: build-native/dscache-check
+	@./build-native/dscache-check
+
+build-native/dscache-check: tools/dscache-check.c src/dscache.c src/dscache.h src/gamedel.c src/gamedel.h src/storage.c \
+                            src/gamern.c src/gamern.h src/esmedia.c src/snaps.c \
+                            src/sheet.c src/portinfo.c src/library.c src/db.c src/favorites.c src/stats.c \
+                            src/atomic.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/dscache-check.c src/dscache.c src/storage.c src/gamedel.c src/gamern.c src/esmedia.c src/snaps.c \
+	      src/sheet.c src/portinfo.c src/library.c src/db.c src/favorites.c src/stats.c src/atomic.c $(I18N_SRC) \
+	      -lsqlite3 -lpthread
+
 # The patched cores' stamps (mk/core-stamp.sh): a stamp written for a core
 # passes, and a core built before a patch changed, a core changed after its
 # build, a core with no stamp and a patch no core claims each fail, with what
@@ -679,7 +705,7 @@ check-lowbatt: build-native/lowbatt-check
 build-native/lowbatt-check: tools/lowbatt-check.c src/lowbatt.c src/lowbatt.h src/status.h src/design.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
-	      -o $@ tools/lowbatt-check.c src/lowbatt.c
+	      -o $@ tools/lowbatt-check.c src/lowbatt.c src/canvas.c
 
 # The battery run flat while the handheld runs (src/battempty.h), the rule
 # battery_empty and portkeys go by: the level at BATT_EMPTY_PCT or under
@@ -979,10 +1005,25 @@ check-wifi-watch:
 check-launch-start:
 	@sh tools/launch-start-check.sh
 
+# File Transfer's way in and heading: the address first, over the cable as
+# over Wi-Fi, read off the launcher's own shots
+check-xferway:
+	@sh tools/xferway-check.sh
+
 # The Pixel 2's crash report (plastron's /usr/sbin/crashlog): what pstore kept
-# of a panic or a reset, said once, onto the card for Download logs
+# of a panic or a reset, and the launcher's own crash, said once, onto the
+# card for Download logs
 check-crashlog:
 	@sh tools/crashlog-check.sh
+
+# The launcher's own crash (src/crashrec.h): children that crash on purpose
+# say where, in the log and the record, and still die of it
+check-crashrec: build-native/crashrec-check
+	@./build-native/crashrec-check
+
+build-native/crashrec-check: tools/crashrec-check.c src/crashrec.c src/crashrec.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra -o $@ tools/crashrec-check.c src/crashrec.c -lpthread
 
 # The display's gamma table, emptied (src/panelgamma.h): the launcher's and
 # Diatom's code against a stand-in display, with Linux's request numbers
@@ -1260,6 +1301,21 @@ build-native/menumotion-check: tools/menumotion-check.c src/menumotion.c src/men
 # leaving: every row's text copied, the row marks and a rule's NULL kept as
 # they are, Zyper's rig by value, and nothing past MENUSNAP_ROWS rows or
 # MENUSNAP_TEXT bytes. No SDL.
+# Every question with two answers (src/confirmq.h, src/ds/confirm.h): the
+# table, the keys and the words without a screen, then each laid out by the
+# host launcher in every language on the Pixel 2 and the Brick
+check-confirm: build-native/confirm-check
+	@./build-native/confirm-check
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/confirm-fit-check.py
+
+build-native/confirm-check: tools/confirm-check.c src/confirmq.c src/confirmq.h $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/confirm-check.c src/confirmq.c $(I18N_SRC)
+
 check-menusnap: build-native/menusnap-check
 	@./build-native/menusnap-check
 
@@ -1307,6 +1363,26 @@ build-native/cardgen-check: tools/cardgen-check.c src/cardgen.c src/cardgen.h \
 check-blur: build-native/blur-check
 	@./build-native/blur-check
 
+# The List view's boxes (src/listbox.h, DESIGN.md 11.39): the media as tall
+# as the rows, on the 4:3 canvas and the Smart Pro's
+check-listbox: build-native/listbox-check
+	@./build-native/listbox-check
+
+build-native/listbox-check: tools/listbox-check.c src/listbox.c src/listbox.h src/look.c src/look.h src/ds/flex.c src/ds/flex.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(pkg-config --cflags sdl2) -Isrc \
+	      -o $@ tools/listbox-check.c src/listbox.c src/look.c src/ds/flex.c $$(pkg-config --libs sdl2) -lm
+
+# The List view's details over the media at rest (src/snaprest.h), on a
+# clock the check moves by hand
+check-snaprest: build-native/snaprest-check
+	@./build-native/snaprest-check
+
+build-native/snaprest-check: tools/snaprest-check.c src/snaprest.c src/snaprest.h src/design.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/snaprest-check.c src/snaprest.c -lm
+
 # The grid's rule (src/gridrule.h, DESIGN.md 11.47): the shape a shelf takes
 # from its art, where the cells go, which art is a cut-out
 check-gridrule: build-native/gridrule-check
@@ -1343,7 +1419,7 @@ check-emptyhome: build-native/emptyhome-check
 build-native/emptyhome-check: tools/emptyhome-check.c src/emptyhome.c src/emptyhome.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(pkg-config --cflags sdl2) -Isrc \
-	      -o $@ tools/emptyhome-check.c src/emptyhome.c $(I18N_SRC)
+	      -o $@ tools/emptyhome-check.c src/emptyhome.c src/canvas.c $(I18N_SRC)
 
 check-roundrect: build-native/roundrect-check
 	@./build-native/roundrect-check | tail -1
@@ -1428,6 +1504,22 @@ check-gauge:
 	@mkdir -p build-native && $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -O1 \
 		-o build-native/gauge-check plastron/buildroot/package/gauge/src/check.c \
 		plastron/buildroot/package/gauge/src/lights.c && build-native/gauge-check
+
+# The TrimUI Smart Pro's controls (tools/sppad.h): frames found in its two
+# halves' serial streams however the reads cut them and whatever junk comes
+# first, every press said (one a frame long too), the buttons as the keys the
+# launcher and Diatom read, a stick's centre and range, a silent half. Host
+# compiler only, no device.
+check-sppad:
+	@mkdir -p build-native && $(CC) -std=c11 -Wall -Wextra -Werror -O1 $(MEDIA_SAN) \
+		-o build-native/sppad-check tools/sppad-check.c tools/sppad_frame.c && build-native/sppad-check
+
+# A stick as the d-pad on the launcher's screens (src/stickpad.h): half way
+# holds, under a third lets go, one direction at a time, all the way round.
+# Host compiler only, no device.
+check-stickpad:
+	@mkdir -p build-native && $(CC) -std=c11 -Wall -Wextra -Werror -O1 $(MEDIA_SAN) \
+		-o build-native/stickpad-check tools/stickpad-check.c src/stickpad.c && build-native/stickpad-check
 
 # The GKD Pixel 2's battery level at a start (plastron's kernel patch
 # 9-px2-rk817-start-soc.patch): the voltage at rest, with the current's drop
@@ -1685,12 +1777,15 @@ strings:
 
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
-DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
-                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
-                   src/device/pixel2_coreopts.c src/device/brick_coreopts.c
+DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/smartpro_profile.c \
+                   src/device/r36s_profile.c src/device/desktop_profile.c \
+                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c src/device/smartpro_model.c \
+                   src/device/r36s_model.c \
+                   src/device/pixel2_coreopts.c src/device/brick_coreopts.c src/device/r36s_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
-DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
+DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c src/device/smartpro_build.c \
+                 src/device/r36s_build.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -1703,7 +1798,8 @@ check-strings:
 	@python3 tools/i18n.py --check
 
 # The launcher's main screens in each language and the pseudo-locale, from the
-# host build, as the Pixel 2 and as the Brick (tools/i18n-shots.py, DEVICES):
+# host build, as the Pixel 2, the Brick and the Smart Pro (tools/i18n-shots.py,
+# DEVICES; the Smart Pro on its 1368-unit canvas):
 # fails where a string from res/strings is cut, broken past its lines or drawn
 # off the screen in any language on either handheld (src/ui.c says so on
 # stderr; the Brick's MENU is a word, wider than the Pixel 2's three dots),
@@ -1713,6 +1809,19 @@ check-strings:
 # parts of the languages and handhelds
 check-i18n-shots:
 	@python3 tools/i18n-shots.py $(if $(CHECK_SHARD),--part $(CHECK_SHARD))
+
+# Border's two lists, a system's menu's and a game's, on both handhelds and in
+# both themes: each held by --expect-en to the same words in the same order,
+# each once (Blur where the device draws it), so the two say the same
+BORDER_LIST_SHOTS := $(foreach w,off blur handheld whole own,system-menu-border-list-$(w) gamemenu-border-list-$(w))
+check-border-lists:
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+		for t in light dark; do \
+			ZYPEROS_SHOTS_CACHE=0 python3 tools/i18n-shots.py --lang en --device pixel2 --device brick \
+				--theme $$t $(BORDER_LIST_SHOTS) || exit 1; \
+		done; \
+	else echo "check-border-lists: skipped, no SDL2"; fi
 
 # How the Brick's initramfs (plastron's brick-rootswitch) reads the kernel's
 # line: the slot's root the boot script names, and a developer's root update
@@ -1731,6 +1840,11 @@ check-datapart:
 # card without them all can't start ZyperOS, and the splash says so
 check-brick-closed:
 	@sh tools/closedcheck-check.sh
+
+# The Smart Pro's plastron board is the Brick's but for its own lines, and its
+# boot loader's memory values are TrimUI's boot0's for it
+check-smartpro-board:
+	@sh tools/smartpro-board-check.sh
 
 # The log pack's hardware report (src/hwreport.c): its lines from a device's
 # facts, and the readers of the kernel's text they come from
@@ -2097,17 +2211,19 @@ check-devicegen: build-native/devicegen
 	done; done; \
 	[ $$bad = 0 ] && echo "ok: config/device holds each device's build as its _build.c says"
 
-build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h \
+build-native/devices-check: tools/devices-check.c src/profile.c src/canvas.c src/canvas.h src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h \
                             src/thermal.c src/thermal.h src/ds/button.c src/ds/button.h $(DEVICE_PROFILES) $(DEVICE_BUILDS) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
-	      -o $@ tools/devices-check.c src/profile.c src/thermal.c src/ds/button.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
+	      -o $@ tools/devices-check.c src/profile.c src/thermal.c src/ds/button.c src/canvas.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
-# job "devices", .github/workflows/check.yml): the launcher's device files,
-# src/profile.c with each device's profile and model, Diatom's two ports, and
-# portkeys whole (check-portkeys-flow compiles its reader and loop alone). Syntax
+# job "devices", .github/workflows/check.yml): the launcher's device files
+# (the Smart Pro's are the Brick's platform layer with its own folder),
+# src/profile.c with each device's profile and model, the Smart Pro's pads
+# reader, Diatom's two ports, and portkeys whole (check-portkeys-flow
+# compiles its reader and loop alone). Syntax
 # only, so it needs the headers and no device. Elsewhere it says it skipped,
 # so it is not in CHECKS (the macOS job would only ever skip it).
 .PHONY: check-device-compile
@@ -2115,9 +2231,10 @@ check-device-compile:
 	@if [ "$$(uname -s)" != Linux ]; then echo "skipped: device files compile on Linux (CI job devices)"; exit 0; fi; \
 	set -e; F="-std=gnu11 -D_GNU_SOURCE -fsyntax-only -Wall -Wextra -Wno-unused-parameter"; \
 	S="$$(pkg-config --cflags sdl2)"; \
-	for d in pixel2 brick; do \
-		echo "  launcher: src/device/$$d.c and its hardware report"; \
-		$(CC) $$F -Isrc $$S src/device/$$d.c $$(ls src/device/$${d}_hw.c 2>/dev/null); \
+	for d in pixel2 brick smartpro r36s; do \
+		b=$$(sed -n 's/^ZYDEV_BACKEND = //p' config/device/$$d.mk); \
+		echo "  launcher: src/device/$$b.c and its hardware report, for $$d"; \
+		$(CC) $$F -Isrc $$S -DZYPEROS_DEVICE_ID=\"$$d\" src/device/$$b.c $$(ls src/device/$${b}_hw.c 2>/dev/null); \
 		echo "  launcher: src/profile.c with src/device/$${d}_profile.c and its model"; \
 		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c \
 			src/device/td_model.c $$(ls src/device/$${d}_model.c 2>/dev/null); \
@@ -2129,9 +2246,13 @@ check-device-compile:
 		diatom/port/panelgamma.c; \
 	echo "  launcher: a test kit's src/device/brick_kit.c and src/device/brick_hw.c (ZYPEROS_KIT_BUILD)"; \
 	$(CC) $$F -DZYPEROS_KIT_BUILD -Isrc $$S src/device/brick_kit.c src/device/brick_hw.c; \
+	echo "  sppad: the Smart Pro's pads reader (tools/sppad.c)"; \
+	$(CC) $$F tools/sppad.c tools/sppad_frame.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
+	echo "  diatom: port/r36s.c (port/pixel2.c with the R36S's keys)"; \
+	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) diatom/port/r36s.c; \
 	echo "  portkeys: tools/portkeys.c, the Pixel 2's keys, bar and motor over a port, whole"; \
 	$(CC) $$F -Isrc -Idiatom/src -Idiatom/include tools/portkeys.c tools/pkkeys.c tools/pkfeel.c \
 		tools/pkshutter.c src/pcm_out.c; \
@@ -2139,15 +2260,17 @@ check-device-compile:
 
 # The handhelds' models (src/device/td_model.h): every key once, the GKD
 # Pixel 2's places, views and kept boxes as the drawing had them, and the
-# TrimUI Brick's as measured, its shoulders on the back ledge. No SDL.
+# TrimUI Brick's and the R36S's as measured, their shoulders on the back ledge. No SDL.
 check-model: build-native/model-check
 	@./build-native/model-check
 
 build-native/model-check: tools/model-check.c src/device/td_model.h src/device/td_model.c \
-                          src/device/pixel2_model.c src/device/brick_model.c src/tdkey.h FORCE
+                          src/device/pixel2_model.c src/device/brick_model.c src/device/smartpro_model.c \
+                          src/device/r36s_model.c src/tdkey.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c
+	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
+	      src/device/smartpro_model.c src/device/r36s_model.c
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the
@@ -2230,7 +2353,7 @@ check-resident:
 build-native/resident-check: tools/resident-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/resident-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
+	      -o $@ tools/resident-check.c src/resident.c src/powerhold.c src/canvas.c $$(sdl2-config --libs)
 
 # spawn_detached (src/spawn.h): a program that outlives the launcher, with
 # real processes - its own pid back, not this process's child, a failed exec
@@ -2249,7 +2372,7 @@ build-native/spawn-check: tools/spawn-check.c src/spawn.c src/spawn.h FORCE
 build-native/gamezone-check: tools/gamezone-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/gamezone-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
+	      -o $@ tools/gamezone-check.c src/resident.c src/powerhold.c src/canvas.c $$(sdl2-config --libs)
 
 build-native/clock-check: tools/clock-check.c src/clock.c src/clock.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
@@ -2572,6 +2695,16 @@ build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refres
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
 	      -o $@ tools/title-refresh-check.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
 
+# MENU > Display > Game Names (DESIGN.md 11.71): Short, or the file's whole
+# name over a downloaded one, by the real scan, database and refresh
+check-gamenames: build-native/gamenames-check
+	@./build-native/gamenames-check
+
+build-native/gamenames-check: tools/gamenames-check.c src/db.c src/library.c src/sheet.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/gamenames-check.c src/db.c src/library.c src/sheet.c $(I18N_SRC) -lsqlite3
+
 # Host build of the launcher, for working on how the shelf looks.
 native:
 	$(MAKE) $(NATIVE_J) -f mk/native.mk VERSION=$(VERSION)
@@ -2813,10 +2946,10 @@ check-sort: build-native/sort-check
 	@./build-native/sort-check
 
 build-native/sort-check: tools/sort-check.c src/sort.h src/library.h src/stats.c \
-                         src/stats.h src/db.c src/atomic.c $(I18N_SRC) FORCE
+                         src/stats.h src/db.c src/atomic.c src/favorites.c src/favorites.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/sort-check.c src/stats.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/sort-check.c src/stats.c src/db.c src/atomic.c src/favorites.c $(I18N_SRC) -lsqlite3
 
 # Bluetooth. A device NAME is arbitrary bytes chosen by whoever owns the
 # headset, arriving over the air into a process running as root; an ADDRESS is
@@ -3140,7 +3273,7 @@ check-scale:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/scale-check tools/scale-check.c src/ds/scale.c src/ds/colorref.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  -o build-native/scale-check tools/scale-check.c src/ds/scale.c src/ds/colorref.c src/ui.c src/canvas.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
 		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
@@ -3154,12 +3287,26 @@ check-textfade:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/canvas.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
 		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		  ./build-native/textfade-check; \
 	else echo "skipped: no SDL2 for the text fade check"; fi
+
+# Chinese and Japanese names in every face ui_face_open opens, not only the
+# role faces: home.c's page faces drew a song's title in boxes.
+check-cjkface:
+	@if pkg-config --exists sdl2 SDL2_ttf SDL2_image; then \
+		mkdir -p build-native; \
+		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
+		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
+		  -o build-native/cjkface-check tools/cjkface-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
+		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
+		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
+		  ./build-native/cjkface-check; \
+	else echo "skipped: no SDL2 for the CJK face check"; fi
 
 # The design system's rules the compiler cannot hold (DESIGN.md section 15):
 # src/ds/ stands alone, and no page foot, page Zyper or tile mark is typed
@@ -3225,7 +3372,7 @@ check-tour-colors:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c \
+		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/canvas.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c \
 		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \
@@ -3289,8 +3436,21 @@ check-home-shots: native
 pico8-shots: native
 	@'$(PYIMG)' tools/pico8-shots.py
 
+# Game Names on the real launcher (tools/gamenames-shot-check.py): the List
+# view's rows under Short and File Name, as the Pixel 2 and the Brick, in
+# both themes, and MENU's row turning it over at once
+.PHONY: check-gamenames-shots
+check-gamenames-shots: native
+	@'$(PYIMG)' tools/gamenames-shot-check.py
+
 check-favorites-shots: native
 	@'$(PYIMG)' tools/favorites-shot-check.py
+
+# MENU > Favorites First (DESIGN.md 11.70) on the host launcher: a shelf's
+# favorites ahead of its other games, walked with the shelf's own keys
+.PHONY: check-favfirst
+check-favfirst: native
+	@python3 tools/favfirst-check.py
 
 # A system turned off the home keeps its games on Favorites and Recents, and
 # they start from there on its own core (src/shelfbuild.c, app.parked)
