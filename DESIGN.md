@@ -2458,16 +2458,13 @@ and modes still read.
   SELECT closes it, to the screen it was opened from (the home, a menu, a
   paused game's menu). **X** does it from any row of that MENU, heard as A
   is, and the row carries X's glyph at its right (`MENU_KEY_X`, 11.9), as the
-  in-game menu's Quit and its X (11.28). Unlike SELECT it ends MP4, paused
-  or playing: what plays stops and the daemon lets its file go, a book's or
-  a video's place kept as at any stop, the power-off row (11.67) gone, and
-  MP4's mark and track leave the top bar (11.12) with it; the next SELECT
-  opens MP4 on its shelf, nothing loaded. SELECT stays the way to leave
-  MP4 heard behind the home. *(2026-11-18: "add an option in the mp4 menu
-  to quit it, like we have in games (with the shortcut too)". On
-  1.1.1-test.3 it left what played playing, as SELECT does, and a song
-  paused and quit stayed in the top bar on the home: Quit closes MP4 for
-  good, 2026-11-26.)*
+  in-game menu's Quit and its X (11.28). Like SELECT it leaves what plays
+  playing, heard behind the home as above; A pauses it first for silence.
+  What is paused it lets go: it stops, a book's or a video's place kept, and
+  MP4's mark and track leave the top bar (11.12) *(2026-11-27, from
+  1.1.1-test.3, where a song paused and quit stayed in the top bar)*.
+  *(2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+  games (with the shortcut too)".)*
 - **From the shelf.** While MP4 is heard behind the home or a games shelf
   (music, a book or a video's sound, playing; the menu music is quiet for
   it), **L2**/**R2** do what **L1**/**R1** do on Now Playing: the track

@@ -364,7 +364,7 @@ void book_keep(bool now);
 /* MP4's resume row gone (src/mp4resume.h): a port about to take the sound,
  * after which nothing should open by itself */
 void resume_clear(void);
-/* MP4's Quit: what plays stops, a book's or a video's place kept */
+/* MP4's Quit on something paused: it stops, a book's or a video's place kept */
 void mp4_quit(void);
 void mp4_poll(void);
 /* MP4's queue handed over a program of its own that keeps it playing

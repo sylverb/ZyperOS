@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""check-mp4quit: MP4's Quit ends MP4 (DESIGN.md 11.14), on the real
+"""check-mp4quit: MP4's Quit lets go of what is paused and leaves what plays
+playing (DESIGN.md 11.14), on the real
 launcher in desk mode's dummy window on the README's media card, against a
 stand-in MP4 daemon on its own socket (ZYPEROS_MP4_SOCKET, the one
 check-pico8-mp4 runs, which also answers STOP here).
 
 Each walk starts from the home, its header's right of the clock shot first
 (the music mark's place, empty with nothing played), opens MP4 with SELECT,
-A on the first album, A on its first song (PLAY), and then:
-  - paused, MENU > X (Quit's key, from any row): STOP sent, the home back
-    with nothing in its header but the clock - no pause mark, no track -
-    the power-off row (`mp4.resume`) gone, and SELECT opens MP4 on its shelf
-    again, as at its first open, not on a Now Playing left loaded;
-  - playing, MENU down to Quit and A: the same;
-  - playing, SELECT let go (closes MP4, DESIGN.md 11.14): no STOP, the song
-    heard behind the home with its mark in the header, as ever - which is
-    also what shows the header's reading sees a mark at all.
+A on the first album, A on its first song (PLAY), and then, by MENU > X
+(Quit's key, from any row) and by MENU down to Quit and A:
+  - paused (A): STOP sent, the home back with nothing in its header but the
+    clock - no pause mark, no track - the power-off row (`mp4.resume`) gone,
+    and SELECT opens MP4 on its shelf again, as at its first open, not on a
+    Now Playing left loaded;
+  - playing: MP4's screens close as SELECT closes them, no STOP, the song
+    heard behind the home with its mark in the header and the power-off row
+    saying playing - which also shows the header's reading sees a mark.
 Pixel 2 Tarik found it on 1.1.1-test.3: play, pause, MENU > Quit, and the top
 bar still showed MP4's paused song on the home, MP4 closed.
 
@@ -101,9 +102,9 @@ def resume_row(card):
     return r[0] if r else None
 
 
-def run(desk, tmp, card, name, leave):
-    """One walk, on a launcher of its own; `leave` is how MP4 is left:
-    'paused-x', 'playing-row' or 'select'"""
+def run(desk, tmp, card, name, paused, by):
+    """One walk, on a launcher of its own: the song `paused` or playing, and
+    Quit `by` 'x' or the 'row' with A"""
     short = Path(tempfile.gettempdir())
     msock = short / f'zyq-m-{os.getpid()}-{name}.sock'
     dsock = short / f'zyq-d-{os.getpid()}-{name}.sock'
@@ -175,16 +176,16 @@ def run(desk, tmp, card, name, leave):
                 key('a')
                 ok = (waited(sent('PLAY'), 'A on a song: PLAY sent') and
                       waited(lambda: drawn('Pause'), 'Now Playing drawn, playing'))
-            if ok and leave == 'paused-x':
+            if ok and paused:
                 key('a')
                 ok = (waited(sent('PAUSE'), 'A: PAUSE sent') and
                       waited(lambda: drawn('Paused'), 'Now Playing drawn, paused'))
-            if ok and leave != 'select':
+            if ok:
                 key('menu')
                 ok = waited(lambda: focus()[0] == 'MP4', 'MENU: MP4\'s menu up')
-            if ok and leave == 'paused-x':
+            if ok and by == 'x':
                 key('x')
-            elif ok and leave == 'playing-row':
+            elif ok:
                 for _ in range(16):
                     if focus()[1] == 'Quit':
                         break
@@ -196,8 +197,6 @@ def run(desk, tmp, card, name, leave):
                 check(ok, f'{name}: Quit is a row of MP4\'s menu')
                 if ok:
                     key('a')
-            elif ok:
-                key('select')
             if ok:
                 ok = waited(foot_of('home'), 'MP4 closed: the home drawn again')
             if ok:
@@ -205,14 +204,14 @@ def run(desk, tmp, card, name, leave):
                 clean = header == rows(shots['home'], *HEADER, MARK_X)
                 stopped = sent('STOP')()
                 row = resume_row(card)
-                if leave == 'select':
+                how = ('paused' if paused else 'playing') + (', MENU > X' if by == 'x' else ', MENU > Quit with A')
+                if not paused:
                     check(not stopped and not clean,
-                          'SELECT: MP4 closed, the song heard behind the home with its mark in the header, '
-                          'no STOP (DESIGN.md 11.14)')
+                          f'{how}: MP4 closed, the song heard behind the home with its mark in the header, '
+                          f'no STOP (shot: {shots["now"]})')
                     check(row is not None and row.startswith('playing\t'),
-                          f'and the power-off row says playing ({row!r})')
+                          f'{how}: the power-off row says playing ({row!r})')
                 else:
-                    how = 'paused, MENU > X' if leave == 'paused-x' else 'playing, MENU > Quit with A'
                     check(stopped, f'{how}: STOP sent, the daemon lets the song go')
                     check(clean, f'{how}: the home\'s header has no MP4 mark and no track, only the clock '
                           f'(shot: {shots["now"]})')
@@ -243,23 +242,24 @@ def main():
     rs = module('readme_shots', ROOT / 'tools/readme-shots.py')
     tmp = Path(tempfile.mkdtemp(prefix='zyperos-mp4quit-'))
     try:
-        for name, leave, what in (('paused-x', 'paused-x', 'a song paused, MENU > X:'),
-                                  ('playing-row', 'playing-row', 'a song playing, MENU > Quit:'),
-                                  ('select', 'select', 'a song playing, SELECT:')):
+        for name, paused, by, what in (('paused-x', True, 'x', 'a song paused, MENU > X:'),
+                                       ('paused-row', True, 'row', 'a song paused, MENU > Quit:'),
+                                       ('playing-x', False, 'x', 'a song playing, MENU > X:'),
+                                       ('playing-row', False, 'row', 'a song playing, MENU > Quit:')):
             print(what)
             card = tmp / f'{name}-card'
             rs.media_card(card)
             desk.card_sounds(card)
             subprocess.run([str(BINARY), '--set', 'tour.done=1'], env=desk.card_env(card, None), check=True,
                            stdout=subprocess.DEVNULL)
-            run(desk, tmp, card, name, leave)
+            run(desk, tmp, card, name, paused, by)
     finally:
         if not fails:
             shutil.rmtree(tmp, ignore_errors=True)
     if fails:
         print(f'check-mp4quit: {len(fails)} failed (logs and shots in {tmp})')
         return 1
-    print('ok: MP4\'s Quit ends MP4, paused or playing, and its mark leaves the header; SELECT leaves it heard')
+    print('ok: MP4\'s Quit lets go of a paused song, its mark gone from the header; a playing one plays on')
     return 0
 
 
