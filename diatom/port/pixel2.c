@@ -32,6 +32,11 @@
 #define RK_CODE_B        BTN_EAST
 #define RK_CODE_FUNCTION BTN_TRIGGER_HAPPY1
 #endif
+/* Whether the handheld has sticks to read (the R36S's two, and their clicks
+ * as L3 and R3). None on the Pixel 2: its pad is read as it always was. */
+#ifndef RK_STICKS
+#define RK_STICKS 0
+#endif
 
 #include <SDL.h>
 
@@ -295,9 +300,10 @@ static const struct { int code; int btn; } keymap[] = {
 	{ BTN_TL2,        DIATOM_BTN_L2 },    { BTN_TR2,        DIATOM_BTN_R2 },
 	{ BTN_SELECT,     DIATOM_BTN_SELECT },{ BTN_START,      DIATOM_BTN_START },
 	{ RK_CODE_FUNCTION, DIATOM_BTN_MENU },
-	/* The sticks' clicks, on a pad that has sticks (the R36S's); none on
-	 * the Pixel 2's */
+#if RK_STICKS
+	/* The sticks' clicks, on a handheld with sticks (the R36S's) */
 	{ BTN_THUMBL,     DIATOM_BTN_L3 },    { BTN_THUMBR,     DIATOM_BTN_R3 },
+#endif
 };
 
 /* ---------- audio ----------------------------------------------------------- */
@@ -1134,13 +1140,11 @@ size_t diatom_port_audio_queued(void)
 
 /* ---------- input ----------------------------------------------------------- */
 
-/* The pad's keys as they are right now, for a start or after the kernel
- * dropped events (SYN_DROPPED): the held-at-entry rule needs to know about a
- * key that was already down. */
 /* The pad's sticks, where it has them (the R36S's two, through the
- * joypad's analog mux; the Pixel 2's has none): their four axes as evdev
- * reports them, with each one's range and its flat, the dead zone the
- * device tree gives. Read from the pad's own events in the poll. */
+ * joypad's analog mux; the Pixel 2's has none, and RK_STICKS 0 never looks
+ * for them): their four axes as evdev reports them, with each one's range
+ * and its flat, the dead zone the device tree gives. Read from the pad's
+ * own events in the poll. */
 static const int stick_codes[4] = { ABS_X, ABS_Y, ABS_RX, ABS_RY };
 static struct { int value, min, max, flat; } g_stick[4];
 static int g_sticks = -1;        /* -1 not looked yet, 0 none, 1 both */
@@ -1152,7 +1156,7 @@ static void sticks_read(void)
 	int i;
 
 	g_sticks = 0;
-	if (g_pad_fd < 0) return;
+	if (!RK_STICKS || g_pad_fd < 0) return;
 	memset(abs, 0, sizeof abs);
 	if (ioctl(g_pad_fd, EVIOCGBIT(EV_ABS, sizeof abs), abs) < 0) return;
 	for (i = 0; i < 4; i++) {
@@ -1194,6 +1198,9 @@ bool diatom_port_input_axes(int16_t axes[4])
 	return true;
 }
 
+/* The pad's keys as they are right now, for a start or after the kernel
+ * dropped events (SYN_DROPPED): the held-at-entry rule needs to know about a
+ * key that was already down. */
 static void pad_resync(void)
 {
 	unsigned long keys[NLONGS(KEY_MAX)];
