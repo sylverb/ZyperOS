@@ -10,8 +10,9 @@ the host's plat_mute_poll) and up, in both themes, with the volume bar up
 
 - the log says "brick: mute switch on" once, or "off" once;
 - the top bar's corner has the crossed speaker in **text-soft** only muted;
-- the volume bar writes "Muted" in **text** where its steps were, and shows
-  no step; not muted, it shows the steps and no word;
+- the volume bar writes "Muted" in **text** after the crossed speaker, and
+  shows no step, in a pill only as wide as the two, centered, at the bar's
+  height and place; not muted, it shows the steps and no word, 452 wide;
 - a profile with no switch (--device desktop, the Smart Pro's case) says
   nothing of it and shows the steps, the variable set or not.
 """
@@ -85,6 +86,24 @@ for theme in ("light", "dark"):
     t.ck(t.count(desk, text, STEPS) == 0, "no switch, no word in the bar")
     lit = sum(1 for x in range(STEPS[0], STEPS[2]) if t.zc.px(off, x, 54) != t.zc.px(on, x, 54))
     t.ck(lit > 200, "and the steps the bar shows not muted are gone muted (%d pixels differ)" % lit)
+    # The muted pill hugs the crossed speaker and the word, centered, as tall
+    # as the bar; the bar of steps keeps its 452 (286 to 738)
+    ground = t.GROUND[theme]
+    def span(img, y):
+        xs = [x for x in range(250, 775) if t.zc.px(img, x, y) != ground]
+        return (xs[0], xs[-1]) if xs else (0, 0)
+    l_on, r_on = span(on, 54)
+    l_off, r_off = span(off, 54)
+    t.ck(abs(l_off - 286) <= 6 and abs(r_off - 737) <= 6, "not muted, the pill 452 wide (its shadow too): %d to %d" % (l_off, r_off))
+    t.ck(r_on - l_on < 340 and l_on > l_off + 40 and r_on < r_off - 40,
+         "muted, the pill only as wide as the speaker and the word: %d to %d" % (l_on, r_on))
+    t.ck(abs((l_on + r_on) - (l_off + r_off)) <= 3, "and centered as the bar is: %d to %d" % (l_on, r_on))
+    words = [x for x in range(l_on, r_on) for y in range(STEPS[1], STEPS[3]) if t.zc.px(on, x, y) == text]
+    t.ck(words and min(words) > l_on + 60 and max(words) < r_on - 20,
+         "the word inside the pill, after the speaker, with the end's room after it")
+    top_on = [y for y in range(0, 100) if t.zc.px(on, 512, y) != ground]
+    top_off = [y for y in range(0, 100) if t.zc.px(off, 512, y) != ground]
+    t.ck(top_on[:1] == top_off[:1], "as high from the top as the bar of steps")
 
 if t.fails:
     print("mute-shot-check: %d FAILED (shots in %s)" % (t.fails, t.D))

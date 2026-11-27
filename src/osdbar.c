@@ -370,6 +370,26 @@ static float look_ext(const osdbar_look *l, float sw)
 	return ext + clampf(l->push, 0, 1) * 6;
 }
 
+/* Muted, the room before the steps (the mark's, SEG_X0 in from the end),
+ * the word, and the end's padding after it (SEG_X1's from the other end);
+ * with no word, the mark's room alone, 84 wide, the mark nearly centered
+ * in it. Changing between this and the bar of steps while it is up, the
+ * switch flipped under a press, it is drawn again whole the next frame:
+ * the width is what it holds, not a level that moves. */
+float osdbar_pill_w(const osdbar_look *l)
+{
+	float w;
+
+	if (!l->muted || l->kind != OSDBAR_VOLUME) return PILL_W;
+	w = clampf(l->word_w, 0, OSDBAR_WORD_MAX);
+	return (SEG_X0 - PILL_X0) + (w > 0 ? w + (PILL_X0 + PILL_W - SEG_X1) : 0);
+}
+
+float osdbar_word_x(const osdbar_look *l)
+{
+	return PILL_CX - osdbar_pill_w(l) / 2 + (SEG_X0 - PILL_X0);
+}
+
 void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
                         int theme, const osdbar_look *look, float alpha, bool premul)
 {
@@ -408,6 +428,7 @@ void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
 		m.max = L.max;
 		m.cut = 1;
 		m.muted = true;
+		m.word_w = clampf(L.word_w, 0, OSDBAR_WORD_MAX);
 		L = m;
 	}
 	if (!painted.valid || painted.theme != theme || painted.w != w || painted.h != h ||
@@ -419,7 +440,9 @@ void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
 		const float cy = PILL_Y0 + PILL_H / 2;
 		const float sw = (SEG_X1 - SEG_X0 - SEG_GAP * (L.max - 1)) / L.max;
 		const float ext = look_ext(&L, sw);
-		const float x0 = PILL_X0 - ext / 2, x1 = PILL_X0 + PILL_W + ext / 2;
+		const float pw = osdbar_pill_w(&L);
+		const float x0 = L.muted ? PILL_CX - pw / 2 : PILL_X0 - ext / 2;
+		const float x1 = L.muted ? PILL_CX + pw / 2 : PILL_X0 + PILL_W + ext / 2;
 		const float seg0 = SEG_X0 - ext / 2;
 		shape sh = rbox(x0, PILL_Y0 + SHADOW_DY, x1, PILL_Y0 + PILL_H + SHADOW_DY, PILL_R);
 		shape body = rbox(x0, PILL_Y0, x1, PILL_Y0 + PILL_H, PILL_R);

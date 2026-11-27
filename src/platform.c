@@ -608,6 +608,13 @@ void plat_draw_osd(SDL_Renderer *r)
 	/* The side switch down: the volume's bar says Muted, not steps moving
 	 * that play nothing (#482) */
 	look.muted = osd_kind == OSDBAR_VOLUME && plat_muted();
+	/* and its word, measured first, so the pill hugs the mark and it */
+	static char word[64];
+	TTF_Font *wf = ui_font(UI_F_MENU);
+	if (look.muted) {
+		ui_fit_text(wf, T(S_LEVELS_MUTED), word, sizeof word, OSDBAR_WORD_MAX);
+		look.word_w = (float)ui_text_width(wf, word);
+	}
 	if (memcmp(&look, &drawn, sizeof look)) osd_dirty = true;
 	if (osd_dirty) {
 		osd_theme = theme_index();
@@ -621,16 +628,13 @@ void plat_draw_osd(SDL_Renderer *r)
 	 * portkeys share) */
 	SDL_RenderCopyF(r, osd_tex, NULL,
 	                &(SDL_FRect){ (ZYPEROS_SCREEN_W - OSDBAR_W) / 2, OSDBAR_Y - rise, OSDBAR_W, OSDBAR_H });
-	/* Muted, the word where the steps were, from their left, in **menu**
-	 * **text**, at the bar's opacity; cut to their room in a longer language */
+	/* Muted, the word after the mark, in **menu** **text**, at the bar's
+	 * opacity, in the same frame as the pill it was measured for */
 	if (look.muted) {
-		TTF_Font *f = ui_font(UI_F_MENU);
-		char word[64];
-		const int x0 = (ZYPEROS_SCREEN_W - OSDBAR_W) / 2 + OSDBAR_WORD_X0;
+		const int x0 = (ZYPEROS_SCREEN_W - OSDBAR_W) / 2 + (int)(osdbar_word_x(&look) + 0.5f);
 		const int mid = (int)(OSDBAR_Y - rise + 0.5f) + OSDBAR_WORD_CY;
 
-		ui_fit_text(f, T(S_LEVELS_MUTED), word, sizeof word, OSDBAR_WORD_X1 - OSDBAR_WORD_X0);
-		ui_text(r, f, word, x0, ui_cap_y(f, mid), -1,
+		ui_text(r, wf, word, x0, ui_cap_y(wf, mid), -1,
 		        ui_fade(ui_col(theme_at(osd_theme)->text, 255), a));
 	}
 }

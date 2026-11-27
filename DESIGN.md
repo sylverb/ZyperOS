@@ -1614,13 +1614,20 @@ closes it), a mid-tone lift for brightness. A host shot: `--osd volume 20
 **Muted.** With the Brick's side switch down every output is silent, so the
 volume's bar does not move steps that play nothing: a press shows the pill
 with the speaker crossed in **text-soft**, no waves, no steps and no boost,
-452 wide, and the word "Muted" where the steps were, from their left, in
-**menu** **text** (`levels.muted`), cut to their room if a language runs
-longer. The level still moves under it, as it did. Over a Diatom game the
-pill is the same but for the word, which Diatom has no font for: the crossed
-speaker alone, from the launcher's SETMUTE. Brightness has no mute. Host
-shots: `ZYPEROS_MUTE_SWITCH=on` with `--device brick` and `--osd volume N`;
-`--status muted` for the corner's mark (11.12). *(#482, 2026-11-26.)*
+and the word "Muted" after it in **menu** **text** (`levels.muted`, cut to
+the steps' room if a language runs longer). The pill is only as wide as
+what it holds, centered, as tall and as high as the bar: the mark's 84 (the
+room the steps start after), the word, and the bar's own 30 at the end
+(src/osdbar.c's osdbar_pill_w). Over a Diatom game, which has no font for
+the word, the same rule leaves the crossed speaker in an 84-wide pill that
+hugs it, from the launcher's SETMUTE. *(Tarik, 2026-11-26, on the first
+shots: the muted pill "too wide".)* The switch flipped while the bar is up
+replaces it whole on the next frame, the word measured before the pill is
+painted: its width is what it holds, not a level, so it does not slide as
+the level's mark does. The level still moves under it, as it did.
+Brightness has no mute. Host shots: `ZYPEROS_MUTE_SWITCH=on` with
+`--device brick` and `--osd volume N`; `--status muted` for the corner's
+mark (11.12). *(#482, 2026-11-26.)*
 
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
