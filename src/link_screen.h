@@ -54,4 +54,8 @@ void link_game_end(app *a);
 /* Once, as the launcher starts */
 void link_setup(void);
 
+/* Desk mode as the cable's joiner (ZYPEROS_DESK_LINK_CABLE=1): Auto Off
+ * holds, as on the charger. False on a handheld. */
+bool link_desk_holds_idle(void);
+
 #endif

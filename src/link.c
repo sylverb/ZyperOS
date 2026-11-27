@@ -257,6 +257,19 @@ static struct {
 	unsigned t0, sent_at, heard_at, scan_at;
 } g = { .sock = -1, .host_addr = LINK_HOST_ADDR };
 
+/* The cable's host as the joiner meets it: LINK_CABLE_ADDR, but for desk
+ * mode's stand-in (link_use_cable_host) */
+static char g_cable_host_buf[LINK_ADDR_MAX] = LINK_CABLE_ADDR;
+static const char *g_cable_host = g_cable_host_buf;
+
+void link_use_cable_host(const char *addr)
+{
+	char d[12];
+
+	snprintf(g_cable_host_buf, sizeof g_cable_host_buf, "%s",
+	         addr && link_ip_digits(addr, d) ? addr : LINK_CABLE_ADDR);
+}
+
 void link_use(const link_ops *ops, const char *mac)
 {
 	if (ops) g_ops = ops;
@@ -400,7 +413,7 @@ bool link_join_cable(const char *game)
 	link_stop();
 	snprintf(g.game, sizeof g.game, "%s", game ? game : "");
 	g.role = LINK_ROLE_CLIENT;
-	g.host_addr = LINK_CABLE_ADDR;
+	g.host_addr = g_cable_host;
 	g.joining[0] = '\0';
 	g.cable_join = true;
 	if (!g_ops->cable_join_start()) {
@@ -589,7 +602,8 @@ void link_tick(unsigned now_ms)
 			 * end's address alone, as the host's is */
 			g.sock = g_ops->udp_open(addr, LINK_BEAT_PORT);
 			if (g.sock < 0) { fail(LINK_FAIL_NETWORK, "no socket for the beat"); break; }
-			fprintf(stderr, "link: on %s's network as %s\n", g.joining, addr);
+			if (g.cable_join) fprintf(stderr, "link: on the cable's network as %s\n", addr);
+			else fprintf(stderr, "link: on %s's network as %s\n", g.joining, addr);
 			g.t0 = t;
 			g.st = LINK_JOIN_ASKING;
 			/* The first hello at once */

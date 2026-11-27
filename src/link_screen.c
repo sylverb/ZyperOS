@@ -101,6 +101,27 @@ static bool desk_cable(void)
 	return e && *e == '1';
 }
 
+/* The host it meets: 10.42.0.1, or ZYPEROS_DESK_LINK_HOST's stand-in */
+static const char *desk_cable_host(void)
+{
+	const char *e = getenv("ZYPEROS_DESK_LINK_HOST");
+
+	return e && *e ? e : LINK_CABLE_ADDR;
+}
+
+/* The joiner's beat socket, on ZYPEROS_DESK_LINK_PORT instead of 56399 for
+ * a stand-in host on this same computer (two sockets cannot both have one
+ * address's 56399); the stand-in answers there. Never on a handheld. */
+static int lop_udp_open(const char *addr, int port)
+{
+	const char *e = getenv("ZYPEROS_DESK_LINK_PORT");
+
+	/* Desk mode never hosts (lop_cable_host_up): a 56399 here is the joiner's */
+	if (desk_cable() && e && *e && port == LINK_BEAT_PORT)
+		port = atoi(e);
+	return linknet_open(addr, port);
+}
+
 static int desk_cable_addr(char *addr, unsigned n)
 {
 	struct sockaddr_in a, me;
@@ -111,7 +132,7 @@ static int desk_cable_addr(char *addr, unsigned n)
 	memset(&a, 0, sizeof a);
 	a.sin_family = AF_INET;
 	a.sin_port = htons(LINK_BEAT_PORT);
-	inet_pton(AF_INET, LINK_CABLE_ADDR, &a.sin_addr);
+	inet_pton(AF_INET, desk_cable_host(), &a.sin_addr);
 	/* No datagram goes: a connect only picks the route and its address */
 	ok = connect(s, (struct sockaddr *)&a, sizeof a) == 0 &&
 	     getsockname(s, (struct sockaddr *)&me, &ml) == 0 &&
@@ -120,9 +141,12 @@ static int desk_cable_addr(char *addr, unsigned n)
 	return ok ? 1 : 0;
 }
 #else
+#define lop_udp_open linknet_open
 static bool desk_cable(void) { return false; }
 static int desk_cable_addr(char *addr, unsigned n) { (void)addr; (void)n; return -1; }
 #endif
+
+bool link_desk_holds_idle(void) { return desk_cable(); }
 
 /* Another device on the USB-C port, for the cable link: a plug that wants
  * power and gives none (usbrole may make the port its host), the port a
@@ -710,7 +734,7 @@ static const link_ops g_link_ops = {
 	lop_resident, linknet_code, lop_hs_start, lop_hs_poll, lop_hs_stop,
 	lop_scan_start, lop_scan_poll, lop_scan_take,
 	lop_join_start, lop_join_poll, lop_join_end,
-	linknet_open, linknet_send, linknet_recv, linknet_close,
+	lop_udp_open, linknet_send, linknet_recv, linknet_close,
 	lop_cable_host_up, lop_cable_host_down, lop_cable_join_start, lop_cable_join_poll, lop_cable_join_end,
 	lop_now, lop_notice,
 };
@@ -721,4 +745,7 @@ void link_setup(void)
 
 	self_address(mac, sizeof mac);
 	link_use(&g_link_ops, mac);
+#ifdef ZYPEROS_DESK
+	if (desk_cable()) link_use_cable_host(desk_cable_host());
+#endif
 }

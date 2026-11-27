@@ -253,6 +253,11 @@ typedef struct {
  * network */
 void link_use(const link_ops *ops, const char *mac);
 
+/* The address the cable's joiner says hello to and links with: 10.42.0.1
+ * (LINK_CABLE_ADDR), or another for desk mode's test against a stand-in
+ * host (ZYPEROS_DESK_LINK_HOST); NULL or no address is 10.42.0.1 again */
+void link_use_cable_host(const char *addr);
+
 /* Host: the network up (link_tick goes on), then waiting for the other's
  * hello. `game` is the title playing, for the other one's log. False, and
  * LINK_FAILED, when it could not start. Anything still up (a lost link, a
