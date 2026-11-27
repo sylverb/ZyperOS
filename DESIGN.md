@@ -7914,7 +7914,10 @@ battery); and the What did you plug in? question after the game.
 **The launchers' word.** A datagram each way on port 56399, beside
 Gambatte's 56400 (`ZLINK1`, then hello, welcome, busy, beat or bye, the
 name and the game's title): the joiner says hello, the host turns Gambatte
-into the server and welcomes it, the joiner turns it into the client. While
+into the server and welcomes it, the joiner turns it into the client. The
+joiner takes a welcome or busy from the host it asked alone, and once linked
+each hears its peer's address alone: another device on the host's network
+cannot answer for it (a security review, 2026-11-26). While
 linked each sends a beat every half second, from the game's tick and from
 every screen over its pause, so a menu open is never a lost link. No beat
 for 6 s is the link lost: the core's link turned off at once, one notice,

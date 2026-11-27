@@ -12,12 +12,13 @@ CHECKS += check-link
 #| a stranger told busy, six seconds with no beat a lost link (said once, the core's link off); the
 #| joiner's scan again while it is looked at, its join with the typed code, no hello before an
 #| address, its socket on that address and 56399 (where the host answers), and one every half second
-#| until the welcome, then the client's options; a bye said as left; each failure (no hotspot, no
-#| scan, no join, no answer, busy, Diatom refusing); the game's end quiet; the beat's socket on
-#| 10.42.1.1 alone; the stop's bye twice with nothing to Diatom; the USB-C cable (the adapter's
-#| Wi-Fi before it, no code, no hotspot, the gadget and the beat on 10.42.0.1, the joiner's port the
-#| host and 10.42.0.2, the client's address 10.42.0.1, no hotspot to lose, each failure); and
-#| `src/linknet.c`'s socket on the loopback
+#| until the welcome, a welcome or busy from any address but the host's ignored, then the client's
+#| options; once linked, nothing from a third address heard; a bye said as left; each failure (no
+#| hotspot, no scan, no join, no answer, busy, Diatom refusing); the game's end quiet; the beat's
+#| socket on 10.42.1.1 alone; the stop's bye twice with nothing to Diatom; the USB-C cable (the
+#| adapter's Wi-Fi before it, no code, no hotspot, the gadget and the beat on 10.42.0.1, the
+#| joiner's port the host and 10.42.0.2, the client's address 10.42.0.1, no hotspot to lose, each
+#| failure); and `src/linknet.c`'s socket on the loopback
 
 check-link: build-native/link-check
 	@./build-native/link-check

@@ -488,7 +488,19 @@ static void join_side(void)
 	run(1000);
 	CHECK(logged("send 10.42.1.1:56399 ZLINK1\thello") >= 3);
 	CHECK(logged("resident") == 0);
+	/* An answer from anyone but the host asked is not the host's: another
+	 * device on its network cannot take the link, nor turn it away */
+	arrive(LINK_MSG_WELCOME, "Pixel 2 6666", "Tetris DX", "10.42.1.66");
+	arrive(LINK_MSG_BUSY, "Pixel 2 6666", "Tetris DX", "10.42.1.66");
+	run(100);
+	CHECK(link_state_now() == LINK_JOIN_ASKING && logged("resident") == 0);
+	CHECK(!strcmp(link_peer_name(), "Pixel 2 0C11"));
 	arrive(LINK_MSG_WELCOME, "Pixel 2 0C11", "Tetris DX", "10.42.1.1");
+	run(100);
+	CHECK(link_state_now() == LINK_LINKED);
+	CHECK(!strcmp(link_peer_name(), "Pixel 2 0C11"));
+	/* Linked, a bye from a third address ends nothing */
+	arrive(LINK_MSG_BYE, "Pixel 2 6666", "", "10.42.1.66");
 	run(100);
 	CHECK(link_state_now() == LINK_LINKED);
 	CHECK(logged("resident SETOPT") == 14);

@@ -482,7 +482,10 @@ static void hear(unsigned t)
 			}
 			continue;
 		}
-		if (g.st == LINK_JOIN_ASKING && (m == LINK_MSG_WELCOME || m == LINK_MSG_BUSY)) {
+		/* The answer from the host asked alone: anyone else on its
+		 * network could answer for it and take the link */
+		if (g.st == LINK_JOIN_ASKING && (m == LINK_MSG_WELCOME || m == LINK_MSG_BUSY) &&
+		    !strcmp(from, g.host_addr)) {
 			if (m == LINK_MSG_BUSY) {
 				fail(LINK_FAIL_BUSY, "the host is linked with another");
 				return;
