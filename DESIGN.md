@@ -7804,8 +7804,9 @@ had no row there, as mGBA has no network link, and nobody would find the
 feature on the shelves' default core.)* On Gambatte, the Game Boy shelves'
 second core (11.62), A opens the page. On mGBA, A asks first, in the
 question with two answers (11.3): **Restart on Gambatte**, "Restart this
-game on Gambatte for the Link Cable? Its own save carries over; play
-since it is lost. It stays on Gambatte (Core, in its details).", Cancel
+game on Gambatte for the Link Cable? Your in-game save carries over, but
+play since that save is lost. The game stays on Gambatte. Change it under
+Core in its details.", Cancel
 on the left with the cursor on it and B giving it, **Restart** in
 **warning** (it loses play since the game's last own save: save states
 are each core's). Restart makes Gambatte this game's own core, stops the

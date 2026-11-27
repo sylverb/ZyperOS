@@ -414,14 +414,14 @@ it = Riavviare questo gioco su Gambatte per il Cavo Link?
 
 [link.gambatte_lost]
 note = Under link.gambatte_ask: what the restart keeps and loses. The battery save (the game's own save) carries over; play since the game's last own save is lost, as save states are each core's; this game alone keeps Gambatte (its shelf and the shelf's other games do not), and the Core row (sysmenu.core) on its details page (X on the game) changes it back. Wrapped to the panel.
-en = Its own save carries over; play since it is lost. It stays on Gambatte (Core, in its details).
-zh-Hans = 游戏自身的存档会保留，之后的进度会丢失。它会保持使用 Gambatte（详情中的核心）。
-es = Su partida guardada se conserva; lo jugado después se pierde. Sigue en Gambatte (Núcleo, en sus detalles).
-pt-BR = O save do jogo continua; o que jogou depois se perde. Fica no Gambatte (Núcleo, nos detalhes).
-fr = Sa sauvegarde est conservée ; la partie depuis est perdue. Il reste sur Gambatte (Cœur, dans ses détails).
-de = Sein Spielstand bleibt; alles danach geht verloren. Es bleibt bei Gambatte (Core, in seinen Details).
-ja = ゲーム本体のセーブは残り、それ以降の進行は失われます。Gambatte のままになります（詳細のコア）。
-it = Il suo salvataggio resta; quanto giocato dopo si perde. Resta su Gambatte (Core, nei dettagli).
+en = Your in-game save carries over, but play since that save is lost. The game stays on Gambatte. Change it under Core in its details.
+zh-Hans = 游戏内存档会保留，但之后的进度会丢失。这个游戏会保持使用 Gambatte，可在其详情的核心中更改。
+es = Tu partida guardada se conserva, pero se pierde lo jugado desde entonces. El juego sigue en Gambatte. Cámbialo en Núcleo, en sus detalles.
+pt-BR = Seu save do jogo continua, mas o que jogou depois dele se perde. O jogo fica no Gambatte. Mude em Núcleo, nos detalhes dele.
+fr = Votre sauvegarde du jeu est conservée, mais la partie depuis est perdue. Le jeu reste sur Gambatte. Changez-le dans Cœur, dans ses détails.
+de = Dein Spielstand im Spiel bleibt, aber alles danach geht verloren. Das Spiel bleibt bei Gambatte. Ändern unter Core in seinen Details.
+ja = ゲーム内のセーブは引き継がれますが、それ以降の進行は失われます。このゲームは Gambatte のままです。詳細のコアで変更できます。
+it = Il salvataggio nel gioco resta, ma quanto giocato dopo si perde. Il gioco resta su Gambatte. Cambialo in Core, nei suoi dettagli.
 
 [link.gambatte_yes]
 note = The yes of that question: the game stops and starts again on Gambatte, then the Link Cable page opens. One or two words, an answer's word, in Title Case.
