@@ -202,6 +202,22 @@ static void names(void)
 	CHECK(!strcmp(tail, "0000"));
 	link_tail("00:c0:ca:b1:zz:2a", tail);
 	CHECK(!strcmp(tail, "0000"));
+	/* No adapter (the cable): the serial names it, never "Pixel 2 0000" */
+	{
+		char m[24];
+
+		CHECK(link_mac_or_serial("00:c0:ca:b1:7f:2a\n", "0x1234abcd", m, sizeof m) &&
+		      !strcmp(m, "00:c0:ca:b1:7f:2a"));
+		CHECK(link_mac_or_serial("", "0x8a6f1C2D\n", m, sizeof m) && !strcmp(m, "00:00:00:00:1c:2d"));
+		link_tail(m, tail);
+		CHECK(!strcmp(tail, "1C2D"));
+		CHECK(link_mac_or_serial(NULL, "b0e3f00d9c41a7e2", m, sizeof m) && !strcmp(m, "00:00:00:00:a7:e2"));
+		CHECK(!link_mac_or_serial(NULL, "0x1c2", m, sizeof m) && !m[0]);
+		CHECK(!link_mac_or_serial(NULL, "", m, sizeof m) && !link_mac_or_serial(NULL, NULL, m, sizeof m));
+		link_use(NULL, "00:00:00:00:1c:2d");
+		CHECK(!strcmp(link_self_name(), "Pixel 2 1C2D"));
+		link_use(NULL, "00:c0:ca:b1:7f:2a");
+	}
 	link_ssid("7F2A", s, sizeof s);
 	CHECK(!strcmp(s, "ZyperOS-Link-7F2A"));
 	CHECK(strlen(s) < 32);

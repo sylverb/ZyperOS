@@ -7905,7 +7905,12 @@ says hello to 10.42.0.1: "Joining over the cable", "This one gives the other
 power while they are linked." From there the hello, the beat and the core's
 options are the Wi-Fi's, with 10.42.0.1 for the server's address. The
 joiner's port stays the host until the cable comes out: only usbrole writes
-the role. What only two real Pixel 2s can say: whether each end's ID pin
+the role. With no adapter to name it, a handheld on
+the cable is named by its own serial's last four hex digits (the device
+tree's serial-number, else the card's), so the host is never "Pixel 2 0000"
+(link_mac_or_serial, 2026-11-27). Desk mode joins a Pixel 2 that hosts on the
+cable with `ZYPEROS_DESK_LINK_CABLE=1` (the computer on its 10.42.0.x, as
+"Pixel 2 DE5C"): src/link.c's real joiner against a real host. What only two real Pixel 2s can say: whether each end's ID pin
 reads the other as a plug that wants power on a C-to-C cable; whether the
 PHY reports the joiner as a data port on the host end; that cdc_ncm binds
 the gadget; how much the host end draws to charge from the joiner (its

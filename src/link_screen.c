@@ -24,6 +24,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef ZYPEROS_DESK
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#endif
 
 /* ---------- the Game Boy's Link Cable --------------------------------------
  *
@@ -37,6 +43,10 @@
  * ends the link (link_game_end). */
 
 #define WLAN_ADDRESS "/sys/class/net/wlan0/address"
+/* With no adapter in, the handheld's own serial names it on the cable: the
+ * SoC's, as the boot loader puts it in the device tree, else the card's */
+static const char *const SERIALS[] = { "/sys/firmware/devicetree/base/serial-number",
+                                       "/sys/block/mmcblk0/device/serial" };
 
 /* --link KIND: the page as a shot draws it, and the row's value with
  * --gamemenu */
@@ -76,6 +86,44 @@ typedef struct {
 	link_medium  medium;       /* what it is on, or what a start would take */
 } link_view;
 
+#ifdef ZYPEROS_DESK
+/* Desk mode as the cable's joiner, for a test with one Pixel 2: with
+ * ZYPEROS_DESK_LINK_CABLE=1 this computer, on the Pixel 2's cable network
+ * (USB File Transfer's 10.42.0.1, this end 10.42.0.2), is the other end of
+ * the cable. Its port is no USB host and has no usbrole: the join takes
+ * the address this computer has toward 10.42.0.1, and the rest is
+ * src/link.c's own, the hello, the beat, the options to Diatom. It cannot
+ * host (it has no gadget). */
+static bool desk_cable(void)
+{
+	const char *e = getenv("ZYPEROS_DESK_LINK_CABLE");
+
+	return e && *e == '1';
+}
+
+static int desk_cable_addr(char *addr, unsigned n)
+{
+	struct sockaddr_in a, me;
+	socklen_t ml = sizeof me;
+	int s = socket(AF_INET, SOCK_DGRAM, 0), ok;
+
+	if (s < 0) return -1;
+	memset(&a, 0, sizeof a);
+	a.sin_family = AF_INET;
+	a.sin_port = htons(LINK_BEAT_PORT);
+	inet_pton(AF_INET, LINK_CABLE_ADDR, &a.sin_addr);
+	/* No datagram goes: a connect only picks the route and its address */
+	ok = connect(s, (struct sockaddr *)&a, sizeof a) == 0 &&
+	     getsockname(s, (struct sockaddr *)&me, &ml) == 0 &&
+	     inet_ntop(AF_INET, &me.sin_addr, addr, n) != NULL;
+	close(s);
+	return ok ? 1 : 0;
+}
+#else
+static bool desk_cable(void) { return false; }
+static int desk_cable_addr(char *addr, unsigned n) { (void)addr; (void)n; return -1; }
+#endif
+
 /* Another device on the USB-C port, for the cable link: a plug that wants
  * power and gives none (usbrole may make the port its host), the port a
  * host already, or a port that powers this one with data. Looked at five
@@ -87,6 +135,7 @@ static bool cable_peer(void)
 	unsigned now = plat_now_ms();
 	usb_power p;
 
+	if (desk_cable()) return true;
 	if (at && now - at < 200u) return was;
 	at = now ? now : 1;
 	was = (plat_usb_power(&p) && p.known && ((p.plug && p.ask) || p.host)) ||
@@ -372,6 +421,25 @@ static const char *game_title(app *a)
 	return sv->list.items[sv->cursor].title;
 }
 
+/* This handheld's address for its names: the adapter's, else one made from
+ * its serial (link_mac_or_serial), so the cable's host is no "Pixel 2 0000" */
+static void self_address(char *mac, unsigned n)
+{
+	char got[32] = "", serial[64];
+	unsigned i;
+
+	file_head(WLAN_ADDRESS, got, sizeof got);
+	if (link_mac_or_serial(got, NULL, mac, n)) return;
+	for (i = 0; i < sizeof SERIALS / sizeof SERIALS[0]; i++) {
+		serial[0] = '\0';
+		file_head(SERIALS[i], serial, sizeof serial);
+		if (link_mac_or_serial(NULL, serial, mac, n)) return;
+	}
+	mac[0] = '\0';
+	/* Desk mode as the cable's joiner: "Pixel 2 DE5C" on the other one */
+	if (desk_cable()) link_mac_or_serial(NULL, "de5c", mac, n);
+}
+
 /* This handheld's adapter names it and its network: read as the page
  * opens, since an adapter can be plugged in at any time */
 static void name_from_adapter(void)
@@ -379,7 +447,7 @@ static void name_from_adapter(void)
 	char mac[32] = "";
 
 	if (link_state_now() != LINK_OFF) return;
-	file_head(WLAN_ADDRESS, mac, sizeof mac);
+	self_address(mac, sizeof mac);
 	link_use(NULL, mac);
 }
 
@@ -580,6 +648,7 @@ static unsigned lop_now(void) { return plat_now_ms(); }
  * the other Pixel 2 that powers it looks like a computer */
 static bool lop_cable_host_up(void)
 {
+	if (desk_cable()) return false;
 	usblink_for_transfer();
 	usblink_skip_ask();
 	return plat_usb_link(-1);
@@ -594,6 +663,7 @@ static bool lop_cable_join_start(void)
 {
 	usb_power p;
 
+	if (desk_cable()) return true;
 	if (!plat_usb_power(&p) || !p.known) return false;
 	if (p.host) return true;
 	if (!p.plug || !p.ask) return false;
@@ -611,6 +681,7 @@ static int lop_cable_join_poll(char *addr, unsigned n)
 
 	if (at && now - at < 500u) return 0;
 	at = now ? now : 1;
+	if (desk_cable()) return desk_cable_addr(addr, n);
 	if (!plat_phone_link(true, ifn, sizeof ifn, ip, sizeof ip) || !ip[0]) return 0;
 	snprintf(addr, n, "%s", ip);
 	return 1;
@@ -648,6 +719,6 @@ void link_setup(void)
 {
 	char mac[32] = "";
 
-	file_head(WLAN_ADDRESS, mac, sizeof mac);
+	self_address(mac, sizeof mac);
 	link_use(&g_link_ops, mac);
 }

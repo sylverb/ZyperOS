@@ -31,6 +31,42 @@ bool link_offered(const char *core, bool device)
 
 /* ---- the pure parts ------------------------------------------------------- */
 
+/* An adapter's address: "aa:bb:cc:dd:ee:ff", the last two bytes hex */
+static bool mac_ok(const char *mac)
+{
+	static const int at[4] = { 12, 13, 15, 16 };
+	int k;
+
+	if (!mac || strlen(mac) < 17 || mac[14] != ':') return false;
+	for (k = 0; k < 4; k++)
+		if (!isxdigit((unsigned char)mac[at[k]])) return false;
+	return true;
+}
+
+bool link_mac_or_serial(const char *mac, const char *serial, char *out, unsigned n)
+{
+	const char *p, *end;
+	unsigned len;
+
+	if (n) out[0] = '\0';
+	if (mac_ok(mac)) {
+		snprintf(out, n, "%.17s", mac);
+		return n > 17;
+	}
+	if (!serial) return false;
+	/* The serial's last run of hex digits, a "0x" before it and a line
+	 * end or spaces after it left out: its last four */
+	if (serial[0] == '0' && (serial[1] == 'x' || serial[1] == 'X')) serial += 2;
+	for (end = serial + strlen(serial); end > serial && !isxdigit((unsigned char)end[-1]); end--) { }
+	for (p = end; p > serial && isxdigit((unsigned char)p[-1]); p--) { }
+	len = (unsigned)(end - p);
+	if (len < 4) return false;
+	p = end - 4;
+	snprintf(out, n, "00:00:00:00:%c%c:%c%c", tolower((unsigned char)p[0]), tolower((unsigned char)p[1]),
+	         tolower((unsigned char)p[2]), tolower((unsigned char)p[3]));
+	return n > 17;
+}
+
 void link_tail(const char *mac, char out[5])
 {
 	/* "aa:bb:cc:dd:ee:ff": the last two bytes are at 12 and 15 */

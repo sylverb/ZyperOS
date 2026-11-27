@@ -103,6 +103,12 @@ bool link_offered(const char *core, bool device);
 /* The last two bytes of an adapter's address ("aa:bb:cc:dd:7f:2a") as four
  * capitals, "7F2A"; "0000" for an address that is not one */
 void link_tail(const char *mac, char out[5]);
+/* With no adapter in (the USB-C cable), the handheld's own serial names it:
+ * `mac` when it is an adapter's address, else one made from the last four
+ * hex digits of `serial` ("0x8a6f1c2d" or "b0e3...1c2d": "00:00:00:00:1c:2d"),
+ * so link_tail reads "1C2D" and the cable's host is no "Pixel 2 0000".
+ * False, and `out` empty, when neither is one. */
+bool link_mac_or_serial(const char *mac, const char *serial, char *out, unsigned n);
 /* The network's name for a tail, "ZyperOS-Link-7F2A" */
 void link_ssid(const char *tail, char *out, unsigned n);
 /* A handheld's name for a tail, "Pixel 2 7F2A" */
