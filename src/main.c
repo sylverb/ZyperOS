@@ -197,6 +197,7 @@
 #include "saver_screen.h"
 #include "mp4_screen.h"
 #include "player2_screen.h"
+#include "link_screen.h"
 #include "tour_screen.h"
 #include "devmode_screen.h"
 #include "signin_screen.h"
@@ -749,6 +750,63 @@ void core_load(app *a)
 	}
 	/* A Display never set goes by the core now chosen */
 	for (i = 0; i < sys_kept(a); i++) dmode_settle(a, i);
+}
+
+/* ---------- a game's own core (2026-11-27) -------------------------------
+ *
+ * Tarik's decision with the Link Cable: a game can run on a core of its own
+ * among its shelf's, over the shelf's Core row. Kept as core.<TAG>.<file>
+ * (as a game's own buttons are map.<tag>.<file>); none, the shelf's choice.
+ * The Link Cable's question on mGBA sets it to Gambatte for that game
+ * alone; its details page's Core row steps it, Shelf's Choice first. */
+static void core_game_key(const system_cfg *s, const char *file, char *key, size_t n)
+{
+	snprintf(key, n, "core.%s.%s", s->tag, file);
+}
+
+bool core_game_get(const system_cfg *s, const char *file, char *out, int cap)
+{
+	char key[CFG_STR + LIB_PATH + 16], name[CFG_STR], alt[CFG_STR];
+	int k, n = cfg_core_count(s);
+
+	if (!file || !*file || n < 2) return false;
+	core_game_key(s, file, key, sizeof key);
+	if (!db_get_str(db_dev(), key, name, sizeof name, NULL) || !name[0]) return false;
+	/* Only one its shelf still offers, and on the card */
+	for (k = 0; k < n; k++)
+		if (cfg_core_at(s, k, alt, sizeof alt) && !strcmp(alt, name) && core_ready(s, alt)) {
+			snprintf(out, (size_t)cap, "%s", alt);
+			return true;
+		}
+	return false;
+}
+
+void core_game_set(const system_cfg *s, const char *file, const char *core)
+{
+	char key[CFG_STR + LIB_PATH + 16];
+
+	core_game_key(s, file, key, sizeof key);
+	if (core && *core) db_set_str(db_dev(), key, core);
+	else db_del(db_dev(), key);
+	fprintf(stderr, "core: %s/%s %s%s\n", s->folder, file, core && *core ? "runs on " : "goes by its shelf",
+	        core && *core ? core : "");
+}
+
+/* The game's Core row stepped: Shelf's Choice, then each core the shelf
+ * offers, round; what it is now into `out` ("" for the shelf's) */
+void core_game_step(const system_cfg *s, const char *file, int d, char *out, int cap)
+{
+	char cur[CFG_STR] = "", alt[CFG_STR];
+	int n = core_offered_count(s), k, at = 0;
+
+	if (n < 2) { if (cap) out[0] = '\0'; return; }
+	core_game_get(s, file, cur, sizeof cur);
+	for (k = 0; k < n; k++)
+		if (cur[0] && core_offered_at(s, k, alt, sizeof alt) && !strcmp(alt, cur)) at = k + 1;
+	at = (at + d + n + 1) % (n + 1);
+	if (at == 0 || !core_offered_at(s, at - 1, alt, sizeof alt)) alt[0] = '\0';
+	core_game_set(s, file, alt);
+	snprintf(out, (size_t)cap, "%s", alt);
 }
 
 /* The next core the shelf's Core row offers, or the previous one. */
@@ -3195,6 +3253,9 @@ static void on_game_tick(void)
 	/* NES Player 2 (src/p2.h): the hotspot coming up and p2d after it, and
 	 * a friend joining or leaving said over the game. Bounded. */
 	p2_tick(plat_now_ms());
+	/* The Game Boy's Link Cable (src/link.h): the beat to the other
+	 * handheld, and a lost link said over the game. Bounded. */
+	link_tick(plat_now_ms());
 	/* The chip's temperature, every HEAT_POLL_MS; "Getting hot" over the
 	 * game when it passes the trip, ahead of any pop-up waiting */
 	heat_tick();
@@ -4392,6 +4453,10 @@ void snap_draw(app *a, mm_pose pose)
 		p2_panel(a, s->heading, s->rows, s->n, s->accent, pose);
 		return;
 	}
+	if (s->kind == PANEL_LINK) {
+		link_panel(a, s->heading, s->rows, s->n, s->sel, s->accent, pose);
+		return;
+	}
 	if (s->kind == PANEL_MOVE) {
 		move_page(a, s->heading, s->rows, s->n, pose);
 		return;
@@ -4487,6 +4552,7 @@ void panel_show(app *a, int kind, const char *heading,
 	if (panel_is_tiles(kind)) tiles_panel(a, kind, heading, rows, g_snap->marks, n, sel, f.panel);
 	else if (kind == PANEL_HOT) hot_panel(a, heading, rows, n, f.panel);
 	else if (kind == PANEL_P2) p2_panel(a, heading, rows, n, accent, f.panel);
+	else if (kind == PANEL_LINK) link_panel(a, heading, rows, n, sel, accent, f.panel);
 	else if (kind == PANEL_MOVE) move_page(a, heading, rows, n, f.panel);
 	else if (kind == PANEL_CONFIRM) confirm_panel_draw(a, heading, rows, g_snap->marks, sel, fixed_w, true, f.panel);
 	else menu_panel(a, heading, rows, n, sel, fixed_w, accent, vcolors,
@@ -7509,6 +7575,16 @@ int main(int argc, char *argv[])
 				v->url = "zyperos.local/play";
 			}
 		}
+		/* --link KIND: the Link Cable's page over a paused Game Boy game
+		 * (src/link_screen.h's kinds: tiles, no-adapter, starting,
+		 * waiting, looking, found, joining, linked, lost, failed,
+		 * stopping, failed-network, -join, -busy, -game, -code); with --gamemenu the in-game menu, its row saying it */
+		else if (!strcmp(argv[i], "--link") && i + 1 < argc) {
+			if (!link_shot_parse(argv[++i])) {
+				fprintf(stderr, "--link: no such kind %s\n", argv[i]);
+				return 2;
+			}
+		}
 		else if (!strcmp(argv[i], "--hotspot")) {
 			shot_hot = 1;
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_hot_ssid   = argv[++i];
@@ -7592,6 +7668,7 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_title = argv[++i];
 		}
 		else if (!strcmp(argv[i], "--kb-ss-user")) shot_kb_ss_user = 1;
+		else if (!strcmp(argv[i], "--kb-link")) shot_kb_link = 1;
 		else if (!strcmp(argv[i], "--kb-rename-shown")) {
 			shot_kb = 1;
 			shot_kb_rename_shown = 1;
@@ -8119,6 +8196,7 @@ int main(int argc, char *argv[])
 		plat_on_input_wait(dlq_wait);
 		dlq_on_step(downloads_stepped);
 		p2_setup();
+		link_setup();
 		heat_init(&g_heat);
 
 		/* Without this every HTTPS request fails verification, because the

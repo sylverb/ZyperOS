@@ -466,6 +466,13 @@ void p8_take_now(void);
  * chosen */
 int  core_offered_count(const system_cfg *s);
 bool core_offered_at(const system_cfg *s, int i, char *out, int cap);
+/* A game's own core over its shelf's (core.<TAG>.<file>, src/main.c): its
+ * name into `out`, false for none (the shelf's choice) or one the shelf no
+ * longer offers or the card lacks; its set ("" or NULL clears it); and its
+ * Core row's step, Shelf's Choice then each offered core, round */
+bool core_game_get(const system_cfg *s, const char *file, char *out, int cap);
+void core_game_set(const system_cfg *s, const char *file, const char *core);
+void core_game_step(const system_cfg *s, const char *file, int d, char *out, int cap);
 bool is_mp4(const system_cfg *s);
 void gm_quit(void);
 /* A pop-up over the running game, as the quick slot's (main.c's popup_now):

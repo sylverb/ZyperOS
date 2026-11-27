@@ -152,6 +152,11 @@ typedef struct {
 	bool cable_spent;   /* the cable's SSH already ran for this plug: a
 	                     * lockout, or a radio that ended it, holds until
 	                     * the cable comes out */
+	bool link;          /* the Game Boy's Link Cable holds the radio for its
+	                     * own network (src/link.h's link_holds_radio): no
+	                     * SSH over Wi-Fi there, as if there were no radio.
+	                     * Its code is four digits, so that network is no
+	                     * place for a login */
 } sshlink_facts;
 
 /* Developer Mode's SSH, for these facts:

@@ -47,6 +47,7 @@
 #include "osdbar.h"
 #include "panel.h"
 #include "player2_screen.h"
+#include "link_screen.h"
 #include "pminstall.h"
 #include "portload.h"
 #include "powerscreens.h"
@@ -504,6 +505,8 @@ const char *shot_kb_title = "Wi-Fi password";
 /* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
  * language, so check-i18n-shots measures it in every one */
 int shot_kb_ss_user;
+/* --kb-link: the Link Cable's, the code a host shows, asked of the joiner */
+int shot_kb_link;
 /* --kb-rename-shown [empty]: Rename's keyboard on a game whose file keeps
  * its name (src/gamern_screen.c), its title and its note, in the shot's
  * language, on the focused game's name unless --keyboard gave a text; with
@@ -513,6 +516,12 @@ int shot_kb_rename_empty;
 
 static const char *kb_title_shown(void)
 {
+	static char link[128];
+
+	if (shot_kb_link) {
+		snprintf(link, sizeof link, T(S_LINK_CODE_ASK), "Pixel\xc2\xa0" "2 0C11");
+		return link;
+	}
 	if (shot_kb_rename_shown) {
 		kb_note_next(T(S_GAMEMENU_RENAME_SHOWN_NOTE));
 		return T(S_GAMEMENU_RENAME_SHOWN);
@@ -995,6 +1004,18 @@ static void shot_draw_player2(app *a)
 
 	paused_backdrop(a, bg, 1.0f);
 	p2_show(a, &g_shot_p2_view);
+	if (bg) SDL_DestroyTexture(bg);
+}
+
+/* --link KIND: the Link Cable's page over a paused game (a made-up frame),
+ * in one of its states (src/link_screen.h); with --gamemenu the in-game
+ * menu instead, its Link Cable row saying that state */
+static void shot_draw_link(app *a)
+{
+	SDL_Texture *bg = shot_backdrop ? IMG_LoadTexture(a->r, shot_backdrop)
+	                                : fake_frame(a->r, 10.0f / 9);
+
+	link_shot_draw(a, bg);
 	if (bg) SDL_DestroyTexture(bg);
 }
 
@@ -1886,6 +1907,7 @@ static void shot_compose_once(app *a)
 	if (shot_cheats_crash) cheats_crash_shot(a);
 	if (shot_gamemenu && a->sys.count > 0 && !shot_look_over_game(a)) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
+	else if (g_shot_link && a->sys.count > 0) shot_draw_link(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
 	if (shot_controls_fit) controls_fit_report(a);
 	if (shot_ask) shot_ask_draw(a);
@@ -2482,6 +2504,14 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strncmp(shot_popup, "link_", 5)) {
+			/* The Link Cable's (lop_notice): linked, lost, the other one
+			 * left */
+			shot_notice_head = T(S_LINK_ROW);
+			if (!strcmp(shot_popup, "link_lost")) snprintf(pbody, sizeof pbody, "%s", T(S_LINK_LOST));
+			else snprintf(pbody, sizeof pbody,
+			              T(!strcmp(shot_popup, "link_left") ? S_LINK_LEFT : S_LINK_LINKED_WITH),
+			              "Pixel\xc2\xa0" "2 0C11");
 		} else if (!strncmp(shot_popup, "disk_", 5)) {
 			/* L1 or R1 moving a Famicom Disk System game's disk (on_disk):
 			 * disk_side, disk_in, disk_out on disk 1's side B, disk_first

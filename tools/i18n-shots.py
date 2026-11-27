@@ -695,7 +695,8 @@ CONFIRM_QUESTIONS = (
     "storage-orphan-port", "game-delete", "port-delete", "update-rollback", "collection-delete",
     "screenshot-delete", "media-video-delete", "sgdb-unlink", "ss-unlink", "snaps-delete-all",
     "reset-buttons-game", "reset-buttons-all", "usb-offer", "dl-sign-out", "dl-delete-videos",
-    "dl-delete-cheats", "dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats", "bt-forget")
+    "dl-delete-cheats", "dl-delete-sets", "dl-sys-videos", "dl-sys-sets", "dl-sys-cheats", "bt-forget",
+    "link-gambatte")
 for _q in CONFIRM_QUESTIONS:
     EXTRA.setdefault("ask-" + _q, ("demo", "PS1", ["--ask", _q]))
 # System Update (DESIGN.md 11.17, 2026-11-11): What's New scrolled to its
@@ -1613,7 +1614,8 @@ SHOT_SETTINGS["hud-pick-corner-bottom-right"] = {"hud": "1"}
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped", "shot", "shader", "display", "cheats", "cheats_one"):
+              "player2_stopped", "shot", "shader", "display", "cheats", "cheats_one",
+              "link_linked", "link_lost", "link_left"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 # A Famicom Disk System game's disk as L1 and R1 move it (src/diskpopup.h)
 for _kind in ("disk_side", "disk_in", "disk_out", "disk_first"):
@@ -1669,6 +1671,33 @@ for _kind in ("hotspot", "connected", "cable", "off", "off-cable", "none", "fail
     EXTRA.setdefault("player2-" + _kind, ("demo", "NES", ["--screen", "games", "--player2", _kind]))
 EXTRA.setdefault("gamemenu-player2", ("demo", "NES", ["--screen", "games", "--gamemenu", "4",
                                                        "--player2", "connected"]))
+# The Game Boy's Link Cable (src/link.h, DESIGN.md 11.72): its page over a
+# paused Game Boy game in every state (--link), Host and Join, the host's
+# network starting and waiting, the joiner looking and the hosts found, joining,
+# linked, after a lost link and each failure, and the Wi-Fi coming back; and
+# the in-game menu on its row on Gambatte, linked, waiting, lost and with no
+# adapter in
+for _kind in ("tiles", "starting", "waiting", "looking", "found", "joining", "linked", "lost",
+              "failed", "stopping", "failed-network", "failed-join", "failed-busy", "failed-game",
+              "failed-code", "cable-tiles", "cable-waiting", "cable-joining", "failed-cable"):
+    EXTRA.setdefault("link-" + _kind, ("demo", "GB", ["--screen", "games", "--link", _kind]))
+# ...and the joiner's keyboard asking for the code the host shows
+EXTRA.setdefault("keyboard-link", ("demo", "PS1", ["--keyboard", "0", "48", "--kb-link"]))
+for _name, _kind in (("gamemenu-link", "linked"), ("gamemenu-link-waiting", "waiting"),
+                     ("gamemenu-link-lost", "lost"), ("gamemenu-link-no-adapter", "no-adapter")):
+    EXTRA.setdefault(_name, ("demo", "GB", ["--screen", "games", "--gamemenu", "4", "--link", _kind]))
+    SHOT_SETTINGS[_name] = {"core.GB": "gambatte"}
+
+# On mGBA (Tarik's decision, 2026-11-27): the Link Cable row on a Game Boy
+# game running on mgba, and a game's own core on its details page, on a
+# card with both cores (stand-ins, gbcores_card): the shelf's ("mgba
+# (Shelf's)") and its own (gambatte, as the Link Cable's restart leaves it)
+EXTRA.setdefault("gamemenu-link-mgba", ("gbcores", "GB", ["--screen", "games", "--gamemenu", "4",
+                                                          "--link", "tiles"]))
+SHOT_SETTINGS["gamemenu-link-mgba"] = {"core.GB": "mgba"}
+EXTRA.setdefault("info-core-shelf", ("gbcores", "GB", ["--screen", "games", "--info"]))
+EXTRA.setdefault("info-core-own", ("gbcores", "GB", ["--screen", "games", "--info"]))
+SHOT_SETTINGS["info-core-own"] = {"core.GB.Pokemon - Red Version (USA, Europe).gb": "gambatte"}
 
 # MENU > System Update in the states whose lines are longest, each as the
 # status file the update program writes it (src/sysupdate.c); the second is
@@ -1911,7 +1940,7 @@ KNOWN_KEYS = set()
 
 # The scratch cards every run shoots from, by name
 CARDS = ["demo", "empty", "scummvm", "openbor", "ports", "all", "portdocs", "media", "pmcard", "psp",
-         "es", "systems", "pico8"]
+         "es", "systems", "pico8", "gbcores"]
 
 
 def make_cards(top):
@@ -1935,6 +1964,12 @@ def make_cards(top):
     R.openbor_card(cards["openbor"])
     R.psp_card(cards["psp"])
     pico8_card(cards["pico8"])
+    # The demonstration card with the Game Boy's two cores (stand-in files,
+    # as pico8_card's fake08): its Core rows have a choice
+    R.demo_card(cards["gbcores"], None, {"artwork": {}})
+    (cards["gbcores"] / "ZyperOS/cores").mkdir(parents=True, exist_ok=True)
+    for _c in ("mgba", "gambatte"):
+        (cards["gbcores"] / f"ZyperOS/cores/{_c}_libretro.so").write_bytes(b"")
     R.card_dirs(cards["empty"])
 
 

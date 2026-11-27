@@ -152,6 +152,7 @@ extern int shot_poweroff;
 extern const char *shot_kb_text;
 extern const char *shot_kb_title;
 extern int shot_kb_ss_user;      /* --kb-ss-user: the ScreenScraper sign-in's title */
+extern int shot_kb_link;         /* --kb-link: the Link Cable's code, asked */
 extern int shot_kb_rename_shown; /* --kb-rename-shown: Rename's for a name shown only */
 extern int shot_kb_rename_empty; /* ... `empty`: its field emptied */
 extern int shot_slot_sel;

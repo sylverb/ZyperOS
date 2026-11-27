@@ -113,6 +113,8 @@ sshlink_mode sshlink_step(sshlink_plan *p, const sshlink_facts *f, sshlink_mode 
 	sshlink_facts g = *f;
 	sshlink_mode want;
 
+	/* The Link Cable's network: nothing of ours listens on it */
+	if (g.link) g.radio = g.over_wifi = false;
 	if (!f->cable) p->spent = false;            /* the next plug is a fresh one */
 	/* The cable's ended by itself, the cable still in: a lockout or a
 	 * dropbear gone stays so until a replug */
@@ -133,7 +135,7 @@ sshlink_owner sshlink_owner_of(bool port_running, bool port_menu)
 sshlink_mode sshlink_want_port(const sshlink_facts *f, bool devmode)
 {
 	if (!devmode) return SSHLINK_OFF;
-	if (f->radio) return f->over_wifi ? SSHLINK_NET : SSHLINK_OFF;
+	if (f->radio && !f->link) return f->over_wifi ? SSHLINK_NET : SSHLINK_OFF;
 	return f->cable ? SSHLINK_CABLE_KEYS : SSHLINK_OFF;
 }
 

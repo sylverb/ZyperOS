@@ -156,4 +156,8 @@ const menu_choice *gm_choices(app *a, const gm_ui *u);
 /* --rows-report: the in-game menu's Game and Display tabs (menu_rows_print) */
 void gm_rows_report(app *a);
 
+/* The Link Cable's page over a game just started on Gambatte for it (the
+ * question on mGBA, link_restart_on_core), then the game goes on */
+void game_link_open(app *a);
+
 #endif

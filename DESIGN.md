@@ -1373,7 +1373,7 @@ always more.
 **A question with two answers** *(my picks in the confirm panels lab,
 2026-11-22, `~/Documents/ZyperOS/labs/confirm-panels-lab.html`: "Our UI has
 to be flawless and consistent")*. Every question the launcher asks with two
-answers is one panel, 39 of them in one table (`src/confirmq.h`): Delete
+answers is one panel, 40 of them in one table (`src/confirmq.h`): Delete
 Game, Wi-Fi's and Bluetooth's Forget, Storage's, Downloads', Reset, the USB
 offer. A
 question with three answers or more stays as it is (11.18, 11.36).
@@ -6079,7 +6079,7 @@ the tiles' style is read off a name.
 | Layout tokens | `tools/designdef.py` → `src/ds/layout.h` | where the launcher's own parts sit (section 5, Layout): `DS_PAGE_*`, `DS_TILE_*`, `DS_LIST_*`, `DS_BADGE*`, `DS_MARK_*`, `DS_HINT*` |
 | Primitives | `src/ui.c`, `src/ui.h` | text and its faces, the rounded rect, the panel's slab (`ui_panel`), lift, scrim, the rail, button glyphs (`ui_button`, 11.9), the generated cards |
 | Layout engine | `src/ds/flex.c`, `flex.h` | boxes laid out by rules (section 5, The system): `ds_flex_begin`, `ds_flex_add`, `ds_flex_solve`, `ds_flex_rect`; `check-flex` holds its rules |
-| Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
+| Stroke marks | `src/ds/glyph.c`, `glyph.h` | the `ui_glyph` marks (30) and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`, one column of boxes on the layout engine (the heading's band **page-body-y** tall, the body with two tiles and a line of words **page-news-drop** under them, the line of marks **page-line-over** over the keys, the keys on the foot inset); the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` (`src/usbdrive_screen.c`) draws the ground and Zyper and hands back the frame. |
 | A question with two answers | `src/ds/confirm.c`, `confirm.h`; the questions `src/confirmq.c`, `confirmq.h` | 11.3: `ds_confirm_layout`, `ds_confirm_draw` (the heading, the question wrapped, the two slabs, the fill, B's glyph, the press). In `src/main.c`, `confirm_ask` runs one (`PANEL_CONFIRM`, its press kept in the panel's copy) and `confirm_preview` draws one for a shot. `check-confirm` |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
@@ -7759,8 +7759,9 @@ Display, Shader and the buttons stay the system's, whatever the core.
   (src/coreopts.c): the first Game Boy's green ("Internal", GB - DMG) where
   the core's own default is no color, and the shelf's hardware a Game Boy.
 
-Gambatte is libretro/gambatte-libretro at 77f2567, built in the small
-cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
+Gambatte is libretro/gambatte-libretro at 77f2567 with its network Game
+Link and mk/patches/gambatte-link.patch (the Link Cable's, 11.72), built in
+the small cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
 undefined symbols and pinned by sha256), the same binary for both handhelds.
 No machine has to remember to build it: tools/release.sh, tools/px2-payload.sh
 and plastron's card builds run `mk/build-small-cores.sh --missing` first,
@@ -8499,3 +8500,219 @@ Host shots: `--lastboot "stage=L1;reason=W;kernel_time=118.4"` (the bubble;
 `check-lastboot` holds the summary in letters and in words, the code, said
 once, the card's copy and the 30 days; check-i18n-shots the bubble with the
 longest code and the row, in every language.
+
+### 11.72 The Link Cable
+
+*(metior on the Discord asked for the link cable, 16 Nov. My pick on the
+mock, 2026-11-18: "perfect", ideas-plan item 10. The Game Boy first; PSP ad
+hoc is a later step of its own.)*
+
+Two Pixel 2s play a Game Boy or Game Boy Color game together as the Game
+Boy's link cable did: trading, battling, two-player Tetris. Gambatte's
+network Game Link carries it; the handhelds reach each other on the host's
+own Wi-Fi, made as Player 2's is (11.43). Each needs a Wi-Fi adapter in.
+
+**The row.** The in-game menu's Game tab has **Link Cable** after Quick
+Slot (Player 2's place, which a Game Boy game never has) on a Game Boy or
+Game Boy Color game, whichever of the shelf's two cores it runs on, with
+Gambatte on the card. *(My decision, 2026-11-27: the row on mGBA too. It
+had no row there, as mGBA has no network link, and nobody would find the
+feature on the shelves' default core.)* On Gambatte, the Game Boy shelves'
+second core (11.62), A opens the page. On mGBA, A asks first, in the
+question with two answers (11.3): **Restart on Gambatte**, "Restart this
+game on Gambatte for the Link Cable? Your in-game save carries over, but
+play since that save is lost. The game stays on Gambatte. Change it under
+Core in its details.", Cancel
+on the left with the cursor on it and B giving it, **Restart** in
+**warning** (it loses play since the game's last own save: save states
+are each core's). Restart makes Gambatte this game's own core, stops the
+game and starts it again on Gambatte (from the shelf's turn, as
+px2-open's open after a quit), and the Link Cable page opens over it at
+once. The battery save is the same file for both cores.
+
+**A game's own core** (2026-11-27, with the row above). A game can run on
+a core of its own among its shelf's, over the shelf's Core row:
+`core.<TAG>.<file>` in the handheld's database (as a game's own buttons
+are `map.<tag>.<file>`), used by every start of it (A on it, Favorites,
+Recents, px2-open's open without core=), one the shelf no longer offers
+or the card lacks ignored. Its details page (X on the game) has the
+**Core** row it always had on a shelf of two cores, now stepped by Left,
+Right or A: the shelf's, said as the shelf's ("mgba (Shelf's)"), then each
+core the shelf offers, round, kept at once; the shelf's removes the key.
+The shelf's Core row and its other games stay as they were. Only the
+Link Cable's question sets it from a game. Its value is Off, Waiting (this one hosts
+and the other has not joined), Linked, or Lost (the other one went). With no
+adapter in, the row is quiet and says Needs Wi-Fi (12's one name for no
+network). The Pixel 2 only (`plat_player2`, the hotspot it is built on).
+
+**The page**, over the paused game:
+
+- **Host and Join**, two tiles as the USB question's (11.18): a dot sending
+  out (`UI_GLYPH_BEACON`) over "The other Pixel 2 joins this one.", and a
+  magnifying glass (`UI_GLYPH_SEARCH`) over "Find a Pixel 2 that hosts.".
+  Under them "Each handheld needs a Wi-Fi adapter in.", or what went wrong
+  last time (the link lost, a host that did not answer or is linked with
+  another, an adapter that would not start), in the same place. Both
+  handhelds start the same game first, or two that link (Red and Blue).
+- **Hosting**: a panel as wide as Player 2's page and as tall as the mock's
+  (src/linkpanel.c), "Waiting for the other Pixel 2" in **title** **text**,
+  the code under it in **title** **accent-ink**, tabular (`4821`),
+  "This one is Pixel 2 7F2A." and "On the other one: Link Cable, Join, then
+  this code." in **meta** **text-soft**, and three dots in **accent-ink**
+  whose brightest goes round every 300 ms, where they fit (a long
+  language's two-line heading and the code take their room). B stops.
+  "Starting the network" while the hotspot comes up.
+- **Joining**: "Looking for a Pixel 2 that hosts" with the dots and "On the
+  other one: Link Cable, then Host.", scanned again every 3 s; once some are
+  found, "Choose the Pixel 2 to join" over them as rows, the one under the
+  cursor the **accent** fill. A opens the keyboard (11.5), "Code shown on
+  Pixel 2 0C11", whose top row is the digits (no number pad of its own: the
+  keyboard every other entry uses); START with the code joins, "Joining
+  Pixel 2 0C11" while it does, and the keyboard's cancel goes back to the
+  list.
+  Spaces are dropped; anything that is not four digits says so under the
+  tiles, and a wrong code fails as a join that did not work ("Check the
+  code and try again"): the host's network turns it down, and nothing is
+  sent.
+- **Linked**, the page closes on both and the game goes on at once, with a
+  notice (11.7): **Link Cable** over "Linked with Pixel 2 0C11". The row
+  opens "Linked with ..." and "While a menu is open on one, the other one
+  waits.",
+  A to stop, B to close.
+- A stop that brings the Wi-Fi back says "Bringing the Wi-Fi back" while it
+  does, a second or two, as File Transfer's hotspot says its own.
+
+"Pixel 2" is never broken across two lines: the strings hold a no-break
+space between its words.
+
+**The network.** The host makes its hotspot (src/hotspot.h's
+`hotspot_start_named`) under a name of its own, `ZyperOS-Link-` and the
+adapter's last two bytes (`ZyperOS-Link-7F2A`), so a scan tells it from File
+Transfer's `ZyperOS-7F2A`, and a code of four digits, new from the kernel's
+random each time it hosts, 0000 to 9999 each as likely: the host's page
+shows it and the joiner types it. The WPA2 password is `zyperlink` and the
+code, as WPA2 wants eight characters at least. *(The first build made the
+password from the network's name with a fixed salt, so the other handheld
+needed nothing typed; a security review of the pull request found that
+anyone near could make it too and join the host's network. An eight-letter
+code came next; I chose four digits, 2026-11-22, as they are quick to type,
+knowing that someone near who captures the handshake tries the ten thousand
+offline in seconds.)* So the link's network carries nothing else of the
+launcher's. The beat's socket binds the link's own address (10.42.1.1),
+never every address, and the joiner's its own address on the host's network,
+on the same port 56399, where the host answers its hello (an ephemeral port,
+as the first build had it, never heard the welcome); Gambatte's server listens on every address, as the
+core has it. While the link holds the radio (`link_holds_radio`: hosting,
+joined, or scanning), Developer Mode's SSH over Wi-Fi and its zyperos.local
+stop and come back after (`sshlink_facts.link`, `check-sshlink`); a
+development image's own name there stops too. File Transfer's server is
+started by its screen alone, which no game opens, and Player 2's p2d by an
+NES game alone. The kernel has no netfilter (plastron's linux.config:
+`CONFIG_NETFILTER is not set`), so there is no firewall to add. A
+development image's own dropbear, which a release image never starts,
+keeps listening, keys only. WPA3-SAE, which would leave the code only online guesses, is not
+there yet (a security review asked, 2026-11-22): the image's hostapd 2.11
+is built without SAE (`# BR2_PACKAGE_HOSTAPD_WPA3 is not set`, so no
+`CONFIG_SAE` in its .config), though wpa_supplicant has it
+(`BR2_PACKAGE_WPA_SUPPLICANT_WPA3=y`, `CONFIG_SAE=y`); and the adapter the
+hotspot is built on, the RTL8188EU on Realtek's own 8188eu driver, knows
+only the PSK and 802.1X key managements in its cfg80211 code
+(ioctl_cfg80211.c), with its access point's authentication in the driver,
+so SAE in hostapd's userspace would not reach it. It needs
+`BR2_PACKAGE_HOSTAPD_WPA3=y` in plastron's zyperos.config and an adapter
+on a mac80211 driver with access point mode, then SAE with `ieee80211w=2`
+on both ends and WPA2 only where the adapter cannot. The joiner joins it for the game's time (src/wifi.h's
+`wifi_join_temp`): never saved to wpa_supplicant.conf, a new lease asked as
+it joins, and at the end the network removed, every saved network enabled
+again and a new lease from the one it rejoins.
+
+**The cable.** *(My ask, 2026-11-22: two Pixel 2s on one USB-C cable, a
+closed link with no code and no adapters.)* The Pixel 2's one port has no
+Type-C controller; plastron's usbrole sets its role from the PHY's ID pin
+and asks the launcher before it ever gives power (11.36). So with no adapter
+in and another device on the port (a plug that wants power, the port a host
+already, or a port that powers this one with data: `cable_peer`), the page
+takes the cable (`link_medium_of`): the line under the tiles says "On the
+USB-C cable: no code. Join gives the other one power." **Host** binds the
+port's network gadget (NCM, `usblink_for_transfer`, as USB File Transfer
+does; S40usbgadget's 10.42.0.1 and its udhcpd), marks the plug answered
+(no Computer Connected after it), and waits as the Wi-Fi's host waits, with
+no code ("On the other one: Link Cable, then Join."). **Join** asks usbrole
+to make its port the host for the plug on it (the USB Accessory answer,
+`plat_usb_power_grant`; usbrole's rules never give power while power comes
+in, so two that both chose Join cannot both), meets the other's gadget as it
+meets a phone's network (cdc_ncm, `plat_phone_link`), takes 10.42.0.2, and
+says hello to 10.42.0.1: "Joining over the cable", "This one gives the other
+power while they are linked." From there the hello, the beat and the core's
+options are the Wi-Fi's, with 10.42.0.1 for the server's address. The
+joiner's port stays the host until the cable comes out: only usbrole writes
+the role. With no adapter to name it, a handheld on
+the cable is named by its own serial's last four hex digits (the device
+tree's serial-number, else the card's), so the host is never "Pixel 2 0000"
+(link_mac_or_serial, 2026-11-27). Desk mode joins a Pixel 2 that hosts on the
+cable with `ZYPEROS_DESK_LINK_CABLE=1` (the computer on its 10.42.0.x, as
+"Pixel 2 DE5C"): src/link.c's real joiner against a real host. What only two real Pixel 2s can say: whether each end's ID pin
+reads the other as a plug that wants power on a C-to-C cable; whether the
+PHY reports the joiner as a data port on the host end; that cdc_ncm binds
+the gadget; how much the host end draws to charge from the joiner (its
+battery); and the What did you plug in? question after the game.
+
+**The launchers' word.** A datagram each way on port 56399, beside
+Gambatte's 56400 (`ZLINK1`, then hello, welcome, busy, beat or bye, the
+name and the game's title): the joiner says hello, the host turns Gambatte
+into the server and welcomes it, the joiner turns it into the client. The
+joiner takes a welcome or busy from the host it asked alone, and once linked
+each hears its peer's address alone: another device on the host's network
+cannot answer for it (a security review, 2026-11-26). While
+linked each sends a beat every half second, from the game's tick and from
+every screen over its pause, so a menu open is never a lost link. No beat
+for 6 s is the link lost: the core's link turned off at once, one notice,
+"Link lost", and the row says Lost. A bye (the other one stopped, or its
+game ended) says "Pixel 2 0C11 left the link". A third handheld's hello is
+told busy. Every end of the game says bye and takes the network down.
+
+**Gambatte.** Its link is two bytes each way a transfer over TCP, the side
+that clocks a transfer waiting for the other's answer, so the two games run
+in step: while a menu is open on one, the other stands still at its next
+transfer, ten seconds at most. The core options
+(`gambatte_gb_link_mode`, `gambatte_gb_link_network_port` and the server's
+address as twelve digits, `gambatte_gb_link_network_server_ip_1` to `_12`)
+go to Diatom as SETOPT while the game is paused, and the core reads them on
+its next frame. mk/patches/gambatte-link.patch makes the link safe to lose:
+a read or a write waits ten seconds at most (a peer gone without a word
+froze the game until TCP gave up), no SIGPIPE, the two bytes read whole, a
+closed peer noticed, a lost connection tried again every second on a
+monotonic clock (it was five seconds of CPU time), a connect that waits half
+a second, SO_REUSEADDR for a second game hosting at once, and the link
+ended with its game (Diatom keeps the core loaded between games). It also
+mends the core's own serial shift: a byte read in the middle of a transfer
+took the value's top bits again at every read, so a game that waits on SC
+read every byte as 0x00 or 0xFF. Diatom keeps up to 64 options a game (32
+until the Link Cable's fourteen came).
+
+**The parts.** src/link.c (no SDL; every action through `link_ops`, which
+tools/link-check.c fakes: `check-link`), src/linknet.c (the datagram
+socket), src/link_screen.c (the row's state, the page, the ops on the
+device), src/linkpanel.c (the panel). tools/gblink-loopback.c links two
+Gambatte cores built for a computer over the loopback and holds the core's
+side: bytes that cross whole both ways, a peer stopped for 13 s costing the
+other one frame of ten seconds and no more, the link back by itself, and an
+unloaded game freeing the other at once.
+
+On mGBA: `ask-link-gambatte` (the question), `gamemenu-link-mgba` (the
+row), `info-core-shelf` and `info-core-own` (the details page's Core row),
+light and dark; `check-link-core` drives it in desk mode (the question,
+Cancel, Restart, the page at once, the other games on mgba, the row back to
+the shelf's). The page's foot is "Move", "Choose" and "Close", a question's
+capitals (`keyhint.close_tiles`; a panel's foot keeps "close").
+
+Host shots: `link-tiles`, `link-starting`, `link-waiting`, `link-looking`,
+`link-found`, `link-joining`, `link-linked`, `link-lost`, `link-failed` and
+`link-stopping` (`--link KIND`), and `gamemenu-link` and
+`gamemenu-link-no-adapter` on the row (`--gamemenu 4 --link KIND`, the Game
+Boy shelf on Gambatte).
+
+**Not yet.** Two handhelds on the same home Wi-Fi do not link through it:
+the host always makes its own network, as the plan has it. The Brick is not
+offered the row (its radio's access point is untried). PSP ad hoc, the
+plan's second step, is its own work.

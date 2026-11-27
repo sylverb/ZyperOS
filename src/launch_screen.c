@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "launch_screen.h"
+#include "link_screen.h"
 
 #include "aout_route.h"
 #include "app.h"
@@ -895,7 +896,38 @@ void pm_after_run(app *a)
 	pm_install_screen(a, s, true, why, true);
 }
 
+static void launch_on(app *a);
+
+/* A game of its own core (core_game_get) starts on it: the shelf's core
+ * stands aside for the launch, as px2-open's core= does (ctl_open_now), and
+ * is back after. Not over a core px2-open named (g_launch_core_named). */
+bool g_launch_core_named;
+
 void launch(app *a)
+{
+	sysview *v = &a->view[a->sys_cursor];
+	system_cfg *s;
+	char was[CFG_STR], own[CFG_STR];
+	bool swap;
+
+	if (v->list.count <= 0 || v->cursor < 0 || v->cursor >= v->list.count) {
+		launch_on(a);
+		return;
+	}
+	s = &a->sys.systems[shelf_owner(a, a->sys_cursor, v->cursor)];
+	swap = !g_launch_core_named && core_game_get(s, v->list.items[v->cursor].file, own, sizeof own) &&
+	       strcmp(own, s->core);
+	if (swap) {
+		snprintf(was, sizeof was, "%s", s->core);
+		snprintf(s->core, sizeof s->core, "%s", own);
+		fprintf(stderr, "core: %s starts on its own %s (the shelf's %s)\n",
+		        v->list.items[v->cursor].file, own, was);
+	}
+	launch_on(a);
+	if (swap) snprintf(s->core, sizeof s->core, "%s", was);
+}
+
+static void launch_on(app *a)
 {
 	/* The game has the screen, and the CPU: no snap under it */
 	snap_off();
@@ -919,7 +951,7 @@ void launch(app *a)
 	 * the previous 20 was already 18 full, and a silent bound check would
 	 * have dropped every option rather than failing loudly. */
 	char *argv[35 + 2 * 32];
-	bool resident = false, want_menu;
+	bool resident = false, want_menu, link_open = false;
 	/* Diatom said its core would not load (src/startfail.h): the shelf says
 	 * so, and a second Diatom that would fail the same way is not started */
 	bool core_said = false;
@@ -948,6 +980,7 @@ void launch(app *a)
 	 * launch path the same way favorites are, and reading the cursor again
 	 * further down would be reading it at a different moment. */
 	const char *romfile = v->list.items[v->cursor].file;
+	fprintf(stderr, "launch: %s/%s on %s\n", s->folder, romfile, s->core);
 
 	/* Splore's entry on the PICO-8 shelf, whichever core plays its carts */
 	if (!strcmp(s->tag, P8_TAG) && splore_file(romfile)) {
@@ -1400,7 +1433,10 @@ void launch(app *a)
 			 * already up, so nothing is handed control of a game the player
 			 * may not have meant to resume. Ordered on the same socket, so it
 			 * lands before the first frame the player could act on. */
-			if (want_menu) plat_resident_line("PAUSE");
+			/* Started again on Gambatte for the Link Cable (its question
+			 * on mGBA): paused at once for its page */
+			link_open = link_page_next_take(romfile) && !want_menu && link_on_core(s->core);
+			if (want_menu || link_open) plat_resident_line("PAUSE");
 			g_menu_unasked = want_menu;
 			/* "2 cheats on" over the first frames, so none is forgotten */
 			if (!want_menu) cheats_game_started();
@@ -1431,7 +1467,9 @@ void launch(app *a)
 					if (!strcmp(why, "quit")) gm_quit();
 					else if (!strcmp(why, "reset")) game_reset_ask(a);
 					else if (!strcmp(why, "lock")) game_lock(a);
+					else if (link_open) game_link_open(a);
 					else game_menu(a);
+					link_open = false;
 					levels_game_paused(false);
 					g_ctl_game.paused = false;
 					continue;
@@ -1455,6 +1493,9 @@ void launch(app *a)
 			if (p2_link_on() == P2_HOTSPOT)
 				wait_panel(a, T(S_PLAYER2_ROW), T(S_XFER_CLOSING_HOTSPOT));
 			p2_stop();
+			/* And the Link Cable: bye to the other handheld, and this
+			 * one's Wi-Fi back as it was */
+			link_game_end(a);
 
 			/* The Auto card's picture, written ONLY here - at the same moment
 			 * Diatom wrote the state it belongs to, so the two cannot drift.
