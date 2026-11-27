@@ -28,6 +28,14 @@ SEED=/usr/share/zyperos/card
 # without a version, which then never copies over a card's ZyperOS.
 SEED_V=
 
+# The kernel's panic for a task stuck 60 s, set for the start by the kernel's
+# line (the Pixel 2's boot-prelude.cmd): off from the long writes to the card
+# on (a copy of ZyperOS, an update's switch), and once ZyperOS is starting,
+# so a slow card's long write never panics. Nothing where there is none.
+hung_panic_off() {
+	[ -w /proc/sys/kernel/hung_task_panic ] && echo 0 > /proc/sys/kernel/hung_task_panic
+}
+
 # The step this start is on, for the boot screen, which says it when a start
 # is slower than usual (the splash's slowline.h; ZyperOS's DESIGN.md 11.20),
 # and for the kernel's log, whose end crashlog reports after a restart: U1
@@ -285,6 +293,7 @@ start() {
 	# back. Before the copy below, which compares the card's version with
 	# the image's, and before anything from the card runs.
 	if [ -f /usr/lib/zyperos/update-apply.sh ] && update_pending; then
+		hung_panic_off
 		stage U1
 		sh /usr/lib/zyperos/update-apply.sh "$CARD"
 	fi
@@ -299,6 +308,7 @@ start() {
 	fi
 	if [ ! -f "$LAUNCH" ] && [ -f "$SEED/ZyperOS/launch.sh" ]; then
 		echo "zyperos: no ZyperOS on the card; copying it from the image" > /dev/kmsg
+		hung_panic_off
 		setup_begin setup
 		if seed; then
 			setup_end "done, ZyperOS is on the card"
@@ -308,6 +318,7 @@ start() {
 		fi
 	elif [ -f "$LAUNCH" ] && newer_seed; then
 		echo "zyperos: the image carries a newer ZyperOS than the card; copying it" > /dev/kmsg
+		hung_panic_off
 		# As an update (ZyperOS's update/apply.sh): staged beside the card's,
 		# switched in, the card's kept as ZyperOS.prev, on trial. So a new
 		# system that does not start, and goes back to the one before
@@ -328,6 +339,7 @@ start() {
 			fi
 		fi
 	fi
+	hung_panic_off
 	if [ -f "$LAUNCH" ]; then
 		stage L1
 		sh "$LAUNCH" < /dev/null > /dev/null 2>&1 &
