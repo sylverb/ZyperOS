@@ -22,6 +22,7 @@
 #include "ds/page.h"
 #include "emptyhome.h"
 #include "gamedel_screen.h"
+#include "gamern.h"
 #include "gameinfo_screen.h"
 #include "ingame_screen.h"
 #include "hudmenu_screen.h"
@@ -488,9 +489,19 @@ const char *shot_kb_title = "Wi-Fi password";
 /* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
  * language, so check-i18n-shots measures it in every one */
 int shot_kb_ss_user;
+/* --kb-rename-shown [empty]: Rename's keyboard on a game whose file keeps
+ * its name (src/gamern_screen.c), its title and its note, in the shot's
+ * language, on the focused game's name unless --keyboard gave a text; with
+ * `empty`, the field emptied, the name it would have back in it dimmed */
+int shot_kb_rename_shown;
+int shot_kb_rename_empty;
 
 static const char *kb_title_shown(void)
 {
+	if (shot_kb_rename_shown) {
+		kb_note_next(T(S_GAMEMENU_RENAME_SHOWN_NOTE));
+		return T(S_GAMEMENU_RENAME_SHOWN);
+	}
 	return shot_kb_ss_user ? T(S_SCRAPER_SS_USER) : shot_kb_title;
 }
 int shot_slots, shot_slot_sel;
@@ -619,16 +630,10 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 		return;
 	}
 	if (shot_gm_ask) {
-		char q[LIB_NAME + 256], lines[DEL_ASK_LINES][CHV_WRAP_COLS];
-		menu_row ask[DEL_ASK_LINES + 2];
-		int nq;
+		char q[LIB_NAME + 256];
 
 		ctlscr_question(&g, q, sizeof q);
-		nq = store_ask_rows(a, q, lines, ask);
-		ask[nq] = (menu_row){ T(S_GAMEMENU_RESET_BUTTONS_YES), NULL, true };
-		ask[nq + 1] = (menu_row){ T(S_PANEL_CANCEL), NULL, true };
-		menu_draw(a, T(S_GAMEMENU_RESET_BUTTONS), ask, nq + 2, nq + 1, menu_std_width(a),
-		          MENU_ZYPEROS);
+		confirm_preview(a, ctlscr_question_id(&g), q);
 		return;
 	}
 	if (shot_gm_keys >= 0) {
@@ -677,9 +682,12 @@ static int shot_pick_index(const menu_choice *ch)
 
 /* --expect-en "WORDS|WORDS?|...": the shot fails unless the open list's
  * every choice is one of these, in English, in whatever language is on,
- * and each one not marked "?" is there: a list built from another row's
- * words shows (Recents' Card Picture said Border's Off and Blur when the two
- * shared a pool slot, 1.1.0's test run) */
+ * each once and in this order, and each one not marked "?" is there: a list
+ * built from another row's words shows (Recents' Card Picture said Border's
+ * Off and Blur when the two shared a pool slot, 1.1.0's test run), and so
+ * does one whose words another shelf's menu wrote over (a Game Boy's Border
+ * list said "Off, Handheld, Handheld, Whole, Handheld, Whole, Your Own",
+ * the Advance's three over its own five, 2026-11-23) */
 const char *shot_expect_en;
 
 /* Whether `label` is word `w` (n bytes of it) in the language that is on */
@@ -701,11 +709,14 @@ static void shot_expect_list(const menu_choice *ch)
 	int k;
 	bool bad = false;
 
+	int last = -1;
+
 	if (!p || !ch->labels) return;
 	for (k = 0; k < ch->n && !bad; k++) {
 		bool known = false;
+		int w = 0;
 
-		for (p = shot_expect_en; *p && !known; p = *e ? e + 1 : e) {
+		for (p = shot_expect_en; *p && !known; p = *e ? e + 1 : e, w++) {
 			size_t n;
 
 			e = strchr(p, '|');
@@ -717,7 +728,13 @@ static void shot_expect_list(const menu_choice *ch)
 			fprintf(stderr, "--expect-en: the list has \"%s\", which is not one of %s\n", ch->labels[k],
 			        shot_expect_en);
 			bad = true;
+		} else if (w - 1 <= last) {
+			/* the words in their order, each once */
+			fprintf(stderr, "--expect-en: the list has \"%s\" twice or out of the order %s\n",
+			        ch->labels[k], shot_expect_en);
+			bad = true;
 		}
+		last = w - 1;
 	}
 	for (p = shot_expect_en; *p && !bad; p = *e ? e + 1 : e) {
 		bool there = false;
@@ -913,35 +930,28 @@ static void shot_draw_gamemenu(app *a)
 	 * before it starts again (port_restart_ask), the mode --pick-at names
 	 * (Actual Size without), the cursor on Cancel */
 	if (shot_gm_restart && u.port_display) {
-		char q[256], lines[DEL_ASK_LINES][CHV_WRAP_COLS];
-		menu_row ask[DEL_ASK_LINES + 2];
-		int k = shot_pick_at >= 0 && shot_pick_at < DMODE_COUNT ? shot_pick_at : DMODE_COUNT - 1, nq;
+		char q[512];
+		int k = shot_pick_at >= 0 && shot_pick_at < DMODE_COUNT ? shot_pick_at : DMODE_COUNT - 1;
+		cq_id which = shot_gm_restart == 2 ? CQ_P8_RESTART_BUTTONS : CQ_P8_RESTART_DISPLAY;
 
 		/* --gm-restart buttons: the same question as the menu closes with
 		 * a button changed on its Controls tab (port_buttons_close) */
-		if (shot_gm_restart == 2) snprintf(q, sizeof q, "%s", T(S_PICO8_RESTART_BUTTONS));
-		else snprintf(q, sizeof q, T(S_PICO8_RESTART_DISPLAY), dmode_label(k));
-		nq = store_ask_rows(a, q, lines, ask);
-		ask[nq] = (menu_row){ T(S_PICO8_RESTART_YES), NULL, true };
-		ask[nq + 1] = (menu_row){ T(S_PANEL_CANCEL), NULL, true };
+		cq_text(which, q, sizeof q, dmode_label(k));
 		g_menu_tabs = NULL;
 		g_menu_side = NULL;
-		menu_draw(a, T(S_PICO8_RESTART_ASK), ask, nq + 2, nq + 1, menu_std_width(a), a->tint);
+		confirm_preview(a, which, q);
 		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
 	/* --gm-reset: over your PICO-8, Reset's question (reset_question, the
 	 * Reset row's and the hotkey's), the cursor on Cancel */
 	if (shot_gm_reset && u.port_reset) {
-		char lines[DEL_ASK_LINES][CHV_WRAP_COLS];
-		menu_row ask[DEL_ASK_LINES + 2];
-		int nq = store_ask_rows(a, T(S_HOTKEYS_RESET_LOST), lines, ask);
+		char q[512];
 
-		ask[nq] = (menu_row){ T(S_GAMEMENU_RESET), NULL, true };
-		ask[nq + 1] = (menu_row){ T(S_PANEL_CANCEL), NULL, true };
+		cq_text(CQ_P8_RESET, q, sizeof q);
 		g_menu_tabs = NULL;
 		g_menu_side = NULL;
-		menu_draw(a, T(S_HOTKEYS_RESET_ASK), ask, nq + 2, nq + 1, menu_std_width(a), a->tint);
+		confirm_preview(a, CQ_P8_RESET, q);
 		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
@@ -1033,6 +1043,93 @@ static void handheld_box_report(void)
  * "CONTROLS-FIT:" line on stderr for each page that does not fit, and a count
  * of the pages read (tools/controls-shots-check.sh). */
 const char *shot_controls_fit;
+const char *shot_ask;
+const char *shot_ask_item;
+bool shot_confirm_fit;
+
+/* A question's words for a shot: the inventory's own examples (the confirm
+ * panels lab, 2026-11-22), the longest name the lab found hard for Delete
+ * Game and a screenshot ("Castlevania - Symphony of the Night"); `item`, when
+ * given, for the name in it */
+static void shot_ask_text(cq_id q, const char *item, char *out, size_t n)
+{
+	char gb[24], mb[24], kb[24], mb525[24], mb38[24];
+	const char *game = item ? item : "Castlevania - Symphony of the Night";
+
+	sys_menu_bytes(1200000000ull, gb, sizeof gb);
+	sys_menu_bytes(860000000ull, mb, sizeof mb);
+	sys_menu_bytes(4100000ull, kb, sizeof kb);
+	sys_menu_bytes(525000000ull, mb525, sizeof mb525);
+	sys_menu_bytes(38000000ull, mb38, sizeof mb38);
+	switch (q) {
+	case CQ_WIFI_FORGET: case CQ_WIFI_FORGET_JOINED: cq_text(q, out, n, item ? item : "Casa 5G"); break;
+	case CQ_P8_RESTART_DISPLAY: cq_text(q, out, n, dmode_label(0)); break;
+	case CQ_HOTKEYS_SWAP:
+		cq_text(q, out, n, "SELECT+R2", T(S_HOTKEYS_QUICK_SAVE), T(S_CONTROLS_FASTER), "SELECT+L1");
+		break;
+	case CQ_HOTKEYS_RESET_GAME: case CQ_BUTTONS_RESET_GAME:
+		cq_text(q, out, n, "Nintendo 64", item ? item : "Tobu Tobu Girl");
+		break;
+	case CQ_HOTKEYS_RESET_SYSTEM: case CQ_BUTTONS_RESET_ALL: cq_text(q, out, n, "Nintendo 64"); break;
+	case CQ_STORE_UNUSED_ART: case CQ_STORE_DS_COPIES: case CQ_SNAPS_DELETE_ALL: cq_text(q, out, n, gb); break;
+	case CQ_STORE_OLD_STATES: cq_text(q, out, n, 14, mb); break;
+	case CQ_STORE_SYS_SNAPS: cq_text(q, out, n, item ? item : "PlayStation", gb); break;
+	case CQ_STORE_MEDIA_FOLDER: cq_text(q, out, n, item ? item : "Lo-fi Beats", gb); break;
+	case CQ_STORE_MEDIA_FILE: cq_text(q, out, n, item ? item : "Rainy Night.mp3", kb); break;
+	case CQ_STORE_ORPHAN_PORT: cq_text(q, out, n, item ? item : "Stardew Valley", gb); break;
+	case CQ_GAME_DELETE: case CQ_SHOT_DELETE: cq_text(q, out, n, game); break;
+	case CQ_PORT_DELETE: cq_text(q, out, n, item ? item : "Stardew Valley"); break;
+	case CQ_ROLLBACK: cq_text(q, out, n, "1.0.6"); break;
+	case CQ_COLLECT_DELETE: cq_text(q, out, n, item ? item : "Couch Co-op"); break;
+	case CQ_DL_DELETE_VIDEOS: cq_text(q, out, n, mb525); break;
+	case CQ_DL_DELETE_SETS: cq_text(q, out, n, mb38); break;
+	case CQ_DL_SYS_VIDEOS: cq_text(q, out, n, item ? item : "Game Boy", mb525); break;
+	case CQ_DL_SYS_SETS: cq_text(q, out, n, item ? item : "Game Boy", mb38); break;
+	case CQ_DL_SYS_CHEATS: cq_text(q, out, n, item ? item : "Game Boy"); break;
+	case CQ_BT_FORGET: cq_text(q, out, n, item ? item : "WH-1000XM4 Wireless Headphones"); break;
+	default: cq_text(q, out, n); break;
+	}
+}
+
+/* --ask NAME: the question over the shelf, the cursor where it starts */
+static void shot_ask_draw(app *a)
+{
+	cq_id q = cq_named(shot_ask);
+	char text[1024];
+
+	if (q == CQ_COUNT) {
+		fprintf(stderr, "--ask: no question called %s\n", shot_ask);
+		return;
+	}
+	shot_ask_text(q, shot_ask_item, text, sizeof text);
+	ui_scrim(a->r, 0);
+	confirm_preview(a, q, text);
+}
+
+/* --confirm-fit: every question in every language, as the panel lays it
+ * out on this handheld (tools/confirm-fit.py holds them: side by side,
+ * nothing cut, nothing sliding) */
+static void confirm_fit_report(app *a)
+{
+	lang was = i18n_lang();
+	int l, q;
+
+	for (l = 0; l < LANG_COUNT; l++) {
+		i18n_set((lang)l);
+		for (q = 0; q < CQ_COUNT; q++) {
+			char text[1024];
+			ds_confirm_lay lay;
+
+			shot_ask_text((cq_id)q, shot_ask_item, text, sizeof text);
+			confirm_lay(a, (cq_id)q, text, &lay);
+			fprintf(stderr, "confirm-fit: %s %s side=%d small=%d meta=%d lines=%d scroll=%d whole=%d "
+			        "heading=%d rule=%d w=%d h=%d\n", lang_code((lang)l), cq_of((cq_id)q)->name,
+			        lay.side, lay.small, lay.meta, lay.nlines, lay.scroll, lay.whole, lay.head_lines,
+			        lay.rule, lay.panel.w, lay.panel.h);
+		}
+	}
+	i18n_set(was);
+}
 
 static int controls_fit_one(app *a, const char *where, const char *head,
                             const char *count, const menu_row *rows, int n)
@@ -1652,7 +1749,13 @@ static void shot_compose_once(app *a)
 
 		for (i = 0; i < UP_NOTES; i++) np[i] = notes[i];
 
-		su_page_build(up_view(true), &p);
+		{
+			su_view v = *up_view(true);
+
+			/* The card too full: a stand-in free room, not this computer's */
+			if (v.st.state == SU_SPACE) v.card_free = 230000000ull;
+			su_page_build(&v, &p);
+		}
 		update_page_draw(a, T(S_UPDATEPAGE_TITLE), &p, np, nn, NULL);
 		return;
 	}
@@ -1757,6 +1860,11 @@ static void shot_compose_once(app *a)
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
 	if (shot_controls_fit) controls_fit_report(a);
+	if (shot_ask) shot_ask_draw(a);
+	if (shot_confirm_fit) {
+		confirm_fit_report(a);
+		shot_confirm_fit = false;   /* once: --flip composes the shot twice */
+	}
 	if (shot_rows_report) {
 		sysmenu_rows_report(a);
 		gm_rows_report(a);
@@ -1791,6 +1899,18 @@ static void shot_compose_once(app *a)
 		eh_cheer_draw(a->r, games_on_card(a), (unsigned)shot_cheer, cheer_zyper, &c);
 	}
 	if (shot_kb) {
+		sysview *v = &a->view[a->sys_cursor];
+		static char plain[LIB_NAME];
+
+		if (shot_kb_rename_shown && v->list.count > 0) {
+			const game_entry *e = &v->list.items[v->cursor];
+
+			gr_shown_plain(a->sys.systems[shelf_owner(a, a->sys_cursor, v->cursor)].folder,
+			               e->file, e->name, plain, sizeof plain);
+			kb_placeholder_next(plain);
+			if (shot_kb_rename_empty) shot_kb_text = "";
+			else if (!shot_kb_text[0]) shot_kb_text = e->title;
+		}
 		if (shot_at >= 0)
 			kb_preview_press(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, (unsigned)shot_at);
@@ -1961,15 +2081,11 @@ static void shot_compose_once(app *a)
 	if (shot_usb_offer) {
 		/* Zyper's offer of Automatic, as usb_offer_show lays it out, the
 		 * cursor on Keep Asking */
-		char lines[USB_OFFER_LINES][LB_LINE];
-		menu_row rows[USB_OFFER_LINES + 3];
-		int n;
+		char q[512];
 
 		ui_scrim(a->r, 0);
-		n = usb_offer_rows(a, lines, rows);
-		rows[n]     = (menu_row){ T(S_SYSMENU_USB_AUTO), NULL, true };
-		rows[n + 1] = (menu_row){ T(S_XFER_USB_OFFER_KEEP), NULL, true };
-		menu_draw(a, T(S_XFER_USB_OFFER), rows, n + 2, n + 1, menu_std_width(a), MENU_ZYPEROS);
+		cq_text(CQ_USB_OFFER, q, sizeof q);
+		confirm_preview(a, CQ_USB_OFFER, q);
 	}
 	if (shot_datetime >= 0) {
 		/* Date & Time's page as clock_build builds it, at a time of its own,
@@ -2359,9 +2475,7 @@ static void shot_compose_once(app *a)
 			         T(!strcmp(shot_popup, "stick_on") ? S_POPUP_STICK_ON : S_POPUP_STICK_OFF));
 		} else {
 			shot_notice_head = T(S_POPUP_SPEED);
-			snprintf(pbody, sizeof pbody,
-			         shot_popup_half % 2 ? T(S_POPUP_SPEED_HALF) : T(S_POPUP_SPEED_WHOLE),
-			         shot_popup_half / 2);
+			speed_said(shot_popup_half, pbody, sizeof pbody);
 		}
 	}
 	if (shot_notice) {
@@ -2838,6 +2952,7 @@ static void shot_tour_draw(app *a)
 	} else {
 		const dev_chords c = shot_chords();
 
+		tour_menu_word(dev_menu_word(plat_profile()));
 		tour_pose(&t, (tour_step)shot_tour, now, shot_tour_ms, shot_tour_done,
 		          &c, dev_tutorial_model(plat_profile(), &c));
 		tour_lang_from(&t, (int)i18n_lang());

@@ -71,9 +71,18 @@ COLORS = [
 
 # Text roles are owed 4.5:1 on these grounds; marks 3:1 on theirs.
 TEXT_ON = {
-    "text": ("ground", "surface"), "text-soft": ("ground", "surface"),
+    "text": ("ground", "surface"),
     "text-dim": ("ground", "surface"), "accent-ink": ("ground", "surface"),
     "warning": ("surface",), "on-accent": ("accent",),
+    # a two-answer panel's answers at rest, each on its **raised** slab
+    # (DESIGN.md 11.3, "A question with two answers")
+    "text-soft": ("ground", "surface", "raised"),
+}
+# Text at **menu** (49 units, 31 px on the Pixel 2) and larger, owed large
+# text's 3:1: the answer that loses something, in **warning** on its
+# **raised** slab (4.0:1 in Beard, 3.9:1 in Salt & Pepper)
+LARGE_TEXT_ON = {
+    "warning": ("raised",),
 }
 MARK_ON = {
     "accent-ink": ("track",), "light": ("surface", "track"),
@@ -290,6 +299,13 @@ LAYOUT = [
     ("list-mark",       64,  "a list row's mark"),
     ("list-row-gap",    12,  "between a list's rows"),
     ("list-pad-y",      14,  "a list row's words from its top and foot"),
+    # a question with two answers (src/ds/confirm.h, DESIGN.md 11.3)
+    ("confirm-inset",   26,  "an answer's slab from the panel's edge"),
+    ("confirm-gap",     24,  "between the two answers side by side"),
+    ("confirm-word-pad", 24, "an answer's words from its slab's ends, at the least"),
+    ("confirm-glyph",   40,  "B's glyph in the answer B gives"),
+    ("confirm-glyph-gap", 14, "between that glyph and the answer's word"),
+    ("confirm-press",   94,  "a pressed answer's slab, percent of its size"),
     # marks (src/ds/mark.h)
     ("badge",           40,  "a disc with a mark on a cover: its source, a video"),
     ("badge-small",     30,  "the same on a small cover"),
@@ -423,7 +439,9 @@ MOTION = [
     ("wind",        180,  "follow", "MP4's cassette winding to a seek's place: follow's tau"),
     ("arm-glide",   180,  "follow", "MP4's tonearm gliding to the song's place on the record: follow's tau"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
-    ("hold-band",   2000, "-",     "the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip"),
+    ("hold-band",   2000, "-",     "the Video view's band of covers and keys, and the List view's details over the media, after the last press on a game whose snap plays, before they go down"),
+    ("slide-hold",  1400, "-",     "a name or a line too long for its place, still before it slides (at 70 units a second, its ends faded over 36: src/ui.c's marquee)"),
+    ("slide-end",   900,  "-",     "...and still at its far end before it slides back"),
     ("sheen",       480,  "turn",  "one light crossing a game's card with no art, once, as the cover row stops on it"),
     ("sharpen",     200,  "fade",  "a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it"),
     ("hold-low-battery", 6000, "-", "the low-battery start screen before the handheld powers off"),
@@ -532,7 +550,7 @@ def ratio(a, b):
 def contrast_failures():
     col = {r: dict(zip(THEMES, v)) for r, *v in COLORS}
     bad = []
-    for need, table, where in ((4.5, TEXT_ON, ""), (3.0, MARK_ON, ""),
+    for need, table, where in ((4.5, TEXT_ON, ""), (3.0, LARGE_TEXT_ON, ""), (3.0, MARK_ON, ""),
                                (4.5, PAGE_TEXT_ON, "Wi-Fi File Transfer: ")):
         for role, grounds in table.items():
             for t in THEMES:

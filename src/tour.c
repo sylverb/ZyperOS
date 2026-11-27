@@ -141,24 +141,53 @@ static const char *said(str_id id)
 	return id == NO_TEXT ? NULL : T(id);
 }
 
+/* The MENU key's word as the handheld prints it (dev_menu_word: FN on the
+ * R36S), in the words that name the key: MENU's lesson, the brightness
+ * chord's, Zyper's answers in it. The command line's names (tour_key_name)
+ * stay MENU. */
+static const char *g_menu_word = "MENU";
+
+void tour_menu_word(const char *w)
+{
+	g_menu_word = w && *w ? w : "MENU";
+}
+
+/* `id`'s words with the MENU key's word for its %s, into `buf` */
+static const char *with_menu(char *buf, size_t n, str_id id)
+{
+	if (id == NO_TEXT) return NULL;
+	snprintf(buf, n, T(id), g_menu_word);
+	return buf;
+}
+
 const tour_info *tour_step_info(tour_step s)
 {
 	/* A step's own, so two steps' can be held at once (the reward going
 	 * and the step coming); said again at every call, a few loads, so a
 	 * change of language is the next frame's */
 	static tour_info info[TOUR_STEPS];
+	/* The words that name the MENU key, said with its word */
+	static char line[TOUR_STEPS][192], line_fn[TOUR_STEPS][192], want_fn[TOUR_STEPS][24];
 	const step_def *d;
+	const char *wk, *wf;
 
 	if (s < 0 || s >= TOUR_STEPS) s = TOUR_WELCOME;
 	d = &STEPS[s];
+	wk = d->want_key && !strcmp(d->want_key, "MENU") ? g_menu_word : d->want_key;
+	wf = d->want_fn;
+	if (wf && !strncmp(wf, "MENU+", 5)) {
+		snprintf(want_fn[s], sizeof want_fn[s], "%s%s", g_menu_word, wf + 4);
+		wf = want_fn[s];
+	}
 	info[s] = (tour_info){ said(d->title),
 	                       /* POWER held, when MENU > Power Button is Hold
 	                        * (src/powerhold.h): the step lands on the hold */
 	                       s == TOUR_POWER && powerhold_mode() ? T(S_TOUR_POWER_LINE_HOLD)
-	                                                           : said(d->line),
-	                       said(d->line_fn), said(d->note),
+	                       : s == TOUR_MENU ? with_menu(line[s], sizeof line[s], d->line)
+	                                        : said(d->line),
+	                       with_menu(line_fn[s], sizeof line_fn[s], d->line_fn), said(d->note),
 	                       said(d->note_done), d->glyph, d->label,
-	                       d->want == NO_TEXT ? d->want_key : T(d->want), d->want_fn, d->loop };
+	                       d->want == NO_TEXT ? wk : T(d->want), wf, d->loop };
 	return &info[s];
 }
 
@@ -210,7 +239,7 @@ static const char *const KEY_NAME[TK_KEYS] = {
 	[TK_A] = "A", [TK_B] = "B", [TK_X] = "X", [TK_Y] = "Y",
 	[TK_L1] = "L1", [TK_R1] = "R1", [TK_L2] = "L2", [TK_R2] = "R2",
 	[TK_START] = "START", [TK_SELECT] = "SELECT", [TK_MENU] = "MENU",
-	[TK_POWER] = "POWER",
+	[TK_POWER] = "POWER", [TK_L3] = "L3", [TK_R3] = "R3",
 };
 static const str_id KEY_WORDS[TK_KEYS] = {
 	[TK_UP] = S_TOUR_KEY_UP, [TK_DOWN] = S_TOUR_KEY_DOWN,
@@ -228,6 +257,7 @@ const char *tour_key_name(tour_key k)
 /* As the answer says it, in the language that is on */
 static const char *key_said(tour_key k)
 {
+	if (k == TK_MENU) return g_menu_word;
 	return KEY_NAME[k] ? KEY_NAME[k] : T(KEY_WORDS[k]);
 }
 
@@ -247,6 +277,7 @@ static const tour_key KEY_OF[IN_COUNT] = {
 	[IN_BRIGHTUP] = TK_BRIGHT, [IN_BRIGHTDN] = TK_BRIGHT,
 	[IN_POWER] = TK_POWER,
 	[IN_L2] = TK_L2, [IN_R2] = TK_R2,
+	[IN_L3] = TK_L3, [IN_R3] = TK_R3,
 };
 
 tour_key tour_key_of(in_button b)
@@ -708,9 +739,9 @@ static int missed(tour *t, tour_key k, uint32_t now)
 	/* On the Brick a volume key there is "That's volume. Try F1 or F2.",
 	 * the answer every other wrong press gets */
 	if (t->step == TOUR_BRIGHT && k == TK_VOL && chord)
-		snprintf(t->hint, sizeof t->hint, "%s", T(S_TOUR_WRONG_HOLD_MENU));
+		snprintf(t->hint, sizeof t->hint, T(S_TOUR_WRONG_HOLD_MENU), g_menu_word);
 	else if (t->step == TOUR_BRIGHT && k == TK_MENU && chord)
-		snprintf(t->hint, sizeof t->hint, "%s", T(S_TOUR_WRONG_CHORD));
+		snprintf(t->hint, sizeof t->hint, T(S_TOUR_WRONG_CHORD), g_menu_word);
 	else
 		snprintf(t->hint, sizeof t->hint, T(S_TOUR_WRONG), key_said(k), want);
 	t->wrong = true;

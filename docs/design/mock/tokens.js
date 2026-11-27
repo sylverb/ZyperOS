@@ -178,6 +178,12 @@ window.ZYPER_TOKENS = {
     "list-mark": 64,
     "list-row-gap": 12,
     "list-pad-y": 14,
+    "confirm-inset": 26,
+    "confirm-gap": 24,
+    "confirm-word-pad": 24,
+    "confirm-glyph": 40,
+    "confirm-glyph-gap": 14,
+    "confirm-press": 94,
     "badge": 40,
     "badge-small": 30,
     "badge-ring": 2,
@@ -399,6 +405,14 @@ window.ZYPER_TOKENS = {
     },
     "hold-band": {
       "ms": 2000,
+      "curve": "-"
+    },
+    "slide-hold": {
+      "ms": 1400,
+      "curve": "-"
+    },
+    "slide-end": {
+      "ms": 900,
       "curve": "-"
     },
     "sheen": {
