@@ -153,7 +153,9 @@ def tour(tmp, env):
         time.sleep(2.4)
         ask(sock, 'release select+start')
         check(to('select') == 'select', f'held past Hold to Unlock: the unlock lesson\'s press, and Music comes ({step()})')
-        check('lock: ' not in logfile.read_text(), 'and the launcher was never locked or unlocked')
+        # a line of the lock's own, not the clock's ("clock: auto zone ...")
+        check(not any(l.startswith('lock: ') for l in logfile.read_text().splitlines()),
+              'and the launcher was never locked or unlocked')
         time.sleep(0.5)
         for key in ('l1', 'l2', 'r2'):
             ask(sock, f'tap {key} 40')
