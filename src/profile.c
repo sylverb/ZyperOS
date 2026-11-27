@@ -63,6 +63,7 @@ bool plat_has_bluetooth(void)        { return active->bluetooth; }
 bool plat_gpu_shaders(void)          { return active->gpu_shaders; }
 bool plat_gpu_frames(void)           { return active->gpu_frames; }
 bool plat_speaker_mono(void)         { return active->speaker_mono; }
+bool plat_has_mute_switch(void)      { return active->mute_switch; }
 bool plat_has_rumble(void)           { return active->rumble; }
 bool plat_brightness_on_volume(void) { return active->chords.bright == DEV_BRIGHT_MENU_VOL; }
 bool plat_battery_lights(void)       { return active->chords.battery_chord; }
@@ -149,7 +150,7 @@ bool dev_button_place(const device_profile *p, in_button b, td_face *face, float
 		[IN_L1] = TD_L1, [IN_R1] = TD_R1, [IN_START] = TD_START, [IN_SELECT] = TD_SELECT,
 		[IN_MENU] = TD_MENU, [IN_VOLUP] = TD_VOLUP, [IN_VOLDN] = TD_VOLDN,
 		[IN_BRIGHTUP] = TD_F2, [IN_BRIGHTDN] = TD_F1, [IN_POWER] = TD_POWER,
-		[IN_L2] = TD_L2, [IN_R2] = TD_R2 };
+		[IN_L2] = TD_L2, [IN_R2] = TD_R2, [IN_L3] = TD_L3, [IN_R3] = TD_R3 };
 	const td_part *part;
 
 	if (!p || !p->model || b < 0 || b >= IN_COUNT) return false;

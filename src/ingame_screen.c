@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ingame_screen.h"
+#include "menukeys_screen.h"
 #include "hkstore.h"
 #include "hudmenu_screen.h"
 #include "dmodepreview.h"
@@ -21,6 +22,10 @@
 #include "ctl_channel.h"
 #include "ctltab.h"
 #include "game_menu.h"
+#ifdef ZYPEROS_DESK
+#include "device/desk.h"
+#endif
+#include "gridrule.h"   /* gg_page: a list page */
 #include "look.h"
 #include "mp4c.h"
 #include "p2.h"
@@ -1192,14 +1197,20 @@ void cheevos_screen(app *a, SDL_Texture *bg, bool over_shelf)
 		if (in_repeat(&a->in, IN_UP))   sel = list_step_heard(a, IN_UP, n, sel);
 		if (in_repeat(&a->in, IN_DOWN)) sel = list_step_heard(a, IN_DOWN, n, sel);
 		/* A set runs to well over a hundred entries, so the shoulder buttons
-		 * page it the same way they page a shelf. */
+		 * page it as every list pages (gg_page, DESIGN.md 11.3): eight on,
+		 * or to the end; from the end a press goes round and a held one
+		 * stops there, edge once */
 		if (in_repeat(&a->in, IN_L1)) {
-			step_sound(a, IN_L1, sel, sel > 8 ? sel - 8 : 0);
-			sel = sel > 8 ? sel - 8 : 0;
+			int to = gg_page(sel, n, 8, -1, a->in.pressed[IN_L1]);
+
+			step_sound(a, IN_L1, sel, to);
+			sel = to;
 		}
 		if (in_repeat(&a->in, IN_R1)) {
-			step_sound(a, IN_R1, sel, sel < n - 9 ? sel + 8 : n - 1);
-			sel = sel < n - 9 ? sel + 8 : n - 1;
+			int to = gg_page(sel, n, 8, +1, a->in.pressed[IN_R1]);
+
+			step_sound(a, IN_R1, sel, to);
+			sel = to;
 		}
 		if (menu_leaving(a)) done = 1;
 		if (over_shelf && a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
@@ -1241,6 +1252,10 @@ void cheevos_screen(app *a, SDL_Texture *bg, bool over_shelf)
 		menu_draw_ex(a, heading, rows, n, sel, menu_std_width(a), a->tint,
 		             vcols, true, 0);
 		g_row_icon = NULL;
+#ifdef ZYPEROS_DESK
+		/* tools/desk's `state`: the row under the cursor, as a menu says it */
+		desk_note_focus(heading, sel, rows[sel].label ? rows[sel].label : "");
+#endif
 		plat_present();
 		ui_frame_rest(8);
 	}
@@ -2707,6 +2722,24 @@ void game_reset_ask(app *a)
 		return;
 	}
 	if (yes) plat_resident_line("RESET");
+	gm_resume(a);
+}
+
+/* MENU's lock chord in a game (src/menukeys.h): Diatom paused the game for
+ * it (PAUSED for=lock), and the handheld locks as on every screen, the
+ * screen dark until SELECT and START are held; then back to the game where
+ * it was. Auto Off while it is locked stops the game as POWER over its menu
+ * does (gm_power), and the handheld turns off after it. */
+void game_lock(app *a)
+{
+	if (mk_lock_game(a)) {
+		gm_power(a, NULL);
+		return;
+	}
+	if (want_quit || !a->running) {
+		plat_resident_line("STOP");
+		return;
+	}
 	gm_resume(a);
 }
 
