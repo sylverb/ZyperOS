@@ -393,6 +393,10 @@ typedef struct {
 	 * each hotkey, "save:r1,load:l1,shot:y" or "none" (chord.h); absent on
 	 * RUN, the shoulders' four as ever */
 	char hotkeys[160];
+	/* RUN menukeys=: which button MENU is held with for a screenshot and
+	 * the lock, "shot:l1,lock:l2" (chord.h, mchord); absent, none, as
+	 * ever: MENU's buttons the game's */
+	char menukeys[48];
 	/* RUN ffspeed= and SETHOTKEYS ffspeed=: the speed the Fast Forward
 	 * hotkey (ffwd) turns on from 1x, "1.5", "2", "3" or "max"; absent or
 	 * anything else, 2x */
