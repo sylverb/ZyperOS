@@ -45,6 +45,12 @@
 #define RK_CODE_FUNCTION BTN_TRIGGER_HAPPY1
 #define RK_L2R2_TAPS     1
 #endif
+/* Whether the handheld has sticks (the R36S's: the left one moves as the
+ * d-pad, their clicks are L3 and R3). None on the Pixel 2, whose pad is read
+ * as it always was. */
+#ifndef RK_STICKS
+#define RK_STICKS        0
+#endif
 
 #include <dirent.h>
 #include <errno.h>
@@ -660,8 +666,8 @@ static bool l2_tap, r2_tap;    /* a tap reported last poll ends this one */
  * their flat, the dead zone its device tree gives. A direction is held while
  * its d-pad key or the stick holds it, so it repeats as the d-pad's does.
  * The right stick moves nothing here (L1 and R1 already page, and a thumb
- * resting on it under A B X Y would move the cursor). The Pixel 2's pad has
- * no axis: stick_on stays false and nothing changes there. */
+ * resting on it under A B X Y would move the cursor). The Pixel 2 has no
+ * stick (RK_STICKS 0): stick_on stays false and nothing changes there. */
 _Static_assert((int)IN_LEFT == (int)STICK_LEFT && (int)IN_RIGHT == (int)STICK_RIGHT &&
                (int)IN_UP == (int)STICK_UP && (int)IN_DOWN == (int)STICK_DOWN,
                "stickpad's directions are the d-pad's buttons");
@@ -682,7 +688,9 @@ static const struct { int code; in_button b; } keymap[] = {
 	{ RK_CODE_A, IN_ACCEPT },     { RK_CODE_B, IN_BACK },
 	{ BTN_NORTH, IN_X },          { BTN_WEST, IN_Y },
 	{ BTN_TL, IN_L1 },            { BTN_TR, IN_R1 },
+#if RK_STICKS
 	{ BTN_THUMBL, IN_L3 },        { BTN_THUMBR, IN_R3 },
+#endif
 	{ BTN_SELECT, IN_SELECT },    { BTN_START, IN_START },
 };
 #define CODE_FUNCTION RK_CODE_FUNCTION
@@ -697,7 +705,7 @@ static void stick_probe(void)
 
 	stick_on = false;
 	memset(abs, 0, sizeof abs);
-	if (fd_pad < 0 || ioctl(fd_pad, EVIOCGBIT(EV_ABS, sizeof abs), abs) < 0) return;
+	if (!RK_STICKS || fd_pad < 0 || ioctl(fd_pad, EVIOCGBIT(EV_ABS, sizeof abs), abs) < 0) return;
 	for (i = 0; i < 2; i++) {
 		if (!BIT_IS_SET(abs, code[i]) || ioctl(fd_pad, EVIOCGABS(code[i]), &ai) < 0) return;
 		stick_axis[i].value = ai.value;

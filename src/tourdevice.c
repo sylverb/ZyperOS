@@ -951,7 +951,9 @@ static void tourdev_pose(const tour *t, uint32_t now, float op, td_pose *out)
 		[TD_SELECT] = TP_SELECT, [TD_START] = TP_START, [TD_MENU] = TP_MENU,
 		[TD_VOLUP] = TP_VOLUP, [TD_VOLDN] = TP_VOLDN, [TD_POWER] = TP_POWER,
 		[TD_L1] = TP_L1, [TD_R1] = TP_R1, [TD_L2] = TP_L2, [TD_R2] = TP_R2,
-		[TD_F1] = TP_F1, [TD_F2] = TP_F2 };
+		[TD_F1] = TP_F1, [TD_F2] = TP_F2,
+		/* The sticks' caps have no part of the lesson's: they never show a press */
+		[TD_L3] = TP_PARTS, [TD_R3] = TP_PARTS };
 	static const tour_part ARM_PART[4] = { TP_UP, TP_DOWN, TP_LEFT, TP_RIGHT };
 	int i;
 
